@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     DB_NAME: str = "postgres"
     DATABASE_URL: str | None = None
     
+    # CORS Origins
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    
     # Secret key for JWT
     SECRET_KEY: str = "your-super-secret-key-change-this-in-production"
     ALGORITHM: str = "HS256"
