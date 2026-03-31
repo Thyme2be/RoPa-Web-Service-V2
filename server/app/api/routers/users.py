@@ -19,13 +19,13 @@ def assign_role_to_me(role_name: UserRoleEnum, db: Session = Depends(get_db), cu
 
 # Role protected routes for testing
 @router.get("/owner-dashboard")
-def read_owner_dashboard(current_user: User = Depends(RoleChecker(["Data Owner"]))):
-    return {"message": "Welcome to the Data Owner Dashboard!"}
+def read_owner_dashboard(current_user: User = Depends(RoleChecker(["Data Owner", "Admin"]))):
+    return {"message": f"Welcome to the Data Owner Dashboard, {current_user.role.value}!"}
 
 @router.get("/processor-dashboard")
-def read_processor_dashboard(current_user: User = Depends(RoleChecker(["Data processor"]))):
-    return {"message": "Welcome to the Data Processor Dashboard!"}
+def read_processor_dashboard(current_user: User = Depends(RoleChecker(["Data processor", "Admin"]))):
+    return {"message": f"Welcome to the Data Processor Dashboard, {current_user.role.value}!"}
 
 @router.get("/auditor-dashboard")
-def read_auditor_dashboard(current_user: User = Depends(RoleChecker(["Auditor"]))):
-    return {"message": "Welcome to the Auditor Dashboard!"}
+def read_auditor_dashboard(current_user: User = Depends(RoleChecker(["Auditor", "Admin"]))):
+    return {"message": f"Welcome to the Auditor Dashboard, {current_user.role.value}!"}
