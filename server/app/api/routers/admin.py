@@ -5,7 +5,7 @@ from uuid import UUID
 
 from app.database import get_db
 from app.models.user import User, UserRoleEnum
-from app.models.document import RopaDocument
+from app.models.document import RopaDocument, DocumentStatus
 from app.schemas.user import UserResponse
 from app.schemas.document import DocumentResponse
 from app.api.deps import RoleChecker
@@ -26,6 +26,33 @@ def get_all_users(
     current_user: User = Depends(RoleChecker(["Admin"]))
 ):
     return db.query(User).all()
+
+@router.get("/users/{user_id}/dashboard", response_model=List[DocumentResponse])
+def get_user_dashboard(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Admin"]))
+):
+    """Admin inspects what a specific user sees on their personal dashboard."""
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    role_val = target_user.role
+    if role_val == UserRoleEnum.DATA_OWNER:
+        return db.query(RopaDocument).filter(RopaDocument.owner_id == target_user.id).all()
+    elif role_val == UserRoleEnum.DATA_PROCESSOR:
+        return db.query(RopaDocument).filter(RopaDocument.processor_id == target_user.id).all()
+    elif role_val == UserRoleEnum.AUDITOR:
+        return db.query(RopaDocument).filter(
+            RopaDocument.status.in_([
+                DocumentStatus.SUBMITTED_TO_AUDITOR, 
+                DocumentStatus.AUDITOR_REJECTED, 
+                DocumentStatus.COMPLETED
+            ])
+        ).all()
+    else:
+        return []
 
 @router.put("/users/{user_id}/role")
 def assign_role_to_user(

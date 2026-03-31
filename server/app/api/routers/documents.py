@@ -2,44 +2,68 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
+from datetime import datetime, timezone
 
 from app.database import get_db
-from app.models.user import User
-from app.models.document import RopaDocument, DocumentStatus
+from app.models.user import User, UserRoleEnum
+from app.models.document import RopaDocument, DocumentStatus, OwnerRecord, ProcessorRecord, AuditorAudit
 from app.schemas.document import (
     DocumentCreate,
     DocumentUpdateOwner,
     DocumentUpdateProcessor,
     DocumentProvideFeedback,
-    DocumentResponse
+    DocumentResponse,
+    ProcessorRecordBase,
+    ProcessorAssignment
 )
 from app.api.deps import get_current_user, RoleChecker
 
 router = APIRouter()
 
-# Data Owner Endpoints
-@router.post("/", response_model=DocumentResponse)
+# -----------------
+# DATA OWNER ENDPOINTS
+# -----------------
+@router.post("/owner", response_model=DocumentResponse)
 def create_document(
     doc_in: DocumentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(RoleChecker(["Data Owner"]))
 ):
+    # 1. Create Wrapper
     new_doc = RopaDocument(
         owner_id=current_user.id,
-        owner_data=doc_in.owner_data,
-        status=DocumentStatus.DRAFT
+        title=doc_in.title,
+        status=DocumentStatus.DRAFT,
+        version=1
     )
     db.add(new_doc)
+    db.flush() # To get new_doc.id
+
+    # 2. Add Owner Record if provided
+    if doc_in.owner_record:
+        owner_rec = OwnerRecord(ropa_doc_id=new_doc.id, **doc_in.owner_record.model_dump(exclude_unset=True))
+        db.add(owner_rec)
+
+    # 3. Hybrid Flexible Processors: Optionally blank processor records assigned directly to users
+    if doc_in.processor_records:
+        for pr_in in doc_in.processor_records:
+            pr = ProcessorRecord(ropa_doc_id=new_doc.id, **pr_in.model_dump(exclude_unset=True))
+            db.add(pr)
+
     db.commit()
     db.refresh(new_doc)
     return new_doc
 
+
 @router.get("/dashboard/owner", response_model=List[DocumentResponse])
 def get_owner_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["Data Owner"]))
+    current_user: User = Depends(RoleChecker(["Data Owner", "Admin"]))
 ):
+    if current_user.role == UserRoleEnum.ADMIN:
+        return db.query(RopaDocument).filter(RopaDocument.owner_id.isnot(None)).all()
     return db.query(RopaDocument).filter(RopaDocument.owner_id == current_user.id).all()
+
 
 @router.put("/{id}/owner", response_model=DocumentResponse)
 def update_document_owner(
@@ -52,58 +76,120 @@ def update_document_owner(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found or access denied")
     
-    if doc_in.processor_id is not None:
-        doc.processor_id = doc_in.processor_id
-    if doc_in.owner_data is not None:
-        doc.owner_data = doc_in.owner_data
+    if doc_in.title is not None:
+        doc.title = doc_in.title
+
+    if doc_in.owner_record:
+        if not doc.owner_record:
+            new_rec = OwnerRecord(ropa_doc_id=doc.id, **doc_in.owner_record.model_dump(exclude_unset=True))
+            db.add(new_rec)
+        else:
+            for key, value in doc_in.owner_record.model_dump(exclude_unset=True).items():
+                setattr(doc.owner_record, key, value)
+            
     if doc_in.status is not None:
         doc.status = doc_in.status
+        if doc.status == DocumentStatus.PENDING_AUDITOR:
+            doc.sent_to_auditor_at = datetime.now(timezone.utc)
         
     db.commit()
     db.refresh(doc)
     return doc
 
-# Data Processor Endpoints
+
+@router.post("/{doc_id}/owner/processors", response_model=DocumentResponse)
+def owner_assign_processor(
+    doc_id: UUID,
+    assignment: ProcessorAssignment,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data Owner"]))
+):
+    """Hybrid Model Part 2: Owner spawns a new Processor blank form under their existing document."""
+    doc = db.query(RopaDocument).filter(RopaDocument.id == doc_id, RopaDocument.owner_id == current_user.id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found or access denied")
+        
+    target_user = db.query(User).filter(User.id == assignment.assigned_to).first()
+    if not target_user or target_user.role != UserRoleEnum.DATA_PROCESSOR:
+        raise HTTPException(status_code=400, detail="Assigned user must exist and have the Data processor role")
+
+    existing_rec = db.query(ProcessorRecord).filter(ProcessorRecord.ropa_doc_id == doc_id, ProcessorRecord.assigned_to == assignment.assigned_to).first()
+    if existing_rec:
+        raise HTTPException(status_code=400, detail="Processor Record already assigned to this user for this document.")
+
+    new_pr = ProcessorRecord(
+        ropa_doc_id=doc.id, 
+        assigned_to=assignment.assigned_to,
+        processor_name=assignment.processor_name
+    )
+    db.add(new_pr)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+# -----------------
+# DATA PROCESSOR ENDPOINTS
+# -----------------
 @router.get("/dashboard/processor", response_model=List[DocumentResponse])
 def get_processor_documents(
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["Data processor"]))
+    current_user: User = Depends(RoleChecker(["Data processor", "Admin"]))
 ):
-    return db.query(RopaDocument).filter(RopaDocument.processor_id == current_user.id).all()
+    if current_user.role == UserRoleEnum.ADMIN:
+        return db.query(RopaDocument).join(ProcessorRecord).filter(ProcessorRecord.assigned_to.isnot(None)).all()
+    # Find documents where this user is assigned as one of the processors
+    return db.query(RopaDocument).join(ProcessorRecord).filter(ProcessorRecord.assigned_to == current_user.id).all()
 
-@router.put("/{id}/processor", response_model=DocumentResponse)
+
+@router.put("/{doc_id}/processor", response_model=DocumentResponse)
 def fill_processor_data(
-    id: UUID,
+    doc_id: UUID,
     doc_in: DocumentUpdateProcessor,
     db: Session = Depends(get_db),
     current_user: User = Depends(RoleChecker(["Data processor"]))
 ):
-    doc = db.query(RopaDocument).filter(RopaDocument.id == id, RopaDocument.processor_id == current_user.id).first()
+    doc = db.query(RopaDocument).filter(RopaDocument.id == doc_id).first()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found or access denied")
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    pr = db.query(ProcessorRecord).filter(ProcessorRecord.ropa_doc_id == doc_id, ProcessorRecord.assigned_to == current_user.id).first()
+    if not pr:
+        raise HTTPException(status_code=403, detail="You do not have a Processor Record assigned in this document.")
     
-    if doc_in.processor_data is not None:
-        doc.processor_data = doc_in.processor_data
+    if doc_in.processor_record:
+        for key, value in doc_in.processor_record.model_dump(exclude_unset=True).items():
+            setattr(pr, key, value)
+            
     if doc_in.status is not None:
         doc.status = doc_in.status
-        
+        if doc.status == DocumentStatus.PENDING_AUDITOR:
+             doc.sent_to_auditor_at = datetime.now(timezone.utc)
+             
+    pr.submitted_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(doc)
     return doc
 
-# Auditor Endpoints
+
+# -----------------
+# AUDITOR ENDPOINTS
+# -----------------
 @router.get("/dashboard/auditor", response_model=List[DocumentResponse])
 def get_auditor_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["Auditor"]))
+    current_user: User = Depends(RoleChecker(["Auditor", "Admin"]))
 ):
     return db.query(RopaDocument).filter(
         RopaDocument.status.in_([
-            DocumentStatus.SUBMITTED_TO_AUDITOR, 
-            DocumentStatus.AUDITOR_REJECTED, 
+            DocumentStatus.PENDING_AUDITOR, 
+            DocumentStatus.REJECTED_OWNER,
+            DocumentStatus.REJECTED_PROCESSOR,
+            DocumentStatus.APPROVED,
             DocumentStatus.COMPLETED
         ])
     ).all()
+
 
 @router.put("/{id}/feedback", response_model=DocumentResponse)
 def auditor_feedback(
@@ -117,7 +203,33 @@ def auditor_feedback(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
         
-    doc.auditor_feedback = doc_in.auditor_feedback
+    # Ensure AuditorProfile exists
+    from app.models.document import AuditorProfile
+    auditor_prof = db.query(AuditorProfile).filter(AuditorProfile.user_id == current_user.id).first()
+    
+    if not auditor_prof:
+        # Create a stub profile for testing backwards compatibility if one wasn't properly initialized
+        from app.models.document import AuditorType
+        auditor_prof = AuditorProfile(user_id=current_user.id, auditor_type=AuditorType.INTERNAL, appointed_at=datetime.now(timezone.utc).date(), public_email=current_user.email)
+        db.add(auditor_prof)
+        db.flush()
+        
+    audit_log = AuditorAudit(
+        ropa_doc_id=doc.id,
+        assigned_auditor_id=auditor_prof.id,
+        status=doc_in.status or doc.status,
+        feedback_comment=doc_in.feedback_comment,
+        version=doc.version
+    )
+    
+    if doc_in.status == DocumentStatus.APPROVED:
+        audit_log.approved_at = datetime.now(timezone.utc)
+    elif doc_in.status in [DocumentStatus.REJECTED_OWNER, DocumentStatus.REJECTED_PROCESSOR]:
+        audit_log.request_change_at = datetime.now(timezone.utc)
+        doc.version += 1 # Auto bump version when bounced back
+        
+    db.add(audit_log)
+
     if doc_in.status is not None:
         doc.status = doc_in.status
         
