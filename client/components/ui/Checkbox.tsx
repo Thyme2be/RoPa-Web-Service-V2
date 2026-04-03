@@ -9,10 +9,10 @@ export default function Checkbox({ label, ...props }: Props) {
                 <input
                     type="checkbox"
                     {...props}
-                    className="peer appearance-none h-5 w-5 border-none rounded-md focus:ring-4 focus:ring-primary/10 checked:bg-primary transition-all cursor-pointer bg-[#F6F3F2] shadow-sm"
+                    className="peer appearance-none h-5 w-5 border border-[#CEC4C2] rounded-md focus:ring-4 focus:ring-primary/10 checked:bg-white checked:border-primary transition-all cursor-pointer bg-white shadow-sm"
                 />
                 <svg
-                    className="absolute h-3 w-3 text-white pointer-events-none stroke-[4px] opacity-0 peer-checked:opacity-100 transition-opacity"
+                    className="absolute h-3 w-3 text-primary pointer-events-none stroke-[4px] opacity-0 peer-checked:opacity-100 transition-opacity"
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="none"

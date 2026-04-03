@@ -16,7 +16,7 @@ export default function Sidebar() {
     return (
         <aside className="w-[var(--sidebar-width)] fixed left-0 top-0 bottom-0 bg-[#E0D9D7] z-50 flex flex-col shadow-sm border-r border-[#E5E2E1]">
             {/* Logo Section */}
-            <a className="transition-all hover:scale-110 active:scale-95 cursor-pointer p-6 items-center ">
+            <a className="p-6 items-center">
                 <img src="/Netbay_Logo.svg" alt="Netbay Logo" className="h-16 w-auto opacity-90" />
             </a>
             {/* Menu Items */}

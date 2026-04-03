@@ -1,8 +1,11 @@
 export type OwnerRecord = {
-  recordName: string;
+  title: string;
+  firstName: string;
+  lastName: string;
   address: string;
   email: string;
   phoneNumber: string; 
+  status?: "draft" | "submitted" | "active";
   
   id: string;
 
@@ -31,6 +34,7 @@ export type OwnerRecord = {
   minorConsent: {
     under10: boolean;
     age10to20: boolean;
+    none: boolean;
   };
 
   // 11 transfer
@@ -46,7 +50,7 @@ export type OwnerRecord = {
   // 12 retention
   retention: {
     storageType: "soft file" | "hard copy";
-    method: string;
+    method: string[];
     duration: number;
     unit: "year" | "month" | "day"; // Added for unit support
     accessControl: string;

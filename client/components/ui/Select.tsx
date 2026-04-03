@@ -1,28 +1,113 @@
-type Props = React.SelectHTMLAttributes<HTMLSelectElement> & {
+"use client";
+
+import React, { useState, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils";
+
+type Option = { label: string; value: string };
+
+type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     label?: string;
-    options: { label: string; value: string }[];
+    options: Option[];
     required?: boolean;
     containerClassName?: string;
+    placeholder?: string;
+    error?: string;
+    onChange?: (e: { target: { name: string; value: string } }) => void;
 };
 
-export default function Select({ label, options, required, containerClassName, ...props }: Props) {
+export default function Select({ 
+    label, 
+    options, 
+    required, 
+    containerClassName, 
+    value, 
+    name, 
+    onChange, 
+    placeholder,
+    error,
+    ...props 
+}: Props) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Find the current selected option label
+    const selectedOption = options.find((o) => o.value === value);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleSelect = (optionValue: string) => {
+        if (onChange && name) {
+            onChange({ target: { name, value: optionValue } });
+        }
+        setIsOpen(false);
+    };
+
     return (
-        <div className={`space-y-2 ${containerClassName || ""}`}>
+        <div className={cn("space-y-2 w-full", containerClassName)} ref={containerRef}>
             {label && (
                 <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                     {label} {required && <span className="text-primary">*</span>}
                 </label>
             )}
-            <select
-                {...props}
-                className="w-full h-11 border-none rounded-xl px-4 py-2 text-sm bg-[#F6F3F2] text-black focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm appearance-none bg-[url('https://api.iconify.design/heroicons:chevron-down-20-solid.svg?color=%23ED393C')] bg-[length:22px_22px] bg-[right_12px_center] bg-no-repeat font-medium"
-            >
-                {options.map((o) => (
-                    <option key={o.value} value={o.value}>
-                        {o.label}
-                    </option>
-                ))}
-            </select>
+            
+            <div className="relative">
+                {/* Header / Trigger */}
+                <div
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={cn(
+                        "flex items-center justify-between w-full h-11 px-4 py-2 bg-[#F6F3F2] border rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/20",
+                        error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
+                        isOpen && "bg-primary/5 border-primary/20 rounded-b-none"
+                    )}
+                >
+                    <span className={cn(
+                        "text-sm font-medium transition-colors",
+                        selectedOption ? "text-black" : "text-[#6B7280]"
+                    )}>
+                        {selectedOption ? selectedOption.label : placeholder || "เลือกรายการ..."}
+                    </span>
+                    <span className={cn(
+                        "material-symbols-outlined text-gray-400 transition-transform duration-300",
+                        isOpen && "rotate-180 text-primary"
+                    )}>
+                        expand_more
+                    </span>
+                </div>
+
+                {/* Dropdown Menu */}
+                {isOpen && (
+                    <div className="absolute z-50 w-full bg-white border border-primary/20 rounded-b-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]">
+                        <div className="max-h-60 overflow-y-auto py-2">
+                            {options.map((opt) => (
+                                <div
+                                    key={opt.value}
+                                    onClick={() => handleSelect(opt.value)}
+                                    className={cn(
+                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent hover:bg-primary/5 hover:text-primary",
+                                        opt.value === value && "bg-primary/5 text-primary border-l-primary border-y border-y-primary/10"
+                                    )}
+                                >
+                                    {opt.label}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {error && (
+                    <p className="text-[11px] text-red-500 font-medium px-1 mt-1 transition-all animate-in fade-in slide-in-from-top-1 duration-200">
+                        {error}
+                    </p>
+                )}
+            </div>
         </div>
     );
-}
+}

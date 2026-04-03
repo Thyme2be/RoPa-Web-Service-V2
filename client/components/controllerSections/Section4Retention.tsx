@@ -5,8 +5,9 @@ import Checkbox from "@/components/ui/Checkbox";
 import RadioButton from "@/components/ui/RadioButton";
 import Select from "@/components/ui/Select";
 import MultiSelect from "@/components/ui/MultiSelect";
+import { cn } from "@/lib/utils";
 
-export default function Section4Retention({ form, handleChange }: any) {
+export default function Section4Retention({ form, handleChange, errors }: any) {
     const storageOptions = [
         "เข้ารหัส",
         "ใส่แฟ้ม",
@@ -44,7 +45,10 @@ export default function Section4Retention({ form, handleChange }: any) {
                         <label className="text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight">
                             วิธีการได้มาซึ่งข้อมูล <span className="text-primary">*</span>
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className={cn(
+                            "grid grid-cols-2 gap-3 p-1 rounded-xl transition-all",
+                            errors?.collectionMethod ? "bg-red-50/50" : ""
+                        )}>
                             <RadioButton
                                 label="ข้อมูลอิเล็กทรอนิกส์"
                                 name="collectionMethod"
@@ -62,12 +66,20 @@ export default function Section4Retention({ form, handleChange }: any) {
                                 alignRight
                             />
                         </div>
+                        {errors?.collectionMethod && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 mt-1">
+                                {errors.collectionMethod}
+                            </p>
+                        )}
                     </div>
                     <div className="space-y-4">
                         <label className="text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight">
                             แหล่งที่ได้มาซึ่งข้อมูล <span className="text-primary">*</span>
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className={cn(
+                            "grid grid-cols-2 gap-3 p-1 rounded-xl transition-all",
+                            errors?.dataSource ? "bg-red-50/50" : ""
+                        )}>
                             <RadioButton
                                 label="จากเจ้าของข้อมูลโดยตรง"
                                 name="dataSource.direct"
@@ -85,6 +97,11 @@ export default function Section4Retention({ form, handleChange }: any) {
                                 alignRight
                             />
                         </div>
+                        {errors?.dataSource && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 mt-1">
+                                {errors.dataSource}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -114,6 +131,11 @@ export default function Section4Retention({ form, handleChange }: any) {
                                     onChange={handleChange}
                                 />
                             </div>
+                            {errors?.storageType && (
+                                <p className="text-[11px] text-red-500 font-medium px-1 mt-1">
+                                    {errors.storageType}
+                                </p>
+                            )}
                         </div>
 
                         {/* MultiSelect column */}
@@ -122,9 +144,10 @@ export default function Section4Retention({ form, handleChange }: any) {
                                 label="วิธีการเก็บรักษาข้อมูล"
                                 placeholder="วิธีการเก็บรักษาข้อมูล"
                                 options={storageOptions}
-                                selectedValues={form?.retention?.method ? [form.retention.method] : []}
-                                onChange={(values) => handleChange({ target: { name: "retention.method", value: values[0] || "" } })}
+                                selectedValues={form?.retention?.method || []}
+                                onChange={(values) => handleChange({ target: { name: "retention.method", value: values } })}
                                 required
+                                error={errors?.retentionMethod}
                                 description={
                                     <span className="text-[11px] font-bold text-primary tracking-tight">
                                         (ระบุวิธีการหลัก)
@@ -136,29 +159,35 @@ export default function Section4Retention({ form, handleChange }: any) {
 
                     {/* Footer Inputs - Now inside the grey box */}
                     <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-4 items-end gap-x-4">
-                            <div className="md:col-span-3">
-                                <Input
-                                    label="ระยะเวลาการเก็บรักษาข้อมูลส่วนบุคคล"
-                                    name="retention.duration"
-                                    type="number"
-                                    value={form?.retention?.duration || ""}
-                                    placeholder="ระบุระยะเวลา (เช่น 5)"
-                                    required
-                                    onChange={handleChange}
-                                />
-                            </div>
-                            <div className="md:col-span-1">
-                                <Select
-                                    name="retention.unit"
-                                    value={form?.retention?.unit || "year"}
-                                    onChange={handleChange}
-                                    options={[
-                                        { label: "ปี", value: "year" },
-                                        { label: "เดือน", value: "month" },
-                                        { label: "วัน", value: "day" },
-                                    ]}
-                                />
+                        <div className="space-y-4">
+                            <label className="text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight">
+                                ระยะเวลาการเก็บรักษาข้อมูลส่วนบุคคล <span className="text-primary">*</span>
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-x-4">
+                                <div className="md:col-span-3">
+                                    <Input
+                                        name="retention.duration"
+                                        type="number"
+                                        min="1"
+                                        value={form?.retention?.duration || ""}
+                                        placeholder="ระบุระยะเวลา (เช่น 5)"
+                                        required
+                                        onChange={handleChange}
+                                        error={errors?.retentionDuration}
+                                    />
+                                </div>
+                                <div className="md:col-span-1">
+                                    <Select
+                                        name="retention.unit"
+                                        value={form?.retention?.unit || "year"}
+                                        onChange={handleChange}
+                                        options={[
+                                            { label: "ปี", value: "year" },
+                                            { label: "เดือน", value: "month" },
+                                            { label: "วัน", value: "day" },
+                                        ]}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -169,6 +198,7 @@ export default function Section4Retention({ form, handleChange }: any) {
                             placeholder="ระบุเงื่อนไขการใช้สิทธิและวิธีการ (เช่น กำหนดสิทธิเฉพาะผู้มีสิทธิ/ฝ่ายขาย/ฝ่าย IT)"
                             required
                             onChange={handleChange}
+                            error={errors?.accessControl}
                         />
 
                         <Input
@@ -176,7 +206,9 @@ export default function Section4Retention({ form, handleChange }: any) {
                             name="retention.deletionMethod"
                             value={form?.retention?.deletionMethod || ""}
                             placeholder="ระบุวิธีการลบหรือทำลายข้อมูลส่วนบุคคล (เช่น เครื่องทำลายเอกสาร)"
+                            required
                             onChange={handleChange}
+                            error={errors?.deletionMethod}
                         />
                     </div>
                 </div>

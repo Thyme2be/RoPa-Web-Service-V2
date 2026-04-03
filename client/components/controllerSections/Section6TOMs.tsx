@@ -2,7 +2,7 @@
 
 import Input from "@/components/ui/Input";
 
-export default function Section6TOMs({ form, handleChange }: any) {
+export default function Section6TOMs({ form, handleChange, errors }: any) {
     const measures = [
         { id: "securityMeasures.organizational", label: "มาตรการเชิงองค์กร", icon: "corporate_fare", placeholder: "ระบุมาตรการเชิงองค์กร" },
         { id: "securityMeasures.accessControl", label: "การควบคุมการเข้าถึงข้อมูล", icon: "lock", placeholder: "ระบุการควบคุมการเข้าถึงข้อมูล" },

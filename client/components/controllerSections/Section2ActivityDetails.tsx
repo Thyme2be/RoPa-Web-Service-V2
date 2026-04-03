@@ -1,7 +1,7 @@
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 
-export default function DataDetails({ form, handleChange }: any) {
+export default function DataDetails({ form, handleChange, errors }: any) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary">
             {/* Header with Red Accent and Information Icon */}
@@ -25,6 +25,7 @@ export default function DataDetails({ form, handleChange }: any) {
                         placeholder="ระบุเจ้าของข้อมูล (เช่น บริษัท A)"
                         required
                         onChange={handleChange}
+                        error={errors?.dataSubjectName}
                     />
                 </div>
 
@@ -36,6 +37,7 @@ export default function DataDetails({ form, handleChange }: any) {
                         placeholder="ระบุกิจกรรมประมวลผล (เช่น การรับสมัครพนักงาน)"
                         required
                         onChange={handleChange}
+                        error={errors?.processingActivity}
                     />
                     <Input
                         label="วัตถุประสงค์การประมวลผล"
@@ -44,6 +46,7 @@ export default function DataDetails({ form, handleChange }: any) {
                         placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อรับสมัครบุคคลเข้าทำงาน)"
                         required
                         onChange={handleChange}
+                        error={errors?.purpose}
                     />
                 </div>
             </div>

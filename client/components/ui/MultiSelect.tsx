@@ -11,6 +11,7 @@ interface MultiSelectProps {
     onChange: (values: string[]) => void;
     required?: boolean;
     description?: React.ReactNode;
+    error?: string;
 }
 
 export default function MultiSelect({
@@ -21,6 +22,7 @@ export default function MultiSelect({
     onChange,
     required,
     description,
+    error,
 }: MultiSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -69,9 +71,8 @@ export default function MultiSelect({
                 </div>
             )}
 
-            {/* Selected Tags Display */}
             <div className="grid grid-cols-3 gap-2 mb-3">
-                {selectedValues.slice(0, 5).map((val) => (
+                {selectedValues.map((val) => (
                     <div
                         key={val}
                         className="flex items-center justify-between px-4 py-1.5 bg-primary/5 border border-primary/30 text-black rounded-full text-xs font-semibold transition-all hover:bg-primary/10"
@@ -88,11 +89,6 @@ export default function MultiSelect({
                         </button>
                     </div>
                 ))}
-                {selectedValues.length > 5 && (
-                    <div className="flex items-center justify-center px-4 py-1.5 bg-gray-100 border border-gray-200 text-gray-500 rounded-full text-xs font-bold">
-                        ...
-                    </div>
-                )}
             </div>
 
             {/* Input and Dropdown Container */}
@@ -100,8 +96,9 @@ export default function MultiSelect({
                 <div
                     onClick={() => setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between px-4 py-3 bg-[#F6F3F2] border border-gray-100 rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/30 shadow-sm",
-                        isOpen && "bg-white border-primary ring-4 ring-primary/5"
+                        "flex items-center justify-between px-4 py-3 bg-[#F6F3F2] border rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/20 shadow-sm",
+                        error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
+                        isOpen && "bg-white border-primary rounded-b-none shadow-sm"
                     )}
                 >
                     <input
@@ -130,14 +127,14 @@ export default function MultiSelect({
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className="absolute z-50 w-full mt-2 py-2 bg-white border border-gray-100 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                    <div className="absolute z-50 w-full bg-white border border-primary rounded-b-2xl shadow-xl animate-in fade-in duration-200 overflow-hidden top-full mt-[-1px]">
                         {filteredOptions.length > 0 ? (
                             <div className="max-h-60 overflow-y-auto">
                                 {filteredOptions.map((opt) => (
                                     <div
                                         key={opt}
                                         onClick={() => toggleOption(opt)}
-                                        className="px-4 py-2.5 text-sm font-medium text-black hover:bg-primary/5 hover:text-primary cursor-pointer transition-colors"
+                                        className="px-4 py-3 text-sm font-medium text-black hover:bg-primary/5 hover:text-primary cursor-pointer transition-all border-l-4 border-l-transparent"
                                     >
                                         {opt}
                                     </div>
@@ -149,6 +146,11 @@ export default function MultiSelect({
                             </div>
                         )}
                     </div>
+                )}
+                {error && (
+                    <p className="text-[11px] text-red-500 font-medium px-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {error}
+                    </p>
                 )}
             </div>
         </div>

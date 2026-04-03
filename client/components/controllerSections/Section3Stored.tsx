@@ -5,8 +5,9 @@ import Checkbox from "@/components/ui/Checkbox";
 import RadioButton from "@/components/ui/RadioButton";
 import MultiSelect from "@/components/ui/MultiSelect";
 import Input from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
 
-export default function Section3Stored({ form, handleChange }: any) {
+export default function Section3Stored({ form, handleChange, errors }: any) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary">
             {/* Header with Red Accent and Category Icon */}
@@ -48,6 +49,7 @@ export default function Section3Stored({ form, handleChange }: any) {
                             onChange={(values: string[]) => {
                                 handleChange({ target: { name: "storedDataTypes", value: values } } as any);
                             }}
+                            error={errors?.storedDataTypes}
                         />
 
                         {/* Note: Storing "Other" value in the array directly via MultiSelect or separate handling */}
@@ -60,6 +62,7 @@ export default function Section3Stored({ form, handleChange }: any) {
                                     placeholder="เช่น กรุ๊ปเลือด , ไอดีไลน์"
                                     required
                                     onChange={handleChange}
+                                    error={errors?.storedDataTypesOther}
                                 />
                             </div>
                         )}
@@ -70,7 +73,10 @@ export default function Section3Stored({ form, handleChange }: any) {
                         <label className="text-sm font-bold text-[#5C403D] block tracking-tight">
                             หมวดหมู่ของข้อมูล <span className="text-primary">*</span>
                         </label>
-                        <div className="space-y-2 p-6 bg-[#F6F3F2] rounded-2xl border border-gray-50">
+                        <div className={cn(
+                            "space-y-2 p-6 rounded-2xl border transition-all",
+                            errors?.dataCategories ? "bg-red-50/30 border-red-200" : "bg-[#F6F3F2] border-gray-50"
+                        )}>
                             <Checkbox 
                                 label="ข้อมูลลูกค้า" 
                                 name="dataCategories[]" 
@@ -100,6 +106,11 @@ export default function Section3Stored({ form, handleChange }: any) {
                                 onChange={handleChange} 
                             />
                         </div>
+                        {errors?.dataCategories && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 mt-1">
+                                {errors.dataCategories}
+                            </p>
+                        )}
                     </div>
 
                     {/* Column 3: Type of Data (Radios) */}
@@ -108,6 +119,11 @@ export default function Section3Stored({ form, handleChange }: any) {
                             ประเภทของข้อมูล <span className="text-primary">*</span>
                         </label>
                         <div className="flex flex-col gap-3">
+                            {errors?.dataType && (
+                                <p className="text-[11px] text-red-500 font-medium px-1 mb-1">
+                                    {errors.dataType}
+                                </p>
+                            )}
                             <RadioButton
                                 label="ข้อมูลทั่วไป"
                                 name="dataType"
