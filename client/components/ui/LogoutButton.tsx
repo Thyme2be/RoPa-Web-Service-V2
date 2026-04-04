@@ -1,11 +1,16 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 
 export default function LogoutButton() {
+    const router = useRouter();
+
     const handleLogout = () => {
-        // Add logout logic here (e.g., clear session, redirect)
-        console.log("Logging out...");
+        // ลบ token ออกจาก localStorage
+        localStorage.removeItem("token");
+        // ย้ายหน้าไปยัง login ทันที
+        router.push("/login");
     };
 
     return (
