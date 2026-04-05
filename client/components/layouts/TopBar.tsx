@@ -5,11 +5,18 @@ import React from "react";
 export default function TopBar() {
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
-            {/* Page Title & Mode */}
-            <div className="flex items-center gap-4">
-                <h2 className="font-headline font-bold tracking-tight text-neutral-900 text-lg">
-                    สร้างรายการ RoPA ใหม่
-                </h2>
+            <div className="flex items-center gap-4 group">
+                <div className="flex items-center gap-1 group/edit cursor-pointer bg-white border border-[#E5E2E1] rounded-xl px-3 py-1.5 shadow-sm hover:border-primary/30 transition-all">
+                    <input
+                        className="font-headline font-bold tracking-tight text-neutral-900 text-[15px] bg-transparent border-none outline-none w-auto min-w-[220px]"
+                        defaultValue="สร้างรายการ RoPA ใหม่"
+                        placeholder="ตั้งชื่อเอกสาร..."
+                        type="text"
+                    />
+                    <span className="material-symbols-outlined text-neutral-400 group-hover/edit:text-primary transition-colors text-[18px]">
+                        edit
+                    </span>
+                </div>
                 <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest">
                     โหมดฉบับร่าง
                 </span>

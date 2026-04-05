@@ -107,7 +107,7 @@ export default function Section4Retention({ form, handleChange, errors }: any) {
 
                 {/* Policy Area Container - Standardized White Background */}
                 <div className="p-8 bg-white rounded-3xl space-y-8 border border-[#F0F2F5]">
-                    <h3 className="font-bold text-[#5C403D] text-base">นโยบายการเก็บรักษาข้อมูลส่วนบุคคล</h3>
+                    <h3 className="font-bold text-black text-base">นโยบายการเก็บรักษาข้อมูลส่วนบุคคล</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         {/* Checkboxes column */}

@@ -38,23 +38,23 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                             การขอความยินยอมของผู้เยาว์ <span className="text-primary">*</span>
                         </label>
                         <div className="space-y-3 bg-[#F6F3F2] p-6 rounded-2xl border border-[#F6F3F2]">
-                            <Checkbox 
-                                label="อายุไม่เกิน 10 ปี" 
-                                name="minorConsent.under10" 
-                                checked={!!form?.minorConsent?.under10} 
-                                onChange={handleChange} 
+                            <Checkbox
+                                label="อายุไม่เกิน 10 ปี"
+                                name="minorConsent.under10"
+                                checked={!!form?.minorConsent?.under10}
+                                onChange={handleChange}
                             />
-                            <Checkbox 
-                                label="อายุ 10 - 20 ปี" 
-                                name="minorConsent.age10to20" 
-                                checked={!!form?.minorConsent?.age10to20} 
-                                onChange={handleChange} 
+                            <Checkbox
+                                label="อายุ 10 - 20 ปี"
+                                name="minorConsent.age10to20"
+                                checked={!!form?.minorConsent?.age10to20}
+                                onChange={handleChange}
                             />
-                            <Checkbox 
-                                label="ไม่มีการขอความยินยอมของผู้เยาว์" 
-                                name="minorConsent.none" 
-                                checked={!!form?.minorConsent?.none} 
-                                onChange={handleChange} 
+                            <Checkbox
+                                label="ไม่มีการขอความยินยอมของผู้เยาว์"
+                                name="minorConsent.none"
+                                checked={!!form?.minorConsent?.none}
+                                onChange={handleChange}
                             />
                         </div>
                         {errors?.minorConsent && (
@@ -102,7 +102,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                     <div className="space-y-8 pt-4 border-t border-gray-200/50">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                             <Input
-                                label={<span>หากมีการส่งหรือโอนข้อมูลโปรดระบุประเทศปลายทาง {form?.internationalTransfer?.isTransfer && <span className="text-primary">**</span>}</span> as any}
+                                label={<span>หากมีการส่งหรือโอนข้อมูลโปรดระบุประเทศปลายทาง {form?.internationalTransfer?.isTransfer && <span className="text-primary">*</span>}</span> as any}
                                 name="internationalTransfer.country"
                                 value={form?.internationalTransfer?.country || ""}
                                 placeholder="ระบุประเทศปลายทาง (เช่น จีน)"
@@ -112,7 +112,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 error={errors?.transferCountry}
                             />
                             <Input
-                                label={<span>ส่งข้อมูลไปยังต่างประเทศของกลุ่มบริษัทในเครือหรือไม่ {form?.internationalTransfer?.isTransfer && <span className="text-primary">**</span>}</span> as any}
+                                label={<span>ส่งข้อมูลไปยังต่างประเทศของกลุ่มบริษัทในเครือหรือไม่ {form?.internationalTransfer?.isTransfer && <span className="text-primary">*</span>}</span> as any}
                                 name="internationalTransfer.companyName"
                                 value={form?.internationalTransfer?.companyName || ""}
                                 placeholder="หากใช่ระบุชื่อบริษัท (เช่น บริษัท B)"
@@ -122,7 +122,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 error={errors?.transferCompany}
                             />
                             <Input
-                                label={<span>วิธีการโอนข้อมูล {form?.internationalTransfer?.isTransfer && <span className="text-primary">**</span>}</span> as any}
+                                label={<span>วิธีการโอนข้อมูล {form?.internationalTransfer?.isTransfer && <span className="text-primary">*</span>}</span> as any}
                                 name="internationalTransfer.transferMethod"
                                 value={form?.internationalTransfer?.transferMethod || ""}
                                 placeholder="ระบุวิธีการโอนข้อมูล (เช่น โอนทางอิเล็กทรอนิกส์)"
@@ -132,7 +132,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 error={errors?.transferMethod}
                             />
                             <Input
-                                label={<span>มาตรฐานการคุ้มครองข้อมูลส่วนบุคคลของประเทศปลายทาง {form?.internationalTransfer?.isTransfer && <span className="text-primary">**</span>}</span> as any}
+                                label={<span>มาตรฐานการคุ้มครองข้อมูลส่วนบุคคลของประเทศปลายทาง {form?.internationalTransfer?.isTransfer && <span className="text-primary">*</span>}</span> as any}
                                 name="internationalTransfer.protectionStandard"
                                 value={form?.internationalTransfer?.protectionStandard || ""}
                                 placeholder="ระบุมาตรฐานการคุ้มครองข้อมูลส่วนบุคคล"
@@ -143,7 +143,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                             />
                         </div>
                         <Input
-                            label={<span>ข้อยกเว้นตามมาตรา 28 {form?.internationalTransfer?.isTransfer && <span className="text-primary">**</span>}</span> as any}
+                            label={<span>ข้อยกเว้นตามมาตรา 28 {form?.internationalTransfer?.isTransfer && <span className="text-primary">*</span>}</span> as any}
                             name="internationalTransfer.exception"
                             value={form?.internationalTransfer?.exception || ""}
                             placeholder="ระบุข้อยกเว้นตามมาตรา 28 (เช่น ปฏิบัติตามกฎหมาย ความยินยอม ปฏิบัติตามสัญญา ป้องกันอันตรายต่อชีวิต)"
@@ -173,10 +173,6 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                         placeholder="ระบุการปฏิเสธคำขอหรือคัดค้านการใช้สิทธิของเจ้าของข้อมูล เมื่อมีการปฏิเสธการใช้สิทธิ"
                         onChange={handleChange}
                     />
-                </div>
-                <div className="pt-4 mt-4 border-t border-gray-100 flex items-center gap-2">
-                    <span className="text-primary font-bold text-xs">**</span>
-                    <span className="text-[#5C403D]/60 text-[11px] font-medium">จำเป็นต้องระบุเฉพาะกรณีที่มีการส่งหรือโอนข้อมูลไปต่างประเทศ</span>
                 </div>
             </div>
         </div>

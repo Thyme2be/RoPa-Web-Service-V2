@@ -8,7 +8,7 @@ export default function CompleteButton({ onClick }: { onClick?: () => void }) {
             onClick={onClick}
             className="px-10 py-2.5 bg-logout-gradient text-white font-bold rounded-xl shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all text-[14px] tracking-wide"
         >
-            บันทึกข้อมูล
+            เสร็จสิ้น
         </button>
     );
 }
