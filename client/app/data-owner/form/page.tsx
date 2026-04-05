@@ -11,17 +11,19 @@ import Section4Retention from "@/components/controllerSections/Section4Retention
 import Section5Legal from "@/components/controllerSections/Section5Legal";
 import Section6TOMs from "@/components/controllerSections/Section6TOMs";
 import { OwnerRecord } from "@/types/dataOwner";
+import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect } from "react";
 
 export default function Page() {
     const [form, setForm] = useState<Partial<OwnerRecord>>({
+        documentName: "",
         title: "",
         firstName: "",
         lastName: "",
         address: "",
         email: "",
         phoneNumber: "",
-        status: "draft",
+        status: RopaStatus.Draft,
         id: crypto.randomUUID(),
         dataSource: { direct: false, indirect: false },
         minorConsent: { under10: false, age10to20: false, none: false },
@@ -30,13 +32,14 @@ export default function Page() {
         storedDataTypes: [],
         storedDataTypesOther: "",
         retention: { 
-            storageType: "soft file", 
+            storageType: CollectionMethod.SoftFile, 
             method: [], 
             duration: 0, 
-            unit: "year",
+            unit: RetentionUnit.Year,
             accessControl: "", 
             deletionMethod: "" 
         },
+        dataType: DataType.General,
         securityMeasures: {}
     });
     
@@ -46,12 +49,12 @@ export default function Page() {
 
     // Load draft from localStorage on mount
     useEffect(() => {
-        const savedDraft = localStorage.getItem("ropa_draft");
+        const savedDraft = localStorage.getItem("ropa_owner_draft");
         if (savedDraft) {
             try {
                 const parsed = JSON.parse(savedDraft);
                 setForm(prev => ({ ...prev, ...parsed }));
-                console.log("Draft loaded from localStorage");
+                console.log("Owner Draft loaded from localStorage");
             } catch (e) {
                 console.error("Failed to parse draft from localStorage", e);
             }
@@ -78,6 +81,9 @@ export default function Page() {
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
+
+        // Document Name
+        if (!form.documentName) newErrors.documentName = "กรุณากรอกชื่อเอกสาร";
 
         // Section 1
         if (!form.title) newErrors.title = "กรุณาเลือกคำนำหน้า";
@@ -123,12 +129,9 @@ export default function Page() {
         }
         if (!form.exemptionDisclosure) newErrors.exemptionDisclosure = "กรุณาระบุการใช้หรือเปิดเผยข้อมูลที่ได้รับยกเว้น";
 
-        // Section 6 - (Optional, removed requirement)
-
         setErrors(newErrors);
         
         if (Object.keys(newErrors).length > 0) {
-            // Scroll to first error
             const firstErrorField = Object.keys(newErrors)[0];
             const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
             if (element) {
@@ -151,19 +154,15 @@ export default function Page() {
         }
         if (type === "checkbox") {
             if (!name.includes("[]")) {
-                // If it's a single checkbox with a specific value, store the value if checked, else clear it
-                // If it's just a boolean toggle (value is "on"), store checked
                 val = (value && value !== "on") ? (checked ? value : "") : checked;
             }
         }
         
-        // Convert "true"/"false" strings to boolean for specific fields
         if (typeof val === "string") {
             if (val.toLowerCase() === "true") val = true;
             else if (val.toLowerCase() === "false") val = false;
         }
 
-        // Validate on change for email and phone
         if (name === "email" || name === "phoneNumber") {
             validateField(name, val);
         }
@@ -202,17 +201,14 @@ export default function Page() {
     const getCompletedSteps = () => {
         const completed = [];
 
-        // Section 1: General Info
         if (form.title && form.firstName && form.lastName && form.address && form.email && form.phoneNumber && !errors.email && !errors.phoneNumber) {
             completed.push(1);
         }
 
-        // Section 2: Activity Details
         if (form.dataSubjectName && form.processingActivity && form.purpose) {
             completed.push(2);
         }
 
-        // Section 3: Stored Data
         if (
             form.dataCategories && form.dataCategories.length > 0 &&
             form.dataType &&
@@ -221,7 +217,6 @@ export default function Page() {
             completed.push(3);
         }
 
-        // Section 4: Retention
         if (
             form.collectionMethod && 
             form.retention?.duration && 
@@ -232,7 +227,6 @@ export default function Page() {
             completed.push(4);
         }
 
-        // Section 5: Legal
         const isTransferComplete = form.internationalTransfer?.isTransfer === false || 
             (form.internationalTransfer?.isTransfer === true && form.internationalTransfer?.country && form.internationalTransfer?.transferMethod);
         
@@ -240,7 +234,6 @@ export default function Page() {
             completed.push(5);
         }
 
-        // Section 6: TOMs
         const sm = form.securityMeasures;
         if (sm?.organizational && sm?.accessControl && sm?.technical && sm?.responsibility && sm?.physical && sm?.audit) {
             completed.push(6);
@@ -267,27 +260,26 @@ export default function Page() {
     };
 
     const handleDraft = () => {
-        const draftData = { ...form, status: "draft" };
-        console.log("Saving Draft to Local Storage:", draftData);
-        localStorage.setItem("ropa_draft", JSON.stringify(draftData));
+        const draftData = { ...form, status: RopaStatus.Draft };
+        console.log("Saving Owner Draft to Local Storage:", draftData);
+        localStorage.setItem("ropa_owner_draft", JSON.stringify(draftData));
         alert("บันทึกฉบับร่างเรียบร้อยแล้วในเบราว์เซอร์");
     };
 
     return (
         <div className="flex min-h-screen">
-            {/* Sidebar - Fixed */}
             <Sidebar />
 
-            {/* Main Content - Flex-1 with margin for sidebar */}
             <main className="flex-1 ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
-                {/* Header Section */}
-                <TopBar />
+                <TopBar 
+                    documentName={form.documentName} 
+                    handleChange={handleChange} 
+                    status={form.status} 
+                />
 
-                {/* Scrollable Content Area */}
                 <div className="flex-1 overflow-y-auto p-8 pb-36 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-1000">
                     <Stepper completedSteps={completedSteps} />
 
-                    {/* Stacking All 6 Sections */}
                     <div className="space-y-8">
                         <Section1GeneralInfo form={form} handleChange={handleChange} errors={errors} />
                         <Section2ActivityDetails form={form} handleChange={handleChange} errors={errors} />
@@ -300,7 +292,6 @@ export default function Page() {
                     <div className="h-10"></div>
                 </div>
 
-                {/* Sticky Footer Actions */}
                 <FormActions onSave={handleSave} onDraft={handleDraft} onCancel={handleCancel} />
             </main>
         </div>

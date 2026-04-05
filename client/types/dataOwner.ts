@@ -1,11 +1,14 @@
+import { RopaStatus, DataType, CollectionMethod, RetentionUnit } from "./enums";
+
 export type OwnerRecord = {
+  documentName: string;
   title: string;
   firstName: string;
   lastName: string;
   address: string;
   email: string;
   phoneNumber: string; 
-  status?: "draft" | "submitted" | "active";
+  status?: RopaStatus;
   
   id: string;
 
@@ -16,13 +19,13 @@ export type OwnerRecord = {
   personalData: string;
 
   // 5–6
-  dataCategories: string[]; // Changed to array for multiple Categories
-  dataType: "general" | "sensitive";
+  dataCategories: string[]; // Keep as string[] if the user wants flexibility, but DataCategory enum is available
+  dataType: DataType;
   storedDataTypes: string[]; // For specific data types (e.g., Name, Address)
   storedDataTypesOther?: string; // New field for "Other" data types
 
   // 7–8
-  collectionMethod: "soft file" | "hard copy"; // acquisition_mode in form
+  collectionMethod: CollectionMethod; // acquisition_mode in form
   dataSource: {
     direct: boolean;
     indirect: boolean;
@@ -49,10 +52,10 @@ export type OwnerRecord = {
 
   // 12 retention
   retention: {
-    storageType: "soft file" | "hard copy";
+    storageType: CollectionMethod;
     method: string[];
     duration: number;
-    unit: "year" | "month" | "day"; // Added for unit support
+    unit: RetentionUnit; // Added for unit support
     accessControl: string;
     deletionMethod: string;
   };

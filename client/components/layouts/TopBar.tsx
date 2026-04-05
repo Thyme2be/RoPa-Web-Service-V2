@@ -2,24 +2,37 @@
 
 import React from "react";
 
-export default function TopBar() {
+export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle }: any) {
+    const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
+
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
             <div className="flex items-center gap-4 group">
-                <div className="flex items-center gap-1 group/edit cursor-pointer bg-white border border-[#E5E2E1] rounded-xl px-3 py-1.5 shadow-sm hover:border-primary/30 transition-all">
-                    <input
-                        className="font-headline font-bold tracking-tight text-neutral-900 text-[15px] bg-transparent border-none outline-none w-auto min-w-[220px]"
-                        defaultValue="สร้างรายการ RoPA ใหม่"
-                        placeholder="ตั้งชื่อเอกสาร..."
-                        type="text"
-                    />
-                    <span className="material-symbols-outlined text-neutral-400 group-hover/edit:text-primary transition-colors text-[18px]">
-                        edit
-                    </span>
-                </div>
-                <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest">
-                    โหมดฉบับร่าง
-                </span>
+                {pageTitle ? (
+                    <h2 className="text-[17px] font-bold text-[#1B1C1C] tracking-tight">{pageTitle}</h2>
+                ) : (
+                    <>
+                        <div className={`flex items-center gap-1 bg-white border border-[#E5E2E1] rounded-lg px-3 py-1.5 shadow-sm transition-all ${!isProcessor ? "hover:border-primary/30" : "opacity-80"}`}>
+                            <input
+                                className={`font-headline font-bold tracking-tight text-neutral-900 text-[15px] bg-transparent border-none outline-none w-auto min-w-[220px] ${isProcessor ? "cursor-default" : ""}`}
+                                value={documentName || ""}
+                                name="documentName"
+                                placeholder="ตั้งชื่อเอกสาร..."
+                                type="text"
+                                onChange={handleChange}
+                                readOnly={isProcessor}
+                            />
+                            {!isProcessor && (
+                                <span className="material-symbols-outlined text-neutral-400 text-primary transition-colors text-[18px]">
+                                    edit
+                                </span>
+                            )}
+                        </div>
+                        <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest">
+                            โหมด{displayStatus}
+                        </span>
+                    </>
+                )}
             </div>
 
             {/* Search, Notifications, Account */}
@@ -51,7 +64,7 @@ export default function TopBar() {
                             พรรษชล บุญมาก
                         </span>
                         <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                            ผู้รับผิดชอบข้อมูล
+                            {isProcessor ? "ผู้ประมวลผลข้อมูล" : "ผู้รับผิดชอบข้อมูล"}
                         </span>
                     </div>
                 </div>
