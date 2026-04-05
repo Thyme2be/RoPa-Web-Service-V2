@@ -88,8 +88,10 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
     const styles: Record<string, string> = {
         "อนุมัติ": "bg-[#228B15] text-white",                    // Reference Green
         "ตรวจสอบเสร็จสิ้น": "bg-[#228B15] text-white",           // Reference Green (Review)
+        "เสร็จสมบูรณ์": "bg-[#228B15] text-white",               // Reference Green (Processor)
         "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
+        "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
         "ฉบับร่าง": "bg-[#9CA3AF] text-white"                    // Secondary Gray
     };

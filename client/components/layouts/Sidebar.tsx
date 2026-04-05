@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import LogoutButton from "@/components/ui/LogoutButton";
 const menuItems = [
     { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", href: "/data-owner/dashboard" },
     { id: "ropa", label: "รายการ RoPA", icon: "list_alt", href: "/data-owner/ropa" },
-    { id: "docs", label: "เอกสาร", icon: "description", href: "#" },
+    { id: "docs", label: "เอกสาร", icon: "description", href: "/data-owner/documents" },
     { id: "advice", label: "ข้อเสนอแนะ", icon: "forum", href: "#" },
 ];
 
