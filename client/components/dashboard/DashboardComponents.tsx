@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Select from "@/components/ui/Select";
 
 interface StatsCardProps {
     icon: string;
@@ -33,25 +34,28 @@ export function StatsCard({ icon, label, value, subLabel, accentColor }: StatsCa
 }
 
 export function FilterBar() {
+    const [timeframe, setTimeframe] = useState("30");
+    
     return (
         <div className="bg-white p-5 rounded-lg shadow-sm border border-[#E5E2E1]/50 flex justify-between items-center px-8">
             <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-secondary">filter_list</span>
-                <span className="text-[15px] font-bold text-[#1B1C1C]">ตัวกรองข้อมูล</span>
+                <span className="material-symbols-outlined text-secondary font-bold">filter_list</span>
+                <span className="text-[15px] font-black text-[#1B1C1C] tracking-tight">ตัวกรองข้อมูล</span>
             </div>
-            <div className="flex flex-col gap-1">
-                <span className="text-[12px] font-bold text-[#1B1C1C]">ช่วงเวลา</span>
-                <div className="relative group">
-                    <select className="bg-white border border-[#E5E2E1] rounded-md px-4 py-2 text-[13px] font-medium w-64 focus:ring-1 focus:ring-primary/20 outline-none cursor-pointer appearance-none">
-                        <option>30 วันล่าสุด</option>
-                        <option>90 วันล่าสุด</option>
-                        <option>1 ปีที่ผ่านมา</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-secondary pointer-events-none text-[18px]">
-                        expand_more
-                    </span>
-                </div>
-            </div>
+            
+            <Select 
+                label="ช่วงเวลา"
+                rounding="xl"
+                containerClassName="!w-64 !space-y-1"
+                value={timeframe}
+                name="timeframe"
+                onChange={(e) => setTimeframe(e.target.value)}
+                options={[
+                    { label: "30 วันล่าสุด", value: "30" },
+                    { label: "90 วันล่าสุด", value: "90" },
+                    { label: "1 ปีที่ผ่านมา", value: "365" },
+                ]}
+            />
         </div>
     );
 }

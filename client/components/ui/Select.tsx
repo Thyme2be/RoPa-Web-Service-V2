@@ -12,6 +12,7 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     containerClassName?: string;
     placeholder?: string;
     error?: string;
+    rounding?: "lg" | "xl" | "2xl";
     onChange?: (e: { target: { name: string; value: string } }) => void;
 };
 
@@ -25,6 +26,7 @@ export default function Select({
     onChange, 
     placeholder,
     error,
+    rounding = "2xl",
     ...props 
 }: Props) {
     const [isOpen, setIsOpen] = useState(false);
@@ -64,7 +66,8 @@ export default function Select({
                 <div
                     onClick={() => setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between w-full h-11 px-4 py-2 bg-[#F6F3F2] border rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/20",
+                        "flex items-center justify-between w-full h-11 px-4 py-2 bg-[#F6F3F2] border cursor-pointer transition-all hover:bg-white hover:border-primary/20",
+                        rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
                         error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
                         isOpen && "bg-primary/5 border-primary/20 rounded-b-none"
                     )}
@@ -85,7 +88,10 @@ export default function Select({
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className="absolute z-50 w-full bg-white border border-primary/20 rounded-b-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]">
+                    <div className={cn(
+                        "absolute z-50 w-full bg-white border border-primary/20 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]",
+                        rounding === "2xl" ? "rounded-b-2xl" : rounding === "xl" ? "rounded-b-xl" : "rounded-b-lg"
+                    )}>
                         <div className="max-h-60 overflow-y-auto py-2">
                             {options.map((opt) => (
                                 <div

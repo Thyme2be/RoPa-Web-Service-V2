@@ -1,7 +1,8 @@
 export enum RopaStatus {
   Draft = "draft",
   Submitted = "submitted",
-  Active = "active"
+  Active = "active",
+  Rejected = "rejected"
 }
 
 export enum DataCategory {
