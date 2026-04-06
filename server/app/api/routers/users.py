@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models.user import User, UserRoleEnum
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, UserMeResponse
 from app.api.deps import get_current_user, RoleChecker, get_db
 
 router = APIRouter()
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserMeResponse)
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
