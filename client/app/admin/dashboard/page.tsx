@@ -1,27 +1,28 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
-const MOCK_DOCUMENTS = [
-    { id: 1, name: "Doc 1", role: "ผู้รับผิดชอบข้อมูล", status: "รอการตรวจสอบ" },
-    { id: 2, name: "Doc 2", role: "ผู้รับผิดชอบข้อมูล", status: "เสร็จสมบูรณ์" },
-    { id: 3, name: "Doc 3", role: "ผู้ตรวจสอบ", status: "รอการตรวจสอบ" },
-    { id: 4, name: "Doc 4", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", status: "รอการตรวจสอบ" },
-    { id: 5, name: "Doc 5", role: "ผู้รับผิดชอบข้อมูล", status: "รอการตรวจสอบ" },
-    { id: 6, name: "Doc 6", role: "ผู้ตรวจสอบ", status: "รอการตรวจสอบ" },
-    { id: 7, name: "Doc 7", role: "ผู้ตรวจสอบ", status: "รอการตรวจสอบ" },
-    { id: 8, name: "Doc 8", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", status: "รอการตรวจสอบ" },
-    { id: 9, name: "Doc 9", role: "ผู้รับผิดชอบข้อมูล", status: "เสร็จสมบูรณ์" },
-    { id: 10, name: "Doc 10", role: "ผู้ตรวจสอบ", status: "รอการตรวจสอบ" },
-    { id: 11, name: "Doc 11", role: "ผู้รับผิดชอบข้อมูล", status: "รอการตรวจสอบ" },
-    { id: 12, name: "Doc 12", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", status: "เสร็จสมบูรณ์" },
-];
+interface DashboardData {
+    users: {
+        data_owners: { count: number; trends: { direction: string; value: string; text_label: string } };
+        data_processors: { count: number; trends: { direction: string; value: string; text_label: string } };
+        auditors: { count: number; trends: { direction: string; value: string; text_label: string } };
+    };
+    documents: {
+        total: number;
+        trends: { direction: string; value: string; text_label: string };
+    };
+    document_status_chart: {
+        this_week: { draft: number; in_progress: number; completed: number; rejected: number };
+        this_month: { draft: number; in_progress: number; completed: number; rejected: number };
+        all_time: { draft: number; in_progress: number; completed: number; rejected: number };
+    };
+}
 
-const MOCK_DASHBOARD_STATS = {
-    controllerTrend: "+2 เดือนนี้",
-    processorTrend: "ไม่มีการเปลี่ยนแปลง",
-    auditorTrend: "ต้องการการตรวจสอบ",
-    totalTrend: "12% จากไตรมาสก่อน"
-};
+function getTrendStyling(direction: string) {
+    if (direction === "up") return { trendIcon: "trending_up", trendColorClass: "text-[#00666e]" };
+    if (direction === "down") return { trendIcon: "trending_down", trendColorClass: "text-[#B90A1E]" };
+    return { trendIcon: "horizontal_rule", trendColorClass: "text-zinc-400" };
+}
 
 interface StatCardProps {
     title: string;
@@ -71,7 +72,41 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-    const [timeRange, setTimeRange] = React.useState<"week" | "month">("month");
+    const [timeRange, setTimeRange] = useState<"week" | "month">("month");
+    const [data, setData] = useState<DashboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                const token = localStorage.getItem("token") || "";
+                const response = await fetch("http://localhost:8000/admin/dashboard", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    setData(result);
+                }
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
+
+    if (loading) {
+        return <div className="flex h-full items-center justify-center p-8 text-on-surface-variant">กำลังโหลดข้อมูล...</div>;
+    }
+
+    if (!data) {
+        return <div className="flex h-full items-center justify-center p-8 text-[#B90A1E]">ไม่สามารถโหลดข้อมูลแดชบอร์ดได้</div>;
+    }
 
     return (
         <div className="space-y-8 pb-12 overflow-x-hidden">
@@ -79,32 +114,28 @@ export default function DashboardPage() {
             <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard
                     title="ผู้รับผิดชอบข้อมูล"
-                    value={MOCK_DOCUMENTS.filter(d => d.role === "ผู้รับผิดชอบข้อมูล").length.toLocaleString().padStart(2, '0')}
-                    trend={MOCK_DASHBOARD_STATS.controllerTrend}
-                    trendIcon="trending_up"
-                    trendColorClass="text-[#00666e]"
+                    value={data.users.data_owners.count.toLocaleString().padStart(2, '0')}
+                    trend={`${data.users.data_owners.trends.value} ${data.users.data_owners.trends.text_label}`.trim()}
+                    {...getTrendStyling(data.users.data_owners.trends.direction)}
                 />
                 <StatCard
                     title="ผู้ประมวลผลข้อมูลส่วนบุคคล"
-                    value={MOCK_DOCUMENTS.filter(d => d.role === "ผู้ประมวลผลข้อมูลส่วนบุคคล").length.toLocaleString().padStart(2, '0')}
-                    trend={MOCK_DASHBOARD_STATS.processorTrend}
-                    trendIcon="horizontal_rule"
-                    trendColorClass="text-zinc-400"
+                    value={data.users.data_processors.count.toLocaleString().padStart(2, '0')}
+                    trend={`${data.users.data_processors.trends.value} ${data.users.data_processors.trends.text_label}`.trim()}
+                    {...getTrendStyling(data.users.data_processors.trends.direction)}
                 />
                 <StatCard
                     title="ผู้ตรวจสอบ"
-                    value={MOCK_DOCUMENTS.filter(d => d.role === "ผู้ตรวจสอบ").length.toLocaleString().padStart(2, '0')}
-                    trend={MOCK_DASHBOARD_STATS.auditorTrend}
-                    trendIcon="warning"
-                    trendColorClass="text-[#B90A1E]"
-                    iconFill={true}
+                    value={data.users.auditors.count.toLocaleString().padStart(2, '0')}
+                    trend={`${data.users.auditors.trends.value} ${data.users.auditors.trends.text_label}`.trim()}
+                    {...getTrendStyling(data.users.auditors.trends.direction)}
+                    iconFill={data.users.auditors.trends.direction === "down"}
                 />
                 <StatCard
                     title="รวมเอกสารทั้งหมด"
-                    value={MOCK_DOCUMENTS.length.toLocaleString().padStart(2, '0')}
-                    trend={MOCK_DASHBOARD_STATS.totalTrend}
-                    trendIcon="arrow_upward"
-                    trendColorClass="text-[#00666e]"
+                    value={data.documents.total.toLocaleString().padStart(2, '0')}
+                    trend={`${data.documents.trends.value} ${data.documents.trends.text_label}`.trim()}
+                    {...getTrendStyling(data.documents.trends.direction)}
                     titleColor="#B90A1E"
                     showBorder={true}
                 />
@@ -120,23 +151,21 @@ export default function DashboardPage() {
                             <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider mt-0.5">แบ่งตามสถานะการดำเนินงานปัจจุบัน</p>
                         </div>
                         <div className="flex gap-2 text-white">
-                            <button 
+                            <button
                                 onClick={() => setTimeRange("week")}
-                                className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                    timeRange === "week" 
-                                        ? "bg-[#B90A1E] text-white shadow-sm shadow-[#B90A1E]/10" 
-                                        : "bg-[#F6F3F2] text-[#1B1C1C] hover:bg-surface-container-high"
-                                }`}
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${timeRange === "week"
+                                    ? "bg-[#B90A1E] text-white shadow-sm shadow-[#B90A1E]/10"
+                                    : "bg-[#F6F3F2] text-[#1B1C1C] hover:bg-surface-container-high"
+                                    }`}
                             >
                                 สัปดาห์นี้
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setTimeRange("month")}
-                                className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                    timeRange === "month" 
-                                        ? "bg-[#B90A1E] text-white shadow-sm shadow-[#B90A1E]/10" 
-                                        : "bg-[#F6F3F2] text-[#1B1C1C] hover:bg-surface-container-high"
-                                }`}
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${timeRange === "month"
+                                    ? "bg-[#B90A1E] text-white shadow-sm shadow-[#B90A1E]/10"
+                                    : "bg-[#F6F3F2] text-[#1B1C1C] hover:bg-surface-container-high"
+                                    }`}
                             >
                                 เดือนนี้
                             </button>
@@ -144,56 +173,78 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24 py-4">
-                        {/* Donut Chart Portion */}
-                        <div className="relative w-56 h-56 group cursor-pointer">
-                            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                <circle cx="18" cy="18" fill="transparent" r="16" stroke="#f0eded" strokeWidth="3.5"></circle>
-                                {/* ฉบับร่าง - Grey (12%) */}
-                                <circle cx="18" cy="18" fill="transparent" r="16" stroke="#F0EDED" strokeDasharray="12 100" strokeDashoffset="0" strokeWidth="4" className="transition-all duration-1000 ease-out"></circle>
-                                {/* กำลังดำเนินการ - Yellow (20%) */}
-                                <circle cx="18" cy="18" fill="transparent" r="16" stroke="#FFCC00" strokeDasharray="20 100" strokeDashoffset="-12" strokeWidth="4" className="transition-all duration-1000 ease-out delay-100"></circle>
-                                {/* เสร็จสมบูรณ์ - Green (65%) */}
-                                <circle cx="18" cy="18" fill="transparent" r="16" stroke="#2C8C00" strokeDasharray="65 100" strokeDashoffset="-32" strokeWidth="4" className="transition-all duration-1000 ease-out delay-200"></circle>
-                                {/* ถูกปฏิเสธ - Red (3%) */}
-                                <circle cx="18" cy="18" fill="transparent" r="16" stroke="#ED393C" strokeDasharray="3 100" strokeDashoffset="-97" strokeWidth="4" className="transition-all duration-1000 ease-out delay-300"></circle>
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center flex-col transition-all duration-500 group-hover:scale-110">
-                                <span className="text-lg font-extrabold text-[#1B1C1C] leading-tight">จำนวนเอกสาร</span>
-                                <span className="text-lg font-extrabold text-[#1B1C1C] leading-tight">ทั้งหมด</span>
-                            </div>
-                        </div>
+                        {(() => {
+                            const chartData = timeRange === "week" ? data.document_status_chart.this_week : data.document_status_chart.this_month;
+                            const totalDocsTimeRange = chartData.draft + chartData.in_progress + chartData.completed + chartData.rejected;
 
-                        {/* Legend / Status Description */}
-                        <div className="w-full max-w-xs space-y-3">
-                            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-3.5 h-3.5 rounded-full bg-[#F0EDED] shadow-sm border border-zinc-200"></div> 
-                                    <span className="text-sm font-bold text-on-surface">ฉบับร่าง</span>
-                                </div>
-                                <span className="text-sm font-black text-[#71717A]">215 ฉบับ</span>
-                            </div>
-                            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-3.5 h-3.5 rounded-full bg-[#FFCC00] shadow-sm"></div> 
-                                    <span className="text-sm font-bold text-on-surface">กำลังดำเนินการ</span>
-                                </div>
-                                <span className="text-sm font-black text-[#71717A]">482 ฉบับ</span>
-                            </div>
-                            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-3.5 h-3.5 rounded-full bg-[#2C8C00] shadow-sm"></div> 
-                                    <span className="text-sm font-bold text-on-surface">เสร็จสมบูรณ์</span>
-                                </div>
-                                <span className="text-sm font-black text-[#71717A]">840 ฉบับ</span>
-                            </div>
-                            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-3.5 h-3.5 rounded-full bg-[#ED393C] shadow-sm shadow-primary/20"></div> 
-                                    <span className="text-sm font-bold text-on-surface">ถูกปฏิเสธ</span>
-                                </div>
-                                <span className="text-sm font-black text-[#71717A]">42 ฉบับ</span>
-                            </div>
-                        </div>
+                            // Calculate stroke array parts for circle drawing
+                            const draftPct = totalDocsTimeRange > 0 ? (chartData.draft / totalDocsTimeRange) * 100 : 0;
+                            const inProgressPct = totalDocsTimeRange > 0 ? (chartData.in_progress / totalDocsTimeRange) * 100 : 0;
+                            const completedPct = totalDocsTimeRange > 0 ? (chartData.completed / totalDocsTimeRange) * 100 : 0;
+                            const rejectedPct = totalDocsTimeRange > 0 ? (chartData.rejected / totalDocsTimeRange) * 100 : 0;
+
+                            // Offsets
+                            const inProgressOffset = -draftPct;
+                            const completedOffset = inProgressOffset - inProgressPct;
+                            const rejectedOffset = completedOffset - completedPct;
+
+                            return (
+                                <>
+                                    {/* Donut Chart Portion */}
+                                    <div className="relative w-56 h-56 group cursor-pointer">
+                                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                            <circle cx="18" cy="18" fill="transparent" r="16" stroke="#f0eded" strokeWidth="3.5"></circle>
+
+                                            {/* ฉบับร่าง - Grey */}
+                                            {draftPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#F0EDED" strokeDasharray={`${draftPct} 100`} strokeDashoffset="0" strokeWidth="4" className="transition-all duration-1000 ease-out"></circle>}
+                                            {/* กำลังดำเนินการ - Yellow */}
+                                            {inProgressPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#FFCC00" strokeDasharray={`${inProgressPct} 100`} strokeDashoffset={`${inProgressOffset}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-100"></circle>}
+                                            {/* เสร็จสมบูรณ์ - Green */}
+                                            {completedPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#2C8C00" strokeDasharray={`${completedPct} 100`} strokeDashoffset={`${completedOffset}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-200"></circle>}
+                                            {/* ถูกปฏิเสธ - Red */}
+                                            {rejectedPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#ED393C" strokeDasharray={`${rejectedPct} 100`} strokeDashoffset={`${rejectedOffset}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-300"></circle>}
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center flex-col transition-all duration-500 group-hover:scale-110 text-center px-4">
+                                            <span className="text-[20px] font-bold text-on-surface-variant leading-relaxed">
+                                                จำนวนเอกสาร<br />ทั้งหมด
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Legend / Status Description */}
+                                    <div className="w-full max-w-xs space-y-1">
+                                        <div className="flex items-center justify-between p-1.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-3.5 h-3.5 rounded-full bg-[#F0EDED] shadow-sm border border-zinc-200"></div>
+                                                <span className="text-sm font-bold text-on-surface">ฉบับร่าง</span>
+                                            </div>
+                                            <span className="text-sm font-black text-[#71717A]">{chartData.draft} ฉบับ</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-1.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-3.5 h-3.5 rounded-full bg-[#FFCC00] shadow-sm"></div>
+                                                <span className="text-sm font-bold text-on-surface">กำลังดำเนินการ</span>
+                                            </div>
+                                            <span className="text-sm font-black text-[#71717A]">{chartData.in_progress} ฉบับ</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-1.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-3.5 h-3.5 rounded-full bg-[#2C8C00] shadow-sm"></div>
+                                                <span className="text-sm font-bold text-on-surface">เสร็จสมบูรณ์</span>
+                                            </div>
+                                            <span className="text-sm font-black text-[#71717A]">{chartData.completed} ฉบับ</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-1.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200 cursor-default group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-3.5 h-3.5 rounded-full bg-[#ED393C] shadow-sm shadow-primary/20"></div>
+                                                <span className="text-sm font-bold text-on-surface">ถูกปฏิเสธ</span>
+                                            </div>
+                                            <span className="text-sm font-black text-[#71717A]">{chartData.rejected} ฉบับ</span>
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             </section>
