@@ -61,6 +61,7 @@ class AdminUserListResponse(BaseModel):
 
 class AdminUsersPageResponse(BaseModel):
     total_users: int
+    total_users_trend: TrendInfo
     active_users: int
     users_list: List[AdminUserListResponse]
 
