@@ -8,7 +8,7 @@ import enum
 
 class UserRoleEnum(str, enum.Enum):
     DATA_OWNER = "Data Owner"
-    DATA_PROCESSOR = "Data processor"
+    DATA_PROCESSOR = "Data Processor"
     AUDITOR = "Auditor"
     ADMIN = "Admin"
 
