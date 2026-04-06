@@ -9,6 +9,7 @@ from app.schemas.user import UserCreate, UserResponse
 from app.schemas.token import Token, TokenRefresh
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token
 from app.core.config import settings
+from app.models.enums import UserStatus
 from jose import jwt, JWTError
 
 router = APIRouter()
@@ -56,6 +57,17 @@ def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = 
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
+        
+    if user.status != UserStatus.ACTIVE and user.status != UserStatus.INACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is suspended or invalid"
+        )
+        
+    user.status = UserStatus.ACTIVE
+    db.commit()
+    db.refresh(user)
+    
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         subject=str(user.id), expires_delta=access_token_expires
@@ -85,6 +97,12 @@ def refresh_token_endpoint(body: TokenRefresh, db: Session = Depends(get_db)):
     if not user:
         raise credentials_exception
         
+    if user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is suspended or inactive"
+        )
+        
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     new_access_token = create_access_token(
         subject=str(user.id), expires_delta=access_token_expires
@@ -92,3 +110,16 @@ def refresh_token_endpoint(body: TokenRefresh, db: Session = Depends(get_db)):
     new_refresh_token = create_refresh_token(subject=str(user.id))
     
     return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
+
+from app.api.deps import get_current_user
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Logout the current user. Since we use stateless JWTs, we achieve session termination 
+    by setting the user's status to INACTIVE. Subsequent requests using the existing 
+    token will be intercepted and denied by the get_current_user dependency.
+    """
+    current_user.status = UserStatus.INACTIVE
+    db.commit()
+    return {"message": "Successfully logged out. All tokens are now invalid."}
