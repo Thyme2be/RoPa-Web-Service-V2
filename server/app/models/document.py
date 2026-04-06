@@ -231,6 +231,9 @@ class ProcessorRecord(Base):
     sent_to_owner_at = Column(DateTime, nullable=True)
     # วันเวลาที่กด "ส่ง RoPA ให้ผู้รับผิดชอบข้อมูล" — null ถ้ายังไม่ส่ง
 
+    submitted_at = Column(DateTime, nullable=True)
+    # วันเวลาที่ส่งแบบฟอร์ม (ยื่นยัน/ส่งต่อ) — ใช้เพื่อความเข้ากันได้กับ main
+
     # ── Section 1: รายละเอียดของผู้บันทึก RoPA ──
     title_prefix = Column(String, nullable=True)        # คำนำหน้า เช่น นาย/นาง/นางสาว
     first_name = Column(String, nullable=True)          # ชื่อจริง

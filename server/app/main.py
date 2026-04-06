@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import auth
+from app.api.routers import auth, users, documents, admin
 from app.api.routers.processor import router as processor_router
 from app.database import engine, Base
 from app.core.config import settings
@@ -33,4 +33,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(users.router, prefix="/users", tags=["Users"])
+app.include_router(documents.router, prefix="/documents", tags=["Documents Workflow"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin Controls"])
 app.include_router(processor_router, prefix="/processor", tags=["Data Processor"])
