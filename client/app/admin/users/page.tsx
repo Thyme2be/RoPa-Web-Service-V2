@@ -22,10 +22,24 @@ export default function UsersPage() {
         password: ""
     });
 
-    const [usersData, setUsersData] = useState<{ total_users: number, active_users: number, users_list: any[] }>({
+    const [usersData, setUsersData] = useState<{ 
+        total_users: number, 
+        active_users: number, 
+        users_list: any[],
+        total_users_trend?: {
+            direction: string;
+            value: string;
+            text_label: string;
+        }
+    }>({
         total_users: 0,
         active_users: 0,
-        users_list: []
+        users_list: [],
+        total_users_trend: {
+            direction: "neutral",
+            value: "0%",
+            text_label: "จากเดือนที่แล้ว"
+        }
     });
     const [loading, setLoading] = useState(true);
 
@@ -54,7 +68,8 @@ export default function UsersPage() {
                 setUsersData({
                     total_users: data.total_users,
                     active_users: data.active_users,
-                    users_list: mappedList
+                    users_list: mappedList,
+                    total_users_trend: data.total_users_trend
                 });
             }
         } catch (error) {
@@ -95,9 +110,7 @@ export default function UsersPage() {
         }
     };
 
-    const MOCK_USERS_STATS = {
-        userTrend: "+12% จากเดือนที่แล้ว"
-    };
+    // Trends are now fetched from API
 
     const filteredUsers = usersData.users_list.filter(user => {
         const matchesRole = selectedRole === "ทั้งหมด" || user.role === selectedRole;
@@ -346,9 +359,17 @@ export default function UsersPage() {
                         <div className="relative z-10">
                             <p className="text-[14px] font-bold uppercase tracking-widest text-[#71717A] mb-1">ผู้ใช้งานทั้งหมด</p>
                             <h3 className="text-4xl font-extrabold tracking-tighter text-on-surface">{usersData.total_users.toLocaleString()}</h3>
-                            <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-tertiary">
-                                <span className="material-symbols-outlined text-sm">trending_up</span>
-                                <span>{MOCK_USERS_STATS.userTrend}</span>
+                            <div className={`mt-4 flex items-center gap-2 text-xs font-semibold ${
+                                usersData.total_users_trend?.direction === 'up' ? 'text-tertiary' : 
+                                usersData.total_users_trend?.direction === 'down' ? 'text-error' : 'text-on-surface-variant'
+                            }`}>
+                                <span className="material-symbols-outlined text-sm">
+                                    {usersData.total_users_trend?.direction === 'up' ? 'trending_up' : 
+                                     usersData.total_users_trend?.direction === 'down' ? 'trending_down' : 'trending_flat'}
+                                </span>
+                                <span>
+                                    {usersData.total_users_trend?.value || "0%"} {usersData.total_users_trend?.text_label || "จากเดือนที่แล้ว"}
+                                </span>
                             </div>
                         </div>
                         <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-[#B90A1E]/5 group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>groups</span>
