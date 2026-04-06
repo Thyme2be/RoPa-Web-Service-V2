@@ -47,7 +47,7 @@ from app.schemas.processor import (
 router = APIRouter()
 # สร้าง router — main.py จะ import แล้วลงทะเบียนด้วย prefix "/processor"
 
-require_processor = RoleChecker(["Data processor"])
+require_processor = RoleChecker(["Data Processor"])
 # dependency ที่จะเช็คว่า user มี role "Data processor" ไหม
 # ถ้าไม่ใช่ → 403 Forbidden อัตโนมัติ
 
