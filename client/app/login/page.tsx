@@ -17,14 +17,17 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // JSON format is commonly used for Next.js endpoints. 
-      // If the backend is FastAPI OAuth2PasswordRequestForm, you may need a FormData obj here instead.
+      // OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
+      const formData = new URLSearchParams();
+      formData.append("username", username);
+      formData.append("password", password);
+
       const response = await fetch("http://localhost:8000/auth/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: JSON.stringify({ username, password }),
+        body: formData.toString(),
       });
 
       if (!response.ok) {

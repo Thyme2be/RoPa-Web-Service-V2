@@ -1,0 +1,45 @@
+{
+  "recordName": "พรรษชล บุญมาก",
+  "address": "123/45 ถนนประดิษฐ์มนูธรรม แขวงลาดพร้าว เขตลาดพร้าว กรุงเทพฯ 10230",
+  "email": "passachol.b@example.com",
+  "phoneNumber": "0812345678",
+  "id": "c88f4b5a-7e1e-4b5a-9b5a-7e1e4b5a9b5a",
+  "dataSubjectName": "ลูกค้าทั่วไป",
+  "processingActivity": "การขายสินค้าและบริการ",
+  "purpose": "เพื่อดำเนินการจัดส่งสินค้าและติดต่อประสานงาน",
+  "personalData": "ชื่อ, ที่อยู่, เบอร์โทรศัพท์",
+  "dataCategories": ["customer"],
+  "dataType": "general",
+  "storedDataTypes": ["ชื่อ - นามสกุล", "เบอร์โทรศัพท์", "ที่อยู่"],
+  "collectionMethod": "soft file",
+  "dataSource": {
+    "direct": true,
+    "indirect": false
+  },
+  "legalBasis": "ฐานปฏิบัติตามสัญญา (Contract)",
+  "minorConsent": {
+    "under10": false,
+    "age10to20": false
+  },
+  "internationalTransfer": {
+    "isTransfer": false
+  },
+  "retention": {
+    "storageType": "soft file",
+    "method": "ระบบฐานข้อมูล Cloud",
+    "duration": 5,
+    "unit": "year",
+    "accessControl": "เฉพาะเจ้าหน้าที่ฝ่าย IT และฝ่ายขาย",
+    "deletionMethod": "ลบไฟล์ออกจากถังขยะอิเล็กทรอนิกส์"
+  },
+  "exemptionDisclosure": "กรณีต้องเปิดเผยตามคำสั่งศาล",
+  "rejectionNote": "-",
+  "securityMeasures": {
+    "organizational": "มีการกำหนดนโยบายการคุ้มครองข้อมูลส่วนบุคคล",
+    "technical": "ใช้การเข้ารหัสข้อมูล (Encryption)",
+    "physical": "มีการติดตั้งกล้องวงจรปิด",
+    "accessControl": "ระบบ Password และ MFA",
+    "responsibility": "พนักงานทุกคนต้องผ่านการอบรม PDPA",
+    "audit": "เก็บ Log การเข้าถึงข้อมูลย้อนหลัง 90 วัน"
+  }
+}
