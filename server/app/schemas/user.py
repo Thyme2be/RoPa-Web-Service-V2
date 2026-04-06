@@ -27,3 +27,10 @@ class UserResponse(UserBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class UserMeResponse(BaseModel):
+    first_name: str
+    last_name: str
+    role: Optional[UserRoleEnum] = None
+    
+    model_config = ConfigDict(from_attributes=True)
