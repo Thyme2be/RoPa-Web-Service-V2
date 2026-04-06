@@ -86,20 +86,17 @@ def get_admin_dashboard(
 
     # 4. Total Documents Trends Calculation
     current_month_docs = db.query(func.count(RopaDocument.id)).filter(RopaDocument.created_at >= current_month_start).scalar() or 0
-    prev_month_docs = db.query(func.count(RopaDocument.id)).filter(
-        RopaDocument.created_at >= prev_month_start, 
-        RopaDocument.created_at <= prev_month_end
-    ).scalar() or 0
+    total_docs_now = all_time_data.draft + all_time_data.in_progress + all_time_data.completed + all_time_data.rejected
+    docs_before_this_month = total_docs_now - current_month_docs
     
-    if prev_month_docs == 0:
+    if docs_before_this_month == 0:
         percentage = 100 if current_month_docs > 0 else 0
         direction = "up" if current_month_docs > 0 else "neutral"
     else:
-        diff = current_month_docs - prev_month_docs
-        percentage = int((diff / prev_month_docs) * 100)
-        direction = "up" if diff > 0 else ("down" if diff < 0 else "neutral")
+        percentage = int((current_month_docs / docs_before_this_month) * 100)
+        direction = "up" if current_month_docs > 0 else "neutral"
         
-    doc_val_str = f"{abs(percentage)}%" if percentage != 0 else ""
+    doc_val_str = f"+{percentage}%" if percentage > 0 else (f"{percentage}%" if percentage < 0 else "0%")
     doc_direction_override = direction if percentage != 0 else "neutral"
         
     return AdminDashboardStats(
@@ -143,8 +140,34 @@ def get_user_management_list(
             status=u.status
         ))
         
+    now = datetime.now(timezone.utc)
+    current_month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    if now.month == 1:
+        prev_month_start = datetime(now.year - 1, 12, 1, tzinfo=timezone.utc)
+        prev_month_end = datetime(now.year - 1, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    else:
+        prev_month_start = datetime(now.year, now.month - 1, 1, tzinfo=timezone.utc)
+        last_day = calendar.monthrange(now.year, now.month - 1)[1]
+        prev_month_end = datetime(now.year, now.month - 1, last_day, 23, 59, 59, tzinfo=timezone.utc)
+
+    current_month_users = db.query(func.count(User.id)).filter(User.created_at >= current_month_start).scalar() or 0
+    total_users_now = len(users)
+    users_before_this_month = total_users_now - current_month_users
+    
+    if users_before_this_month <= 0:
+        percentage = 100 if current_month_users > 0 else 0
+        direction = "up" if current_month_users > 0 else "neutral"
+        value_str = f"+{percentage}%" if percentage > 0 else f"{percentage}%"
+    else:
+        percentage = int((current_month_users / users_before_this_month) * 100)
+        direction = "up" if current_month_users > 0 else "neutral"
+        value_str = f"+{percentage}%" if percentage > 0 else "0%"
+
+    trend_info = TrendInfo(direction=direction, value=value_str, text_label="จากเดือนที่แล้ว")
+        
     return AdminUsersPageResponse(
         total_users=len(users),
+        total_users_trend=trend_info,
         active_users=active_count,
         users_list=user_list
     )
