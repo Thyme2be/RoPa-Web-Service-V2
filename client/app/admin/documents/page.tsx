@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DataTable, { Column } from "@/components/ui/DataTable";
 
-export default function DocumentsPage() {
+function DocumentsPageContent() {
     const searchParams = useSearchParams();
     const globalSearchQuery = searchParams.get("search") || "";
 
@@ -187,6 +187,18 @@ export default function DocumentsPage() {
                 </>
             )}
         </div>
+    );
+}
+
+export default function DocumentsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex h-screen items-center justify-center p-8 text-on-surface-variant font-medium">
+                กำลังโหลด...
+            </div>
+        }>
+            <DocumentsPageContent />
+        </Suspense>
     );
 }
 

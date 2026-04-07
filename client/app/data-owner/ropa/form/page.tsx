@@ -12,12 +12,12 @@ import Section5Legal from "@/components/formSections/Section5Legal";
 import Section6TOMs from "@/components/formSections/Section6TOMs";
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { cn } from "@/lib/utils";
 
-export default function Page() {
+function RopaFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const recordId = searchParams.get("id");
@@ -378,5 +378,17 @@ export default function Page() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-surface-container-low">
+                <div className="text-secondary font-bold animate-pulse text-lg">กำลังโหลด...</div>
+            </div>
+        }>
+            <RopaFormContent />
+        </Suspense>
     );
 }
