@@ -28,11 +28,7 @@ export default function Stepper({ completedSteps = [] }: { completedSteps?: numb
                                     : "bg-[#E8E8E8] text-[#5C403D]"
                                     }`}
                             >
-                                {isStepComplete ? (
-                                    <span className="material-symbols-outlined text-[20px] font-black">check</span>
-                                ) : (
-                                    step.id
-                                )}
+                                {step.id}
                             </div>
 
                             {/* Label */}

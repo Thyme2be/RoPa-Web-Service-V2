@@ -1,25 +1,30 @@
+import { RopaStatus, DataCategory, DataType, CollectionMethod } from "./enums";
+
 export type RopaProcessorRecord = {
-  
-  recordName: string;
+  documentName: string;
+  title: string;
+  firstName: string;
+  lastName: string;
   address: string;
   email: string;
-  phoneNumber: number;
-  
-  id?: string;
+  phoneNumber: string;
+  status?: RopaStatus;
+
+  id: string;
 
   // 1–5
   processorName: string;
-  controllerName: "customer" | "partner";
+  controllerName: string; // Changed to string based on UI "ชื่อผู้ควบคุมข้อมูล"
   processingActivity: string;
   purpose: string;
   personalData: string;
 
   // 6–7
-  dataCategory: "customer" | "partner" | "contact" | "employee";
-  dataType: "general" | "sensitive";
+  dataCategory: DataCategory;
+  dataType: DataType;
 
   // 8–9
-  collectionMethod: "soft file" | "hard copy";
+  collectionMethod: CollectionMethod;
   dataSource: {
     fromControllerDirect: boolean;
     fromOther: boolean;
@@ -41,9 +46,9 @@ export type RopaProcessorRecord = {
 
   // 12 retention
   retention: {
-    storageType: "soft_file" | "hard_copy";
+    storageType: CollectionMethod;
     method: string;
-    duration: string;
+    duration: number; // Changed to number for consistency with Owner
     accessCondition: string;
     deletionMethod: string;
   };

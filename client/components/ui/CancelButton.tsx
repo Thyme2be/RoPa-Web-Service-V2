@@ -15,7 +15,7 @@ export default function CancelButton({ onClick }: { onClick?: () => void }) {
     return (
         <button
             onClick={onClick || handleCancel}
-            className="px-6 py-2.5 text-[#5C403D] font-bold hover:text-red-600 transition-all text-[14px] tracking-wide cursor-pointer"
+            className="px-6 h-[52px] text-[#5C403D] font-bold hover:text-[#ED393C] transition-all text-[16px] cursor-pointer"
         >
             ยกเลิก
         </button>

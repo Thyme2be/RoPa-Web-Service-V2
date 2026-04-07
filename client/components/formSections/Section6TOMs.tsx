@@ -1,8 +1,9 @@
 "use client";
 
 import Input from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
 
-export default function Section6TOMs({ form, handleChange, errors }: any) {
+export default function Section6TOMs({ form, handleChange, errors, disabled }: any) {
     const measures = [
         { id: "securityMeasures.organizational", label: "มาตรการเชิงองค์กร", icon: "corporate_fare", placeholder: "ระบุมาตรการเชิงองค์กร" },
         { id: "securityMeasures.accessControl", label: "การควบคุมการเข้าถึงข้อมูล", icon: "lock", placeholder: "ระบุการควบคุมการเข้าถึงข้อมูล" },
@@ -36,7 +37,10 @@ export default function Section6TOMs({ form, handleChange, errors }: any) {
 
                         return (
                             <div key={m.id} className="flex flex-col space-y-4">
-                                <div className="flex items-center gap-4 px-5 py-4 bg-white border border-[#F0F2F5] rounded-2xl shadow-sm">
+                                <div className={cn(
+                                    "flex items-center gap-4 px-5 py-4 bg-white border border-[#F0F2F5] rounded-2xl shadow-sm",
+                                    disabled && "opacity-60"
+                                )}>
                                     <div className="text-gray-500/80">
                                         <span className="material-symbols-outlined text-[22px]">
                                             {m.icon}
@@ -52,6 +56,7 @@ export default function Section6TOMs({ form, handleChange, errors }: any) {
                                     value={value || ""}
                                     placeholder={m.placeholder}
                                     onChange={handleChange}
+                                    disabled={disabled}
                                 />
                             </div>
                         );

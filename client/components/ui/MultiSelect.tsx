@@ -12,6 +12,7 @@ interface MultiSelectProps {
     required?: boolean;
     description?: React.ReactNode;
     error?: string;
+    disabled?: boolean;
 }
 
 export default function MultiSelect({
@@ -23,6 +24,7 @@ export default function MultiSelect({
     required,
     description,
     error,
+    disabled,
 }: MultiSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -36,6 +38,7 @@ export default function MultiSelect({
     );
 
     const toggleOption = (option: string) => {
+        if (disabled) return;
         if (selectedValues.includes(option)) {
             onChange(selectedValues.filter((v) => v !== option));
         } else {
@@ -45,6 +48,7 @@ export default function MultiSelect({
     };
 
     const removeTag = (option: string) => {
+        if (disabled) return;
         onChange(selectedValues.filter((v) => v !== option));
     };
 
@@ -61,7 +65,10 @@ export default function MultiSelect({
 
     return (
         <div className="space-y-2 w-full" ref={containerRef}>
-            <label className="text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight">
+            <label className={cn(
+                "text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight",
+                disabled && "opacity-60"
+            )}>
                 {label} {required && <span className="text-primary">*</span>}
             </label>
 
@@ -94,19 +101,22 @@ export default function MultiSelect({
             {/* Input and Dropdown Container */}
             <div className="relative">
                 <div
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={() => !disabled && setIsOpen(!isOpen)}
                     className={cn(
                         "flex items-center justify-between px-4 py-3 bg-[#F6F3F2] border rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/20 shadow-sm",
                         error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
-                        isOpen && "bg-white border-primary rounded-b-none shadow-sm"
+                        isOpen && "bg-white border-primary rounded-b-none shadow-sm",
+                        disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
                     )}
                 >
                     <input
                         type="text"
-                        className="bg-transparent border-none outline-none text-sm w-full placeholder-[#6B7280] font-medium"
+                        disabled={disabled}
+                        className="bg-transparent border-none outline-none text-sm w-full placeholder-[#6B7280] font-medium disabled:cursor-not-allowed"
                         placeholder={selectedValues.length === 0 ? placeholder : ""}
                         value={searchTerm}
                         onChange={(e) => {
+                            if (disabled) return;
                             setSearchTerm(e.target.value);
                             setIsOpen(true);
                         }}
