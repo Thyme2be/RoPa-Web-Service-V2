@@ -8,6 +8,7 @@ from uuid import UUID
 from app.database import SessionLocal
 from app.core.config import settings
 from app.models.user import User
+from app.models.enums import UserStatus
 from app.schemas.token import TokenData
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -40,6 +41,13 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     user = db.query(User).filter(User.id == token_data.user_id).first()
     if user is None:
         raise credentials_exception
+        
+    if user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is suspended or inactive"
+        )
+        
     return user
 
 class RoleChecker:

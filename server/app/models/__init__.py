@@ -1,7 +1,13 @@
 from app.models.enums import UserStatus, AuditAction
 from app.models.user import User, UserRoleEnum
 from app.models.audit_log import AuditLog
-from app.models.document import RopaDocument, DocumentStatus
+from app.models.document import (
+    RopaDocument, DocumentStatus,
+    ProcessorRecord, ProcessorStatus,
+    AuditorAudit, AuditStatus,
+    AuditorProfile, AuditorType,
+    OwnerRecord,
+)
 
 __all__ = [
     "UserStatus",
@@ -10,5 +16,12 @@ __all__ = [
     "User",
     "AuditLog",
     "RopaDocument",
-    "DocumentStatus"
+    "DocumentStatus",
+    "ProcessorRecord",
+    "ProcessorStatus",
+    "AuditorAudit",
+    "AuditStatus",
+    "AuditorProfile",
+    "AuditorType",
+    "OwnerRecord",
 ]

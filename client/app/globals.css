@@ -63,11 +63,22 @@
   --color-surface-container: var(--surface-container);
   --color-surface-container-low: var(--surface-container-low);
   --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-error: var(--error);
   --color-outline: var(--outline);
 
   /* Map fonts from layout.tsx variables */
   --font-sans: var(--font-sarabun), ui-sans-serif, system-ui, sans-serif;
   --font-headline: var(--font-sarabun), sans-serif;
+
+  --animate-ping: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  @keyframes ping {
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
 }
 
 body {
