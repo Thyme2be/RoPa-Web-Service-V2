@@ -2,12 +2,28 @@
 
 import React from "react";
 
-export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle }: any) {
+export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle, showBack, backUrl }: any) {
     const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
+
+    const handleBack = () => {
+        if (backUrl) {
+            window.location.href = backUrl;
+        } else {
+            window.history.back();
+        }
+    };
 
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
             <div className="flex items-center gap-4 group">
+                {showBack && (
+                    <button 
+                        onClick={handleBack}
+                        className="p-1.5 hover:bg-[#F0EDED] rounded-full transition-colors cursor-pointer mr-[-8px]"
+                    >
+                        <span className="material-symbols-outlined text-secondary text-[22px]">chevron_left</span>
+                    </button>
+                )}
                 {pageTitle ? (
                     <h2 className="text-[17px] font-bold text-[#1B1C1C] tracking-tight">{pageTitle}</h2>
                 ) : (

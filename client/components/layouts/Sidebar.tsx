@@ -9,7 +9,7 @@ const menuItems = [
     { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", href: "/data-owner/dashboard" },
     { id: "ropa", label: "รายการ RoPA", icon: "list_alt", href: "/data-owner/ropa" },
     { id: "docs", label: "เอกสาร", icon: "description", href: "/data-owner/documents" },
-    { id: "advice", label: "ข้อเสนอแนะ", icon: "forum", href: "#" },
+    { id: "advice", label: "ข้อเสนอแนะ", icon: "forum", href: "/data-owner/advice" },
 ];
 
 export default function Sidebar() {
@@ -23,14 +23,14 @@ export default function Sidebar() {
 
             <nav className="flex-1 pl-4 space-y-2">
                 {menuItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive = pathname === item.href || (item.href !== "/data-owner/dashboard" && pathname.startsWith(item.href));
                     return (
                         <Link
                             key={item.id}
                             href={item.href}
                             className={`relative w-full h-12 flex items-center px-4 py-3 transition-all duration-300 group ${isActive
-                                ? "bg-[#F0EDED] rounded-lg"
-                                : " text-secondary"
+                                ? "bg-white/60 rounded-lg shadow-sm"
+                                : " text-secondary hover:bg-white/30 rounded-lg"
                                 }`}
                         >
                             {isActive && (

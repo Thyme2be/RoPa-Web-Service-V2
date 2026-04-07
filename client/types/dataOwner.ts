@@ -73,4 +73,16 @@ export type OwnerRecord = {
     responsibility?: string;
     audit?: string;
   };
+
+  suggestions?: {
+    id: string;
+    section: string;
+    sectionId: number;
+    comment: string;
+    reviewer: string;
+    date: string;
+    status: "pending" | "fixed";
+    role: "owner" | "processor";
+    statusLabel?: string;
+  }[];
 };

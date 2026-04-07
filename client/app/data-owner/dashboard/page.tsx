@@ -27,7 +27,7 @@ export default function DashboardPage() {
                         <h1 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight">
                             แดชบอร์ดสรุปข้อมูล
                         </h1>
-                        <p className="text-[#5F5E5E] text-[15px] font-medium opacity-80">
+                        <p className="text-[#5C403D] text-[15px] font-medium opacity-80">
                             ภาพรวมการปฏิบัติตามข้อกำหนดและความคืบหน้าขององค์กร
                         </p>
                     </div>

@@ -81,56 +81,22 @@ export const mockOwnerRecords: Partial<OwnerRecord>[] = [
         }
     },
     {
-        id: "f41g5e8d-0h4h-5e8d-0e8d-0h4h6e8d0e8d",
-        documentName: "ระบบลูกค้าสัมพันธ์ CRM",
+        id: "ROPA-2026-0891",
+        documentName: "ระบบ e-Logistics Gateway (พิธีการศุลกากร)",
         status: RopaStatus.Rejected,
-        title: "นาง",
-        firstName: "ใจดี",
-        lastName: "มีสุข",
-        address: "321 ถนนรัชดาภิเษก กรุงเทพฯ 10310",
-        email: "jaidee.m@crm-system.com",
-        phoneNumber: "0855556666",
-        dataSubjectName: "ลูกค้าปัจจุบัน",
-        processingActivity: "การวิเคราะห์พฤติกรรมลูกค้า",
-        purpose: "เพื่อปรับปรุงการบริการ",
-        personalData: "ประวัติการซื้อ, ความสนใจ",
-        dataType: DataType.General,
-        collectionMethod: CollectionMethod.SoftFile,
-        legalBasis: "ฐานประโยชน์โดยชอบด้วยกฎหมาย (Legitimate Interest)",
-        retention: {
-            storageType: CollectionMethod.SoftFile,
-            method: ["Cloud Analytics"],
-            duration: 3,
-            unit: RetentionUnit.Year,
-            accessControl: "ฝ่ายวิเคราะห์ข้อมูล",
-            deletionMethod: "ลบข้อมูลจากฐานข้อมูล"
-        }
+        suggestions: [
+            { id: "s1", section: "ส่วนที่ 2 : วัตถุประสงค์การประมวลผล", sectionId: 2, comment: "วัตถุประสงค์ในการเก็บข้อมูลเพื่อส่งต่อกรมศุลกากรมีความชัดเจนแล้ว แต่กรุณาเพิ่มรายละเอียดการจัดเก็บ log การเข้าถึงระบบ (Access Log) ให้ครอบคลุมตามมาตรฐานความปลอดภัยข้อมูล", reviewer: "วิริยา พรหมรักษ์", date: "26/03/2026, 14:30", role: "owner", status: "pending" },
+            { id: "s2", section: "ส่วนที่ 4 : ระยะเวลาการเก็บรักษา", sectionId: 4, comment: "ระยะเวลาการเก็บรักษาข้อมูลชุดนี้ต้องสอดคล้องกับระเบียบของกรมศุลกากร (ปกติ 5 ปี) กรุณาตรวจสอบและอ้างอิงข้อเขียนทางกฎหมายให้ชัดเจน", reviewer: "วิริยา พรหมรักษ์", date: "26/03/2026, 14:30", role: "owner", status: "pending" }
+        ]
     },
     {
-        id: "g52h6f9e-1i5i-6f9e-1f9e-1i5i7f9e1f9e",
-        documentName: "ระบบกล้องวงจรปิดสำนักงานใหญ่",
-        status: RopaStatus.Active,
-        title: "นาย",
-        firstName: "เฝ้าระวัง",
-        lastName: "ปลอดภัย",
-        address: "99 ถนนรัชดาภิเษก กรุงเทพฯ 10400",
-        email: "security@head-office.com",
-        phoneNumber: "021234567",
-        dataSubjectName: "พนักงานและบุคคลภายนอก",
-        processingActivity: "การรักษาความปลอดภัยสถานที่",
-        purpose: "เพื่อป้องกันเหตุร้ายและตรวจสอบย้อนหลัง",
-        personalData: "ภาพใบหน้า, ข้อมูลวิดีโอ",
-        dataType: DataType.General,
-        collectionMethod: CollectionMethod.HardCopy,
-        legalBasis: "ฐานประโยชน์โดยชอบด้วยกฎหมาย (Legitimate Interest)",
-        retention: {
-            storageType: CollectionMethod.SoftFile,
-            method: ["NVR Server"],
-            duration: 30,
-            unit: RetentionUnit.Day,
-            accessControl: "ฝ่ายรักษาความปลอดภัย",
-            deletionMethod: "บันทึกทับอัตโนมัติ"
-        }
+        id: "ROPA-2026-0892",
+        documentName: "ระบบ e-Tax Invoice & e-Receipt",
+        status: RopaStatus.Submitted,
+        suggestions: [
+            { id: "s3", section: "ส่วนที่ 5 : การส่งข้อมูลไปต่างประเทศ", sectionId: 5, comment: "กรณีมีการใช้ Cloud Storage ของ AWS (Singapore Region) สำหรับสำรองข้อมูลใบกำกับภาษี กรุณาแนบเอกสารรับรองมาตรฐานการคุ้มครองข้อมูลส่วนบุคคลของ Cloud Provider", reviewer: "วิริยา พรหมรักษ์", date: "26/03/2026, 14:30", role: "processor", statusLabel: "เสร็จสมบูรณ์", status: "fixed" },
+            { id: "s4", section: "ส่วนที่ 6 : มาตรการรักษาความปลอดภัย", sectionId: 6, comment: "กรุณาระบุมาตรการในการเข้ารหัสข้อมูล (Encryption) สำหรับข้อมูลส่วนบุคคลที่ปรากฏบนใบกำกับภาษีขณะจัดเก็บ (At Rest) เพื่อให้สอดคล้องกับ ISMS ของบริษัท", reviewer: "วิริยา พรหมรักษ์", date: "26/03/2026, 14:30", role: "processor", statusLabel: "ไม่เสร็จสมบูรณ์", status: "pending" }
+        ]
     },
     {
         id: "h63i7g0f-2j6j-7g0f-2g0f-2j6j8g0f2g0f",
@@ -208,6 +174,9 @@ export const mockOwnerRecords: Partial<OwnerRecord>[] = [
             unit: RetentionUnit.Year,
             accessControl: "ฝ่ายสวัสดิการ",
             deletionMethod: "ลบไฟล์"
-        }
+        },
+        suggestions: [
+            { id: "s5", section: "ส่วนที่ 5 : ข้อมูลส่วนบุคคลที่เก็บรวบรวม", sectionId: 5, comment: "ข้อมูลสูติบัตรเป็นข้อมูลอ่อนไหว (Sensitive) ควรเพิ่มมาตรการความปลอดภัยส่วนนี้ให้รัดกุมที่สุด", reviewer: "Admin", date: "01/04/2026, 10:00", role: "owner", status: "pending" }
+        ]
     }
 ];

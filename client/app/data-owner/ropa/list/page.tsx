@@ -46,11 +46,11 @@ export default function RopaListPage() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C] w-[18%]">รหัสเอกสาร</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C] w-[32%]">ชื่อรายการ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">วันที่รับข้อมูล</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">สถานะ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">การดำเนินการ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[18%] uppercase">รหัสเอกสาร</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[32%] uppercase">ชื่อรายการ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">วันที่รับข้อมูล</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">
@@ -73,10 +73,10 @@ export default function RopaListPage() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C] w-[18%]">รหัสฉบับร่าง</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C] w-[42%]">ชื่อรายการ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">บันทึกล่าสุด</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">การดำเนินการ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[18%] uppercase">รหัสฉบับร่าง</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[42%] uppercase">ชื่อรายการ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">บันทึกล่าสุด</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">

@@ -3,15 +3,25 @@
 import React, { useState } from "react";
 import Select from "@/components/ui/Select";
 
-export function SummaryCard({ label, value, accentColor }: { label: string; value: string; accentColor: string }) {
+export function SummaryCard({ label, value, accentColor, subtext, footer }: { label: string; value: string; accentColor: string; subtext?: string; footer?: React.ReactNode }) {
     const borderClass = accentColor === "red" ? "border-l-[#ED393C]" : 
                        accentColor === "teal" ? "border-l-[#0D9488]" : 
                        "border-l-neutral-400";
 
     return (
-        <div className={`bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 border-l-[4px] ${borderClass} flex flex-col justify-center min-h-[110px]`}>
-            <p className="text-[13px] font-bold text-secondary tracking-tight mb-2">{label}</p>
-            <p className="text-3xl font-black text-[#1B1C1C] tracking-tighter">{value}</p>
+        <div className={`bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 border-l-[4px] ${borderClass} flex flex-col justify-between min-h-[135px]`}>
+            <div>
+                <p className="text-[13px] font-bold text-secondary tracking-tight mb-2">{label}</p>
+                <div className="flex items-baseline gap-2">
+                    <p className="text-3xl font-black text-[#1B1C1C] tracking-tighter">{value}</p>
+                    {subtext && <span className="text-[14px] font-medium text-secondary opacity-60">{subtext}</span>}
+                </div>
+            </div>
+            {footer && (
+                <div className="pt-2 border-t border-[#E5E2E1]/20 mt-3">
+                    {footer}
+                </div>
+            )}
         </div>
     );
 }

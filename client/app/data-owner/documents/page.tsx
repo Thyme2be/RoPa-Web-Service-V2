@@ -43,12 +43,12 @@ export default function ProcessorDocumentsPage() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C] w-[15%]">รหัสเอกสาร</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C] w-[30%]">ชื่อรายการ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">วันที่มอบหมาย</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">วันที่ได้รับ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">สถานะ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#1B1C1C]">การดำเนินการ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[15%] uppercase">รหัสเอกสาร</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[30%] uppercase">ชื่อรายการ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">วันที่มอบหมาย</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
+                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">

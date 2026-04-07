@@ -4,12 +4,12 @@ import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Stepper from "@/components/layouts/Stepper";
 import FormActions from "@/components/layouts/FormActions";
-import Section1GeneralInfo from "@/components/controllerSections/Section1GeneralInfo";
-import Section2ActivityDetails from "@/components/controllerSections/Section2ActivityDetails";
-import Section3Stored from "@/components/controllerSections/Section3Stored";
-import Section4Retention from "@/components/controllerSections/Section4Retention";
-import Section5Legal from "@/components/controllerSections/Section5Legal";
-import Section6TOMs from "@/components/controllerSections/Section6TOMs";
+import Section1GeneralInfo from "@/components/formSections/Section1GeneralInfo";
+import Section2ActivityDetails from "@/components/formSections/Section2ActivityDetails";
+import Section3Stored from "@/components/formSections/Section3Stored";
+import Section4Retention from "@/components/formSections/Section4Retention";
+import Section5Legal from "@/components/formSections/Section5Legal";
+import Section6TOMs from "@/components/formSections/Section6TOMs";
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect } from "react";
@@ -31,18 +31,18 @@ export default function Page() {
         dataCategories: [],
         storedDataTypes: [],
         storedDataTypesOther: "",
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: [], 
-            duration: 0, 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: [],
+            duration: 0,
             unit: RetentionUnit.Year,
-            accessControl: "", 
-            deletionMethod: "" 
+            accessControl: "",
+            deletionMethod: ""
         },
         dataType: DataType.General,
         securityMeasures: {}
     });
-    
+
     const initialFormState = { ...form, id: crypto.randomUUID() };
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -74,7 +74,7 @@ export default function Page() {
                 error = "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 10 หลัก)";
             }
         }
-        
+
         setErrors(prev => ({ ...prev, [name]: error }));
         return error === "";
     };
@@ -119,7 +119,7 @@ export default function Page() {
         if (!form.legalBasis) newErrors.legalBasis = "กรุณาระบุฐานในการประมวลผล";
         if (!form.minorConsent?.under10 && !form.minorConsent?.age10to20 && !form.minorConsent?.none) newErrors.minorConsent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์อย่างน้อย 1 รายการ";
         if (form.internationalTransfer?.isTransfer === undefined || form.internationalTransfer?.isTransfer === null) newErrors.isTransfer = "กรุณาเลือกว่ามีการส่งข้อมูลไปต่างประเทศหรือไม่";
-        
+
         if (form.internationalTransfer?.isTransfer === true) {
             if (!form.internationalTransfer.country) newErrors.transferCountry = "กรุณาระบุประเทศปลายทาง";
             if (!form.internationalTransfer.companyName) newErrors.transferCompany = "กรุณาระบุชื่อบริษัทในเครือ";
@@ -130,7 +130,7 @@ export default function Page() {
         if (!form.exemptionDisclosure) newErrors.exemptionDisclosure = "กรุณาระบุการใช้หรือเปิดเผยข้อมูลที่ได้รับยกเว้น";
 
         setErrors(newErrors);
-        
+
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
             const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
@@ -147,7 +147,7 @@ export default function Page() {
     const handleChange = (e: any) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-        
+
         let val: any = value;
         if (type === "number") {
             val = value === "" ? "" : Math.max(0, Number(value));
@@ -157,7 +157,7 @@ export default function Page() {
                 val = (value && value !== "on") ? (checked ? value : "") : checked;
             }
         }
-        
+
         if (typeof val === "string") {
             if (val.toLowerCase() === "true") val = true;
             else if (val.toLowerCase() === "false") val = false;
@@ -169,11 +169,11 @@ export default function Page() {
 
         setForm((prev: any) => {
             const keys = name.split(".");
-            
+
             if (name.endsWith("[]")) {
                 const arrayKey = name.replace("[]", "");
                 const currentArray = prev[arrayKey] || [];
-                const newArray = checked 
+                const newArray = checked
                     ? [...currentArray, value]
                     : currentArray.filter((v: string) => v !== value);
                 return { ...prev, [arrayKey]: newArray };
@@ -218,18 +218,18 @@ export default function Page() {
         }
 
         if (
-            form.collectionMethod && 
-            form.retention?.duration && 
-            form.retention?.unit && 
-            form.retention?.accessControl && 
+            form.collectionMethod &&
+            form.retention?.duration &&
+            form.retention?.unit &&
+            form.retention?.accessControl &&
             form.retention?.deletionMethod
         ) {
             completed.push(4);
         }
 
-        const isTransferComplete = form.internationalTransfer?.isTransfer === false || 
+        const isTransferComplete = form.internationalTransfer?.isTransfer === false ||
             (form.internationalTransfer?.isTransfer === true && form.internationalTransfer?.country && form.internationalTransfer?.transferMethod);
-        
+
         if (form.legalBasis && isTransferComplete && form.exemptionDisclosure) {
             completed.push(5);
         }
@@ -271,10 +271,10 @@ export default function Page() {
             <Sidebar />
 
             <main className="flex-1 ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
-                <TopBar 
-                    documentName={form.documentName} 
-                    handleChange={handleChange} 
-                    status={form.status} 
+                <TopBar
+                    documentName={form.documentName}
+                    handleChange={handleChange}
+                    status={form.status}
                 />
 
                 <div className="flex-1 overflow-y-auto p-8 pb-36 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-1000">
