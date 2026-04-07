@@ -27,32 +27,16 @@ export function SummaryCard({ label, value, accentColor, subtext, footer }: { la
 }
 
 export function AdvancedFilterBar({ initialTimeframe = "30" }: { initialTimeframe?: string }) {
-    const [status, setStatus] = useState("all");
     const [date, setDate] = useState("");
     const [timeframe, setTimeframe] = useState(initialTimeframe);
 
     const handleClear = () => {
-        setStatus("all");
         setDate("");
         setTimeframe(initialTimeframe);
     };
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-            <Select 
-                label="สถานะ"
-                rounding="xl"
-                value={status}
-                name="status"
-                onChange={(e) => setStatus(e.target.value)}
-                options={[
-                    { label: "สถานะทั้งหมด", value: "all" },
-                    { label: "อนุมัติ", value: "approved" },
-                    { label: "รอตรวจสอบ", value: "pending" },
-                    { label: "ต้องแก้ไข", value: "fix" },
-                ]}
-            />
-            
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div className="space-y-1.5 pb-[2px]">
                 <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">วันที่รับข้อมูล</label>
                 <div className="relative">
@@ -103,6 +87,7 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
+        "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
         "ฉบับร่าง": "bg-[#9CA3AF] text-white"                    // Secondary Gray
     };
 
@@ -113,15 +98,19 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
     );
 }
 
-export function ActionButton({ icon, label, color = "black", onClick }: { icon: string; label: string; color?: "black" | "red" | "gray"; onClick?: () => void }) {
+export function ActionButton({ icon, label, color = "black", onClick, disabled }: { icon: string; label: string; color?: "black" | "red" | "gray"; onClick?: () => void; disabled?: boolean }) {
     const colorClasses = {
         black: "text-[#1B1C1C] opacity-80 hover:opacity-100",
-        red: "text-[#DC2626] hover:opacity-80",
-        gray: "text-[#4B5563] opacity-70 hover:opacity-100"
+        red: "text-[#ED393C] hover:opacity-80",
+        gray: "text-[#9CA3AF] hover:opacity-80"
     };
 
     return (
-        <button onClick={onClick} className={`flex items-center gap-2 font-black text-[12.5px] transition-all ${colorClasses[color]}`}>
+        <button 
+            onClick={onClick} 
+            disabled={disabled}
+            className={`flex items-center gap-2 font-black text-[14px] transition-all ${colorClasses[color]} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+        >
             <span className="material-symbols-outlined text-[20px] font-bold">{icon}</span>
             {label}
         </button>
@@ -145,19 +134,40 @@ export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSor
     );
 }
 
-export function Pagination({ current, total }: { current: number; total: number }) {
+
+export function Pagination({ current, total, onChange }: { current: number; total: number; onChange?: (page: number) => void }) {
+    if (total <= 1) return null;
+    const pages = Array.from({ length: total }, (_, i) => i + 1);
+
     return (
         <div className="flex justify-between items-center mt-8 text-[12px] font-bold text-[#6B7280]">
-            <p className="opacity-80 font-medium">แสดง 1 ถึง {current} จากทั้งหมด {total} รายการ</p>
+            <p className="opacity-80 font-medium">หน้า {current} จากทั้งหมด {total} หน้า</p>
             <div className="flex items-center gap-2">
-                <button className="material-symbols-outlined text-[19px] cursor-pointer opacity-30 hover:opacity-60 transition-opacity">chevron_left</button>
-                {[1, 2, 3].map(p => (
-                    <button key={p} className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${p === 1 ? "bg-[#ED393C] text-white font-bold" : "hover:bg-gray-100 font-medium"}`}>
+                <button
+                    onClick={() => onChange?.(Math.max(1, current - 1))}
+                    disabled={current === 1}
+                    className="material-symbols-outlined text-[19px] cursor-pointer disabled:opacity-30 hover:opacity-60 transition-opacity"
+                >
+                    chevron_left
+                </button>
+                {pages.map(p => (
+                    <button
+                        key={p}
+                        onClick={() => onChange?.(p)}
+                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${p === current ? "bg-[#ED393C] text-white font-bold shadow-sm" : "hover:bg-gray-100 font-medium"}`}
+                    >
                         {p}
                     </button>
                 ))}
-                <button className="material-symbols-outlined text-[19px] cursor-pointer hover:text-[#ED393C] transition-colors">chevron_right</button>
+                <button
+                    onClick={() => onChange?.(Math.min(total, current + 1))}
+                    disabled={current === total}
+                    className="material-symbols-outlined text-[19px] cursor-pointer disabled:opacity-30 hover:text-[#ED393C] transition-colors"
+                >
+                    chevron_right
+                </button>
             </div>
         </div>
     );
 }
+

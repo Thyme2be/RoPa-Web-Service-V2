@@ -3,8 +3,9 @@
 import Input from "@/components/ui/Input";
 import Checkbox from "@/components/ui/Checkbox";
 import RadioButton from "@/components/ui/RadioButton";
+import { cn } from "@/lib/utils";
 
-export default function Section5Legal({ form, handleChange, errors }: any) {
+export default function Section5Legal({ form, handleChange, errors, disabled }: any) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary">
             {/* Header with Red Accent and Gavel Icon */}
@@ -31,30 +32,37 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                             required
                             onChange={handleChange}
                             error={errors?.legalBasis}
+                            disabled={disabled}
                         />
                     </div>
                     <div className="space-y-4">
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                             การขอความยินยอมของผู้เยาว์ <span className="text-primary">*</span>
                         </label>
-                        <div className="space-y-3 bg-[#F6F3F2] p-6 rounded-2xl border border-[#F6F3F2]">
+                        <div className={cn(
+                            "space-y-3 bg-[#F6F3F2] p-6 rounded-2xl border border-[#F6F3F2]",
+                            disabled && "opacity-60 pointer-events-none"
+                        )}>
                             <Checkbox
                                 label="อายุไม่เกิน 10 ปี"
                                 name="minorConsent.under10"
                                 checked={!!form?.minorConsent?.under10}
                                 onChange={handleChange}
+                                disabled={disabled}
                             />
                             <Checkbox
                                 label="อายุ 10 - 20 ปี"
                                 name="minorConsent.age10to20"
                                 checked={!!form?.minorConsent?.age10to20}
                                 onChange={handleChange}
+                                disabled={disabled}
                             />
                             <Checkbox
                                 label="ไม่มีการขอความยินยอมของผู้เยาว์"
                                 name="minorConsent.none"
                                 checked={!!form?.minorConsent?.none}
                                 onChange={handleChange}
+                                disabled={disabled}
                             />
                         </div>
                         {errors?.minorConsent && (
@@ -72,7 +80,10 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                             ส่งหรือโอนข้อมูลส่วนบุคคลไปยังต่างประเทศ
                             <span className="text-primary">*</span>
                         </h3>
-                        <div className="flex items-center gap-6">
+                        <div className={cn(
+                            "flex items-center gap-6",
+                            disabled && "opacity-60 pointer-events-none"
+                        )}>
                             <RadioButton
                                 label="มี"
                                 name="internationalTransfer.isTransfer"
@@ -81,6 +92,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 checked={form?.internationalTransfer?.isTransfer === true}
                                 onChange={handleChange}
                                 alignRight
+                                disabled={disabled}
                             />
                             <RadioButton
                                 label="ไม่มี"
@@ -90,6 +102,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 checked={form?.internationalTransfer?.isTransfer === false}
                                 onChange={handleChange}
                                 alignRight
+                                disabled={disabled}
                             />
                         </div>
                         {errors?.isTransfer && (
@@ -107,7 +120,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 value={form?.internationalTransfer?.country || ""}
                                 placeholder="ระบุประเทศปลายทาง (เช่น จีน)"
                                 required={false}
-                                disabled={!form?.internationalTransfer?.isTransfer}
+                                disabled={disabled || !form?.internationalTransfer?.isTransfer}
                                 onChange={handleChange}
                                 error={errors?.transferCountry}
                             />
@@ -117,7 +130,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 value={form?.internationalTransfer?.companyName || ""}
                                 placeholder="หากใช่ระบุชื่อบริษัท (เช่น บริษัท B)"
                                 required={false}
-                                disabled={!form?.internationalTransfer?.isTransfer}
+                                disabled={disabled || !form?.internationalTransfer?.isTransfer}
                                 onChange={handleChange}
                                 error={errors?.transferCompany}
                             />
@@ -127,7 +140,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 value={form?.internationalTransfer?.transferMethod || ""}
                                 placeholder="ระบุวิธีการโอนข้อมูล (เช่น โอนทางอิเล็กทรอนิกส์)"
                                 required={false}
-                                disabled={!form?.internationalTransfer?.isTransfer}
+                                disabled={disabled || !form?.internationalTransfer?.isTransfer}
                                 onChange={handleChange}
                                 error={errors?.transferMethod}
                             />
@@ -137,7 +150,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                                 value={form?.internationalTransfer?.protectionStandard || ""}
                                 placeholder="ระบุมาตรฐานการคุ้มครองข้อมูลส่วนบุคคล"
                                 required={false}
-                                disabled={!form?.internationalTransfer?.isTransfer}
+                                disabled={disabled || !form?.internationalTransfer?.isTransfer}
                                 onChange={handleChange}
                                 error={errors?.transferStandard}
                             />
@@ -148,7 +161,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                             value={form?.internationalTransfer?.exception || ""}
                             placeholder="ระบุข้อยกเว้นตามมาตรา 28 (เช่น ปฏิบัติตามกฎหมาย ความยินยอม ปฏิบัติตามสัญญา ป้องกันอันตรายต่อชีวิต)"
                             required={false}
-                            disabled={!form?.internationalTransfer?.isTransfer}
+                            disabled={disabled || !form?.internationalTransfer?.isTransfer}
                             onChange={handleChange}
                             error={errors?.transferException}
                         />
@@ -157,7 +170,7 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
 
                 {/* Bottom Full-width Fields */}
                 <div className="space-y-8">
-                    <Input
+                     <Input
                         label="การใช้หรือเปิดเผยข้อมูลส่วนบุคคลที่ได้รับยกเว้นไม่ต้องขอความยินยอม"
                         name="exemptionDisclosure"
                         value={form?.exemptionDisclosure || ""}
@@ -165,13 +178,15 @@ export default function Section5Legal({ form, handleChange, errors }: any) {
                         required
                         onChange={handleChange}
                         error={errors?.exemptionDisclosure}
+                        disabled={disabled}
                     />
-                    <Input
+                     <Input
                         label="การปฏิเสธคำขอหรือคัดค้านการใช้สิทธิของเจ้าของข้อมูลส่วนบุคคล"
                         name="rejectionNote"
                         value={form?.rejectionNote || ""}
                         placeholder="ระบุการปฏิเสธคำขอหรือคัดค้านการใช้สิทธิของเจ้าของข้อมูล เมื่อมีการปฏิเสธการใช้สิทธิ"
                         onChange={handleChange}
+                        disabled={disabled}
                     />
                 </div>
             </div>

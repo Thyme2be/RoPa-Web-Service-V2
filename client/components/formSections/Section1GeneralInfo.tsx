@@ -1,7 +1,7 @@
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 
-export default function GeneralInfo({ form, handleChange, errors }: any) {
+export default function GeneralInfo({ form, handleChange, errors, disabled }: any) {
     const titleOptions = [
         { label: "คำนำหน้า", value: "" },
         { label: "นาย", value: "นาย" },
@@ -40,6 +40,7 @@ export default function GeneralInfo({ form, handleChange, errors }: any) {
                                     options={titleOptions}
                                     required
                                     error={errors?.title}
+                                    disabled={disabled}
                                 />
                             </div>
                             <div className="flex-1">
@@ -50,6 +51,7 @@ export default function GeneralInfo({ form, handleChange, errors }: any) {
                                     onChange={handleChange}
                                     required
                                     error={errors?.firstName}
+                                    disabled={disabled}
                                 />
                             </div>
                             <div className="flex-1">
@@ -60,6 +62,7 @@ export default function GeneralInfo({ form, handleChange, errors }: any) {
                                     onChange={handleChange}
                                     required
                                     error={errors?.lastName}
+                                    disabled={disabled}
                                 />
                             </div>
                         </div>
@@ -73,6 +76,7 @@ export default function GeneralInfo({ form, handleChange, errors }: any) {
                         value={form?.address || ""}
                         onChange={handleChange}
                         error={errors?.address}
+                        disabled={disabled}
                     />
                 </div>
 
@@ -87,6 +91,7 @@ export default function GeneralInfo({ form, handleChange, errors }: any) {
                         value={form?.email || ""}
                         onChange={handleChange}
                         error={errors?.email}
+                        disabled={disabled}
                     />
                     <Input
                         label="เบอร์โทรศัพท์"
@@ -96,6 +101,7 @@ export default function GeneralInfo({ form, handleChange, errors }: any) {
                         value={form?.phoneNumber || ""}
                         onChange={handleChange}
                         error={errors?.phoneNumber}
+                        disabled={disabled}
                     />
                 </div>
             </div>

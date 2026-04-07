@@ -9,6 +9,7 @@ export type OwnerRecord = {
   email: string;
   phoneNumber: string; 
   status?: RopaStatus;
+  dateCreated?: string;
   
   id: string;
 
@@ -85,4 +86,17 @@ export type OwnerRecord = {
     role: "owner" | "processor";
     statusLabel?: string;
   }[];
+
+  // Processor assignment (for documents page)
+  assignedProcessor?: {
+    name: string;
+    assignedDate: string;
+    documentTitle: string;
+    receivedDate?: string;
+    processorStatus?: "เสร็จสมบูรณ์" | "ไม่เสร็จสมบูรณ์" | "รอดำเนินการ";
+  };
+
+  // Timestamps (backend-ready)
+  submittedDate?: string;
+  updatedDate?: string;
 };

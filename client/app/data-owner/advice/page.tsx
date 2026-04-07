@@ -1,21 +1,37 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { 
-    SummaryCard, 
-    AdvancedFilterBar, 
-    Pagination, 
-    ListCard 
+import {
+    SummaryCard,
+    AdvancedFilterBar,
+    Pagination,
+    ListCard
 } from "@/components/ropa/ListComponents";
-import { mockOwnerRecords } from "@/lib/mockRecords";
-
+import { useRopa } from "@/context/RopaContext";
 import Link from "next/link";
 
+const ITEMS_PER_PAGE = 5;
+
 export default function RopaAdvicePage() {
-    // Correct mapping for the feedback list
-    const feedbackRecords = mockOwnerRecords.filter(r => r.suggestions && r.suggestions.length > 0);
+    const { records, stats } = useRopa();
+    const [page, setPage] = useState(1);
+
+    // Records with suggestions (rejected or with feedback)
+    const feedbackRecords = records.filter(r => r.suggestions && r.suggestions.length > 0);
+    const pendingCount = feedbackRecords.filter(r =>
+        r.suggestions?.some(s => s.status === "pending")
+    ).length;
+    const processorPendingCount = feedbackRecords.filter(r =>
+        r.suggestions?.some(s => s.role === "processor" && s.status === "pending")
+    ).length;
+
+    const paginated = feedbackRecords.slice(
+        (page - 1) * ITEMS_PER_PAGE,
+        page * ITEMS_PER_PAGE
+    );
+    const totalPages = Math.ceil(feedbackRecords.length / ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#FCF9F8]">
@@ -34,23 +50,23 @@ export default function RopaAdvicePage() {
                         </p>
                     </div>
 
-                    {/* Summary Stats with Footers */}
+                    {/* Summary Stats — live from Context */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <SummaryCard 
-                            label="รายการที่รอการตอบกลับทั้งหมด" 
-                            value="12" 
-                            accentColor="red" 
+                        <SummaryCard
+                            label="รายการที่รอการตอบกลับทั้งหมด"
+                            value={pendingCount.toString()}
+                            accentColor="red"
                             footer={(
                                 <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#DC2626]">
                                     <span className="material-symbols-outlined text-[16px]">show_chart</span>
-                                    เพิ่มขึ้น 4 รายการจากเมื่อวาน
+                                    {feedbackRecords.length} รายการที่มีข้อเสนอแนะ
                                 </div>
                             )}
                         />
-                        <SummaryCard 
-                            label="รายการที่รอการดำเนินการจากผู้ประมวลผลข้อมูลส่วนบุคคล" 
-                            value="08" 
-                            accentColor="teal" 
+                        <SummaryCard
+                            label="รายการที่รอการดำเนินการจากผู้ประมวลผลข้อมูลส่วนบุคคล"
+                            value={processorPendingCount.toString()}
+                            accentColor="teal"
                             footer={(
                                 <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#0D9488]">
                                     <span className="material-symbols-outlined text-[16px]">hourglass_empty</span>
@@ -74,40 +90,37 @@ export default function RopaAdvicePage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">
-                                {feedbackRecords.map((record) => (
-                                    <FeedbackRow 
-                                        key={record.id}
-                                        id={record.id}
-                                        displayId={record.id || "RP-2026"}
-                                        title={record.documentName || "-"}
-                                        receivedDate={record.suggestions?.[0]?.date || "30/03/2026, 14:30"}
-                                    />
+                                {paginated.map((record) => (
+                                    <tr key={record.id} className="hover:bg-[#F9FAFB] transition-colors group">
+                                        <td className="py-8 text-[13px] font-medium text-secondary">{record.id}</td>
+                                        <td className="py-8 text-[14.5px] font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
+                                        <td className="py-8 text-[13px] font-medium text-secondary">
+                                            {record.suggestions?.[0]?.date || record.dateCreated || "-"}
+                                        </td>
+                                        <td className="py-8">
+                                            <div className="flex items-center justify-center">
+                                                <Link href={`/data-owner/advice/${record.id}`}>
+                                                    <button className="bg-[#E5E7EB]/70 text-[#4B5563] px-6 py-2.5 rounded-lg text-[12.5px] font-black hover:bg-[#E5E7EB] transition-all hover:shadow-sm cursor-pointer">
+                                                        ดูข้อเสนอแนะ
+                                                    </button>
+                                                </Link>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ))}
+                                {paginated.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="py-12 text-[#5F5E5E] text-[14px] font-medium">
+                                            ไม่มีข้อเสนอแนะในขณะนี้
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
-                        <Pagination current={feedbackRecords.length} total={feedbackRecords.length} />
+                        <Pagination current={page} total={totalPages} onChange={setPage} />
                     </ListCard>
                 </div>
             </main>
         </div>
-    );
-}
-
-function FeedbackRow({ id, displayId, title, receivedDate }: any) {
-    return (
-        <tr className="hover:bg-[#F9FAFB] transition-colors group">
-            <td className="py-8 text-[13px] font-medium text-secondary">{displayId}</td>
-            <td className="py-8 text-[14.5px] font-bold text-[#1B1C1C] tracking-tight leading-snug">{title}</td>
-            <td className="py-8 text-[13px] font-medium text-secondary">{receivedDate}</td>
-            <td className="py-8">
-                <div className="flex items-center justify-center">
-                    <Link href={`/data-owner/advice/${id}`}>
-                        <button className="bg-[#E5E7EB]/70 text-[#4B5563] px-6 py-2.5 rounded-lg text-[12.5px] font-black hover:bg-[#E5E7EB] transition-all hover:shadow-sm cursor-pointer">
-                            ดูข้อเสนอแนะ
-                        </button>
-                    </Link>
-                </div>
-            </td>
-        </tr>
     );
 }

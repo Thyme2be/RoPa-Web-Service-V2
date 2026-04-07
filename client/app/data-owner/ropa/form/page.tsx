@@ -13,8 +13,18 @@ import Section6TOMs from "@/components/formSections/Section6TOMs";
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRopa } from "@/context/RopaContext";
+import { cn } from "@/lib/utils";
 
 export default function Page() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const recordId = searchParams.get("id");
+    const viewMode = searchParams.get("mode") === "view";
+    const { saveRecord, getById } = useRopa();
+    const [isReviewMode, setIsReviewMode] = useState(false);
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [form, setForm] = useState<Partial<OwnerRecord>>({
         documentName: "",
         title: "",
@@ -47,19 +57,26 @@ export default function Page() {
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Load draft from localStorage on mount
+    // Load draft from localStorage or existing record by ID
     useEffect(() => {
+        if (recordId) {
+            const existing = getById(recordId);
+            if (existing) {
+                setForm(prev => ({ ...prev, ...existing }));
+                return;
+            }
+        }
+        // Fallback to draft
         const savedDraft = localStorage.getItem("ropa_owner_draft");
-        if (savedDraft) {
+        if (savedDraft && !recordId) {
             try {
                 const parsed = JSON.parse(savedDraft);
                 setForm(prev => ({ ...prev, ...parsed }));
-                console.log("Owner Draft loaded from localStorage");
             } catch (e) {
                 console.error("Failed to parse draft from localStorage", e);
             }
         }
-    }, []);
+    }, [recordId]);
 
     const validateField = (name: string, value: any) => {
         let error = "";
@@ -83,7 +100,7 @@ export default function Page() {
         const newErrors: Record<string, string> = {};
 
         // Document Name
-        if (!form.documentName) newErrors.documentName = "กรุณากรอกชื่อเอกสาร";
+        if (!form.documentName?.trim()) newErrors.documentName = "กรุณากรอกชื่อเอกสาร";
 
         // Section 1
         if (!form.title) newErrors.title = "กรุณาเลือกคำนำหน้า";
@@ -245,10 +262,22 @@ export default function Page() {
     const completedSteps = getCompletedSteps();
 
     const handleSave = () => {
-        if (validateForm()) {
-            console.log("Finalizing and Saving Record:", form);
-            alert("บันทึกข้อมูลเรียบร้อยแล้ว");
+        if (!form.documentName) {
+            setErrors(prev => ({ ...prev, documentName: "กรุณาตั้งชื่อเอกสาร" }));
         }
+        if (validateForm()) {
+            setIsReviewMode(true);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    };
+
+    const handleFinalConfirm = () => {
+        const saved = saveRecord({
+            ...form,
+            status: RopaStatus.Active,
+        } as OwnerRecord);
+        localStorage.removeItem("ropa_owner_draft");
+        setIsSuccessModalOpen(true);
     };
 
     const handleCancel = () => {
@@ -260,10 +289,8 @@ export default function Page() {
     };
 
     const handleDraft = () => {
-        const draftData = { ...form, status: RopaStatus.Draft };
-        console.log("Saving Owner Draft to Local Storage:", draftData);
-        localStorage.setItem("ropa_owner_draft", JSON.stringify(draftData));
-        alert("บันทึกฉบับร่างเรียบร้อยแล้วในเบราว์เซอร์");
+        saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
+        alert("บันทึกฉบับร่างเรียบร้อยแล้ว");
     };
 
     return (
@@ -275,24 +302,80 @@ export default function Page() {
                     documentName={form.documentName}
                     handleChange={handleChange}
                     status={form.status}
+                    hideSearch={true}
+                    hasError={!!errors.documentName}
                 />
 
                 <div className="flex-1 overflow-y-auto p-8 pb-36 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-1000">
                     <Stepper completedSteps={completedSteps} />
 
-                    <div className="space-y-8">
-                        <Section1GeneralInfo form={form} handleChange={handleChange} errors={errors} />
-                        <Section2ActivityDetails form={form} handleChange={handleChange} errors={errors} />
-                        <Section3Stored form={form} handleChange={handleChange} errors={errors} />
-                        <Section4Retention form={form} handleChange={handleChange} errors={errors} />
-                        <Section5Legal form={form} handleChange={handleChange} errors={errors} />
-                        <Section6TOMs form={form} handleChange={handleChange} errors={errors} />
+                    <div className={cn(
+                        "space-y-8 transition-all duration-300",
+                        isReviewMode && "opacity-75 pointer-events-none grayscale-[0.2]"
+                    )}>
+                        <Section1GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
+                        <Section2ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
+                        <Section3Stored form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
+                        <Section4Retention form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
+                        <Section5Legal form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
+                        <Section6TOMs form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
                     </div>
 
                     <div className="h-10"></div>
                 </div>
 
-                <FormActions onSave={handleSave} onDraft={handleDraft} onCancel={handleCancel} />
+                {!viewMode ? (
+                    !isReviewMode ? (
+                        <FormActions onSave={handleSave} onDraft={handleDraft} onCancel={handleCancel} />
+                    ) : (
+                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/60 p-4 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            <button 
+                                onClick={() => setIsReviewMode(false)}
+                                className="text-[16px] font-bold text-[#5C403D] hover:text-[#ED393C] transition-all px-6 py-2"
+                            >
+                                ย้อนกลับ
+                            </button>
+                            <button 
+                                onClick={handleFinalConfirm}
+                                className="bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-xl font-black text-[16px] shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all"
+                            >
+                                ยืนยันข้อมูล RoPA
+                            </button>
+                        </div>
+                    )
+                ) : (
+                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-white/80 backdrop-blur-md border-t border-[#E5E2E1]/30 p-4 px-10 flex items-center justify-center z-40 gap-4">
+                        <button 
+                            onClick={() => router.back()}
+                            className="bg-[#1B1C1C] text-white px-12 h-[52px] rounded-xl font-bold text-[16px] shadow-lg hover:opacity-90 transition-all active:scale-95"
+                        >
+                            ปิดหน้าต่าง
+                        </button>
+                    </div>
+                )}
+
+                {/* Final Success Modal */}
+                {isSuccessModalOpen && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-[560px] rounded-[48px] shadow-2xl p-16 relative flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+                            <div className="space-y-5 w-full">
+                                <h2 className="text-[34px] font-headline font-black text-[#1B1C1C] tracking-tight leading-tight whitespace-nowrap">
+                                    บันทึกรายการ RoPA เสร็จสิ้น
+                                </h2>
+                                <p className="text-[17px] font-bold text-[#5F5E5E] leading-relaxed max-w-[420px] mx-auto pb-4">
+                                    สามารถจัดการข้อมูลผ่านรายการ RoPA ที่บันทึกไว้
+                                </p>
+                                
+                                <button 
+                                    onClick={() => router.push("/data-owner/ropa")}
+                                    className="bg-logout-gradient leading-none text-white w-full h-[56px] rounded-2xl font-black text-[17px] shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
+                                >
+                                    กลับสู่หน้ารายการ RoPA
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );

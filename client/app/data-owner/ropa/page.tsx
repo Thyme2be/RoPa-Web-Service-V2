@@ -11,7 +11,7 @@ export default function RopaSelectionPage() {
             <Sidebar />
 
             <main className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
-                <TopBar pageTitle="บันทึกกิจกรรมการประมวลผล (RoPA)" />
+                <TopBar pageTitle="บันทึกกิจกรรมการประมวลผล (RoPA)" hideSearch={true} />
 
                 <div className="flex-1 flex flex-col items-center justify-center p-10">
                     <div className="w-full max-w-5xl space-y-12">
