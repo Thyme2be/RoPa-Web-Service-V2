@@ -7,6 +7,9 @@ from app.models.document import DocumentStatus, AuditorType
 # --- Owner Records ---
 class OwnerRecordBase(BaseModel):
     record_name: Optional[str] = None
+    title_prefix: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     address: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -19,6 +22,7 @@ class OwnerRecordBase(BaseModel):
     collection_method: Optional[str] = None
     source_direct: Optional[bool] = None
     source_indirect: Optional[bool] = None
+    data_source: Optional[str] = None
     legal_basis: Optional[str] = None
     minor_under10: Optional[bool] = None
     minor_10to20: Optional[bool] = None
@@ -31,6 +35,7 @@ class OwnerRecordBase(BaseModel):
     retention_storage_type: Optional[str] = None
     retention_method: Optional[str] = None
     retention_duration: Optional[int] = None
+    retention_duration_unit: Optional[str] = None
     retention_access_control: Optional[str] = None
     retention_deletion_method: Optional[str] = None
     exemption_disclosure: Optional[str] = None
@@ -51,7 +56,8 @@ class OwnerRecordResponse(OwnerRecordBase):
 
 # --- Processor Records ---
 class ProcessorRecordBase(BaseModel):
-    assigned_to: Optional[UUID] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     record_name: Optional[str] = None
     address: Optional[str] = None
     email: Optional[str] = None
@@ -95,15 +101,14 @@ class ProcessorRecordResponse(ProcessorRecordBase):
     model_config = ConfigDict(from_attributes=True)
 
 class ProcessorAssignment(BaseModel):
-    assigned_to: UUID
-    processor_name: Optional[str] = None
+    first_name: str
+    last_name: str
+    record_name: str
 
 # --- ROPA Document Wrapper ---
 class DocumentCreate(BaseModel):
     title: str
     owner_record: Optional[OwnerRecordBase] = None
-    # Hybrid Model: Data Owner can optionally spawn processor records directly upon creation indicating who they want to assign
-    processor_records: Optional[List[ProcessorRecordBase]] = None
 
 class DocumentUpdateOwner(BaseModel):
     title: Optional[str] = None
@@ -141,3 +146,137 @@ class DocumentResponse(BaseModel):
     audits: List[AuditorAuditResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
+
+# --- Dashboard Overviews ---
+class DocumentDashboardSummary(BaseModel):
+    total_documents: int
+    pending_audit: int
+    rejected_owner: int
+    rejected_processor: int
+
+class MonthlyGraphData(BaseModel):
+    month: int
+    month_name: str
+    this_year: int
+    last_year: int
+
+class OwnerDashboardResponse(BaseModel):
+    summary: DocumentDashboardSummary
+    monthly_trend: List[MonthlyGraphData]
+    documents_list: List[DocumentResponse]
+
+# --- ROPA Listing Page Wrappers ---
+class ActiveActionPermissions(BaseModel):
+    can_view: bool
+    can_download_excel: bool
+    can_edit: bool
+
+class DraftActionPermissions(BaseModel):
+    can_edit: bool
+    can_delete: bool
+
+class DocumentListSummary(BaseModel):
+    total_documents: int
+    completed: int
+    drafts: int
+
+class DocumentListItem(BaseModel):
+    document_id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    date_received: Optional[datetime] = None
+    status: DocumentStatus
+    actions: ActiveActionPermissions
+
+class DraftListItem(BaseModel):
+    document_id: UUID
+    draft_code: Optional[str] = None
+    title: str
+    last_saved: Optional[datetime] = None
+    actions: DraftActionPermissions
+
+class OwnerListingResponse(BaseModel):
+    summary: DocumentListSummary
+    active_items: List[DocumentListItem]
+    draft_items: List[DraftListItem]
+
+# --- ROPA Auditor Submission Flow ---
+class AuditorSubmissionItem(BaseModel):
+    document_id: UUID
+    title: str
+    date_sent: Optional[datetime] = None
+    status: str
+
+class AuditorSubmissionResponse(BaseModel):
+    submitted_items: List[AuditorSubmissionItem]
+
+class AuditorReadyItem(BaseModel):
+    document_id: UUID
+    title: str
+    date_created: Optional[datetime] = None
+
+class AuditorReadyResponse(BaseModel):
+    ready_items: List[AuditorReadyItem]
+
+class AuditorSubmitPayload(BaseModel):
+    auditor_first_name: str
+    auditor_last_name: str
+    document_titles: List[str]
+
+# --- ROPA Processor Assignment List Flow ---
+class ProcessorActionPermissions(BaseModel):
+    can_view: bool
+
+class ProcessorAssignmentSummary(BaseModel):
+    total_documents: int
+    completed: int
+
+class ProcessorAssignmentItem(BaseModel):
+    doc_code: Optional[str] = None
+    title: str
+    date_assigned: Optional[datetime] = None
+    date_received: Optional[datetime] = None
+    status: str
+    actions: ProcessorActionPermissions
+
+class ProcessorAssignmentResponse(BaseModel):
+    summary: ProcessorAssignmentSummary
+    assigned_items: List[ProcessorAssignmentItem]
+
+# --- ROPA Feedback Flow (DO Perspective) ---
+class FeedbackTrend(BaseModel):
+    direction: str
+    value: str
+    text_label: str
+
+class FeedbackSummary(BaseModel):
+    total_feedbacks: int
+    feedback_trend: FeedbackTrend
+    pending_processor: int
+
+class FeedbackListItem(BaseModel):
+    document_id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    date_received: Optional[datetime] = None
+
+class FeedbackListResponse(BaseModel):
+    summary: FeedbackSummary
+    feedback_items: List[FeedbackListItem]
+
+class FeedbackDetailDocument(BaseModel):
+    document_id: UUID
+    doc_code: Optional[str] = None
+    last_edited: Optional[datetime] = None
+    auditor_name: str
+    document_type: str
+
+class FeedbackSectionItem(BaseModel):
+    section_name: str
+    comment: str
+    status: Optional[str] = None
+
+class FeedbackDetailResponse(BaseModel):
+    document: FeedbackDetailDocument
+    processor_feedbacks: List[FeedbackSectionItem]
+    owner_feedbacks: List[FeedbackSectionItem]

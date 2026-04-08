@@ -208,6 +208,8 @@ def create_member(
         raise HTTPException(status_code=400, detail="Username already registered")
     if db.query(User).filter(User.email == request.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+    if db.query(User).filter(User.first_name == request.first_name, User.last_name == request.last_name).first():
+        raise HTTPException(status_code=400, detail="User with this exact first and last name already exists")
         
     new_user = User(
         username=request.username,

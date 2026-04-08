@@ -148,7 +148,10 @@ class OwnerRecord(Base):
     # FK → เอกสารหลัก — record นี้เป็นของเอกสารไหน
 
     # ── ข้อมูลผู้บันทึก ──
-    record_name = Column(String, nullable=True)   # ชื่อผู้บันทึก
+    record_name = Column(String, nullable=True)   # ชื่อผู้บันทึก (legacy)
+    title_prefix = Column(String, nullable=True)  # คำนำหน้า เช่น นาย/นาง/นางสาว
+    first_name = Column(String, nullable=True)    # ชื่อจริง
+    last_name = Column(String, nullable=True)     # นามสกุล
     address = Column(Text, nullable=True)         # ที่อยู่
     email = Column(String, nullable=True)         # อีเมล
     phone = Column(String, nullable=True)         # เบอร์โทร
@@ -160,9 +163,10 @@ class OwnerRecord(Base):
     personal_data = Column(Text, nullable=True)         # ข้อมูลส่วนบุคคลที่เก็บ
     data_category = Column(String, nullable=True)       # หมวดหมู่ข้อมูล
     data_type = Column(String, nullable=True)           # ประเภทข้อมูล (ทั่วไป/อ่อนไหว)
-    collection_method = Column(String, nullable=True)   # วิธีเก็บข้อมูล
-    source_direct = Column(Boolean, nullable=True)      # เก็บจากเจ้าของโดยตรงไหม
-    source_indirect = Column(Boolean, nullable=True)    # เก็บจากแหล่งอื่นไหม
+    collection_method = Column(String, nullable=True)   # วิธีเก็บข้อมูล (electronic/document)
+    source_direct = Column(Boolean, nullable=True)      # เก็บจากเจ้าของโดยตรงไหม (legacy)
+    source_indirect = Column(Boolean, nullable=True)    # เก็บจากแหล่งอื่นไหม (legacy)
+    data_source = Column(String, nullable=True)         # แหล่งที่มา: "from_owner" หรือ "from_other"
     legal_basis = Column(Text, nullable=True)           # ฐานทางกฎหมาย
     minor_under10 = Column(Boolean, nullable=True)      # มีข้อมูลเด็กอายุต่ำกว่า 10 ปีไหม
     minor_10to20 = Column(Boolean, nullable=True)       # มีข้อมูลเด็ก 10-20 ปีไหม
@@ -179,6 +183,7 @@ class OwnerRecord(Base):
     retention_storage_type = Column(String, nullable=True)      # ประเภทการจัดเก็บ
     retention_method = Column(Text, nullable=True)              # วิธีเก็บรักษา
     retention_duration = Column(Integer, nullable=True)         # ระยะเวลาเก็บ (ตัวเลข)
+    retention_duration_unit = Column(String, nullable=True)     # หน่วยระยะเวลา: "year" / "month" / "day"
     retention_access_control = Column(Text, nullable=True)      # การควบคุมการเข้าถึง
     retention_deletion_method = Column(Text, nullable=True)     # วิธีลบทำลาย
 
@@ -233,6 +238,9 @@ class ProcessorRecord(Base):
 
     submitted_at = Column(DateTime, nullable=True)
     # วันเวลาที่ส่งแบบฟอร์ม (ยื่นยัน/ส่งต่อ) — ใช้เพื่อความเข้ากันได้กับ main
+
+    record_name = Column(String, nullable=True)
+    # ชื่อไฟล์เอกสารของ Data Processor (กรณีมอบหมายงานและแยกไฟล์กัน)
 
     # ── Section 1: รายละเอียดของผู้บันทึก RoPA ──
     title_prefix = Column(String, nullable=True)        # คำนำหน้า เช่น นาย/นาง/นางสาว
@@ -362,6 +370,10 @@ class AuditorAudit(Base):
     # เก็บเป็น JSON string เช่น:
     # '{"section_5": "กรุณายืนยัน SCCs...", "section_6": "ระบุ encryption..."}'
     # ใช้แสดงใน sidebar 3 (ข้อเสนอแนะ)
+
+    owner_feedback = Column(Text, nullable=True)
+    # comment แยกตามส่วน สำหรับ Data Owner โดยเฉพาะ
+    # เก็บเป็น JSON string เช่น: '{"section_2": "เพิ่มรายละเอียด..."}'
 
     version = Column(Integer, nullable=True)
     # เวอร์ชันของการตรวจ (เพิ่มขึ้นทุกรอบที่ส่งแก้ไข)

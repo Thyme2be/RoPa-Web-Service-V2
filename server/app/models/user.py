@@ -28,3 +28,15 @@ class User(Base):
     password_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class UserNotification(Base):
+    __tablename__ = 'user_notifications'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=False) # Maps to users.id
+    document_id = Column(UUID(as_uuid=True), nullable=True) # Optional link to a specific document
+    title = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    is_read = Column(Integer, default=0) # 0 = False, 1 = True (or use Boolean)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
