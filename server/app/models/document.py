@@ -82,6 +82,12 @@ class RopaDocument(Base):
     sent_to_auditor_at = Column(DateTime, nullable=True)
     # วันเวลาที่ Data Owner ส่งให้ Auditor — null ถ้ายังไม่ส่ง
 
+    expires_at = Column(DateTime, nullable=True)
+    # วันหมดอายุของเอกสาร — Auditor กำหนดตอนอนุมัติ (ใช้ใน Sidebar 3)
+
+    deleted_at = Column(DateTime, nullable=True)
+    # วันที่ลบ (soft delete) — null = ยังอยู่, มีค่า = ลบแล้ว
+
     # ── Relationships (SQLAlchemy จัดการ JOIN ให้อัตโนมัติ) ──
     owner = relationship("User", foreign_keys=[owner_id])
     # ดึงข้อมูล User ที่เป็นเจ้าของเอกสาร → ใช้ตอนต้องการชื่อ Data Owner
@@ -362,6 +368,22 @@ class AuditorAudit(Base):
     # เก็บเป็น JSON string เช่น:
     # '{"section_5": "กรุณายืนยัน SCCs...", "section_6": "ระบุ encryption..."}'
     # ใช้แสดงใน sidebar 3 (ข้อเสนอแนะ)
+
+    owner_feedback = Column(Text, nullable=True)
+    # feedback สำหรับ Data Owner โดยเฉพาะ
+    # เก็บเป็น JSON list: '[{"section":"section_2","section_label":"...","comment":"..."}]'
+
+    owner_review_status = Column(String, nullable=True, default='pending_review')
+    # สถานะการตรวจฟอร์ม Owner: pending_review / approved / needs_revision
+
+    owner_feedback_sent_at = Column(DateTime, nullable=True)
+    # วันเวลาที่ Auditor ส่ง feedback ให้ Owner (แสดงเป็น "วันที่ส่ง" ในตาราง)
+
+    processor_review_status = Column(String, nullable=True, default='pending_review')
+    # สถานะการตรวจฟอร์ม Processor: pending_review / approved / needs_revision
+
+    processor_feedback_sent_at = Column(DateTime, nullable=True)
+    # วันเวลาที่ Auditor ส่ง feedback ให้ Processor (แสดงเป็น "วันที่ส่ง" ในตาราง)
 
     version = Column(Integer, nullable=True)
     # เวอร์ชันของการตรวจ (เพิ่มขึ้นทุกรอบที่ส่งแก้ไข)
