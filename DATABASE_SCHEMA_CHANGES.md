@@ -35,15 +35,26 @@ ALTER TABLE ropa_documents
 
 ## 2. ตาราง `auditor_audits` — คอลัมน์ที่เพิ่ม
 
-คอลัมน์ใหม่ทั้ง 5 ตัวนี้แยก feedback และ review status ของ owner form กับ processor form ออกจากกัน (เดิมใช้ `feedback_comment` และ `processor_feedback` รวมกัน)
+คอลัมน์ใหม่ทั้ง 7 ตัวนี้แยก received_at, feedback และ review status ของ owner form กับ processor form ออกจากกันอย่างอิสระ
 
 | คอลัมน์ | ชนิด | Nullable | Default | คำอธิบาย |
 |---|---|---|---|---|
+| `owner_received_at` | `DateTime` | YES | `NULL` | วันที่ owner form ถูกส่งมาให้ Auditor ตรวจ — set ตอน `doc.status = PENDING_AUDITOR` เฉพาะถ้า owner ยังไม่ `approved` จะ update ใหม่ทุกครั้งที่ owner resubmit |
+| `processor_received_at` | `DateTime` | YES | `NULL` | วันที่ processor form ถูกส่งมาให้ Auditor ตรวจ — set ตอน `doc.status = PENDING_AUDITOR` เฉพาะถ้า processor ยังไม่ `approved` จะ update ใหม่ทุกครั้งที่ processor resubmit |
 | `owner_feedback` | `Text` | YES | `NULL` | Feedback ที่ Auditor ส่งให้ฟอร์ม Owner โดยเฉพาะ — เก็บเป็น JSON list: `[{"section":"section_2","section_label":"...","comment":"..."}]` |
 | `owner_review_status` | `String` | YES | `'pending_review'` | สถานะการตรวจฟอร์ม Owner: `"pending_review"` / `"approved"` / `"needs_revision"` |
 | `owner_feedback_sent_at` | `DateTime` | YES | `NULL` | วันเวลาที่ Auditor กด "ส่งข้อเสนอแนะ" สำหรับฟอร์ม Owner (แสดงเป็น "วันที่ส่ง" ในตาราง Sidebar 2) |
 | `processor_review_status` | `String` | YES | `'pending_review'` | สถานะการตรวจฟอร์ม Processor: `"pending_review"` / `"approved"` / `"needs_revision"` |
 | `processor_feedback_sent_at` | `DateTime` | YES | `NULL` | วันเวลาที่ Auditor กด "ส่งข้อเสนอแนะ" สำหรับฟอร์ม Processor (แสดงเป็น "วันที่ส่ง" ในตาราง Sidebar 2) |
+
+**ทำไม `owner_received_at` / `processor_received_at` จึงจำเป็น:**
+
+`ropa_documents.sent_to_auditor_at` เป็น field ระดับ document — update ใหม่ทุกครั้งที่ส่งให้ Auditor (ทั้ง first time และ resubmit) ทำให้ monthly_trend และ pending_since_yesterday นับผิด ถ้า processor ถูกตีกลับและ resubmit ในเดือนถัดไป → ไม่ควร count +2 (owner form ไม่ได้ส่งมาใหม่)
+
+ด้วย `owner_received_at` และ `processor_received_at` แยกกัน:
+- **Resubmit processor only** → `processor_received_at = now()`, `owner_received_at` ไม่เปลี่ยน ✅
+- **Monthly trend**: นับแยก 1 file ต่อ timestamp ✅
+- **pending_since_yesterday**: เช็ค timestamp ของแต่ละ form แยกกัน ✅
 
 **ความสัมพันธ์กับ `processor_feedback` (คอลัมน์เดิม):**
 
@@ -57,6 +68,8 @@ ALTER TABLE ropa_documents
 **SQL Migration:**
 ```sql
 ALTER TABLE auditor_audits
+  ADD COLUMN IF NOT EXISTS owner_received_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS processor_received_at TIMESTAMP WITH TIME ZONE,
   ADD COLUMN IF NOT EXISTS owner_feedback TEXT,
   ADD COLUMN IF NOT EXISTS owner_review_status VARCHAR DEFAULT 'pending_review',
   ADD COLUMN IF NOT EXISTS owner_feedback_sent_at TIMESTAMP WITH TIME ZONE,

@@ -404,6 +404,16 @@ class AuditorAudit(Base):
     # feedback สำหรับ Data Owner โดยเฉพาะ
     # เก็บเป็น JSON list: '[{"section":"section_2","section_label":"...","comment":"..."}]'
 
+    owner_received_at = Column(DateTime, nullable=True)
+    # วันที่ owner form ถูกส่งมาให้ Auditor ตรวจ
+    # set ตอน doc.status = PENDING_AUDITOR (ถ้า owner ยังไม่ approved)
+    # ใช้นับ monthly_trend แยกต่างหากจาก processor
+
+    processor_received_at = Column(DateTime, nullable=True)
+    # วันที่ processor form ถูกส่งมาให้ Auditor ตรวจ
+    # set ตอน doc.status = PENDING_AUDITOR (ถ้า processor ยังไม่ approved)
+    # จะ update ใหม่ทุกครั้งที่ processor resubmit หลัง needs_revision
+
     owner_review_status = Column(String, nullable=True, default='pending_review')
     # สถานะการตรวจฟอร์ม Owner: pending_review / approved / needs_revision
 

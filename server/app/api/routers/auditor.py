@@ -255,12 +255,13 @@ def get_dashboard(
 
     all_audits = stats_q.all()
 
-    total_documents = len(all_audits)
-    # "รอตรวจสอบ" = ยังไม่ได้กรอก feedback เลย (ทั้ง owner และ processor ยัง pending)
+    # 1 audit = 2 ไฟล์ (owner form + processor form) → นับ × 2
+    total_documents = len(all_audits) * 2
+    # "รอตรวจสอบ" = นับไฟล์ที่ยัง pending แยกอิสระ (owner นับ 1, processor นับ 1)
     pending_review = sum(
-        1 for a in all_audits
-        if (a.owner_review_status or 'pending_review') == 'pending_review'
-        and (a.processor_review_status or 'pending_review') == 'pending_review'
+        (1 if (a.owner_review_status or 'pending_review') == 'pending_review' else 0) +
+        (1 if (a.processor_review_status or 'pending_review') == 'pending_review' else 0)
+        for a in all_audits
     )
 
     # ── กราฟรายเดือน: ดึงทุกปีไม่ filter time_range ──
@@ -268,18 +269,27 @@ def get_dashboard(
     current_year = datetime.now(timezone.utc).year
     last_year = current_year - 1
 
-    # นับจำนวนเอกสารต่อเดือนของแต่ละปี
+    # นับจำนวนไฟล์ต่อเดือน — แยก owner / processor อิสระ
+    # fallback ไปใช้ doc.sent_to_auditor_at ถ้ายังไม่มี received_at (ข้อมูลเก่า)
     this_year_counts = {m: 0 for m in range(1, 13)}
     last_year_counts = {m: 0 for m in range(1, 13)}
 
+    def _count_file(ts):
+        """เพิ่ม 1 ไฟล์เข้า monthly count ตาม timestamp"""
+        if not ts:
+            return
+        if ts.year == current_year:
+            this_year_counts[ts.month] += 1
+        elif ts.year == last_year:
+            last_year_counts[ts.month] += 1
+
     for audit in all_docs_audits:
         doc = audit.document
-        if doc and doc.sent_to_auditor_at:
-            sent = doc.sent_to_auditor_at
-            if sent.year == current_year:
-                this_year_counts[sent.month] += 1
-            elif sent.year == last_year:
-                last_year_counts[sent.month] += 1
+        if not doc:
+            continue
+        fallback = doc.sent_to_auditor_at
+        _count_file(audit.owner_received_at or fallback)      # owner form
+        _count_file(audit.processor_received_at or fallback)  # processor form
 
     monthly_trend = [
         MonthlyTrend(
@@ -345,18 +355,18 @@ def get_documents(
     pending_since_yesterday = 0
     for audit in all_audits:
         doc = audit.document
-        received_today = (
-            doc is not None
-            and doc.sent_to_auditor_at is not None
-            and doc.sent_to_auditor_at >= today_start
-        )
+        fallback_ts = doc.sent_to_auditor_at if doc else None
+        # ใช้ received_at แยกต่อ form — fallback หา doc.sent_to_auditor_at ถ้าข้อมูลเก่า
+        owner_ts = audit.owner_received_at or fallback_ts
+        proc_ts = audit.processor_received_at or fallback_ts
+
         if (audit.owner_review_status or 'pending_review') == 'pending_review':
             pending_count += 1
-            if received_today:
+            if owner_ts and owner_ts >= today_start:
                 pending_since_yesterday += 1
         if (audit.processor_review_status or 'pending_review') == 'pending_review':
             pending_count += 1
-            if received_today:
+            if proc_ts and proc_ts >= today_start:
                 pending_since_yesterday += 1
 
     # ── สร้าง rows (2 แถวต่อ 1 เอกสาร) ──
@@ -367,6 +377,8 @@ def get_documents(
             continue
         doc_code = get_doc_code(doc)
 
+        fallback_ts = doc.sent_to_auditor_at
+
         # แถว Owner form
         owner_status = audit.owner_review_status or 'pending_review'
         all_rows.append(DocumentListItem(
@@ -375,7 +387,7 @@ def get_documents(
             title=doc.title,
             form_type="owner",
             form_label="ผู้รับผิดชอบข้อมูล",
-            received_at=doc.sent_to_auditor_at,
+            received_at=audit.owner_received_at or fallback_ts,
             sent_at=audit.owner_feedback_sent_at,
             action="fill" if owner_status == 'pending_review' else "view",
             review_status=owner_status,
@@ -389,7 +401,7 @@ def get_documents(
             title=doc.title,
             form_type="processor",
             form_label="ผู้ประมวลผลข้อมูลส่วนบุคคล",
-            received_at=doc.sent_to_auditor_at,
+            received_at=audit.processor_received_at or fallback_ts,
             sent_at=audit.processor_feedback_sent_at,
             action="fill" if proc_status == 'pending_review' else "view",
             review_status=proc_status,

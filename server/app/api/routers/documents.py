@@ -90,8 +90,16 @@ def update_document_owner(
     if doc_in.status is not None:
         doc.status = doc_in.status
         if doc.status == DocumentStatus.PENDING_AUDITOR:
-            doc.sent_to_auditor_at = datetime.now(timezone.utc)
-        
+            now = datetime.now(timezone.utc)
+            doc.sent_to_auditor_at = now
+            # อัพเดต received_at แยกต่อ form — เฉพาะ form ที่ยังไม่ approved
+            audit = db.query(AuditorAudit).filter(AuditorAudit.ropa_doc_id == doc.id).first()
+            if audit:
+                if (audit.owner_review_status or 'pending_review') != 'approved':
+                    audit.owner_received_at = now
+                if (audit.processor_review_status or 'pending_review') != 'approved':
+                    audit.processor_received_at = now
+
     db.commit()
     db.refresh(doc)
     return doc
@@ -164,8 +172,16 @@ def fill_processor_data(
     if doc_in.status is not None:
         doc.status = doc_in.status
         if doc.status == DocumentStatus.PENDING_AUDITOR:
-             doc.sent_to_auditor_at = datetime.now(timezone.utc)
-             
+            now = datetime.now(timezone.utc)
+            doc.sent_to_auditor_at = now
+            # อัพเดต received_at แยกต่อ form — เฉพาะ form ที่ยังไม่ approved
+            audit = db.query(AuditorAudit).filter(AuditorAudit.ropa_doc_id == doc.id).first()
+            if audit:
+                if (audit.owner_review_status or 'pending_review') != 'approved':
+                    audit.owner_received_at = now
+                if (audit.processor_review_status or 'pending_review') != 'approved':
+                    audit.processor_received_at = now
+
     pr.submitted_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(doc)
