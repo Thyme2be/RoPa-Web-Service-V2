@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -339,12 +339,25 @@ def get_documents(
 
     # ── คำนวณ stats ──
     # "รอตอบกลับ" = แถวที่ยังไม่ได้ส่ง feedback (นับแยก owner/processor)
+    today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+
     pending_count = 0
+    pending_since_yesterday = 0
     for audit in all_audits:
+        doc = audit.document
+        received_today = (
+            doc is not None
+            and doc.sent_to_auditor_at is not None
+            and doc.sent_to_auditor_at >= today_start
+        )
         if (audit.owner_review_status or 'pending_review') == 'pending_review':
             pending_count += 1
+            if received_today:
+                pending_since_yesterday += 1
         if (audit.processor_review_status or 'pending_review') == 'pending_review':
             pending_count += 1
+            if received_today:
+                pending_since_yesterday += 1
 
     # ── สร้าง rows (2 แถวต่อ 1 เอกสาร) ──
     all_rows = []
@@ -388,7 +401,10 @@ def get_documents(
     paginated_rows = all_rows[offset: offset + page_size]
 
     return DocumentListResponse(
-        stats=DocumentStats(pending_feedback=pending_count),
+        stats=DocumentStats(
+            pending_feedback=pending_count,
+            pending_since_yesterday=pending_since_yesterday,
+        ),
         records=paginated_rows,
         total=total,
         page=page,

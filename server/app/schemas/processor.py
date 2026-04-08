@@ -266,6 +266,71 @@ class FeedbackListResponse(BaseModel):
     page_size: int  # จำนวนต่อหน้า
 
 
+class AssignmentFormResponse(BaseModel):
+    """
+    Response ของ GET /processor/assignments/{record_id}
+    ใช้ร่วมกันทุก sidebar — Swagger จะแสดง schema นี้
+    `is_read_only` บอก frontend ว่าให้ disable input ไหม
+    """
+    # ── metadata ──
+    id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    processor_status: str
+    draft_code: Optional[str] = None
+    assigned_by: Optional[str] = None
+    received_at: Optional[datetime] = None
+    confirmed_at: Optional[datetime] = None
+    sent_to_owner_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    audit_status: Optional[str] = None
+    audit_status_display: Optional[str] = None
+    is_read_only: bool
+    # ── Section 1 ──
+    title_prefix: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    # ── Section 2 ──
+    processor_name: Optional[str] = None
+    data_controller_address: Optional[str] = None
+    processing_activity: Optional[str] = None
+    purpose: Optional[str] = None
+    # ── Section 3 ──
+    personal_data: Optional[List[str]] = None
+    data_category: Optional[List[str]] = None
+    data_type: Optional[str] = None
+    # ── Section 4 ──
+    collection_method: Optional[str] = None
+    data_source: Optional[str] = None
+    retention_storage_type: Optional[List[str]] = None
+    retention_method: Optional[List[str]] = None
+    retention_duration: Optional[str] = None
+    retention_duration_unit: Optional[str] = None
+    retention_access_condition: Optional[str] = None
+    retention_deletion_method: Optional[str] = None
+    # ── Section 5 ──
+    legal_basis: Optional[str] = None
+    transfer_is_transfer: Optional[bool] = None
+    transfer_country: Optional[str] = None
+    transfer_is_in_group: Optional[bool] = None
+    transfer_company_name: Optional[str] = None
+    transfer_method: Optional[str] = None
+    transfer_protection_std: Optional[str] = None
+    transfer_exception: Optional[str] = None
+    # ── Section 6 ──
+    security_organizational: Optional[str] = None
+    security_access_control: Optional[str] = None
+    security_technical: Optional[str] = None
+    security_responsibility: Optional[str] = None
+    security_physical: Optional[str] = None
+    security_audit: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class SectionFeedback(BaseModel):
     """
     1 กล่อง comment จาก Auditor — แสดงแยกตามส่วนของฟอร์ม

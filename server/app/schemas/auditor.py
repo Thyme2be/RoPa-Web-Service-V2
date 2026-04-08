@@ -42,7 +42,8 @@ class DashboardResponse(BaseModel):
 # ── Sidebar 2: เอกสาร ──
 
 class DocumentStats(BaseModel):
-    pending_feedback: int    # รายการที่รอตอบกลับ (ยังไม่ได้กรอก feedback)
+    pending_feedback: int           # รายการที่รอตอบกลับ (ยังไม่ได้กรอก feedback)
+    pending_since_yesterday: int    # จำนวนรายการที่เพิ่มขึ้นจากเมื่อวาน (received today)
 
 
 class DocumentListItem(BaseModel):

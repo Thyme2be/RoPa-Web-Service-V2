@@ -29,6 +29,7 @@ from app.models.user import User        # model: ข้อมูล user
 
 from app.schemas.processor import (
     ActiveDocumentItem,         # schema: 1 แถวในตาราง "รายการที่ดำเนินการ" sidebar 2
+    AssignmentFormResponse,     # schema: response หน้าฟอร์ม 6 ส่วน (GET /assignments/{id})
     AssignmentListItem,         # schema: 1 แถวในตาราง sidebar 1
     AssignmentListResponse,     # schema: response ทั้งหมดของ sidebar 1
     AssignmentStats,            # schema: กล่อง 4 ใบด้านบน sidebar 1
@@ -599,7 +600,7 @@ def get_assignments(
     )
 
 
-@router.get("/assignments/{record_id}")
+@router.get("/assignments/{record_id}", response_model=AssignmentFormResponse)
 def get_assignment_form(
     record_id: UUID,                                    # id จาก URL path
     db: Session = Depends(get_db),
@@ -1099,21 +1100,35 @@ def get_feedback_detail(
         auditor_name = f"{u.first_name} {u.last_name}"
 
     # แปลง processor_feedback JSON → list ของ SectionFeedback
-    # processor_feedback เก็บเป็น: '{"section_5": "comment...", "section_6": "comment..."}'
+    # auditor เก็บเป็น list format: [{"section": "section_5", "section_label": "...", "comment": "..."}]
     section_feedbacks = []
     if audit.processor_feedback:
         try:
-            feedback_data = json.loads(audit.processor_feedback)  # แปลง string → dict
-            for key, comment in feedback_data.items():
-                if comment:  # ข้ามส่วนที่ไม่มี comment
-                    section_feedbacks.append(
-                        SectionFeedback(
-                            section=key,        # "section_5"
-                            section_label=SECTION_LABELS.get(key, key),
-                            # แปลง key → ชื่อแสดง เช่น "ส่วนที่ 5 : ฐานทางกฎหมาย..."
-                            comment=str(comment),
+            feedback_data = json.loads(audit.processor_feedback)
+            if isinstance(feedback_data, list):
+                # format ใหม่ (list) — auditor.py เก็บแบบนี้
+                for item in feedback_data:
+                    section = item.get("section", "")
+                    comment = item.get("comment", "")
+                    if comment:
+                        section_feedbacks.append(
+                            SectionFeedback(
+                                section=section,
+                                section_label=item.get("section_label") or SECTION_LABELS.get(section, section),
+                                comment=str(comment),
+                            )
                         )
-                    )
+            elif isinstance(feedback_data, dict):
+                # format เก่า (dict) — backward compat
+                for key, comment in feedback_data.items():
+                    if comment:
+                        section_feedbacks.append(
+                            SectionFeedback(
+                                section=key,
+                                section_label=SECTION_LABELS.get(key, key),
+                                comment=str(comment),
+                            )
+                        )
         except (json.JSONDecodeError, TypeError):
             pass  # ถ้า parse ไม่ได้ → คืน empty list
 
