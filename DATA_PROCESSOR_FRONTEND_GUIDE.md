@@ -390,7 +390,14 @@ Sidebar 3 — ดู feedback แล้วกด "แก้ไขเอกสา
 
 ### GET `/processor/feedback`
 
-**Query Parameters:** `page`, `page_size`
+**Query Parameters:**
+
+| param | ค่า | default |
+|---|---|---|
+| `page` | integer ≥ 1 | `1` |
+| `page_size` | integer 1-100 | `10` |
+| `time_range` | `"7_days"` / `"30_days"` / `"90_days"` / `"all"` | null |
+| `date_from` | ISO datetime | null |
 
 **Response:**
 ```json
