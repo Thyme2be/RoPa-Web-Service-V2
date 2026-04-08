@@ -29,13 +29,13 @@ class SubmitFeedbackResponse(BaseModel):
 
 class MonthlyTrend(BaseModel):
     month: int        # 1-12
-    this_year: int    # จำนวนเอกสารปีนี้
-    last_year: int    # จำนวนเอกสารปีที่แล้ว
+    this_year: int    # จำนวนไฟล์ปีนี้ (1 doc = 2 ไฟล์)
+    last_year: int    # จำนวนไฟล์ปีที่แล้ว (1 doc = 2 ไฟล์)
 
 
 class DashboardResponse(BaseModel):
-    total_documents: int    # เอกสารทั้งหมด (filter ตาม time_range)
-    pending_review: int     # รอตรวจสอบ (filter ตาม time_range)
+    total_documents: int    # ไฟล์ทั้งหมด = (จำนวน doc × 2) เพราะ 1 doc = owner form + processor form
+    pending_review: int     # ไฟล์ที่ยัง pending — owner นับ 1, processor นับ 1 อิสระจากกัน
     monthly_trend: List[MonthlyTrend]   # กราฟ (ทั้งปี ไม่ filter)
 
 
@@ -52,7 +52,7 @@ class DocumentListItem(BaseModel):
     title: str
     form_type: str      # "owner" | "processor"
     form_label: str     # "ผู้รับผิดชอบข้อมูล" | "ผู้ประมวลผลข้อมูลส่วนบุคคล"
-    received_at: Optional[datetime]   # วันที่ Data Owner ส่งมา
+    received_at: Optional[datetime]   # วันที่ form นี้ถูกส่งมาให้ Auditor (owner/processor แยกกัน)
     sent_at: Optional[datetime]       # วันที่ Auditor ส่ง feedback
     action: str           # "fill" (กรอกข้อเสนอแนะ) | "view" (ดูข้อเสนอแนะ)
     review_status: str    # "pending_review" | "approved" | "needs_revision"

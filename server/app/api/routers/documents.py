@@ -230,12 +230,16 @@ def auditor_feedback(
         db.add(auditor_prof)
         db.flush()
         
+    # ถ้าเอกสารถูกส่งให้ Auditor แล้ว (sent_to_auditor_at มีค่า) → set received_at ทั้งคู่
+    _received = doc.sent_to_auditor_at or datetime.now(timezone.utc)
     audit_log = AuditorAudit(
         ropa_doc_id=doc.id,
         assigned_auditor_id=auditor_prof.id,
         status=doc_in.status or doc.status,
         feedback_comment=doc_in.feedback_comment,
-        version=doc.version
+        version=doc.version,
+        owner_received_at=_received,
+        processor_received_at=_received,
     )
     
     if doc_in.status == DocumentStatus.APPROVED:
