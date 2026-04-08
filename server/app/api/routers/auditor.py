@@ -610,7 +610,7 @@ def get_expired_documents(
     """
     Sidebar 3 — เอกสารครบกำหนด
     แสดงเอกสารที่ expires_at <= วันนี้ (หมดอายุแล้ว)
-    แยกเป็น: ยังไม่ลบ (deleted_at IS NULL) และ ลบแล้ว (deleted_at IS NOT NULL)
+    ลบเอกสารแล้วคือหายออกจาก DB เลย (hard delete) จึงแสดงเฉพาะที่ยังอยู่ในระบบ
     """
     auditor_profile = get_auditor_profile(current_user.id, db)
     now = datetime.now(timezone.utc)
@@ -634,12 +634,12 @@ def get_expired_documents(
     all_docs = base_q.all()
 
     # ── stats ──
-    expired_count = sum(1 for d in all_docs if d.deleted_at is None)
-    deleted_count = sum(1 for d in all_docs if d.deleted_at is not None)
+    # hard delete → เอกสารที่ลบแล้วไม่มีในระบบ นับได้แค่ที่ยังอยู่
+    expired_count = len(all_docs)
+    deleted_count = 0  # hard delete ติดตามไม่ได้
 
-    # แสดงเฉพาะที่ยังไม่ลบในตาราง
-    active_expired = [d for d in all_docs if d.deleted_at is None]
-    active_expired.sort(key=lambda d: d.expires_at or now)
+    # เรียงตาม expires_at
+    active_expired = sorted(all_docs, key=lambda d: d.expires_at or now)
 
     total = len(active_expired)
     offset = (page - 1) * page_size
@@ -740,9 +740,9 @@ def delete_document(
     current_user: User = Depends(require_auditor),
 ):
     """
-    ลบเอกสาร (Soft Delete) — ใช้เมื่อกดปุ่ม "ลบเอกสาร" แล้วยืนยัน
-    ไม่ได้ลบจาก DB จริงๆ แค่ set deleted_at = now
-    เอกสารจะหายไปจากทุก sidebar หลังลบ
+    ลบเอกสาร (Hard Delete) — ใช้เมื่อกดปุ่ม "ลบเอกสาร" แล้วยืนยัน
+    ลบออกจาก DB จริงๆ (CASCADE → ลบ owner_record, processor_records, auditor_audits ด้วย)
+    เอกสารจะหายไปถาวร หาคืนไม่ได้
     """
     auditor_profile = get_auditor_profile(current_user.id, db)
 
@@ -758,13 +758,12 @@ def delete_document(
 
     doc = db.query(RopaDocument).filter(
         RopaDocument.id == ropa_doc_id,
-        RopaDocument.deleted_at.is_(None),
     ).first()
     if not doc:
-        raise HTTPException(404, detail="ไม่พบเอกสาร หรือถูกลบไปแล้ว")
+        raise HTTPException(404, detail="ไม่พบเอกสาร")
 
-    # Soft delete — เก็บ record ไว้แต่ set deleted_at
-    doc.deleted_at = datetime.now(timezone.utc)
+    # Hard delete — ลบออกจาก DB จริง (CASCADE ลบ related records ทั้งหมด)
+    db.delete(doc)
     db.commit()
 
     return {"message": "ลบเอกสารเรียบร้อย", "ropa_doc_id": str(ropa_doc_id)}
