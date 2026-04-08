@@ -39,7 +39,16 @@ from app.schemas.document import (
     FeedbackListResponse,
     FeedbackDetailDocument,
     FeedbackSectionItem,
-    FeedbackDetailResponse
+    FeedbackDetailResponse,
+    # New Processor Scopes
+    ProcessorAssignmentStats,
+    ProcessorAssignmentRecordItem,
+    ProcessorAssignmentListResponse,
+    ProcessorDocumentDetailResponse,
+    ProcessorDraftSaveResponse,
+    ProcessorConfirmResponse,
+    ProcessorReadyToSendItem,
+    ProcessorReadyToSendResponse
 )
 from app.schemas.notification import NotificationResponse
 from app.api.deps import get_current_user, RoleChecker
@@ -826,60 +835,503 @@ def owner_assign_processor(
 # -----------------
 # DATA PROCESSOR ENDPOINTS
 # -----------------
-@processor_docs_router.get("/dashboard", response_model=List[DocumentResponse])
-def get_processor_documents(
+
+@processor_docs_router.get("/assignments", response_model=ProcessorAssignmentListResponse)
+def get_processor_assignments(
+    page: int = 1,
+    page_size: int = 10,
+    status: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(RoleChecker(["Data processor", "Admin"]))
 ):
-    if current_user.role == UserRoleEnum.ADMIN:
-        return db.query(RopaDocument).join(ProcessorRecord).filter(ProcessorRecord.assigned_to.isnot(None)).all()
-    # Find documents where this user is assigned as one of the processors
-    return db.query(RopaDocument).join(ProcessorRecord).filter(ProcessorRecord.assigned_to == current_user.id).all()
+    query = db.query(ProcessorRecord).join(RopaDocument)
+    
+    if current_user.role != UserRoleEnum.ADMIN:
+        query = query.filter(ProcessorRecord.assigned_to == current_user.id)
+        
+    if status == "รอดำเนินการ":
+        query = query.filter(ProcessorRecord.processor_status.in_([ProcessorStatus.PENDING, ProcessorStatus.IN_PROGRESS, ProcessorStatus.CONFIRMED]))
+    elif status == "แก้ไขตาม FEEDBACK":
+        query = query.filter(ProcessorRecord.processor_status == ProcessorStatus.NEEDS_REVISION)
+    elif status == "ส่งงานแล้ว":
+        query = query.filter(ProcessorRecord.processor_status == ProcessorStatus.SUBMITTED)
+        
+    if date_from:
+        query = query.filter(ProcessorRecord.created_at >= date_from)
+    if date_to:
+        query = query.filter(ProcessorRecord.created_at <= date_to)
 
+    total = query.count()
+    records = query.order_by(desc(ProcessorRecord.created_at)).offset((page - 1) * page_size).limit(page_size).all()
+    
+    # Calculate Stats
+    base_stat_query = db.query(ProcessorRecord)
+    if current_user.role != UserRoleEnum.ADMIN:
+        base_stat_query = base_stat_query.filter(ProcessorRecord.assigned_to == current_user.id)
+        
+    stats = ProcessorAssignmentStats(
+        total=base_stat_query.count(),
+        in_progress=base_stat_query.filter(ProcessorRecord.processor_status.in_([ProcessorStatus.PENDING, ProcessorStatus.IN_PROGRESS, ProcessorStatus.CONFIRMED])).count(),
+        needs_revision=base_stat_query.filter(ProcessorRecord.processor_status == ProcessorStatus.NEEDS_REVISION).count(),
+        submitted=base_stat_query.filter(ProcessorRecord.processor_status == ProcessorStatus.SUBMITTED).count()
+    )
+    
+    items = []
+    for pr in records:
+        # Resolve status display
+        if pr.processor_status == ProcessorStatus.PENDING:
+            disp = "รอดำเนินการ"
+        elif pr.processor_status == ProcessorStatus.IN_PROGRESS:
+            disp = "กำลังร่าง"
+        elif pr.processor_status == ProcessorStatus.CONFIRMED:
+            disp = "รอส่งตรวจ"
+        elif pr.processor_status == ProcessorStatus.NEEDS_REVISION:
+            disp = "แก้ไขตาม FEEDBACK"
+        elif pr.processor_status == ProcessorStatus.SUBMITTED:
+            disp = "ส่งงานแล้ว"
+        else:
+            disp = pr.processor_status.value
+            
+        owner = db.query(User).filter(User.id == pr.document.owner_id).first()
+        owner_name = f"{owner.first_name} {owner.last_name}" if owner else "Unknown Owner"
+        
+        can_edit = pr.processor_status != ProcessorStatus.SUBMITTED
+        
+        items.append(ProcessorAssignmentRecordItem(
+            id=pr.id,
+            doc_code=pr.document.id.hex[:8].upper() if pr.document else None, # Stub
+            title=pr.record_name or pr.document.title,
+            assigned_by=owner_name,
+            received_at=pr.created_at,
+            processor_status=pr.processor_status.value,
+            status_display=disp,
+            can_edit=can_edit
+        ))
 
-@processor_docs_router.put("/documents/{doc_id}", response_model=DocumentResponse)
-def fill_processor_data(
-    doc_id: UUID,
+    return ProcessorAssignmentListResponse(
+        stats=stats,
+        records=items,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+def _get_audit_status_display(pr: ProcessorRecord) -> str:
+    # Read the audit array from master document
+    if not pr.document or not pr.document.audits:
+        return "รอตรวจสอบ"
+    # Logic: Get the latest audit
+    latest_audit = sorted(pr.document.audits, key=lambda x: x.created_at, reverse=True)[0]
+    if latest_audit.status == AuditStatus.PENDING_REVIEW:
+         return "รอตรวจสอบ"
+    if latest_audit.status == AuditStatus.APPROVED:
+         return "อนุมัติ"
+    if latest_audit.status == AuditStatus.NEEDS_REVISION:
+         return "ต้องแก้ไข"
+    return "ไม่ทราบสถานะ"
+
+@processor_docs_router.get("/assignments/{id}", response_model=ProcessorDocumentDetailResponse)
+def get_processor_assignment_detail(
+    id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor", "Admin"]))
+):
+    pr = db.query(ProcessorRecord).filter(ProcessorRecord.id == id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="Processor Record finding failed")
+    
+    if current_user.role != UserRoleEnum.ADMIN and pr.assigned_to != current_user.id:
+         raise HTTPException(status_code=403, detail="Unauthorized accessor")
+
+    owner = db.query(User).filter(User.id == pr.document.owner_id).first()
+    owner_name = f"{owner.first_name} {owner.last_name}" if owner else "Unknown Owner"
+    
+    # Calculate readonly flags
+    # Readonly if submitted and not returned
+    is_ro = False
+    if pr.processor_status == ProcessorStatus.SUBMITTED:
+         is_ro = True
+         
+    # Generate Pydantic dump preserving schema architecture
+    dump = {c.name: getattr(pr, c.name) for c in pr.__table__.columns}
+    
+    return ProcessorDocumentDetailResponse(
+        **dump,
+        doc_code=pr.document.id.hex[:8].upper() if pr.document else None,
+        title=pr.record_name or pr.document.title,
+        assigned_by=owner_name,
+        received_at=pr.created_at,
+        audit_status=pr.document.status.value, # Base ref
+        audit_status_display=_get_audit_status_display(pr),
+        is_read_only=is_ro
+    )
+
+import random
+import string
+
+@processor_docs_router.put("/assignments/{id}/save-draft", response_model=ProcessorDraftSaveResponse)
+def save_processor_draft(
+    id: UUID,
+    doc_in: dict, # Take dictionary to allow partials without strict model validation errors
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    pr = db.query(ProcessorRecord).filter(ProcessorRecord.id == id, ProcessorRecord.assigned_to == current_user.id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="Unauthorized")
+        
+    if pr.processor_status == ProcessorStatus.SUBMITTED:
+        raise HTTPException(status_code=400, detail="Cannot edit a submitted document")
+        
+    if not pr.draft_code:
+        # Generate Draft Code ex: DFT-1349
+        pr.draft_code = "DFT-" + "".join(random.choices(string.digits, k=4))
+        
+    for key, value in doc_in.items():
+        if hasattr(pr, key) and key not in ["id", "ropa_doc_id", "assigned_to", "processor_status", "draft_code", "confirmed_at", "sent_to_owner_at", "submitted_at", "created_at", "updated_at"]:
+            setattr(pr, key, value)
+            
+    # Keep status pending or move to progress
+    if pr.processor_status in [ProcessorStatus.PENDING, ProcessorStatus.NEEDS_REVISION]:
+        pr.processor_status = ProcessorStatus.IN_PROGRESS
+        
+    db.commit()
+    db.refresh(pr)
+    
+    return ProcessorDraftSaveResponse(
+        message="บันทึกฉบับร่างเรียบร้อย",
+        draft_code=pr.draft_code,
+        record_id=pr.id
+    )
+
+@processor_docs_router.put("/assignments/{id}/confirm", response_model=ProcessorConfirmResponse)
+def confirm_processor_data(
+    id: UUID,
     doc_in: DocumentUpdateProcessor,
     db: Session = Depends(get_db),
     current_user: User = Depends(RoleChecker(["Data processor"]))
 ):
-    doc = db.query(RopaDocument).filter(RopaDocument.id == doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-        
-    pr = db.query(ProcessorRecord).filter(ProcessorRecord.ropa_doc_id == doc_id, ProcessorRecord.assigned_to == current_user.id).first()
+    pr = db.query(ProcessorRecord).filter(ProcessorRecord.id == id, ProcessorRecord.assigned_to == current_user.id).first()
     if not pr:
-        raise HTTPException(status_code=403, detail="You do not have a Processor Record assigned in this document.")
-    
+        raise HTTPException(status_code=404, detail="Unauthorized")
+        
+    if pr.processor_status == ProcessorStatus.SUBMITTED:
+        raise HTTPException(status_code=400, detail="Cannot edit a submitted document")
+
     if doc_in.processor_record:
         dump = doc_in.processor_record.model_dump()
-        dump = apply_maimee_default(dump, ProcessorRecord)
-        
         for key, value in dump.items():
             setattr(pr, key, value)
             
-    if doc_in.status is not None:
-        doc.status = doc_in.status
-        if doc.status == DocumentStatus.PENDING_AUDITOR:
-             doc.sent_to_auditor_at = datetime.now(timezone.utc)
-             
-    pr.submitted_at = datetime.now(timezone.utc)
+    db.flush()
+    db.refresh(pr)
     
-    # ── TRIGGER NOTIFICATION TO DATA OWNER ──
-    # Create notification only if DP is "submitting" / updating
+    # Simple explicit validation based on guidelines
+    missing_fields = []
+    required_keys = ["first_name", "last_name", "address", "email", "phone", "processor_name", "processing_activity", "purpose", "personal_data", "data_category", "data_type", "collection_method", "retention_storage_type", "retention_method", "retention_duration", "retention_duration_unit", "retention_access_condition", "retention_deletion_method", "legal_basis"]
+    
+    missing_fields = [req for req in required_keys if not getattr(pr, req)]
+    
+    if pr.transfer_is_transfer:
+         cond_req = ["transfer_country", "transfer_method", "transfer_protection_std", "transfer_exception"]
+         missing_fields.extend([req for req in cond_req if not getattr(pr, req)])
+         
+    if missing_fields:
+        db.rollback()
+        raise HTTPException(status_code=422, detail={
+             "message": "กรุณากรอกข้อมูลให้ครบถ้วน",
+             "missing_fields": missing_fields
+        })
+        
+    pr.processor_status = ProcessorStatus.CONFIRMED
+    pr.confirmed_at = datetime.now(timezone.utc)
+    
+    db.commit()
+    return ProcessorConfirmResponse(message="ยืนยันข้อมูล RoPA เรียบร้อย", record_id=pr.id)
+
+@processor_docs_router.get("/ready-to-send", response_model=ProcessorReadyToSendResponse)
+def get_processor_ready_to_send(
+    page: int = 1,
+    page_size: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    query = db.query(ProcessorRecord).filter(ProcessorRecord.assigned_to == current_user.id, ProcessorRecord.processor_status == ProcessorStatus.CONFIRMED)
+    
+    total = query.count()
+    records = query.order_by(desc(ProcessorRecord.created_at)).offset((page - 1) * page_size).limit(page_size).all()
+    
+    items = []
+    for pr in records:
+         items.append(ProcessorReadyToSendItem(
+             id=pr.id,
+             doc_code=pr.document.id.hex[:8].upper() if pr.document else None,
+             title=pr.record_name or pr.document.title,
+             created_at=pr.created_at
+         ))
+         
+    return ProcessorReadyToSendResponse(
+        records=items,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+@processor_docs_router.post("/send-to-owner/{id}", response_model=ProcessorConfirmResponse)
+def processor_submit_to_owner(
+    id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    pr = db.query(ProcessorRecord).filter(ProcessorRecord.id == id, ProcessorRecord.assigned_to == current_user.id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="Unauthorized")
+        
+    if pr.processor_status != ProcessorStatus.CONFIRMED:
+        raise HTTPException(status_code=400, detail="Must be confirmed before sending")
+        
+    pr.processor_status = ProcessorStatus.SUBMITTED
+    pr.submitted_at = datetime.now(timezone.utc)
+    pr.sent_to_owner_at = datetime.now(timezone.utc)
+    
+    # Change parent document state (assuming hybrid logic relies on DRAFT waiting)
+    if pr.document and pr.document.status != DocumentStatus.PENDING_AUDITOR:
+         pr.document.status = DocumentStatus.DRAFT
+         
+    # Trigger notification to DO
     notify = UserNotification(
-        user_id=doc.owner_id,
-        document_id=doc.id,
-        title="ผู้ประมวลผลข้อมูลส่วนบุคคลส่งเอกสารฉบับสมบูรณ์",
-        message="โปรดตรวจสอบก่อนจะนำส่งให้ทางผู้ตรวจสอบ"
+        user_id=pr.document.owner_id,
+        document_id=pr.document.id,
+        title="ผู้ประมวลผลข้อมูลส่งเอกสารสมบูรณ์",
+        message=f"เอกสาร {pr.record_name or pr.document.title} ถูกตอบกลับแล้ว โปรดตรวจสอบก่อนส่งให้ผู้ตรวจสอบ"
     )
     db.add(notify)
-
+    
     db.commit()
-    db.refresh(doc)
-    return doc
+    return ProcessorConfirmResponse(message="ส่ง RoPA ให้ผู้รับผิดชอบข้อมูลเรียบร้อย", record_id=pr.id)
 
+
+@processor_docs_router.get("/documents", response_model=ProcessorDocumentsListResponse)
+def get_processor_general_documents(
+    active_page: int = 1,
+    drafts_page: int = 1,
+    page_size: int = 10,
+    status: Optional[str] = None,
+    time_range: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    base_query = db.query(ProcessorRecord).filter(ProcessorRecord.assigned_to == current_user.id)
+    
+    from datetime import timedelta
+    if time_range == "7_days":
+        base_query = base_query.filter(ProcessorRecord.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+    elif time_range == "30_days":
+        base_query = base_query.filter(ProcessorRecord.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
+    elif time_range == "90_days":
+        base_query = base_query.filter(ProcessorRecord.created_at >= datetime.now(timezone.utc) - timedelta(days=90))
+        
+    # Active = Submitted
+    active_query = base_query.filter(ProcessorRecord.processor_status == ProcessorStatus.SUBMITTED)
+    
+    # Drafts = Not submitted AND has a draft code (meaning they clicked save draft at least once)
+    drafts_query = base_query.filter(ProcessorRecord.processor_status != ProcessorStatus.SUBMITTED, ProcessorRecord.draft_code.isnot(None))
+    
+    # Status filtering applies to active query usually
+    if status == "อนุมัติ":
+        active_query = active_query.join(RopaDocument).filter(RopaDocument.status == DocumentStatus.APPROVED)
+    elif status == "ต้องแก้ไข":
+        active_query = active_query.join(RopaDocument).filter(RopaDocument.status.in_([DocumentStatus.REJECTED_PROCESSOR, DocumentStatus.REJECTED_OWNER]))
+    elif status == "รอตรวจสอบ":
+        active_query = active_query.join(RopaDocument).filter(RopaDocument.status.in_([DocumentStatus.PENDING_AUDITOR, DocumentStatus.COMPLETED]))
+        
+    active_records_db = active_query.order_by(desc(ProcessorRecord.updated_at)).offset((active_page - 1) * page_size).limit(page_size).all()
+    draft_records_db = drafts_query.order_by(desc(ProcessorRecord.updated_at)).offset((drafts_page - 1) * page_size).limit(page_size).all()
+    
+    active_items = []
+    for pr in active_records_db:
+         active_items.append(ProcessorActiveRecordItem(
+             id=pr.id,
+             doc_code=pr.document.id.hex[:8].upper() if pr.document else None,
+             title=pr.record_name or pr.document.title,
+             sent_at=pr.submitted_at,
+             audit_status=pr.document.status.value,
+             audit_status_display=_get_audit_status_display(pr),
+             can_edit=pr.processor_status == ProcessorStatus.NEEDS_REVISION
+         ))
+         
+    draft_items = [ProcessorDraftItem(
+         id=pr.id,
+         draft_code=pr.draft_code,
+         title=pr.record_name or pr.document.title,
+         updated_at=pr.updated_at
+    ) for pr in draft_records_db]
+    
+    # Calculate stats
+    all_submitted = db.query(ProcessorRecord).filter(ProcessorRecord.assigned_to == current_user.id, ProcessorRecord.processor_status == ProcessorStatus.SUBMITTED).all()
+    complete_count = sum(1 for p in all_submitted if p.document and p.document.status == DocumentStatus.APPROVED)
+    
+    stats = ProcessorDocumentStats(
+        total=len(all_submitted),
+        complete=complete_count
+    )
+
+    return ProcessorDocumentsListResponse(
+        stats=stats,
+        active_records=active_items,
+        active_total=active_query.count(),
+        active_page=active_page,
+        drafts=draft_items,
+        drafts_total=drafts_query.count(),
+        drafts_page=drafts_page,
+        page_size=page_size
+    )
+
+@processor_docs_router.delete("/drafts/{id}", status_code=204)
+def delete_processor_draft(
+    id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    pr = db.query(ProcessorRecord).filter(ProcessorRecord.id == id, ProcessorRecord.assigned_to == current_user.id).first()
+    if not pr:
+         raise HTTPException(status_code=404, detail="Unauthorized or Not Found")
+         
+    if pr.processor_status == ProcessorStatus.SUBMITTED:
+         raise HTTPException(status_code=400, detail="Cannot delete a submitted entry")
+         
+    # To delete a draft: We clear the draft_code and optionally clear the inputs, setting it back to PENDING.
+    # However, depending on business rules, we might want to just reset the fields OR actually delete the DB record.
+    # If the owner assigned it, we should NOT delete the `ProcessorRecord` entity entirely! Just clear the inputs.
+    
+    pr.draft_code = None
+    pr.processor_status = ProcessorStatus.PENDING
+    
+    # Reset form fields
+    for col in pr.__table__.columns:
+        if col.name not in ["id", "ropa_doc_id", "assigned_to", "processor_status", "draft_code", "confirmed_at", "sent_to_owner_at", "submitted_at", "created_at", "updated_at", "record_name"]:
+            setattr(pr, col.name, None)
+            
+    db.commit()
+    return None
+
+@processor_docs_router.get("/feedback", response_model=ProcessorFeedbackListResponse)
+def get_processor_feedback_list(
+    page: int = 1,
+    page_size: int = 10,
+    time_range: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    query = db.query(AuditorAudit, ProcessorRecord).join(RopaDocument, AuditorAudit.ropa_doc_id == RopaDocument.id)\
+              .join(ProcessorRecord, ProcessorRecord.ropa_doc_id == RopaDocument.id)\
+              .filter(ProcessorRecord.assigned_to == current_user.id)\
+              .filter(AuditorAudit.processor_feedback.isnot(None), AuditorAudit.processor_feedback != "")
+              
+    if date_from:
+        query = query.filter(AuditorAudit.created_at >= date_from)
+        
+    from datetime import timedelta
+    if time_range == "7_days":
+        query = query.filter(AuditorAudit.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+    elif time_range == "30_days":
+        query = query.filter(AuditorAudit.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
+    elif time_range == "90_days":
+        query = query.filter(AuditorAudit.created_at >= datetime.now(timezone.utc) - timedelta(days=90))
+
+    total = query.count()
+    results = query.order_by(desc(AuditorAudit.created_at)).offset((page - 1) * page_size).limit(page_size).all()
+    
+    items = []
+    for audit, pr in results:
+        items.append(ProcessorFeedbackItem(
+            audit_id=audit.id,
+            doc_code=pr.document.id.hex[:8].upper() if pr.document else None,
+            title=pr.record_name or pr.document.title,
+            sent_at=pr.submitted_at,
+            received_at=audit.created_at
+        ))
+        
+    return ProcessorFeedbackListResponse(
+        feedbacks=items,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+@processor_docs_router.get("/feedback/{audit_id}", response_model=ProcessorFeedbackDetailResponse)
+def get_processor_feedback_detail(
+    audit_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["Data processor"]))
+):
+    result = db.query(AuditorAudit, ProcessorRecord).join(RopaDocument, AuditorAudit.ropa_doc_id == RopaDocument.id)\
+              .join(ProcessorRecord, ProcessorRecord.ropa_doc_id == RopaDocument.id)\
+              .filter(AuditorAudit.id == audit_id)\
+              .filter(ProcessorRecord.assigned_to == current_user.id).first()
+              
+    if not result:
+        raise HTTPException(status_code=404, detail="Feedback info missing or unauthorized access by current Processor")
+        
+    audit, pr = result
+    
+    import json
+    parsed_sections = []
+    if audit.processor_feedback:
+        try:
+             fb_dict = json.loads(audit.processor_feedback)
+             # Map keys like 'section_1' to nice labels
+             label_map = {
+                 "section_1": "ส่วนที่ 1 : รายละเอียดของผู้บันทึก RoPA",
+                 "section_2": "ส่วนที่ 2 : รายละเอียดของกิจกรรม",
+                 "section_3": "ส่วนที่ 3 : ข้อมูลส่วนบุคคล",
+                 "section_4": "ส่วนที่ 4 : การเก็บรวบรวมและจัดเก็บ",
+                 "section_5": "ส่วนที่ 5 : ฐานทางกฎหมายและการส่งต่อ",
+                 "section_6": "ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย"
+             }
+             for sec_key, comment in fb_dict.items():
+                 # Handle list mappings if multiple fields mapped under sections
+                 if isinstance(comment, str):
+                      parsed_sections.append(ProcessorFeedbackSectionInfo(
+                          section=sec_key,
+                          section_label=label_map.get(sec_key, sec_key),
+                          comment=comment
+                      ))
+                 elif isinstance(comment, list):
+                      for item in comment:
+                           parsed_sections.append(ProcessorFeedbackSectionInfo(
+                               section=item.get("field", sec_key),
+                               section_label=label_map.get(sec_key, sec_key),
+                               comment=item.get("message", "-")
+                           ))
+        except:
+             # Fallback if invalid JSON
+             parsed_sections.append(ProcessorFeedbackSectionInfo(
+                 section="general",
+                 section_label="ข้อเสนอแนะรวม",
+                 comment=str(audit.processor_feedback)
+             ))
+
+    # Identify Auditor name
+    auditor_profile = db.query(AuditorProfile).filter(AuditorProfile.id == audit.assigned_auditor_id).first()
+    if auditor_profile:
+        auditor_user = db.query(User).filter(User.id == auditor_profile.user_id).first()
+        auditor_name = f"{auditor_user.first_name} {auditor_user.last_name}" if auditor_user else "ระบบ"
+    else:
+        auditor_name = "Unknown Auditor"
+
+    return ProcessorFeedbackDetailResponse(
+        audit_id=audit.id,
+        doc_code=pr.document.id.hex[:8].upper() if pr.document else None,
+        title=pr.record_name or pr.document.title,
+        last_modified=audit.created_at,
+        auditor_name=auditor_name,
+        processor_record_id=pr.id,
+        section_feedbacks=parsed_sections
+    )
 
 # -----------------
 # AUDITOR ENDPOINTS

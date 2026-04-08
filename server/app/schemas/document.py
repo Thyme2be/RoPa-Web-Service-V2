@@ -280,3 +280,126 @@ class FeedbackDetailResponse(BaseModel):
     document: FeedbackDetailDocument
     processor_feedbacks: List[FeedbackSectionItem]
     owner_feedbacks: List[FeedbackSectionItem]
+
+
+# -------------------------------------------------------------
+# 🚀 DATA PROCESSOR SPECIFIC DTOs (Mapped to Integration Guide)
+# -------------------------------------------------------------
+
+# --- Sidebar 1: Assignments ---
+class ProcessorAssignmentStats(BaseModel):
+    total: int
+    in_progress: int
+    needs_revision: int
+    submitted: int
+
+class ProcessorAssignmentRecordItem(BaseModel):
+    id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    assigned_by: str
+    received_at: datetime
+    processor_status: str
+    status_display: str
+    can_edit: bool
+
+class ProcessorAssignmentListResponse(BaseModel):
+    stats: ProcessorAssignmentStats
+    records: List[ProcessorAssignmentRecordItem]
+    total: int
+    page: int
+    page_size: int
+
+class ProcessorDocumentDetailResponse(ProcessorRecordBase):
+    id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    processor_status: str
+    draft_code: Optional[str] = None
+    assigned_by: str
+    received_at: Optional[datetime] = None
+    confirmed_at: Optional[datetime] = None
+    sent_to_owner_at: Optional[datetime] = None
+    updated_at: datetime
+    audit_status: Optional[str] = None
+    audit_status_display: str
+    is_read_only: bool
+
+class ProcessorDraftSaveResponse(BaseModel):
+    message: str
+    draft_code: Optional[str] = None
+    record_id: UUID
+
+class ProcessorConfirmResponse(BaseModel):
+    message: str
+    record_id: UUID
+
+class ProcessorReadyToSendItem(BaseModel):
+    id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    created_at: datetime
+
+class ProcessorReadyToSendResponse(BaseModel):
+    records: List[ProcessorReadyToSendItem]
+    total: int
+    page: int
+    page_size: int
+
+# --- Sidebar 2: Documents ---
+class ProcessorDocumentStats(BaseModel):
+    total: int
+    complete: int
+
+class ProcessorActiveRecordItem(BaseModel):
+    id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    sent_at: Optional[datetime] = None
+    audit_status: Optional[str] = None
+    audit_status_display: str
+    can_edit: bool
+
+class ProcessorDraftItem(BaseModel):
+    id: UUID
+    draft_code: Optional[str] = None
+    title: str
+    updated_at: datetime
+
+class ProcessorDocumentsListResponse(BaseModel):
+    stats: ProcessorDocumentStats
+    active_records: List[ProcessorActiveRecordItem]
+    active_total: int
+    active_page: int
+    drafts: List[ProcessorDraftItem]
+    drafts_total: int
+    drafts_page: int
+    page_size: int
+
+# --- Sidebar 3: Feedbacks ---
+class ProcessorFeedbackItem(BaseModel):
+    audit_id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    sent_at: Optional[datetime] = None
+    received_at: datetime
+
+class ProcessorFeedbackListResponse(BaseModel):
+    feedbacks: List[ProcessorFeedbackItem]
+    total: int
+    page: int
+    page_size: int
+
+class ProcessorFeedbackSectionInfo(BaseModel):
+    section: str
+    section_label: str
+    comment: str
+
+class ProcessorFeedbackDetailResponse(BaseModel):
+    audit_id: UUID
+    doc_code: Optional[str] = None
+    title: str
+    last_modified: datetime
+    auditor_name: str
+    processor_record_id: UUID
+    section_feedbacks: List[ProcessorFeedbackSectionInfo]
