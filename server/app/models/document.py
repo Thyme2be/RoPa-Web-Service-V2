@@ -143,6 +143,37 @@ class AuditorProfile(Base):
     audits = relationship("AuditorAudit", back_populates="auditor")
     # ประวัติการตรวจทั้งหมดที่ Auditor คนนี้ทำ
 
+    deleted_document_logs = relationship("DeletedDocumentLog", back_populates="auditor")
+    # ประวัติการลบเอกสาร — เก็บไว้นับ deleted_count ใน Sidebar 3
+
+
+class DeletedDocumentLog(Base):
+    """
+    Log การลบเอกสาร — เก็บหลักฐานว่า Auditor ลบเอกสารไปกี่ฉบับ
+    ใช้เพราะ DELETE เป็น hard delete (ตัวเอกสารหายออกจาก DB เลย)
+    ต้อง insert log นี้ก่อน แล้วค่อย db.delete(doc)
+    """
+    __tablename__ = 'deleted_document_logs'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    ropa_doc_id = Column(UUID(as_uuid=True), nullable=False)
+    # อดีต FK → ropa_documents แต่เอกสารถูกลบแล้ว เก็บไว้เป็น reference เท่านั้น
+
+    doc_code = Column(String, nullable=True)
+    # รหัสเอกสาร เก็บไว้ก่อนลบ เพื่อ reference ในอนาคต
+
+    title = Column(String, nullable=True)
+    # ชื่อเอกสาร เก็บไว้ก่อนลบ
+
+    auditor_profile_id = Column(UUID(as_uuid=True), ForeignKey('auditor_profiles.id', ondelete='SET NULL'), nullable=True)
+    # Auditor ที่ลบเอกสารนี้
+
+    deleted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    # วันเวลาที่ลบ
+
+    auditor = relationship("AuditorProfile", back_populates="deleted_document_logs")
+
 
 class OwnerRecord(Base):
     # ส่วนที่ Data Owner กรอก (ข้อมูลฝั่งเจ้าของข้อมูล)

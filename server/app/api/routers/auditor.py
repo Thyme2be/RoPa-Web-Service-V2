@@ -11,6 +11,7 @@ from app.models.document import (
     AuditStatus,
     AuditorAudit,
     AuditorProfile,
+    DeletedDocumentLog,
     DocumentStatus,
     OwnerRecord,
     ProcessorRecord,
@@ -634,9 +635,18 @@ def get_expired_documents(
     all_docs = base_q.all()
 
     # ── stats ──
-    # hard delete → เอกสารที่ลบแล้วไม่มีในระบบ นับได้แค่ที่ยังอยู่
     expired_count = len(all_docs)
-    deleted_count = 0  # hard delete ติดตามไม่ได้
+
+    # deleted_count — นับจาก DeletedDocumentLog (hard delete → บันทึก log ก่อนลบ)
+    deleted_q = db.query(DeletedDocumentLog).filter(
+        DeletedDocumentLog.auditor_profile_id == auditor_profile.id
+    )
+    if date_from:
+        deleted_q = deleted_q.filter(DeletedDocumentLog.deleted_at >= date_from)
+    cutoff2 = get_time_cutoff(time_range)
+    if cutoff2:
+        deleted_q = deleted_q.filter(DeletedDocumentLog.deleted_at >= cutoff2)
+    deleted_count = deleted_q.count()
 
     # เรียงตาม expires_at
     active_expired = sorted(all_docs, key=lambda d: d.expires_at or now)
@@ -761,6 +771,15 @@ def delete_document(
     ).first()
     if not doc:
         raise HTTPException(404, detail="ไม่พบเอกสาร")
+
+    # บันทึก log ก่อนลบ — เพื่อนับ deleted_count ใน Sidebar 3
+    log = DeletedDocumentLog(
+        ropa_doc_id=doc.id,
+        doc_code=doc.doc_code,
+        title=doc.title,
+        auditor_profile_id=auditor_profile.id,
+    )
+    db.add(log)
 
     # Hard delete — ลบออกจาก DB จริง (CASCADE ลบ related records ทั้งหมด)
     db.delete(doc)
