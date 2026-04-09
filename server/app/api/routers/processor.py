@@ -878,10 +878,16 @@ def get_documents_page(
     )
 
     # สร้าง active items พร้อม audit_status ของแต่ละเอกสาร
+    # ใช้ processor_review_status แทน audit_status (overall)
+    # เพราะ Sidebar 2 ของ Processor แสดงสถานะเฉพาะไฟล์ของ Processor เท่านั้น
+    # → approved = processor file ผ่านแล้ว (แม้ owner file ยังไม่ผ่านก็ตาม)
     active_items = []
     for r in active_raw:
         audit = get_latest_audit(r.ropa_doc_id, db)  # ดึง audit ล่าสุด
-        audit_status_val = audit.audit_status.value if (audit and audit.audit_status) else None
+
+        # ใช้ processor_review_status แทน audit_status
+        proc_review = (audit.processor_review_status if audit else None) or 'pending_review'
+        audit_status_val = proc_review  # "pending_review" | "approved" | "needs_revision"
 
         # กรองตาม status_filter (ถ้ามี)
         if status_filter:
@@ -898,17 +904,18 @@ def get_documents_page(
                 sent_at=r.sent_to_owner_at,
                 audit_status=audit_status_val,
                 audit_status_display=get_audit_status_display(audit_status_val),
-                can_edit=(audit and audit.audit_status == AuditStatus.NEEDS_REVISION),
-                # แก้ไขได้เฉพาะเมื่อ Auditor สั่งให้แก้ไข
+                can_edit=(proc_review == 'needs_revision'),
+                # แก้ไขได้เฉพาะเมื่อ Auditor ตีกลับ processor file โดยเฉพาะ
             )
         )
 
-    # นับจำนวน "เอกสารฉบับสมบูรณ์" (approved) จากทุก record ไม่ใช่แค่หน้านี้
+    # นับจำนวน "เอกสารฉบับสมบูรณ์" (approved) — นับจาก processor_review_status
     all_active = active_q.all()
     complete_count = 0
     for r in all_active:
         audit = get_latest_audit(r.ropa_doc_id, db)
-        if audit and audit.audit_status == AuditStatus.APPROVED:
+        proc_review = (audit.processor_review_status if audit else None) or 'pending_review'
+        if proc_review == 'approved':
             complete_count += 1
 
     # ── ตาราง "ฉบับร่าง" ──

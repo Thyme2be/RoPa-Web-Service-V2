@@ -67,11 +67,14 @@ Sidebar 3 — ดู feedback แล้วกด "แก้ไขเอกสา
 
 ### `audit_status` — สถานะจาก Auditor (Sidebar 2)
 
+> **สำคัญ:** `audit_status` ใน Sidebar 2 ของ Data Processor สะท้อน **เฉพาะสถานะไฟล์ของ Processor** (`processor_review_status`) ไม่ใช่สถานะรวมของทั้งเอกสาร
+> → Auditor อนุมัติแค่ processor file → แสดง "อนุมัติ" ได้เลย แม้ owner file ยังไม่ผ่าน
+
 | ค่าใน DB | แสดงบนหน้าจอ | badge | ความหมาย |
 |---|---|---|---|
-| `null` / `"pending_review"` | รอตรวจสอบ | เทา | ยังไม่มี Auditor ตรวจ |
-| `"approved"` | อนุมัติ | เขียว | Auditor อนุมัติทั้ง 2 ฟอร์มแล้ว |
-| `"needs_revision"` | **ต้องแก้ไข** | **แดง** | **Auditor ตีกลับ** — มี feedback ใน Sidebar 3 |
+| `null` / `"pending_review"` | รอตรวจสอบ | เทา | Auditor ยังไม่ตรวจไฟล์ processor |
+| `"approved"` | อนุมัติ | เขียว | Auditor อนุมัติไฟล์ processor แล้ว (ไม่สนใจว่า owner ผ่านหรือยัง) |
+| `"needs_revision"` | **ต้องแก้ไข** | **แดง** | **Auditor ตีกลับไฟล์ processor** — มี feedback ใน Sidebar 3 |
 
 ---
 
