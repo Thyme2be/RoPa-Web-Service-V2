@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from uuid import UUID
 from datetime import datetime, timezone
@@ -19,6 +20,49 @@ from app.schemas.document import (
 from app.api.deps import get_current_user, RoleChecker
 
 router = APIRouter()
+
+
+# ─────────────────────────────────────────────
+# HELPER: สร้างรหัสไฟล์ RP-YYYY-NNNN แบบ sequential
+# ─────────────────────────────────────────────
+
+def generate_file_code(db: Session) -> str:
+    """
+    สร้างรหัสไฟล์ RP-YYYY-NNNN แบบ sequential ไม่ซ้ำกัน
+    นับร่วมกันระหว่าง OwnerRecord และ ProcessorRecord
+    เช่น RP-2026-0001 (owner), RP-2026-0002 (processor) ในเอกสารเดียวกัน
+    """
+    year = datetime.now(timezone.utc).year
+    prefix = f"RP-{year}-"
+
+    # หาเลขสูงสุดที่มีอยู่ใน OwnerRecord
+    last_owner = (
+        db.query(OwnerRecord)
+        .filter(OwnerRecord.file_code.like(f"{prefix}%"))
+        .order_by(OwnerRecord.file_code.desc())
+        .first()
+    )
+    # หาเลขสูงสุดที่มีอยู่ใน ProcessorRecord
+    last_proc = (
+        db.query(ProcessorRecord)
+        .filter(ProcessorRecord.file_code.like(f"{prefix}%"))
+        .order_by(ProcessorRecord.file_code.desc())
+        .first()
+    )
+
+    max_num = 0
+    for rec in (last_owner, last_proc):
+        if rec and rec.file_code:
+            try:
+                num = int(rec.file_code.replace(prefix, ""))
+                if num > max_num:
+                    max_num = num
+            except (ValueError, AttributeError):
+                pass
+
+    next_num = max_num + 1
+    return f"{prefix}{next_num:04d}"  # zero-padded 4 digits เช่น RP-2026-0001
+
 
 # -----------------
 # DATA OWNER ENDPOINTS
@@ -41,13 +85,21 @@ def create_document(
 
     # 2. Add Owner Record if provided
     if doc_in.owner_record:
-        owner_rec = OwnerRecord(ropa_doc_id=new_doc.id, **doc_in.owner_record.model_dump(exclude_unset=True))
+        owner_rec = OwnerRecord(
+            ropa_doc_id=new_doc.id,
+            file_code=generate_file_code(db),
+            **doc_in.owner_record.model_dump(exclude_unset=True),
+        )
         db.add(owner_rec)
 
     # 3. Hybrid Flexible Processors: Optionally blank processor records assigned directly to users
     if doc_in.processor_records:
         for pr_in in doc_in.processor_records:
-            pr = ProcessorRecord(ropa_doc_id=new_doc.id, **pr_in.model_dump(exclude_unset=True))
+            pr = ProcessorRecord(
+                ropa_doc_id=new_doc.id,
+                file_code=generate_file_code(db),
+                **pr_in.model_dump(exclude_unset=True),
+            )
             db.add(pr)
 
     db.commit()
@@ -81,7 +133,11 @@ def update_document_owner(
 
     if doc_in.owner_record:
         if not doc.owner_record:
-            new_rec = OwnerRecord(ropa_doc_id=doc.id, **doc_in.owner_record.model_dump(exclude_unset=True))
+            new_rec = OwnerRecord(
+                ropa_doc_id=doc.id,
+                file_code=generate_file_code(db),
+                **doc_in.owner_record.model_dump(exclude_unset=True),
+            )
             db.add(new_rec)
         else:
             for key, value in doc_in.owner_record.model_dump(exclude_unset=True).items():
@@ -126,9 +182,10 @@ def owner_assign_processor(
         raise HTTPException(status_code=400, detail="Processor Record already assigned to this user for this document.")
 
     new_pr = ProcessorRecord(
-        ropa_doc_id=doc.id, 
+        ropa_doc_id=doc.id,
         assigned_to=assignment.assigned_to,
-        processor_name=assignment.processor_name
+        processor_name=assignment.processor_name,
+        file_code=generate_file_code(db),
     )
     db.add(new_pr)
     db.commit()

@@ -1,417 +1,332 @@
-# Data Processor Frontend Guide
+# คู่มือ Frontend — Data Processor
 
-**Generated**: April 8, 2026
-**Branch**: feat/backend-data-auditor
-**Base URL**: `/processor` (ต้องแนบ Authorization header ทุก request)
+> เอกสารนี้สำหรับนักพัฒนา Frontend ที่ทำหน้าจอฝั่ง **Data Processor**
+> อธิบายทุก API endpoint พร้อม request/response ตัวอย่าง, โครงสร้างหน้าจอ, และ business logic ทั้งหมด
 
----
-
-## ภาพรวม Data Processor Portal
-
-Data Processor Portal มี **3 Sidebar** หลัก:
-
-| Sidebar | ชื่อ | หน้าที่ |
-|---|---|---|
-| 1 | รายการ RoPA | รายการงานที่ได้รับมอบหมาย + กรอกฟอร์ม |
-| 2 | เอกสาร | ติดตามสถานะเอกสารที่ส่งให้ Auditor แล้ว |
-| 3 | ข้อเสนอแนะ | ดู feedback จาก Auditor ที่ตีกลับ |
+**Base URL**: `/processor`
+**Role ที่ต้องมี**: `Data Processor`
+**Auth**: ต้องแนบ `Authorization: Bearer <token>` ทุก request
 
 ---
 
-## Authentication & Role
+## โครงสร้างหน้าจอโดยรวม
 
 ```
-Role ที่ต้องการ: "Data Processor"
-Header: Authorization: Bearer <token>
-```
+Sidebar 1 — รายการ RoPA           (GET /processor/assignments)
+  └── ฟอร์ม 6 ส่วน                (GET /processor/assignments/{id})
+       ├── บันทึกฉบับร่าง         (PUT /processor/assignments/{id}/save-draft)
+       ├── ยืนยันข้อมูล           (PUT /processor/assignments/{id}/confirm)
+       └── Modal เลือกรายการส่ง   (GET /processor/ready-to-send)
+            └── ส่งให้ Data Owner  (POST /processor/send-to-owner/{id})
 
----
+Sidebar 2 — เอกสาร               (GET /processor/documents)
+  └── ลบฉบับร่าง                  (DELETE /processor/drafts/{id})
 
-## Workflow ภาพรวม
-
-```
-Data Owner มอบหมายงานให้ Data Processor
-    ↓
-[[ DATA PROCESSOR PORTAL เริ่มตรงนี้ ]]
-    ↓
-Sidebar 1 — กรอกฟอร์ม 6 ส่วน
-  → บันทึกฉบับร่าง (save-draft) ได้ทุกเวลา
-  → กด ยืนยัน (confirm) เมื่อกรอกครบ
-  → เลือกรายการแล้วกด ส่งให้ Data Owner
-    ↓
-Data Owner รวบรวม (owner form + processor form) ส่งให้ Auditor
-    ↓
-Sidebar 2 — ติดตามสถานะว่า Auditor ตรวจถึงไหน
-    ↓
-ถ้า Auditor ตีกลับ processor form
-    ↓
-Sidebar 3 — ดู feedback แล้วกด "แก้ไขเอกสาร"
-  → redirect กลับไป Sidebar 1 (ฟอร์มเดิม แก้ได้แล้ว)
+Sidebar 3 — ข้อเสนอแนะ           (GET /processor/feedback)
+  └── ดูรายละเอียด feedback       (GET /processor/feedback/{audit_id})
+       └── ปุ่ม "แก้ไขเอกสาร"   → redirect ไป GET /assignments/{processor_record_id}
 ```
 
 ---
 
-## สถานะที่ใช้ในระบบ
+## Sidebar 1 — รายการ RoPA ที่ได้รับมอบหมาย
 
-### `processor_status` — สถานะการทำงานของ Data Processor (Sidebar 1)
+### `GET /processor/assignments`
 
-| ค่าใน DB | แสดงบนหน้าจอ | badge | ความหมาย |
+แสดงรายการ RoPA ทั้งหมดที่ Data Owner มอบหมายให้ผู้ใช้คนนี้
+
+**Query Parameters**
+
+| Parameter | Type | ค่าเริ่มต้น | คำอธิบาย |
 |---|---|---|---|
-| `"pending"` | กำลังดำเนินการ | เทา | ได้รับมอบหมายแต่ยังไม่เริ่ม |
-| `"in_progress"` | กำลังดำเนินการ | เทา | กำลังกรอก หรือ save draft ไว้แล้ว |
-| `"confirmed"` | กำลังดำเนินการ | เทา | กรอกครบ ยืนยันแล้ว รอส่ง |
-| `"submitted"` | ส่งงานแล้ว | น้ำเงิน | ส่งให้ Data Owner แล้ว |
-| `"needs_revision"` | **รอแก้ไข** | **แดง** | **Auditor ตีกลับ** — มาจาก feedback |
+| `status` | string | — | กรองตามสถานะ: `in_progress` / `needs_revision` / `submitted` (รองรับทั้งภาษาอังกฤษและไทย) |
+| `date_from` | datetime | — | กรองตั้งแต่วันที่รับมอบหมาย |
+| `date_to` | datetime | — | กรองถึงวันที่รับมอบหมาย |
+| `page` | int | `1` | หน้าปัจจุบัน |
+| `page_size` | int | `10` | จำนวนแถวต่อหน้า (สูงสุด 100) |
 
-> **หมายเหตุ:** `"pending"`, `"in_progress"`, `"confirmed"` แสดง badge เดียวกัน "กำลังดำเนินการ"
+**Response 200**
 
-### `audit_status` — สถานะจาก Auditor (Sidebar 2)
-
-> **สำคัญ:** `audit_status` ใน Sidebar 2 ของ Data Processor สะท้อน **เฉพาะสถานะไฟล์ของ Processor** (`processor_review_status`) ไม่ใช่สถานะรวมของทั้งเอกสาร
-> → Auditor อนุมัติแค่ processor file → แสดง "อนุมัติ" ได้เลย แม้ owner file ยังไม่ผ่าน
-
-| ค่าใน DB | แสดงบนหน้าจอ | badge | ความหมาย |
-|---|---|---|---|
-| `null` / `"pending_review"` | รอตรวจสอบ | เทา | Auditor ยังไม่ตรวจไฟล์ processor |
-| `"approved"` | อนุมัติ | เขียว | Auditor อนุมัติไฟล์ processor แล้ว (ไม่สนใจว่า owner ผ่านหรือยัง) |
-| `"needs_revision"` | **ต้องแก้ไข** | **แดง** | **Auditor ตีกลับไฟล์ processor** — มี feedback ใน Sidebar 3 |
-
----
-
-## Sidebar 1 — รายการ RoPA
-
-### GET `/processor/assignments`
-
-**Query Parameters:**
-
-| param | ค่า | default |
-|---|---|---|
-| `status_filter` | `"in_progress"` / `"needs_revision"` / `"submitted"` | null (ทั้งหมด) |
-| `date_from` | ISO datetime | null |
-| `date_to` | ISO datetime | null |
-| `page` | integer ≥ 1 | `1` |
-| `page_size` | integer 1-100 | `10` |
-
-**Response:**
 ```json
 {
   "stats": {
-    "total": 12,
-    "in_progress": 5,
-    "needs_revision": 3,
-    "submitted": 4
+    "total": 15,
+    "in_progress": 8,
+    "needs_revision": 2,
+    "submitted": 5
   },
   "records": [
     {
-      "id": "uuid-BBB",
-      "doc_code": "RP-2026-1000",
+      "id": "3f2e1a0b-...",
+      "doc_code": "RP-2026-0002",
       "title": "ข้อมูลลูกค้าและประวัติการสั่งซื้อ",
       "assigned_by": "สมชาย ใจดี",
-      "received_at": "2026-03-28T09:15:00Z",
-      "processor_status": "needs_revision",
-      "status_display": "รอแก้ไข",
+      "received_at": "2026-04-01T08:00:00Z",
+      "processor_status": "in_progress",
+      "status_display": "กำลังดำเนินการ",
       "can_edit": true
     }
   ],
-  "total": 12,
+  "total": 15,
   "page": 1,
   "page_size": 10
 }
 ```
 
-**คำอธิบาย fields:**
+**คำอธิบาย Fields**
 
-| field | แสดงที่ | หมายเหตุ |
-|---|---|---|
-| `stats.total` | card "งานทั้งหมด" | นับทุก status รวมกัน |
-| `stats.in_progress` | card "รอดำเนินการ" | PENDING + IN_PROGRESS + CONFIRMED |
-| `stats.needs_revision` | card "แก้ไขตาม FEEDBACK" | มาจาก Auditor ตีกลับ |
-| `stats.submitted` | card "ส่งงานแล้ว" | ส่งให้ Data Owner แล้ว |
-| `id` | — | ใช้ส่งไป GET /assignments/{id} ตอนกดปุ่ม |
-| `status_display` | badge ในตาราง | แสดงข้อความภาษาไทย |
-| `can_edit` | ปุ่มดำเนินการ | `false` = ซ่อน/disable ปุ่มแก้ไข |
+| Field | คำอธิบาย |
+|---|---|
+| `stats.total` | จำนวน RoPA ทั้งหมดที่ได้รับมอบหมาย (นับทุกสถานะ ไม่ filter) |
+| `stats.in_progress` | นับรวม status: `pending` + `in_progress` + `confirmed` (ยังไม่ส่ง) |
+| `stats.needs_revision` | รายการที่ Auditor ส่งกลับให้แก้ไข |
+| `stats.submitted` | รายการที่ส่งให้ Data Owner แล้ว |
+| `id` | UUID ของ ProcessorRecord — ใช้ใน URL ทุก endpoint ที่ต้องการ `record_id` |
+| `doc_code` | รหัสไฟล์ของ Processor เช่น `RP-2026-0002` (unique ต่อไฟล์ ไม่ซ้ำกับ owner) |
+| `can_edit` | `true` = แก้ไขได้, `false` = เฉพาะ SUBMITTED (ส่งแล้วแก้ไม่ได้) |
 
-**ปุ่ม "เลือกรายการ" (Modal):**
-- กดแล้วเปิด modal รายการที่ส่งได้ → เรียก `GET /processor/ready-to-send`
-- เลือกรายการใน modal → store `record_id` ใน state (ไม่เปิดฟอร์ม)
-- กดปุ่ม "ส่ง" → เรียก `POST /processor/send-to-owner/{record_id}`
+**สถานะ (processor_status) ทั้งหมด**
 
----
-
-### GET `/processor/ready-to-send`
-
-เรียกเมื่อเปิด modal "เลือกรายการที่ต้องการส่ง"
-
-**Query Parameters:** `page`, `page_size`
-
-**Response:**
-```json
-{
-  "records": [
-    {
-      "id": "uuid-BBB",
-      "doc_code": "RP-2026-1000",
-      "title": "ข้อมูลลูกค้า...",
-      "created_at": "2026-03-01T00:00:00Z"
-    }
-  ],
-  "total": 3,
-  "page": 1,
-  "page_size": 10
-}
-```
-
-> แสดงเฉพาะ records ที่ `processor_status = "confirmed"` เท่านั้น
+| ค่าใน DB | status_display | can_edit | คำอธิบาย |
+|---|---|---|---|
+| `pending` | กำลังดำเนินการ | ✅ true | ได้รับมอบหมายแล้ว ยังไม่เคยเปิดฟอร์ม |
+| `in_progress` | กำลังดำเนินการ | ✅ true | กำลังกรอก หรือบันทึกฉบับร่างแล้ว |
+| `confirmed` | กำลังดำเนินการ | ✅ true | ยืนยันครบแล้ว รอส่ง (อยู่ใน modal) |
+| `submitted` | ส่งงานแล้ว | ❌ false | ส่งให้ Data Owner แล้ว |
+| `needs_revision` | รอแก้ไข | ✅ true | Auditor ส่งกลับให้แก้ไข |
 
 ---
 
-### GET `/processor/assignments/{record_id}`
+## ฟอร์ม 6 ส่วน — ดู/แก้ไข
 
-เรียกเมื่อกดปุ่ม "แก้ไข" (Sidebar 1), "ดูเอกสาร" (Sidebar 2), หรือ "แก้ไขเอกสาร" (Sidebar 3)
+### `GET /processor/assignments/{record_id}`
 
-**Path Parameter:** `record_id` = `ProcessorRecord.id`
+เปิดฟอร์ม 6 ส่วน — ใช้ร่วมกันจากทุก sidebar
 
-**Response:**
+**Response 200**
+
 ```json
 {
-  "id": "uuid-BBB",
+  "id": "3f2e1a0b-...",
   "doc_code": "RP-2026-1000",
-  "title": "ข้อมูลลูกค้า...",
+  "title": "ข้อมูลลูกค้า",
   "processor_status": "in_progress",
-  "draft_code": "DFT-5525",
+  "draft_code": "DFT-5025",
   "assigned_by": "สมชาย ใจดี",
-  "received_at": "2026-03-01T00:00:00Z",
+  "received_at": "2026-04-01T08:00:00Z",
   "confirmed_at": null,
   "sent_to_owner_at": null,
-  "updated_at": "2026-03-28T10:00:00Z",
+  "updated_at": "2026-04-05T10:30:00Z",
   "audit_status": null,
   "audit_status_display": "รอตรวจสอบ",
   "is_read_only": false,
+
   "title_prefix": "นาย",
-  "first_name": "สมชาย",
-  ...ฟอร์ม 6 ส่วนทั้งหมด...
+  "first_name": "สมศักดิ์",
+  "last_name": "ดีมาก",
+  "address": "123 ถ.สุขุมวิท กรุงเทพฯ",
+  "email": "somsak@example.com",
+  "phone": "081-234-5678",
+
+  "processor_name": "บริษัท ABC จำกัด",
+  "data_controller_address": "456 ถ.พระราม 4",
+  "processing_activity": "ระบบบริหารลูกค้าสัมพันธ์",
+  "purpose": "เพื่อติดตามและบริหารจัดการลูกค้า",
+
+  "personal_data": ["ชื่อ-นามสกุล", "เบอร์โทร", "อีเมล"],
+  "data_category": ["ลูกค้า"],
+  "data_type": "general",
+
+  "collection_method": "electronic",
+  "data_source": "from_owner",
+  "retention_storage_type": ["electronic"],
+  "retention_method": ["cloud_storage"],
+  "retention_duration": "5",
+  "retention_duration_unit": "year",
+  "retention_access_condition": "เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาต",
+  "retention_deletion_method": "ลบออกจากระบบถาวร",
+
+  "legal_basis": "ฐานสัญญา",
+  "transfer_is_transfer": false,
+  "transfer_country": null,
+  "transfer_is_in_group": null,
+  "transfer_company_name": null,
+  "transfer_method": null,
+  "transfer_protection_std": null,
+  "transfer_exception": null,
+
+  "security_organizational": "นโยบายความปลอดภัยข้อมูล",
+  "security_access_control": "ระบบ RBAC",
+  "security_technical": "การเข้ารหัส AES-256",
+  "security_responsibility": "แผนกไอที",
+  "security_physical": "ประตูล็อค กล้องวงจรปิด",
+  "security_audit": "ตรวจสอบทุก 6 เดือน"
 }
 ```
 
-**`is_read_only` — สำคัญมาก:**
+**คำอธิบาย Fields สำคัญ**
 
-| สถานการณ์ | `is_read_only` | ความหมาย |
+| Field | คำอธิบาย |
+|---|---|
+| `is_read_only` | **สำคัญมาก** — `true` ให้ disable ทุก input, `false` แก้ไขได้ |
+| `draft_code` | รหัสฉบับร่าง เช่น `DFT-5025` — แสดงที่หัวหน้าฟอร์ม (null ถ้ายังไม่เคย save draft) |
+| `audit_status` | `null` / `"pending_review"` / `"approved"` / `"needs_revision"` |
+| `personal_data` | **List** — multi-select dropdown |
+| `data_category` | **List** — checkboxes |
+| `retention_storage_type` | **List** — checkboxes |
+| `retention_method` | **List** — multi-select dropdown |
+
+**กฎ is_read_only — frontend ต้องทำตาม**
+
+```
+มี audit + audit_status = "needs_revision"  →  is_read_only = false  (แก้ไขได้)
+มี audit + audit_status อื่น               →  is_read_only = true   (ดูอย่างเดียว)
+ไม่มี audit + processor_status = submitted  →  is_read_only = true   (รอ Auditor ตรวจ)
+ไม่มี audit + processor_status อื่น        →  is_read_only = false  (แก้ไขได้)
+```
+
+**Fields ฟอร์ม 6 ส่วน และ Required Fields สำหรับ confirm**
+
+| Section | Fields | Required สำหรับ confirm |
 |---|---|---|
-| PENDING / IN_PROGRESS / CONFIRMED (ยังไม่มี audit) | `false` | แก้ไขได้ |
-| SUBMITTED (รอ Data Owner ส่ง Auditor) | `true` | ดูได้อย่างเดียว |
-| Auditor ตีกลับ (`audit_status = needs_revision`) | `false` | **แก้ไขได้อีกครั้ง** |
-| Auditor รอตรวจ / อนุมัติ (`pending_review` / `approved`) | `true` | ดูได้อย่างเดียว |
+| Section 1 — ผู้บันทึก | `title_prefix`, `first_name`, `last_name`, `address`, `email`, `phone` | `first_name`, `last_name`, `address`, `email`, `phone` |
+| Section 2 — กิจกรรม | `processor_name`, `data_controller_address`, `processing_activity`, `purpose` | ทั้งหมด |
+| Section 3 — ข้อมูล | `personal_data` (list), `data_category` (list), `data_type` | ทั้งหมด |
+| Section 4 — เก็บรักษา | `collection_method`, `data_source`, `retention_storage_type` (list), `retention_method` (list), `retention_duration`, `retention_duration_unit`, `retention_access_condition`, `retention_deletion_method` | ทั้งหมด |
+| Section 5 — กฎหมาย | `legal_basis`, `transfer_is_transfer`, และถ้า transfer=true: `transfer_country`, `transfer_method`, `transfer_protection_std`, `transfer_exception` | `legal_basis` + transfer fields ถ้า transfer=true |
+| Section 6 — ความปลอดภัย | `security_organizational`, `security_access_control`, `security_technical`, `security_responsibility`, `security_physical`, `security_audit` | ไม่ required |
 
-> Frontend ใช้ `is_read_only` ตัดสินใจว่า disable input ทั้งหมดหรือไม่ — **ไม่ต้องคำนวณเอง**
+**ค่าที่รับได้ของ radio/select fields**
+
+| Field | ค่าที่รับได้ |
+|---|---|
+| `data_type` | `"general"` (ทั่วไป) / `"sensitive"` (อ่อนไหว) |
+| `collection_method` | `"electronic"` (อิเล็กทรอนิกส์) / `"document"` (เอกสาร) |
+| `data_source` | `"from_owner"` (จากเจ้าของข้อมูลโดยตรง) / `"from_other"` (จากแหล่งอื่น) |
+| `retention_duration_unit` | `"year"` (ปี) / `"month"` (เดือน) |
 
 ---
 
-### PUT `/processor/assignments/{record_id}/save-draft`
+## บันทึกฉบับร่าง
 
-บันทึกฉบับร่าง — กดได้ทุกเวลา ไม่ต้องกรอกครบ
+### `PUT /processor/assignments/{record_id}/save-draft`
 
-**Request Body:** (ส่งเฉพาะ field ที่กรอก)
+บันทึกงานที่ยังไม่เสร็จ — กรอกไม่ครบก็บันทึกได้
+
+**Request Body** (ส่งเฉพาะ field ที่กรอก ไม่ต้องส่งครบ)
+
 ```json
 {
-  "first_name": "สมชาย",
-  "last_name": "ใจดี",
-  "processor_name": "บริษัท ABC"
+  "first_name": "สมศักดิ์",
+  "last_name": "ดีมาก",
+  "processor_name": "บริษัท ABC จำกัด",
+  "personal_data": ["ชื่อ-นามสกุล", "เบอร์โทร"],
+  "retention_duration": "5",
+  "retention_duration_unit": "year"
 }
 ```
 
-**Response:**
+**Response 200**
+
 ```json
 {
   "message": "บันทึกฉบับร่างเรียบร้อย",
-  "record_id": "uuid-BBB",
-  "draft_code": "DFT-5525"
+  "draft_code": "DFT-5025",
+  "record_id": "3f2e1a0b-..."
 }
 ```
 
-> - สร้าง `draft_code` อัตโนมัติครั้งแรกที่กด save
-> - อัปเดตเฉพาะ field ที่ส่งมา (ไม่ลบข้อมูลเดิม)
-> - `processor_status`: PENDING / NEEDS_REVISION → IN_PROGRESS
+**พฤติกรรม**
+- สร้าง `draft_code` อัตโนมัติ (format `DFT-XXXX`) ครั้งแรกที่กด save — frontend ต้องแสดง draft_code จาก response
+- Status เปลี่ยน: `pending` / `needs_revision` → `in_progress`
+- เขียนเฉพาะ field ที่ส่งมา ไม่ลบข้อมูลเดิมที่กรอกไว้
+- Error 403: ถ้า status เป็น `submitted`
 
 ---
 
-### PUT `/processor/assignments/{record_id}/confirm`
+## ยืนยันข้อมูล RoPA
 
-ยืนยันข้อมูล — กดเมื่อกรอกครบทุก field required
+### `PUT /processor/assignments/{record_id}/confirm`
 
-**Request Body:** (ส่งข้อมูลฟอร์มทั้งหมด)
+กรอกครบแล้ว กด "ยืนยัน" เพื่อเตรียมส่ง
+
+**Request Body** (ต้องส่ง required fields ครบ)
+
 ```json
 {
-  "first_name": "สมชาย",
-  "last_name": "ใจดี",
-  "address": "123 ถนนสุขุมวิท...",
-  "email": "somchai@company.com",
-  "phone": "0812345678",
+  "first_name": "สมศักดิ์",
+  "last_name": "ดีมาก",
+  "address": "123 ถ.สุขุมวิท",
+  "email": "somsak@example.com",
+  "phone": "081-234-5678",
   "processor_name": "บริษัท ABC จำกัด",
-  "data_controller_address": "456 ถนน...",
-  "processing_activity": "จัดเก็บข้อมูลลูกค้า",
-  "purpose": "ใช้ในการให้บริการ",
+  "data_controller_address": "456 ถ.พระราม 4",
+  "processing_activity": "ระบบ CRM",
+  "purpose": "บริหารจัดการลูกค้า",
   "personal_data": ["ชื่อ-นามสกุล", "เบอร์โทร"],
   "data_category": ["ลูกค้า"],
   "data_type": "general",
   "collection_method": "electronic",
   "data_source": "from_owner",
   "retention_storage_type": ["electronic"],
-  "retention_method": ["server"],
+  "retention_method": ["cloud_storage"],
   "retention_duration": "5",
   "retention_duration_unit": "year",
-  "retention_access_condition": "เฉพาะผู้มีสิทธิ์",
-  "retention_deletion_method": "ลบถาวรจากระบบ",
-  "legal_basis": "สัญญา",
+  "retention_access_condition": "เฉพาะเจ้าหน้าที่",
+  "retention_deletion_method": "ลบถาวร",
+  "legal_basis": "ฐานสัญญา",
   "transfer_is_transfer": false,
-  ...Section 6...
+  "security_organizational": "นโยบายความปลอดภัย"
 }
 ```
 
-**Response:**
+**Response 200**
+
 ```json
 {
   "message": "ยืนยันข้อมูล RoPA เรียบร้อย",
-  "record_id": "uuid-BBB"
+  "record_id": "3f2e1a0b-..."
 }
 ```
 
-**Fields Required สำหรับ confirm:**
+**Response 422** (กรอกไม่ครบ)
 
-| Section | Required fields |
-|---|---|
-| 1 | `first_name`, `last_name`, `address`, `email`, `phone` |
-| 2 | `processor_name`, `data_controller_address`, `processing_activity`, `purpose` |
-| 3 | `personal_data`, `data_category`, `data_type` |
-| 4 | `collection_method`, `data_source`, `retention_storage_type`, `retention_method`, `retention_duration`, `retention_duration_unit`, `retention_access_condition`, `retention_deletion_method` |
-| 5 | `legal_basis` (+ transfer fields ถ้า `transfer_is_transfer=true`) |
-| 6 | ไม่มี required (optional ทั้งหมด) |
-
-> ถ้ากรอกไม่ครบ → 422 `{"missing_fields": ["first_name", "email", ...]}`
-
----
-
-### POST `/processor/send-to-owner/{record_id}`
-
-ส่งให้ Data Owner — เรียกหลังจากเลือกรายการใน modal แล้วกดปุ่ม "ส่ง"
-
-**ไม่มี Request Body**
-
-**Response:**
 ```json
 {
-  "message": "ส่งข้อมูลให้ Data Owner เรียบร้อย",
-  "record_id": "uuid-BBB"
+  "detail": {
+    "message": "กรุณากรอกข้อมูลให้ครบถ้วน",
+    "missing_fields": ["retention_duration", "data_type"]
+  }
 }
 ```
 
-> - เฉพาะ `processor_status = "confirmed"` เท่านั้น
-> - หลังส่ง: `processor_status = "submitted"`, `sent_to_owner_at = now`
+**พฤติกรรม**
+- ตรวจสอบ required fields — ถ้าขาด return 422 พร้อม list ของ field ที่ขาด (frontend แสดง highlight)
+- Status เปลี่ยน: → `confirmed`
+- Record ปรากฏใน modal "เลือกรายการที่ต้องการส่ง" (GET /ready-to-send)
+- Record หายจากตาราง "ฉบับร่าง" ใน Sidebar 2
+- Error 403: ถ้า status เป็น `submitted`
 
 ---
 
-## Sidebar 2 — เอกสาร
+## Modal เลือกรายการที่ต้องการส่ง
 
-### GET `/processor/documents`
+### `GET /processor/ready-to-send`
 
-**Query Parameters:**
+แสดง records ที่ยืนยันแล้ว (status=`confirmed`) รอส่งให้ Data Owner
 
-| param | ค่า | default |
-|---|---|---|
-| `time_range` | `"7_days"` / `"30_days"` / `"90_days"` / `"all"` | `"30_days"` |
-| `date_from` | ISO datetime | null |
-| `status_filter` | `"approved"` / `"needs_revision"` / `"pending_review"` | null |
-| `active_page` | integer ≥ 1 | `1` |
-| `drafts_page` | integer ≥ 1 | `1` |
-| `page_size` | integer 1-100 | `10` |
+**Query Parameters**: `page`, `page_size`
 
-**Response:**
+**Response 200**
+
 ```json
 {
-  "stats": {
-    "total": 96,
-    "complete": 84
-  },
-  "active_records": [
+  "records": [
     {
-      "id": "uuid-BBB",
-      "doc_code": "RP-2026-0900",
-      "title": "ข้อมูลการให้บริการ...",
-      "sent_at": "2026-03-28T09:15:00Z",
-      "audit_status": "needs_revision",
-      "audit_status_display": "ต้องแก้ไข",
-      "can_edit": true
-    }
-  ],
-  "active_total": 24,
-  "active_page": 1,
-  "drafts": [
-    {
-      "id": "uuid-CCC",
-      "draft_code": "DFT-5525",
-      "title": "ข้อมูลธุรกิจคู่ค้า...",
-      "updated_at": "2026-03-27T14:00:00Z"
-    }
-  ],
-  "drafts_total": 3,
-  "drafts_page": 1,
-  "page_size": 10
-}
-```
-
-**ตาราง "รายการที่ดำเนินการ" (`active_records`):**
-
-แสดงเอกสารที่ส่งให้ Data Owner แล้ว และอยู่ในกระบวนการตรวจของ Auditor
-
-| field | แสดงที่ | หมายเหตุ |
-|---|---|---|
-| `audit_status_display` | badge ในตาราง | "รอตรวจสอบ" / "อนุมัติ" / "ต้องแก้ไข" |
-| `can_edit` | ปุ่ม "ดูเอกสาร" | `true` = แก้ไขได้ (Auditor ตีกลับ), `false` = read-only |
-| `sent_at` | คอลัมน์ "วันที่ส่งข้อมูล" | วันที่ส่งให้ Data Owner |
-
-**ตาราง "ฉบับร่าง" (`drafts`):**
-
-แสดง records ที่เคยกด save draft ค้างไว้ (`processor_status = in_progress` + มี `draft_code`)
-
-| ปุ่ม | เรียก endpoint |
-|---|---|
-| ✏ แก้ไข | `GET /processor/assignments/{id}` |
-| 🗑 ลบ | `DELETE /processor/drafts/{id}` |
-
----
-
-### DELETE `/processor/drafts/{record_id}`
-
-ลบฉบับร่าง — เรียกเมื่อกดปุ่ม 🗑 ในตาราง "ฉบับร่าง"
-
-**Response:** 204 No Content
-
-> ไม่ได้ลบ record จริง — แค่ล้างข้อมูลทั้งหมดในฟอร์มและ reset status กลับเป็น PENDING
-
----
-
-## Sidebar 3 — ข้อเสนอแนะ
-
-### GET `/processor/feedback`
-
-**Query Parameters:**
-
-| param | ค่า | default |
-|---|---|---|
-| `page` | integer ≥ 1 | `1` |
-| `page_size` | integer 1-100 | `10` |
-| `time_range` | `"7_days"` / `"30_days"` / `"90_days"` / `"all"` | null |
-| `date_from` | ISO datetime | null |
-
-**Response:**
-```json
-{
-  "feedbacks": [
-    {
-      "audit_id": "uuid-audit",
-      "doc_code": "RP-2026-0900",
-      "title": "ข้อมูลการให้บริการ...",
-      "sent_at": "2026-03-30T14:30:00Z",
-      "received_at": "2026-03-30T14:30:00Z"
+      "id": "3f2e1a0b-...",
+      "doc_code": "RP-2026-0002",
+      "title": "ข้อมูลลูกค้า",
+      "created_at": "2026-03-15T09:00:00Z"
     }
   ],
   "total": 3,
@@ -420,188 +335,268 @@ Sidebar 3 — ดู feedback แล้วกด "แก้ไขเอกสา
 }
 ```
 
-> แสดงเฉพาะเอกสารที่ `audit_status = needs_revision` และมี `processor_feedback`
+**พฤติกรรม**: `created_at` คือวันที่ Data Owner สร้างเอกสาร RoPA (ไม่ใช่วันที่ Processor confirm)
 
 ---
 
-### GET `/processor/feedback/{audit_id}`
+## ส่ง RoPA ให้ผู้รับผิดชอบข้อมูล
 
-เรียกเมื่อกดปุ่ม "ดูข้อเสนอแนะ" ในตาราง
+### `POST /processor/send-to-owner/{record_id}`
 
-**Path Parameter:** `audit_id` = `AuditorAudit.id`
+ส่ง RoPA ที่ยืนยันแล้วไปให้ Data Owner — ต้องเป็น `confirmed` เท่านั้น
 
-**Response:**
+**Request Body**: ไม่มี
+
+**Response 200**
+
 ```json
 {
-  "audit_id": "uuid-audit",
-  "doc_code": "ROPA-2026-0900",
-  "title": "ข้อมูลการให้บริการ...",
-  "last_modified": "2026-03-30T14:30:00Z",
-  "auditor_name": "พรรษชล บุญมาก",
-  "section_feedbacks": [
+  "message": "ส่ง RoPA ให้ผู้รับผิดชอบข้อมูลเรียบร้อย",
+  "record_id": "3f2e1a0b-..."
+}
+```
+
+**พฤติกรรม**
+- Status เปลี่ยน: `confirmed` → `submitted`
+- บันทึก `sent_to_owner_at` = เวลาปัจจุบัน
+- Record หายจาก modal ready-to-send
+- Record ปรากฏในตาราง "รายการที่ดำเนินการ" ของ Sidebar 2 สถานะ "รอตรวจสอบ"
+- Error 400: ถ้า status ไม่ใช่ `confirmed`
+
+---
+
+## Sidebar 2 — เอกสาร
+
+### `GET /processor/documents`
+
+แสดง 2 ตารางพร้อมกัน: "รายการที่ดำเนินการ" และ "ฉบับร่าง"
+
+**Query Parameters**
+
+| Parameter | คำอธิบาย |
+|---|---|
+| `status` | กรองตาราง "รายการที่ดำเนินการ" ตาม audit_status |
+| `date_from` | กรองตาม sent_to_owner_at |
+| `time_range` | `7_days` / `30_days` / `90_days` / `all` |
+| `active_page` | หน้าของตาราง "รายการที่ดำเนินการ" (default: 1) |
+| `drafts_page` | หน้าของตาราง "ฉบับร่าง" (default: 1) |
+| `page_size` | จำนวนแถวต่อหน้า (ใช้กับทั้ง 2 ตาราง) |
+
+**Response 200**
+
+```json
+{
+  "stats": {
+    "total": 10,
+    "complete": 3
+  },
+  "active_records": [
+    {
+      "id": "3f2e1a0b-...",
+      "doc_code": "RP-2026-0002",
+      "title": "ข้อมูลลูกค้า",
+      "sent_at": "2026-04-02T14:00:00Z",
+      "audit_status": "pending_review",
+      "audit_status_display": "รอตรวจสอบ",
+      "can_edit": false
+    }
+  ],
+  "active_total": 10,
+  "active_page": 1,
+  "drafts": [
+    {
+      "id": "uuid-อีกอัน",
+      "draft_code": "DFT-5030",
+      "title": "ข้อมูลพนักงาน",
+      "updated_at": "2026-04-08T16:20:00Z"
+    }
+  ],
+  "drafts_total": 2,
+  "drafts_page": 1,
+  "page_size": 10
+}
+```
+
+**ตาราง "รายการที่ดำเนินการ"** (active_records)
+
+แสดง records ที่ส่งให้ Data Owner แล้ว และ RopaDocument อยู่ในกระบวนการ Auditor
+
+| audit_status | audit_status_display | can_edit | ความหมาย |
+|---|---|---|---|
+| `pending_review` | รอตรวจสอบ | false | Auditor ยังไม่ตรวจไฟล์ Processor นี้ |
+| `approved` | อนุมัติ | false | ไฟล์ Processor ผ่านการตรวจแล้ว |
+| `needs_revision` | ต้องแก้ไข | true | Auditor ตีกลับ — ต้องแก้ไขและส่งใหม่ |
+
+> หมายเหตุ: `audit_status` ที่แสดงใน Sidebar 2 คือ `processor_review_status` เฉพาะ — ไม่ใช่สถานะรวมของทั้งเอกสาร
+
+**stats**
+
+| Field | คำอธิบาย |
+|---|---|
+| `stats.total` | จำนวน records ใน active_records ทั้งหมด (ก่อน pagination) |
+| `stats.complete` | จำนวน records ที่ audit_status = `approved` (Auditor อนุมัติแล้ว) |
+
+**ตาราง "ฉบับร่าง"** (drafts)
+
+แสดงเฉพาะ records ที่ status = `in_progress` และมี `draft_code` (เคยกด save draft แล้ว)
+
+---
+
+## ลบฉบับร่าง
+
+### `DELETE /processor/drafts/{record_id}`
+
+ลบฉบับร่าง — ล้างข้อมูลฟอร์มทั้งหมดและ draft_code (ไม่ลบ ProcessorRecord จริง)
+
+**Response 204** (No Content — ไม่มี body)
+
+**พฤติกรรม**
+- Reset ข้อมูลทุก field ในฟอร์มเป็น null
+- `draft_code` = null
+- Status เปลี่ยน: `in_progress` → `pending`
+- Record หายจากตาราง "ฉบับร่าง" ใน Sidebar 2
+- Record กลับไปอยู่ใน Sidebar 1 สถานะ "กำลังดำเนินการ" (แต่ไม่มีข้อมูลแล้ว)
+- Error 404: ถ้าไม่ใช่ `in_progress` หรือไม่มี `draft_code`
+
+---
+
+## Sidebar 3 — ข้อเสนอแนะ
+
+### `GET /processor/feedback`
+
+รายการแจ้งเตือน feedback จาก Auditor ที่ต้องแก้ไข
+
+**Query Parameters**: `date_from`, `time_range` (`7_days`/`30_days`/`90_days`/`all`), `page`, `page_size`
+
+**Response 200**
+
+```json
+{
+  "feedbacks": [
+    {
+      "audit_id": "uuid-ของ-AuditorAudit",
+      "doc_code": "RP-2026-1000",
+      "title": "ข้อมูลลูกค้า",
+      "sent_at": "2026-04-05T11:00:00Z",
+      "received_at": "2026-04-05T11:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 10
+}
+```
+
+**เงื่อนไขที่แสดงใน Sidebar 3**
+
+1. เป็นเอกสารที่ current_user ถูก assign
+2. `audit_status = needs_revision` (ต้องแก้ไข)
+3. มี `processor_feedback` (Auditor เขียน comment ให้ Processor จริงๆ)
+
+---
+
+### `GET /processor/feedback/{audit_id}`
+
+ดูรายละเอียด feedback — แสดง comment แยกตามส่วน
+
+**Response 200**
+
+```json
+{
+  "audit_id": "uuid-ของ-AuditorAudit",
+  "ropa_doc_id": "uuid-ของ-RopaDocument",
+  "doc_code": "RP-2026-1000",
+  "title": "ข้อมูลลูกค้า",
+  "updated_at": "2026-04-05T11:00:00Z",
+  "auditor_name": "วิชัย ตรวจสอบ",
+  "processor_record_id": "3f2e1a0b-...",
+  "feedbacks": [
     {
       "section": "section_5",
       "section_label": "ส่วนที่ 5 : ฐานทางกฎหมายและการส่งต่อ",
-      "comment": "กรุณายืนยันว่า Server สิงคโปร์มี SCCs รองรับ"
+      "comment": "กรุณายืนยัน SCCs สำหรับการส่งข้อมูลต่างประเทศ"
     },
     {
       "section": "section_6",
       "section_label": "ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs)",
-      "comment": "ระบุมาตรการ Encryption at Rest ให้ชัดเจนกว่านี้"
+      "comment": "กรุณาระบุวิธีการเข้ารหัสข้อมูลให้ชัดเจนยิ่งขึ้น"
     }
-  ],
-  "processor_record_id": "uuid-BBB"
+  ]
 }
 ```
 
-**คำอธิบาย fields:**
+**คำอธิบาย Fields**
 
-| field | แสดงที่ |
+| Field | คำอธิบาย |
 |---|---|
-| `doc_code` | "รหัสเอกสาร : ROPA-2026-0900" |
-| `last_modified` | "วันที่แก้ไขล่าสุด : 30/03/2026" |
-| `auditor_name` | "ผู้ตรวจสอบ : พรรษชล บุญมาก" |
-| `section_feedbacks` | กล่อง comment แยกตามส่วน |
-| `processor_record_id` | ใช้กดปุ่ม "แก้ไขเอกสาร" |
+| `processor_record_id` | UUID ของ ProcessorRecord — ใช้ redirect ไปหน้าแก้ไข: `GET /assignments/{processor_record_id}` |
+| `feedbacks` | รายการ comment แต่ละส่วน (section_1 ถึง section_6) |
+| `auditor_name` | ชื่อ Auditor ที่ส่ง feedback |
+| `updated_at` | วันที่แก้ไขล่าสุดของ audit |
 
-**ปุ่ม "แก้ไขเอกสาร":**
+**การใช้งาน**: หน้านี้มีปุ่ม **"แก้ไขเอกสาร"** → frontend redirect ไปยัง `GET /processor/assignments/{processor_record_id}`
+
+---
+
+## Flow การทำงานทั้งหมด
+
 ```
-กด "แก้ไขเอกสาร"
+Data Owner assign งาน
+  → ProcessorRecord ถูกสร้าง (status: pending)
+  ↓
+Sidebar 1 — เห็นรายการ "กำลังดำเนินการ"
+  ↓
+กดปุ่มแก้ไข → GET /assignments/{id} (is_read_only: false)
+  ↓
+[ตัวเลือก A] กดบันทึกฉบับร่าง
+  → PUT /save-draft → ได้ draft_code
+  → status: in_progress
+  → ปรากฏใน Sidebar 2 ตาราง "ฉบับร่าง"
+  ↓
+[ตัวเลือก B] กดยืนยัน (กรอกครบแล้ว)
+  → PUT /confirm → ต้องกรอกครบ required fields
+  → status: confirmed
+  → หายจาก "ฉบับร่าง", ปรากฏใน modal ready-to-send
+  ↓
+เปิด modal → GET /ready-to-send → เลือกรายการ
+  ↓
+กดส่ง → POST /send-to-owner/{id}
+  → status: submitted
+  → ปรากฏใน Sidebar 2 "รายการที่ดำเนินการ" (audit_status: รอตรวจสอบ)
+  ↓
+Auditor ตรวจสอบ:
+  [อนุมัติ] audit_status: approved
+    → Sidebar 2 แสดง "อนุมัติ", can_edit: false
+
+  [ตีกลับ] audit_status: needs_revision
+    → status: needs_revision
+    → Sidebar 2: can_edit = true
+    → ปรากฏใน Sidebar 3
     ↓
-GET /processor/assignments/{processor_record_id}
-    ↓
-is_read_only = false (เพราะ audit_status = needs_revision)
-    ↓
-แก้ไขฟอร์มได้ → save-draft → confirm → send-to-owner
+    กด "แก้ไขเอกสาร" → GET /assignments/{id} (is_read_only: false)
+    → กลับไปขั้นตอน save-draft / confirm อีกครั้ง
 ```
 
 ---
 
-## ฟอร์ม 6 ส่วน — โครงสร้าง field ทั้งหมด
+## Section Keys ทั้งหมด
 
-### ส่วนที่ 1: รายละเอียดของผู้บันทึก RoPA
-
-| field | ประเภท | required |
-|---|---|---|
-| `title_prefix` | string (นาย/นาง/นางสาว) | ไม่ |
-| `first_name` | string | ✅ |
-| `last_name` | string | ✅ |
-| `address` | string | ✅ |
-| `email` | string | ✅ |
-| `phone` | string | ✅ |
-
-### ส่วนที่ 2: รายละเอียดกิจกรรม
-
-| field | ประเภท | required |
-|---|---|---|
-| `processor_name` | string | ✅ |
-| `data_controller_address` | string | ✅ |
-| `processing_activity` | string | ✅ |
-| `purpose` | string | ✅ |
-
-### ส่วนที่ 3: ข้อมูลที่จัดเก็บ
-
-| field | ประเภท | required | หมายเหตุ |
-|---|---|---|---|
-| `personal_data` | `List[string]` | ✅ | multi-select → ส่งเป็น array |
-| `data_category` | `List[string]` | ✅ | checkboxes → ส่งเป็น array |
-| `data_type` | string | ✅ | `"general"` หรือ `"sensitive"` |
-
-### ส่วนที่ 4: การได้มาและการเก็บรักษา
-
-| field | ประเภท | required | หมายเหตุ |
-|---|---|---|---|
-| `collection_method` | string | ✅ | `"electronic"` หรือ `"document"` |
-| `data_source` | string | ✅ | `"from_owner"` หรือ `"from_other"` |
-| `retention_storage_type` | `List[string]` | ✅ | checkboxes → ส่งเป็น array |
-| `retention_method` | `List[string]` | ✅ | multi-select → ส่งเป็น array |
-| `retention_duration` | string | ✅ | ตัวเลข เช่น `"5"` |
-| `retention_duration_unit` | string | ✅ | `"year"` / `"month"` / `"days"` (dropdown) |
-| `retention_access_condition` | string | ✅ | |
-| `retention_deletion_method` | string | ✅ | |
-
-### ส่วนที่ 5: ฐานทางกฎหมายและการส่งต่อ
-
-| field | ประเภท | required | หมายเหตุ |
-|---|---|---|---|
-| `legal_basis` | string | ✅ | |
-| `transfer_is_transfer` | boolean | ไม่ | `true` = มีการโอนข้อมูลต่างประเทศ |
-| `transfer_country` | string | ถ้า transfer=true | |
-| `transfer_is_in_group` | boolean | ไม่ | |
-| `transfer_company_name` | string | ไม่ | |
-| `transfer_method` | string | ถ้า transfer=true | |
-| `transfer_protection_std` | string | ถ้า transfer=true | |
-| `transfer_exception` | string | ถ้า transfer=true | |
-
-### ส่วนที่ 6: มาตรการรักษาความมั่นคงปลอดภัย (TOMs)
-
-| field | ประเภท | required |
-|---|---|---|
-| `security_organizational` | string | ไม่ |
-| `security_access_control` | string | ไม่ |
-| `security_technical` | string | ไม่ |
-| `security_responsibility` | string | ไม่ |
-| `security_physical` | string | ไม่ |
-| `security_audit` | string | ไม่ |
+| Section Key | ชื่อแสดง |
+|---|---|
+| `section_1` | ส่วนที่ 1 : รายละเอียดของผู้บันทึก RoPA |
+| `section_2` | ส่วนที่ 2 : รายละเอียดกิจกรรม |
+| `section_3` | ส่วนที่ 3 : ข้อมูลที่จัดเก็บ |
+| `section_4` | ส่วนที่ 4 : การได้มาและการเก็บรักษา |
+| `section_5` | ส่วนที่ 5 : ฐานทางกฎหมายและการส่งต่อ |
+| `section_6` | ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs) |
 
 ---
 
-## Error Responses ทั่วไป
+## HTTP Error Codes
 
-| HTTP Status | เกิดเมื่อไหร่ | ข้อความ |
-|---|---|---|
-| 401 | ไม่มี / token หมดอายุ | Unauthorized |
-| 403 | Role ไม่ใช่ Data Processor | Forbidden |
-| 403 | พยายามเข้าถึงงานของคนอื่น | Forbidden |
-| 404 | ไม่พบ record | `"Record not found"` |
-| 403 | แก้ไข record ที่ submitted แล้ว | `"Cannot edit a submitted record"` |
-| 422 | confirm แต่กรอกไม่ครบ | `{"missing_fields": [...]}` |
-
----
-
-## สรุป Endpoints ทั้งหมด
-
-| # | Method | Path | Sidebar | ทำอะไร |
-|---|---|---|---|---|
-| 1 | GET | `/processor/assignments` | 1 | ดึงตารางงาน + stats 4 ใบ |
-| 2 | GET | `/processor/assignments/{id}` | 1,2,3 | เปิดฟอร์ม 6 ส่วน |
-| 3 | PUT | `/processor/assignments/{id}/save-draft` | 1 | บันทึกฉบับร่าง |
-| 4 | PUT | `/processor/assignments/{id}/confirm` | 1 | ยืนยันข้อมูล (กรอกครบ) |
-| 5 | GET | `/processor/ready-to-send` | 1 | ดึงรายการใน modal เลือกส่ง |
-| 6 | POST | `/processor/send-to-owner/{id}` | 1 | ส่งให้ Data Owner |
-| 7 | GET | `/processor/documents` | 2 | ดึงตารางรายการ + ฉบับร่าง + stats |
-| 8 | DELETE | `/processor/drafts/{id}` | 2 | ลบฉบับร่าง |
-| 9 | GET | `/processor/feedback` | 3 | ดึงตารางข้อเสนอแนะ |
-| 10 | GET | `/processor/feedback/{audit_id}` | 3 | ดูรายละเอียด feedback |
-
----
-
-## ตัวอย่าง Full Flow (Sidebar 3 → แก้ไข → ส่งใหม่)
-
-```
-1. Auditor ตีกลับ processor form
-   → processor_status = "needs_revision" (Sidebar 1 แสดง badge แดง "รอแก้ไข")
-   → audit_status = "needs_revision" (Sidebar 2 แสดง badge แดง "ต้องแก้ไข")
-   → Sidebar 3 แสดงรายการ feedback
-
-2. กดปุ่ม "ดูข้อเสนอแนะ" ใน Sidebar 3
-   → GET /processor/feedback/{audit_id}
-   → แสดง comment แยกตามส่วน
-
-3. กดปุ่ม "แก้ไขเอกสาร"
-   → GET /processor/assignments/{processor_record_id}
-   → is_read_only = false (แก้ไขได้แล้ว)
-
-4. แก้ไขข้อมูลตาม feedback แล้วกด "บันทึกฉบับร่าง"
-   → PUT /assignments/{id}/save-draft
-
-5. กรอกครบแล้วกด "ยืนยัน"
-   → PUT /assignments/{id}/confirm
-
-6. กดปุ่ม "เลือกรายการ" → เลือกใน modal → กด "ส่ง"
-   → POST /processor/send-to-owner/{id}
-   → processor_status = "submitted" อีกครั้ง
-
-7. Data Owner รวบรวมส่ง Auditor ใหม่
-   → รอผล Auditor ใน Sidebar 2
-```
+| Code | สาเหตุ |
+|---|---|
+| 400 | ข้อผิดพลาด logic เช่น ส่งงานที่ไม่ใช่ confirmed |
+| 403 | ไม่มีสิทธิ์ (role ไม่ถูกต้อง หรือพยายามแก้ record ที่ submitted) |
+| 404 | ไม่พบ record (หรือเป็น record ของคนอื่น) |
+| 422 | กรอก required fields ไม่ครบ (confirm endpoint) |

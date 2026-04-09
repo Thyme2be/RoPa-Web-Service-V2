@@ -1,654 +1,535 @@
-# Auditor Frontend Guide
+# คู่มือ Frontend — Auditor
 
-**Generated**: April 8, 2026
-**Branch**: feat/backend-data-auditor
-**Base URL**: `/auditor` (ต้องแนบ Authorization header ทุก request)
+> เอกสารนี้สำหรับนักพัฒนา Frontend ที่ทำหน้าจอฝั่ง **Auditor**
+> อธิบายทุก API endpoint พร้อม request/response ตัวอย่าง, โครงสร้างหน้าจอ, และ business logic ทั้งหมด
 
----
-
-## ภาพรวม Auditor Portal
-
-Auditor Portal มี **3 Sidebar** หลัก:
-
-| Sidebar | ชื่อ | หน้าที่ |
-|---|---|---|
-| 1 | แดชบอร์ด | สรุปภาพรวม + กราฟรายเดือน |
-| 2 | เอกสาร | ตรวจสอบและส่งข้อเสนอแนะฟอร์ม RoPA |
-| 3 | เอกสารครบกำหนด | จัดการเอกสารที่หมดอายุ (ลบถาวร) |
+**Base URL**: `/auditor`
+**Role ที่ต้องมี**: `Auditor`
+**Auth**: ต้องแนบ `Authorization: Bearer <token>` ทุก request
 
 ---
 
-## Authentication & Role
+## โครงสร้างหน้าจอโดยรวม
 
 ```
-Role ที่ต้องการ: "Auditor"
-Header: Authorization: Bearer <token>
+Sidebar 1 — แดชบอร์ด               (GET /auditor/dashboard)
+Sidebar 2 — เอกสาร                 (GET /auditor/documents)
+  └── ดูฟอร์ม 6 ส่วน              (GET /auditor/documents/{ropa_doc_id}?form_type=owner|processor)
+       └── ส่งข้อเสนอแนะ          (POST /auditor/documents/{ropa_doc_id}/submit-feedback)
+Sidebar 3 — เอกสารครบกำหนด        (GET /auditor/expired-documents)
+  ├── ดูฟอร์มเอกสารครบกำหนด      (GET /auditor/expired-documents/{ropa_doc_id}?form_type=owner|processor)
+  └── ลบเอกสาร                    (DELETE /auditor/documents/{ropa_doc_id})
 ```
-
-- ทุก endpoint ต้องส่ง Bearer Token
-- ถ้า token ไม่มี role `"Auditor"` → 403 Forbidden
-- ถ้า Auditor ไม่มี AuditorProfile ใน DB → 403 `"ไม่พบข้อมูล Auditor Profile กรุณาติดต่อ Admin"`
 
 ---
 
-## Workflow ภาพรวม (เชื่อมกับ Data Owner & Data Processor)
+## แนวคิดสำคัญ — 1 เอกสาร = 2 ไฟล์
+
+เอกสาร RoPA 1 ฉบับ (`ropa_doc_id` เดียวกัน) มี **2 ไฟล์แยกกัน**:
+- **ไฟล์ owner** = ฟอร์มที่ Data Owner กรอก → `form_type: "owner"`, รหัสไฟล์: `RP-2026-0001`
+- **ไฟล์ processor** = ฟอร์มที่ Data Processor กรอก → `form_type: "processor"`, รหัสไฟล์: `RP-2026-0002`
+
+Auditor ตรวจและอนุมัติ **แยกกันอิสระ** — อนุมัติ owner ก่อน processor ก็ได้ ไม่ต้องรอพร้อมกัน
 
 ```
-Data Owner สร้างเอกสาร RoPA
-    ↓
-Data Owner มอบหมายให้ Data Processor กรอกฟอร์ม
-    ↓
-Data Processor กรอกและส่งฟอร์มกลับให้ Data Owner
-    ↓
-Data Owner รวบรวม (owner form + processor form) แล้วส่งให้ Auditor
-    ↓
-[[ AUDITOR PORTAL เริ่มตรงนี้ ]]
-    ↓
-Auditor ตรวจ owner form  → อนุมัติ หรือ ตีกลับ Data Owner
-Auditor ตรวจ processor form → อนุมัติ หรือ ตีกลับ Data Processor (ผ่าน Data Owner)
-    ↓
-ทั้ง 2 ฟอร์มอนุมัติ → เอกสาร status = APPROVED + กำหนด expires_at
-    ↓
-ถึงวัน expires_at → เอกสารปรากฏใน Sidebar 3 → Auditor ลบถาวร
+เอกสาร RP-2026-1000 (ropa_doc_id: abc-123)
+  ├── ไฟล์ Owner     (file_code: RP-2026-0001) → form_type: "owner"
+  └── ไฟล์ Processor (file_code: RP-2026-0002) → form_type: "processor"
 ```
-
-### สิ่งที่ Auditor ทำส่งผลต่อระบบอื่น
-
-| การกระทำของ Auditor | ผลกระทบ |
-|---|---|
-| อนุมัติ owner form | `AuditorAudit.owner_review_status = "approved"` |
-| อนุมัติ processor form | `AuditorAudit.processor_review_status = "approved"` |
-| ทั้ง 2 ฟอร์มอนุมัติ | `RopaDocument.status = "approved"`, `AuditorAudit.audit_status = "approved"` |
-| ตีกลับ owner form | `RopaDocument.status = "rejected_owner"` → Data Owner เห็นสถานะตีกลับ |
-| ตีกลับ processor form | `RopaDocument.status = "rejected_processor"` + `ProcessorRecord.processor_status = "needs_revision"` → Data Processor เห็นสีแดงใน Sidebar 1, 2 |
-| ลบเอกสาร | Hard delete ทั้งหมด (doc + owner_record + processor_records + auditor_audits) |
-
----
-
-## โครงสร้างตาราง Sidebar 2 (สำคัญมาก)
-
-**1 เอกสาร RoPA = 2 แถวในตาราง:**
-
-| แถว | form_type | form_label | ดูฟอร์มของใคร |
-|---|---|---|---|
-| แถวที่ 1 | `"owner"` | `"ผู้รับผิดชอบข้อมูล"` | OwnerRecord (Data Owner กรอก) |
-| แถวที่ 2 | `"processor"` | `"ผู้ประมวลผลข้อมูลส่วนบุคคล"` | ProcessorRecord (Data Processor กรอก) |
-
-**ทั้ง 2 แถวมี ropa_doc_id เดียวกัน แต่ doc_code ต่างกัน และส่ง feedback แยกกันได้อิสระ**
-
-| แถว | doc_code | ropa_doc_id |
-|---|---|---|
-| Owner | `RP-2026-0900-O` | `uuid-AAA` (เหมือนกัน) |
-| Processor | `RP-2026-0900-P` | `uuid-AAA` (เหมือนกัน) |
 
 ---
 
 ## Sidebar 1 — แดชบอร์ด
 
-### GET `/auditor/dashboard`
+### `GET /auditor/dashboard`
 
-**Query Parameters:**
+แสดงสรุปภาพรวม: จำนวนไฟล์ทั้งหมด, ไฟล์รอตรวจ, กราฟรายเดือน
 
-| param | ค่า | default |
-|---|---|---|
-| `time_range` | `"7_days"` / `"30_days"` / `"90_days"` / `"all"` | `"30_days"` |
+**Query Parameters**
 
-**Response:**
+| Parameter | ค่าที่รับได้ | ค่าเริ่มต้น | คำอธิบาย |
+|---|---|---|---|
+| `time_range` | `7_days` / `30_days` / `90_days` / `all` | `30_days` | ช่วงเวลาของ stats (ไม่ใช้กับกราฟ) |
+
+**Response 200**
+
 ```json
 {
-  "total_documents": 1248,
-  "pending_review": 42,
+  "total_documents": 24,
+  "pending_review": 6,
   "monthly_trend": [
-    { "month": 1, "this_year": 45, "last_year": 30 },
-    { "month": 2, "this_year": 52, "last_year": 38 },
+    {"month": 1, "this_year": 4, "last_year": 2},
+    {"month": 2, "this_year": 6, "last_year": 3},
+    {"month": 3, "this_year": 8, "last_year": 5},
+    {"month": 4, "this_year": 6, "last_year": 4},
+    {"month": 5, "this_year": 0, "last_year": 3},
     ...
-    { "month": 12, "this_year": 0, "last_year": 71 }
+    {"month": 12, "this_year": 0, "last_year": 2}
   ]
 }
 ```
 
-**คำอธิบาย fields:**
+**คำอธิบาย Fields**
 
-| field | แสดงที่ | ความหมาย |
-|---|---|---|
-| `total_documents` | card "จำนวนเอกสารทั้งหมด" | นับ **ไฟล์** ทั้งหมด (owner form + processor form) — **1 doc = 2 ไฟล์** → ถ้ามี 5 docs = แสดง 10 |
-| `pending_review` | card "รายการที่รอตรวจสอบ" | นับ **ไฟล์** ที่ยัง `pending_review` แยกอิสระ — owner นับ 1, processor นับ 1 (เหมือน Sidebar 2) |
-| `monthly_trend` | กราฟแท่ง (ปีนี้ vs ปีที่แล้ว) | นับ **ไฟล์** ต่อเดือน (1 doc = 2 ไฟล์) ไม่ใช้ time_range filter แสดงทุกเดือน 1-12 |
-
-**การแสดง UI:**
-- card `total_documents` → ไม่เน้นสี (สีเทา)
-- card `pending_review` → เน้นสี (สีน้ำเงิน หรือ primary color)
-- กราฟ: แท่งสี `ปีนี้` vs แท่งสี `ปีที่แล้ว` ตาม mock ที่เห็นในรูป
-- dropdown "ช่วงเวลา" ส่ง `time_range` param → ดึงข้อมูลใหม่ (ส่งผลต่อ cards เท่านั้น กราฟไม่เปลี่ยน)
+| Field | คำอธิบาย |
+|---|---|
+| `total_documents` | จำนวน**ไฟล์**ทั้งหมด = จำนวน audit records × 2 (เพราะ 1 เอกสาร = 2 ไฟล์) |
+| `pending_review` | จำนวนไฟล์ที่รอตรวจ — นับ owner และ processor แยกกัน (ไม่ผูกกัน) |
+| `monthly_trend` | กราฟ 12 เดือน (ทั้งปี ไม่ filter time_range) — 1 = มกราคม, 12 = ธันวาคม |
+| `monthly_trend[].this_year` | จำนวนไฟล์ที่ส่งมาในเดือนนั้นปีนี้ |
+| `monthly_trend[].last_year` | จำนวนไฟล์ที่ส่งมาในเดือนนั้นปีที่แล้ว |
 
 ---
 
 ## Sidebar 2 — เอกสาร
 
-### GET `/auditor/documents`
+### `GET /auditor/documents`
 
-**Query Parameters:**
+รายการเอกสารที่ assigned ให้ Auditor คนนี้ — แสดง **2 แถวต่อ 1 เอกสาร** (owner row + processor row)
 
-| param | ค่า | default |
-|---|---|---|
-| `time_range` | `"7_days"` / `"30_days"` / `"90_days"` / `"all"` | `"30_days"` |
-| `date_from` | ISO datetime string | null |
-| `page` | integer ≥ 1 | `1` |
-| `page_size` | integer 1-100 | `10` |
+**Query Parameters**
 
-**Response:**
+| Parameter | ค่าที่รับได้ | ค่าเริ่มต้น | คำอธิบาย |
+|---|---|---|---|
+| `time_range` | `7_days` / `30_days` / `90_days` / `all` | `30_days` | ช่วงเวลา |
+| `date_from` | datetime | — | กรองตั้งแต่วันที่ส่งมาตรวจ |
+| `page` | int | `1` | หน้าปัจจุบัน |
+| `page_size` | int | `10` | จำนวนแถวต่อหน้า |
+
+**Response 200**
+
 ```json
 {
   "stats": {
-    "pending_feedback": 12,
-    "pending_since_yesterday": 4
+    "pending_feedback": 4,
+    "pending_since_yesterday": 2
   },
   "records": [
     {
-      "ropa_doc_id": "uuid-xxxxxxxx",
-      "doc_code": "RP-2026-0900",
-      "title": "ข้อมูลการให้บริการด้านโลจิสติกส์ดิจิทัล",
+      "ropa_doc_id": "abc-123-...",
+      "doc_code": "RP-2026-0001",
+      "title": "ข้อมูลลูกค้า",
       "form_type": "owner",
       "form_label": "ผู้รับผิดชอบข้อมูล",
-      "received_at": "2026-03-28T09:15:00Z",
+      "received_at": "2026-04-01T08:00:00Z",
       "sent_at": null,
       "action": "fill",
       "review_status": "pending_review"
     },
     {
-      "ropa_doc_id": "uuid-xxxxxxxx",
-      "doc_code": "RP-2026-0900",
-      "title": "ข้อมูลการให้บริการด้านโลจิสติกส์ดิจิทัล",
+      "ropa_doc_id": "abc-123-...",
+      "doc_code": "RP-2026-0002",
+      "title": "ข้อมูลลูกค้า",
       "form_type": "processor",
       "form_label": "ผู้ประมวลผลข้อมูลส่วนบุคคล",
-      "received_at": "2026-03-28T09:15:00Z",
-      "sent_at": null,
-      "action": "fill",
-      "review_status": "pending_review"
-    },
-    ...
+      "received_at": "2026-04-01T08:00:00Z",
+      "sent_at": "2026-04-03T14:00:00Z",
+      "action": "view",
+      "review_status": "approved"
+    }
   ],
-  "total": 24,
+  "total": 20,
   "page": 1,
   "page_size": 10
 }
 ```
 
-**คำอธิบาย fields:**
+**คำอธิบาย Fields**
 
-| field | แสดงที่ | ความหมาย |
-|---|---|---|
-| `stats.pending_feedback` | card "รายการที่รอการตอบกลับทั้งหมด" | นับ form rows (ไม่ใช่ documents) ที่ยัง `pending_review` — 1 doc ที่ยังไม่ได้ตรวจ = +2 |
-| `stats.pending_since_yesterday` | ตัวเลขสีแดงใต้ card "รายการที่รอการตอบกลับ" | นับ form rows ที่ยัง `pending_review` **และ** `received_at >= วันนี้ 00:00` — ใช้ `owner_received_at` / `processor_received_at` แยกต่อ form (เพิ่มขึ้นจากเมื่อวาน) |
-| `doc_code` | คอลัมน์ "รหัสเอกสาร" | รหัส เช่น `RP-2026-0900` |
-| `title` | คอลัมน์ "ชื่อรายการ" | ชื่อ RoPA เช่น "ข้อมูลลูกค้า..." |
-| `form_label` | ใต้ชื่อรายการ หรือ badge | "ผู้รับผิดชอบข้อมูล" / "ผู้ประมวลผลข้อมูลส่วนบุคคล" |
-| `received_at` | คอลัมน์ "วันที่ได้รับ" | วันที่ form นั้นๆ ส่งมาให้ Auditor — **แยกต่อ form** (owner กับ processor อาจต่างกันได้ถ้ามี resubmit) |
-| `sent_at` | คอลัมน์ "วันที่ส่ง" | วันที่ Auditor ส่ง feedback กลับ (null = ยังไม่ส่ง → แสดงเป็น "-") |
-| `action` | คอลัมน์ "การดำเนินการ" ปุ่ม | `"fill"` = ปุ่มแดง "กรอกข้อเสนอแนะ", `"view"` = ปุ่มเทา "ดูข้อเสนอแนะ" |
-| `review_status` | badge สถานะ | ดูตาราง badge ด้านล่าง |
-
-**Badge สถานะ (`review_status`):**
-
-| ค่า | ป้าย | สี |
-|---|---|---|
-| `"pending_review"` | รอตรวจสอบ | เทา / เหลือง |
-| `"approved"` | อนุมัติแล้ว | เขียว |
-| `"needs_revision"` | ต้องแก้ไข | แดง |
-
-**การแสดง 2 แถวต่อ 1 เอกสาร:**
-```
-┌────────────────┬──────────────────────────────┬───────────────┬──────────────┬──────────────────────┐
-│ รหัสเอกสาร    │ ชื่อรายการ                   │ วันที่ได้รับ  │ วันที่ส่ง   │ การดำเนินการ         │
-├────────────────┼──────────────────────────────┼───────────────┼──────────────┼──────────────────────┤
-│ RP-2026-0900   │ ข้อมูลการให้บริการ...        │ 28/03, 09:15  │ -            │ [กรอกข้อเสนอแนะ]    │
-│                │ [ผู้รับผิดชอบข้อมูล]         │               │              │                      │
-├────────────────┼──────────────────────────────┼───────────────┼──────────────┼──────────────────────┤
-│ RP-2026-0900   │ ข้อมูลการให้บริการ...        │ 28/03, 09:15  │ -            │ [กรอกข้อเสนอแนะ]    │
-│                │ [ผู้ประมวลผลข้อมูลฯ]         │               │              │                      │
-└────────────────┴──────────────────────────────┴───────────────┴──────────────┴──────────────────────┘
-```
-
-> **หมายเหตุ:** Pagination ทำงานบน "แถว" ไม่ใช่ "เอกสาร" — `page_size=10` = 10 แถว = 5 เอกสาร (ถ้าทุก doc ยังไม่ผ่านสักฟอร์ม)
+| Field | คำอธิบาย |
+|---|---|
+| `stats.pending_feedback` | จำนวนไฟล์ที่ยังรอ feedback (owner และ processor นับแยกกัน) |
+| `stats.pending_since_yesterday` | จำนวนไฟล์ที่เพิ่มขึ้นตั้งแต่เมื่อวาน (received วันนี้) |
+| `ropa_doc_id` | UUID ของเอกสาร — ใช้ใน GET /documents/{id} และ POST submit-feedback |
+| `doc_code` | รหัสไฟล์เฉพาะตัว (ไม่ใช่รหัสเอกสาร) เช่น `RP-2026-0001` (owner) / `RP-2026-0002` (processor) |
+| `form_type` | `"owner"` หรือ `"processor"` — ใช้ส่งเป็น query param ใน GET /documents/{id} |
+| `form_label` | ชื่อแสดงภาษาไทย |
+| `received_at` | วันที่ไฟล์นั้นถูกส่งมาให้ตรวจ (owner/processor แยกกัน) |
+| `sent_at` | วันที่ Auditor ส่ง feedback — null ถ้ายังไม่ได้ส่ง |
+| `action` | `"fill"` = กรอกข้อเสนอแนะ (ยังไม่ตรวจ), `"view"` = ดูข้อเสนอแนะ (ตรวจแล้ว) |
+| `review_status` | `"pending_review"` / `"approved"` / `"needs_revision"` |
 
 ---
 
-### GET `/auditor/documents/{ropa_doc_id}?form_type=owner|processor`
+## ดูฟอร์ม 6 ส่วน
 
-เรียกเมื่อกดปุ่ม "กรอกข้อเสนอแนะ" หรือ "ดูข้อเสนอแนะ" ในตาราง
+### `GET /auditor/documents/{ropa_doc_id}`
 
-**Path Parameter:** `ropa_doc_id` — UUID ของเอกสาร
+ดูฟอร์มข้อมูลทั้ง 6 ส่วน — ใช้เมื่อกดปุ่ม "กรอกข้อเสนอแนะ" หรือ "ดูข้อเสนอแนะ"
 
-**Query Parameter (บังคับ):** `form_type=owner` หรือ `form_type=processor`
-- กด action ของแถว owner → ส่ง `?form_type=owner`
-- กด action ของแถว processor → ส่ง `?form_type=processor`
+**Query Parameters** (บังคับส่ง)
 
-**Response:**
+| Parameter | ค่าที่รับได้ | คำอธิบาย |
+|---|---|---|
+| `form_type` | `owner` / `processor` | บอกว่าต้องการดูฟอร์มของใคร |
+
+**Response 200**
+
 ```json
 {
-  "ropa_doc_id": "uuid-xxxxxxxx",
-  "doc_code": "ROPA-2026-0900",
-  "title": "ข้อมูลการให้บริการด้านโลจิสติกส์ดิจิทัล",
-  "last_modified": "2026-03-28T10:00:00Z",
-  "auditor_name": "พรรษชล บุญมาก",
-  "form_type": "processor",
-  "form_label": "ผู้ประมวลผลข้อมูลส่วนบุคคล",
+  "ropa_doc_id": "abc-123-...",
+  "doc_code": "RP-2026-0001",
+  "title": "ข้อมูลลูกค้า",
+  "last_modified": "2026-04-02T10:00:00Z",
+  "auditor_name": "วิชัย ตรวจสอบ",
+  "form_type": "owner",
+  "form_label": "ผู้รับผิดชอบข้อมูล",
   "review_status": "pending_review",
   "form_data": {
-    "title_prefix": "นาย",
-    "first_name": "สมชาย",
-    "last_name": "ใจดี",
-    "address": "123 ถนนสุขุมวิท...",
-    ...
+    "record_name": "สมชาย ใจดี",
+    "address": "123 ถ.สุขุมวิท",
+    "email": "somchai@example.com",
+    "phone": "02-123-4567",
+    "data_subject_name": "ลูกค้า",
+    "processing_activity": "ระบบ CRM",
+    "purpose": "บริหารความสัมพันธ์ลูกค้า",
+    "personal_data": "ชื่อ, เบอร์โทร, อีเมล",
+    "data_category": "ทั่วไป",
+    "data_type": "general",
+    "collection_method": "electronic",
+    "source_direct": true,
+    "source_indirect": false,
+    "retention_storage_type": "cloud",
+    "retention_method": "ระบบ CRM",
+    "retention_duration": 5,
+    "retention_access_control": "เฉพาะเจ้าหน้าที่",
+    "retention_deletion_method": "ลบถาวร",
+    "legal_basis": "ฐานสัญญา",
+    "minor_under10": false,
+    "minor_10to20": false,
+    "transfer_is_transfer": false,
+    "transfer_country": null,
+    "transfer_company_name": null,
+    "transfer_method": null,
+    "transfer_protection_std": null,
+    "transfer_exception": null,
+    "exemption_disclosure": null,
+    "rejection_note": null,
+    "security_organizational": "นโยบายความปลอดภัย",
+    "security_technical": "AES-256",
+    "security_physical": "ห้องล็อค",
+    "security_access_control": "RBAC",
+    "security_responsibility": "แผนกไอที",
+    "security_audit": "ตรวจสอบทุก 6 เดือน"
   },
+  "feedbacks": [
+    {
+      "section": "section_2",
+      "section_label": "ส่วนที่ 2 : รายละเอียดกิจกรรม",
+      "comment": "กรุณาระบุวัตถุประสงค์ให้ชัดเจนยิ่งขึ้น"
+    }
+  ]
+}
+```
+
+**คำอธิบาย Fields สำคัญ**
+
+| Field | คำอธิบาย |
+|---|---|
+| `doc_code` | รหัสไฟล์ (file_code) — เช่น `RP-2026-0001` สำหรับ owner |
+| `form_data` | ข้อมูลฟอร์มทั้ง 6 ส่วน (อ่านอย่างเดียว — Auditor แก้ไขไม่ได้) |
+| `feedbacks` | feedback ที่เคยส่งไว้ก่อนหน้า (ถ้ามี) — แสดงเป็น read-only |
+| `review_status` | สถานะการตรวจฟอร์มนี้: `pending_review` / `approved` / `needs_revision` |
+
+---
+
+## ส่งข้อเสนอแนะ / อนุมัติ
+
+### `POST /auditor/documents/{ropa_doc_id}/submit-feedback`
+
+ส่ง feedback หลังตรวจฟอร์ม — กด "อนุมัติ" หรือ "ตีกลับ"
+
+**Request Body**
+
+```json
+{
+  "form_type": "owner",
   "feedbacks": []
 }
 ```
 
-**คำอธิบาย fields header (แสดงด้านบนฟอร์ม):**
+| Field | Type | Required | คำอธิบาย |
+|---|---|---|---|
+| `form_type` | string | ✅ | `"owner"` หรือ `"processor"` |
+| `feedbacks` | array | ✅ | **ถ้าว่าง `[]` = อนุมัติ**, ถ้ามีข้อมูล = ตีกลับ |
 
-| field | แสดงที่ |
-|---|---|
-| `doc_code` | "รหัสเอกสาร : ROPA-2026-0900" |
-| `last_modified` | "วันที่แก้ไขล่าสุด : 28/03/2026, 10:00" |
-| `auditor_name` | "ผู้ตรวจสอบ : พรรษชล บุญมาก" |
-| `form_label` | ชื่อหัวข้อใหญ่ของฟอร์ม เช่น "เอกสาร RoPA จากทางผู้ประมวลผลข้อมูลส่วนบุคคล" |
+**กรณี 1: อนุมัติ** (feedbacks = [])
 
-**`form_data` — โครงสร้างตาม `form_type`:**
-
-#### form_type = `"owner"` (OwnerRecord)
-
-```
-ส่วนที่ 1: รายละเอียดของผู้บันทึก RoPA
-  record_name, address, email, phone
-
-ส่วนที่ 2: รายละเอียดกิจกรรม
-  data_subject_name, processing_activity, purpose
-
-ส่วนที่ 3: ข้อมูลที่จัดเก็บ
-  personal_data, data_category, data_type
-
-ส่วนที่ 4: การได้มาและการเก็บรักษา
-  collection_method, source_direct, source_indirect,
-  retention_storage_type, retention_method,
-  retention_duration, retention_access_control,
-  retention_deletion_method
-
-ส่วนที่ 5: ฐานทางกฎหมายและการส่งต่อ
-  legal_basis, minor_under10, minor_10to20,
-  transfer_is_transfer, transfer_country,
-  transfer_company_name, transfer_method,
-  transfer_protection_std, transfer_exception,
-  exemption_disclosure, rejection_note
-
-ส่วนที่ 6: มาตรการรักษาความมั่นคงปลอดภัย (TOMs)
-  security_organizational, security_technical,
-  security_physical, security_access_control,
-  security_responsibility, security_audit
-```
-
-#### form_type = `"processor"` (ProcessorRecord)
-
-```
-ส่วนที่ 1: รายละเอียดของผู้บันทึก RoPA
-  title_prefix, first_name, last_name,
-  address, email, phone
-
-ส่วนที่ 2: รายละเอียดกิจกรรม
-  processor_name, data_controller_address,
-  processing_activity, purpose
-
-ส่วนที่ 3: ข้อมูลที่จัดเก็บ
-  personal_data (array), data_category (array), data_type
-
-ส่วนที่ 4: การได้มาและการเก็บรักษา
-  collection_method, data_source,
-  retention_storage_type (array), retention_method (array),
-  retention_duration, retention_duration_unit,
-  retention_access_condition, retention_deletion_method
-
-ส่วนที่ 5: ฐานทางกฎหมายและการส่งต่อ
-  legal_basis, transfer_is_transfer, transfer_country,
-  transfer_is_in_group, transfer_company_name,
-  transfer_method, transfer_protection_std, transfer_exception
-
-ส่วนที่ 6: มาตรการรักษาความมั่นคงปลอดภัย (TOMs)
-  security_organizational, security_technical,
-  security_physical, security_access_control,
-  security_responsibility, security_audit
-```
-
-> **ฟอร์มทั้งหมดแสดงแบบ read-only** — Auditor ดูข้อมูลอย่างเดียว ไม่ได้แก้ไข
-
-**`feedbacks` — feedback เดิมที่เคยส่งไปแล้ว (ถ้ามี):**
-```json
-"feedbacks": [
-  {
-    "section": "section_2",
-    "section_label": "ส่วนที่ 2 : รายละเอียดกิจกรรม",
-    "comment": "กรุณาระบุวัตถุประสงค์ให้ชัดเจนขึ้น"
-  }
-]
-```
-- `feedbacks = []` → ยังไม่เคยส่ง feedback (action = "fill") หรืออนุมัติแล้ว
-- `feedbacks` มีข้อมูล → เคยตีกลับ (action = "view") → แสดง comment ท้ายแต่ละส่วน
-
----
-
-### POST `/auditor/documents/{ropa_doc_id}/submit-feedback`
-
-เรียกเมื่อกดปุ่ม "ส่งข้อเสนอแนะ" หลังจากตรวจฟอร์มเสร็จ
-
-**Request Body:**
 ```json
 {
   "form_type": "owner",
-  "feedbacks": [],
-  "expires_at": "2028-03-28T00:00:00Z"
+  "feedbacks": []
 }
 ```
 
-**Logic การส่ง:**
+**กรณี 2: ตีกลับ** (feedbacks มีข้อมูล)
 
-#### กรณี 1: อนุมัติ (`feedbacks = []`)
-```json
-{
-  "form_type": "owner",
-  "feedbacks": [],
-  "expires_at": null
-}
-```
-- `feedbacks` ต้องเป็น array ว่าง `[]`
-- `expires_at` **ไม่บังคับ** — ระบบคำนวณอัตโนมัติจาก `retention_duration` + `retention_duration_unit` ที่ Data Processor กรอกในฟอร์ม Section 4
-- ถ้าต้องการ override → ส่ง `expires_at` มาเอง ระบบจะใช้ค่านั้นแทน
-
-**Logic การคำนวณ `expires_at` อัตโนมัติ:**
-
-| `retention_duration_unit` | ตัวอย่าง | ผล |
-|---|---|---|
-| `"year"` | duration=2 | วันอนุมัติ + 2 ปี |
-| `"month"` | duration=6 | วันอนุมัติ + 6 เดือน |
-| `"days"` / `"day"` | duration=90 | วันอนุมัติ + 90 วัน |
-
-#### กรณี 2: ตีกลับ (`feedbacks` มีข้อมูล)
 ```json
 {
   "form_type": "processor",
   "feedbacks": [
     {
-      "section": "section_2",
-      "section_label": "ส่วนที่ 2 : รายละเอียดกิจกรรม",
-      "comment": "กรุณาระบุวัตถุประสงค์ให้ชัดเจนขึ้น"
-    },
-    {
       "section": "section_5",
       "section_label": "ส่วนที่ 5 : ฐานทางกฎหมายและการส่งต่อ",
-      "comment": "ฐานทางกฎหมายไม่ครบถ้วน"
+      "comment": "กรุณายืนยัน SCCs สำหรับการส่งข้อมูลต่างประเทศ"
+    },
+    {
+      "section": "section_6",
+      "section_label": "ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs)",
+      "comment": "กรุณาระบุวิธีการเข้ารหัสข้อมูลให้ชัดเจน"
     }
-  ],
-  "expires_at": null
+  ]
 }
 ```
-- `feedbacks` มีอย่างน้อย 1 รายการ
-- `expires_at` ไม่จำเป็น (ส่ง null หรือไม่ส่งก็ได้)
 
-**ค่าที่ใส่ใน `section`:**
+**Response 200**
 
-| section | section_label |
-|---|---|
-| `"section_1"` | ส่วนที่ 1 : รายละเอียดของผู้บันทึก RoPA |
-| `"section_2"` | ส่วนที่ 2 : รายละเอียดกิจกรรม |
-| `"section_3"` | ส่วนที่ 3 : ข้อมูลที่จัดเก็บ |
-| `"section_4"` | ส่วนที่ 4 : การได้มาและการเก็บรักษา |
-| `"section_5"` | ส่วนที่ 5 : ฐานทางกฎหมายและการส่งต่อ |
-| `"section_6"` | ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs) |
-
-**Response:**
 ```json
 {
-  "message": "อนุมัติเอกสารเรียบร้อย",
-  "ropa_doc_id": "uuid-xxxxxxxx",
+  "message": "อนุมัติเรียบร้อย",
+  "ropa_doc_id": "abc-123-...",
   "action": "approved"
 }
 ```
+
 หรือ
+
 ```json
 {
   "message": "ส่งข้อเสนอแนะเรียบร้อย",
-  "ropa_doc_id": "uuid-xxxxxxxx",
+  "ropa_doc_id": "abc-123-...",
   "action": "needs_revision"
 }
 ```
 
-**ตรรกะที่เกิดขึ้น Backend (Frontend ไม่ต้องทำเพิ่ม แค่รับ response):**
+**สิ่งที่ Backend ทำ — Auditor ไม่ต้องกรอกวันหมดอายุ**
 
-| กรณี | สิ่งที่ backend ทำ |
-|---|---|
-| อนุมัติ owner form | `owner_review_status = "approved"`, set `expires_at` บนเอกสาร |
-| อนุมัติ processor form | `processor_review_status = "approved"`, set `expires_at` บนเอกสาร |
-| อนุมัติทั้ง 2 ฟอร์ม | `doc.status = "approved"` → เอกสารเสร็จสมบูรณ์ |
-| ตีกลับ owner form | `owner_review_status = "needs_revision"`, `doc.status = "rejected_owner"` |
-| ตีกลับ processor form | `processor_review_status = "needs_revision"`, `doc.status = "rejected_processor"`, `ProcessorRecord.processor_status = "needs_revision"` |
+| กรณี | form_type | ผลที่เกิด |
+|---|---|---|
+| อนุมัติ | `owner` | `owner_review_status = approved`, คำนวณ `owner_expires_at` อัตโนมัติจาก `retention_duration` (ปี) |
+| อนุมัติ | `processor` | `processor_review_status = approved`, คำนวณ `processor_expires_at` อัตโนมัติจาก `retention_duration` + `retention_duration_unit` |
+| ทั้ง 2 อนุมัติ | — | `audit_status = APPROVED`, `doc.status = APPROVED` |
+| ตีกลับ | `owner` | `owner_review_status = needs_revision`, `doc.status = REJECTED_OWNER` |
+| ตีกลับ | `processor` | `processor_review_status = needs_revision`, `doc.status = REJECTED_PROCESSOR`, `ProcessorRecord.processor_status = NEEDS_REVISION` |
 
-**UI Flow หน้าฟอร์ม (Sidebar 2):**
+**การคำนวณวันหมดอายุ (expires_at)**
 
-```
-1. เข้าหน้าฟอร์ม → แสดง header (doc_code, last_modified, auditor_name)
-2. แสดงฟอร์ม 6 ส่วน แบบ read-only
-3. ท้ายแต่ละส่วน → มี "เพิ่มข้อเสนอแนะ" button (toggle)
-   - กด → เปิด textarea ให้กรอก comment
-   - ไม่กด → ส่วนนั้นไม่มี feedback
-4. ปุ่ม "ส่งข้อเสนอแนะ" ด้านล่างสุด:
-   - ถ้าไม่มี feedback ใดเลย → แสดง date picker "วันหมดอายุ" (expires_at) บังคับกรอก
-   - ถ้ามี feedback → ส่งได้เลย (ไม่ต้อง expires_at)
-5. กด confirm → POST submit-feedback
-6. หลังสำเร็จ → navigate กลับหน้า Sidebar 2 (list)
-```
+Backend คำนวณเองอัตโนมัติตอนอนุมัติ — **Auditor ไม่ต้องกรอก**:
+
+| form_type | ดึงข้อมูลจาก | หน่วย | ตัวอย่าง |
+|---|---|---|---|
+| `owner` | `owner_records.retention_duration` | **ปี เท่านั้น** | retention_duration=5 → อนุมัติ 9 เม.ย. 2026 → หมดอายุ 9 เม.ย. 2031 |
+| `processor` | `processor_records.retention_duration` + `retention_duration_unit` | `year` / `month` / `day` | retention_duration=3, unit=year → หมดอายุ 3 ปีหลังวันอนุมัติ |
+
+**ข้อสำคัญ**: ตีกลับ (needs_revision) ไม่แตะ expires_at เลย — วันหมดอายุจะ set เฉพาะตอนอนุมัติ
 
 ---
 
 ## Sidebar 3 — เอกสารครบกำหนด
 
-### GET `/auditor/expired-documents`
+### `GET /auditor/expired-documents`
 
-**Query Parameters:**
+รายการไฟล์ที่ครบกำหนดอายุ — แสดง **แยกต่อไฟล์** (ไม่ใช่ต่อเอกสาร)
 
-| param | ค่า | default |
-|---|---|---|
-| `time_range` | `"7_days"` / `"30_days"` / `"90_days"` / `"all"` | `"30_days"` |
-| `date_from` | ISO datetime string (filter วันครบกำหนด) | null |
-| `page` | integer ≥ 1 | `1` |
-| `page_size` | integer 1-100 | `10` |
+**หมายเหตุสำคัญ**: 1 เอกสารสามารถปรากฏ **2 แถว** ได้ ถ้าทั้ง owner file และ processor file ต่างหมดอายุ
 
-**Response:**
+**Query Parameters**
+
+| Parameter | ค่าที่รับได้ | ค่าเริ่มต้น | คำอธิบาย |
+|---|---|---|---|
+| `time_range` | `7_days` / `30_days` / `90_days` / `all` | `30_days` | กรองตาม expires_at |
+| `date_from` | datetime | — | กรองตั้งแต่วันที่หมดอายุ |
+| `page` | int | `1` | หน้าปัจจุบัน |
+| `page_size` | int | `10` | จำนวนแถวต่อหน้า |
+
+**Response 200**
+
 ```json
 {
   "stats": {
-    "expired_count": 10,
-    "deleted_count": 6
+    "expired_count": 5,
+    "deleted_count": 12
   },
   "records": [
     {
-      "ropa_doc_id": "uuid-xxxxxxxx",
-      "doc_code": "RP-2026-0901",
-      "title": "ข้อมูลลูกค้าและบริการแพลตฟอร์ม",
-      "expires_at": "2028-03-29T00:00:00Z"
+      "ropa_doc_id": "abc-123-...",
+      "doc_code": "RP-2026-0001",
+      "title": "ข้อมูลลูกค้า",
+      "form_type": "owner",
+      "form_label": "ผู้รับผิดชอบข้อมูล",
+      "expires_at": "2026-03-31T00:00:00Z"
     },
-    ...
+    {
+      "ropa_doc_id": "abc-123-...",
+      "doc_code": "RP-2026-0002",
+      "title": "ข้อมูลลูกค้า",
+      "form_type": "processor",
+      "form_label": "ผู้ประมวลผลข้อมูลส่วนบุคคล",
+      "expires_at": "2026-02-15T00:00:00Z"
+    },
+    {
+      "ropa_doc_id": "def-456-...",
+      "doc_code": "RP-2026-0003",
+      "title": "ข้อมูลพนักงาน",
+      "form_type": "owner",
+      "form_label": "ผู้รับผิดชอบข้อมูล",
+      "expires_at": "2026-04-01T00:00:00Z"
+    }
   ],
-  "total": 10,
+  "total": 5,
   "page": 1,
   "page_size": 10
 }
 ```
 
-**คำอธิบาย stats:**
+**คำอธิบาย Fields**
 
-| field | card | ความหมาย |
+| Field | คำอธิบาย |
+|---|---|
+| `stats.expired_count` | จำนวน**ไฟล์** (ไม่ใช่เอกสาร) ที่ครบกำหนดแล้ว |
+| `stats.deleted_count` | จำนวนเอกสารที่ Auditor ลบแล้ว (hard delete ทั้งเอกสาร) |
+| `doc_code` | รหัสไฟล์เฉพาะตัว เช่น `RP-2026-0001` (owner) / `RP-2026-0002` (processor) |
+| `form_type` | `"owner"` หรือ `"processor"` — บอกว่าเป็นไฟล์ไหน |
+| `form_label` | ชื่อแสดงภาษาไทย |
+| `expires_at` | วันที่ครบกำหนดของไฟล์นั้นๆ (เรียงจากหมดอายุก่อน) |
+
+---
+
+## ดูฟอร์มเอกสารครบกำหนด
+
+### `GET /auditor/expired-documents/{ropa_doc_id}`
+
+ดูฟอร์มเอกสารครบกำหนด — เหมือน GET /documents/{id} แต่ไม่มี feedback section และมีปุ่ม "ลบเอกสาร"
+
+**Query Parameters** (บังคับส่ง)
+
+| Parameter | ค่าที่รับได้ | คำอธิบาย |
 |---|---|---|
-| `expired_count` | "รายการที่ครบกำหนด" | เอกสารที่ `expires_at` ผ่านมาแล้ว และยังอยู่ในระบบ (ยังไม่ลบ) |
-| `deleted_count` | "รายการที่ดำเนินการลบเสร็จสิ้น" | เอกสารที่ Auditor กดลบไปแล้ว (นับจาก `deleted_document_logs` table) |
+| `form_type` | `owner` / `processor` | บอกว่าต้องการดูไฟล์ไหน |
 
-> **หมายเหตุ:** `deleted_count` กรองตาม `time_range` เดียวกันกับ `expired_count`
+**Response 200** (รูปแบบเหมือน GET /documents/{id} แต่ feedbacks = [])
 
-**ตารางแสดงเฉพาะเอกสารที่ยังไม่ได้ลบ** เรียงตาม `expires_at` จากน้อยไปมาก
+```json
+{
+  "ropa_doc_id": "abc-123-...",
+  "doc_code": "RP-2026-0001",
+  "title": "ข้อมูลลูกค้า",
+  "last_modified": "2026-03-31T10:00:00Z",
+  "auditor_name": "วิชัย ตรวจสอบ",
+  "form_type": "owner",
+  "form_label": "ผู้รับผิดชอบข้อมูล",
+  "review_status": "approved",
+  "form_data": { ... },
+  "feedbacks": []
+}
+```
 
----
-
-### GET `/auditor/expired-documents/{ropa_doc_id}?form_type=owner|processor`
-
-เรียกเมื่อกดปุ่ม "ดูเอกสาร" ในตาราง Sidebar 3
-
-**Response:** เหมือนกับ `GET /auditor/documents/{id}` **ทุกอย่าง** ยกเว้น:
-- `feedbacks` = `[]` เสมอ (ไม่แสดง feedback section)
-- `review_status` = `"approved"` เสมอ (เอกสารที่มาถึง Sidebar 3 ผ่านอนุมัติแล้ว)
-
-**UI ต่างจาก Sidebar 2:**
-- ไม่มี section feedback / textarea
-- ไม่มีปุ่ม "ส่งข้อเสนอแนะ"
-- มีปุ่ม **"ลบเอกสาร"** แทน (ด้านล่างสุด)
-- กดแล้วแสดง popup ยืนยัน → กด confirm → DELETE endpoint
+**หมายเหตุ**: `review_status` จะเป็น `"approved"` เสมอ (เอกสารที่มาถึง Sidebar 3 ต้องผ่านการอนุมัติแล้ว)
 
 ---
 
-### DELETE `/auditor/documents/{ropa_doc_id}`
+## ลบเอกสาร
 
-> **⚠️ HARD DELETE — ลบถาวร ไม่สามารถกู้คืนได้**
+### `DELETE /auditor/documents/{ropa_doc_id}`
 
-เรียกหลังจาก Auditor กดยืนยันใน popup
+ลบเอกสาร **Hard Delete** — ลบออกจาก DB จริง พร้อม CASCADE ทุก record ที่เกี่ยวข้อง
 
-**ไม่มี Request Body**
+**Response 200**
 
-**Response:**
 ```json
 {
   "message": "ลบเอกสารเรียบร้อย",
-  "ropa_doc_id": "uuid-xxxxxxxx"
+  "ropa_doc_id": "abc-123-..."
 }
 ```
 
-**สิ่งที่เกิดขึ้น (Backend) — HARD DELETE:**
-1. Insert บันทึกลงใน `deleted_document_logs` (เก็บ ropa_doc_id, doc_code, title, auditor, deleted_at) — เพื่อให้นับ `deleted_count` ใน Sidebar 3 stats ได้
-2. `db.delete(doc)` — **ลบถาวรออกจาก DB ทันที** (CASCADE ลบ owner_record, processor_records, auditor_audits ด้วย)
-3. เอกสารหายไปจากทุก sidebar ทันที **หาคืนไม่ได้**
+**สิ่งที่ Backend ทำ**
 
-> **UI:** ต้องมี popup ยืนยัน "คุณแน่ใจหรือไม่ว่าต้องการลบเอกสารนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้" ก่อนเรียก DELETE
+1. บันทึก log ลง `deleted_document_logs` (เก็บ `ropa_doc_id`, `doc_code`, `title`) ก่อนลบ
+2. `db.delete(doc)` → CASCADE ลบ `owner_records`, `processor_records`, `auditor_audits` ทั้งหมดด้วย
+3. `deleted_count` ใน stats จะเพิ่มขึ้น 1
+
+**ผลหลังลบ**: เอกสารหายจากทุก Sidebar ทันที
 
 ---
 
-## Error Responses ทั่วไป
+## review_status ทั้งหมด
 
-| HTTP Status | เกิดเมื่อไหร่ | ข้อความ |
+| ค่า | ความหมาย | สีแนะนำ |
 |---|---|---|
-| 401 | ไม่มี / token หมดอายุ | Unauthorized |
-| 403 | Role ไม่ใช่ Auditor | Forbidden |
-| 403 | ไม่มี AuditorProfile | `"ไม่พบข้อมูล Auditor Profile กรุณาติดต่อ Admin"` |
-| 403 | พยายามลบเอกสารของ auditor อื่น | `"ไม่มีสิทธิ์ลบเอกสารนี้"` |
-| 404 | ไม่พบเอกสาร | `"ไม่พบเอกสาร"` |
-| 404 | Auditor ไม่ได้ assigned เอกสารนั้น | `"ไม่พบเอกสารนี้ หรือไม่มีสิทธิ์เข้าถึง"` |
-| 422 | ส่ง `expires_at` format ผิด (ถ้า override) | Unprocessable Entity |
-| 400 | `form_type` ไม่ใช่ owner/processor | `"form_type ต้องเป็น 'owner' หรือ 'processor'"` |
+| `pending_review` | รอตรวจสอบ | เหลือง / amber |
+| `approved` | อนุมัติ | เขียว |
+| `needs_revision` | ต้องแก้ไข | แดง |
 
 ---
 
-## State Management แนะนำ
+## action ใน Sidebar 2
 
-### Sidebar 2 — สิ่งที่ต้อง store ใน state ก่อน navigate ไปหน้าฟอร์ม
-
-```typescript
-// เมื่อกดปุ่มใน table row
-selectedDocument = {
-  ropa_doc_id: row.ropa_doc_id,
-  form_type: row.form_type,   // "owner" | "processor"
-  action: row.action           // "fill" | "view"
-}
-// แล้ว navigate ไปหน้า /auditor/documents/[ropa_doc_id]?form_type=[form_type]
-```
-
-### Sidebar 3 — สิ่งที่ต้อง store ก่อน navigate ไปหน้าดูเอกสาร
-
-```typescript
-// กดปุ่ม "ดูเอกสาร" ใน table
-// เอกสาร Sidebar 3 → เลือก form_type อย่างไร?
-// เนื่องจากเป็นการดูเพื่อลบ ไม่ได้แยก owner/processor
-// แนะนำ: default เป็น form_type=owner ก่อน
-// หรือ: แสดง tab เลือก owner / processor ในหน้าดูเอกสาร
-selectedExpiredDoc = {
-  ropa_doc_id: row.ropa_doc_id
-}
-```
-
----
-
-## สรุป Endpoints ทั้งหมด
-
-| # | Method | Path | Sidebar | ทำอะไร |
-|---|---|---|---|---|
-| 1 | GET | `/auditor/dashboard` | 1 | ดึง stats + กราฟ |
-| 2 | GET | `/auditor/documents` | 2 | ดึงตารางเอกสาร (2 แถว/doc) |
-| 3 | GET | `/auditor/documents/{id}?form_type=` | 2 | ดูฟอร์ม 6 ส่วน |
-| 4 | POST | `/auditor/documents/{id}/submit-feedback` | 2 | ส่ง feedback (อนุมัติ/ตีกลับ) |
-| 5 | GET | `/auditor/expired-documents` | 3 | ดึงตารางเอกสารหมดอายุ |
-| 6 | GET | `/auditor/expired-documents/{id}?form_type=` | 3 | ดูฟอร์มก่อนลบ |
-| 7 | DELETE | `/auditor/documents/{id}` | 3 | ลบเอกสารถาวร |
-
----
-
-## การเชื่อมโยงกับ Data Owner และ Data Processor
-
-### สิ่งที่ Auditor เห็นมาจากไหน
-
-```
-RoPA Document (สร้างโดย Data Owner)
-  ├── owner_record        ← ฟอร์ม form_type="owner"   ที่แสดงในหน้าตรวจ
-  ├── processor_records   ← ฟอร์ม form_type="processor" ที่แสดงในหน้าตรวจ
-  └── auditor_audits      ← เก็บ feedback และสถานะของ Auditor
-```
-
-### ผลกระทบย้อนกลับไป Data Owner & Data Processor
-
-| Auditor ทำ | Data Owner เห็น | Data Processor เห็น |
+| ค่า | ความหมาย | UI |
 |---|---|---|
-| อนุมัติทั้ง 2 ฟอร์ม | `doc.status = "approved"` (สีเขียว) | ไม่มีการเปลี่ยนแปลง |
-| ตีกลับ owner form | `doc.status = "rejected_owner"` → ต้องแก้ไขใหม่ | ไม่มีการเปลี่ยนแปลง |
-| ตีกลับ processor form | `doc.status = "rejected_processor"` | `ProcessorRecord.processor_status = "needs_revision"` → **badge แดง "ต้องแก้ไข"** ใน Data Processor Sidebar 1 และ 2 |
-| ลบเอกสาร | เอกสารหายจากทุก view | เอกสารหายจากทุก view |
-
-> **สำคัญ:** เมื่อ Auditor ตีกลับ processor form — status ที่เปลี่ยนคือ `ProcessorRecord.processor_status = "needs_revision"` ซึ่ง Data Processor จะเห็นเป็น badge สีแดงใน Sidebar 1 (รายการงานของฉัน) และ Sidebar 2 (ประวัติ) โดย **ไม่ต้องทำอะไรเพิ่มใน Auditor frontend** — backend จัดการให้
+| `fill` | ยังไม่ได้ตรวจ — กรอกข้อเสนอแนะ | ปุ่ม "กรอกข้อเสนอแนะ" (enabled) |
+| `view` | ตรวจแล้ว — ดูข้อเสนอแนะ | ปุ่ม "ดูข้อเสนอแนะ" |
 
 ---
 
-## ตัวอย่าง Full Flow (Sidebar 2)
+## Flow การทำงานทั้งหมด
 
 ```
-1. Auditor เข้าหน้า /auditor/documents
-   → GET /auditor/documents?time_range=30_days&page=1
-   → แสดงตาราง 2 แถวต่อ doc
+Data Owner ส่งเอกสารให้ Auditor
+  → AuditorAudit ถูกสร้าง
+  → doc.status = PENDING_AUDITOR
+  ↓
+Sidebar 2 — เห็น 2 แถว (owner + processor) สถานะ "รอตรวจสอบ"
+  ↓
+กดปุ่ม "กรอกข้อเสนอแนะ"
+  → GET /documents/{ropa_doc_id}?form_type=owner|processor
+  → ดูข้อมูลฟอร์ม 6 ส่วน
+  ↓
+เลือก:
+  [อนุมัติ] → POST submit-feedback {feedbacks: []}
+    → backend คำนวณ expires_at อัตโนมัติ
+    → review_status = approved
+    → ถ้าทั้ง 2 ฟอร์ม approved → doc.status = APPROVED
+    → Sidebar 2: action = "view", review_status = "approved"
 
-2. Auditor กดปุ่ม "กรอกข้อเสนอแนะ" ของ processor form ของ RP-2026-0900
-   → Navigate ไป /auditor/documents/[uuid]?form_type=processor
-   → GET /auditor/documents/[uuid]?form_type=processor
-
-3. Auditor อ่านฟอร์ม 6 ส่วน (read-only)
-   → พบปัญหาที่ section_2 และ section_5
-   → กด "เพิ่มข้อเสนอแนะ" ท้าย section_2 → พิมพ์ comment
-   → กด "เพิ่มข้อเสนอแนะ" ท้าย section_5 → พิมพ์ comment
-
-4. กด "ส่งข้อเสนอแนะ"
-   → POST /auditor/documents/[uuid]/submit-feedback
-   Body: { form_type: "processor", feedbacks: [{...}, {...}] }
-
-5. Backend:
-   - audit.processor_review_status = "needs_revision"
-   - doc.status = "rejected_processor"
-   - ProcessorRecord.processor_status = "needs_revision"
-
-6. Response: { action: "needs_revision" }
-   → Frontend navigate กลับ /auditor/documents
-   → แถว processor ของ RP-2026-0900 เปลี่ยนเป็น badge แดง "ต้องแก้ไข"
-   → ปุ่มเปลี่ยนเป็น "ดูข้อเสนอแนะ" (action = "view")
-
-7. ต่อมา Data Processor แก้ไขและส่งใหม่
-   → เอกสารผ่าน workflow กลับมาถึง Auditor อีกครั้ง
-   → แถว processor กลับเป็น "รอตรวจสอบ" (pending_review) ใหม่
+  [ตีกลับ] → POST submit-feedback {feedbacks: [{section, comment}, ...]}
+    → review_status = needs_revision
+    → doc.status = REJECTED_OWNER / REJECTED_PROCESSOR
+    → Sidebar 2: action = "view", review_status = "needs_revision"
+  ↓
+(อนุมัติทั้ง 2 ฟอร์มแล้ว — รอวันครบกำหนด)
+  ↓
+Sidebar 3 — ปรากฏเมื่อ expires_at <= วันนี้
+  → แสดงแยกแถวต่อไฟล์
+  ↓
+กดปุ่ม "ดูเอกสาร"
+  → GET /expired-documents/{ropa_doc_id}?form_type=owner|processor
+  ↓
+กดปุ่ม "ลบเอกสาร" (hard delete)
+  → DELETE /documents/{ropa_doc_id}
+  → เอกสารหายจากทุก Sidebar
+  → deleted_count เพิ่ม 1
 ```
+
+---
+
+## Section Keys ทั้งหมด
+
+| Section Key | ชื่อแสดง |
+|---|---|
+| `section_1` | ส่วนที่ 1 : รายละเอียดของผู้บันทึก RoPA |
+| `section_2` | ส่วนที่ 2 : รายละเอียดกิจกรรม |
+| `section_3` | ส่วนที่ 3 : ข้อมูลที่จัดเก็บ |
+| `section_4` | ส่วนที่ 4 : การได้มาและการเก็บรักษา |
+| `section_5` | ส่วนที่ 5 : ฐานทางกฎหมายและการส่งต่อ |
+| `section_6` | ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs) |
+
+---
+
+## HTTP Error Codes
+
+| Code | สาเหตุ |
+|---|---|
+| 400 | form_type ไม่ใช่ `owner` หรือ `processor` |
+| 403 | ไม่พบ AuditorProfile (ต้องให้ Admin สร้างก่อน) |
+| 404 | ไม่พบเอกสาร หรือไม่ได้รับ assign เอกสารนี้ |

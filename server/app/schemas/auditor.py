@@ -16,9 +16,8 @@ class SectionFeedback(BaseModel):
 class SubmitFeedbackRequest(BaseModel):
     form_type: str                          # "owner" หรือ "processor"
     feedbacks: List[SectionFeedback] = []   # [] = อนุมัติ, มีข้อมูล = ตีกลับ
-    expires_at: Optional[datetime] = None
-    # optional — ถ้าส่งมา → ใช้ค่านี้เป็น expires_at ของเอกสาร (override)
-    # ถ้าไม่ส่ง → คำนวณอัตโนมัติจาก retention_duration + retention_duration_unit ในฟอร์ม Section 4
+    # expires_at ไม่มีใน request — backend คำนวณเองจาก retention_duration ในฟอร์ม Section 4 เสมอ
+    # Auditor แค่กด "อนุมัติ" หรือ "ตีกลับ" เท่านั้น ไม่ต้องกรอกวันหมดอายุ
 
 
 class SubmitFeedbackResponse(BaseModel):
@@ -92,9 +91,11 @@ class ExpiredDocStats(BaseModel):
 
 class ExpiredDocItem(BaseModel):
     ropa_doc_id: UUID
-    doc_code: Optional[str]
+    doc_code: Optional[str]          # file_code ของไฟล์นั้นๆ (OwnerRecord หรือ ProcessorRecord)
     title: str
-    expires_at: Optional[datetime]   # วันครบกำหนด
+    form_type: str                   # "owner" | "processor"
+    form_label: str                  # "ผู้รับผิดชอบข้อมูล" | "ผู้ประมวลผลข้อมูลส่วนบุคคล"
+    expires_at: Optional[datetime]   # วันครบกำหนดของไฟล์นั้น (owner_expires_at หรือ processor_expires_at)
 
 
 class ExpiredDocListResponse(BaseModel):

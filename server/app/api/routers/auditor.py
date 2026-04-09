@@ -71,13 +71,22 @@ def get_doc_code(doc: RopaDocument) -> Optional[str]:
 
 def get_file_code(doc: RopaDocument, form_type: str) -> Optional[str]:
     """
-    คืนรหัสไฟล์ที่ไม่ซ้ำกัน แยกต่อ form ของแต่ละหัวข้อ
-    owner    → RP-2026-XXXX-O
-    processor → RP-2026-XXXX-P
+    คืนรหัสไฟล์ที่ไม่ซ้ำกัน อ่านจาก file_code ที่เก็บใน record โดยตรง
+    owner    → OwnerRecord.file_code เช่น RP-2026-0001
+    processor → ProcessorRecord.file_code เช่น RP-2026-0002
+    (เลขต่างกันสนิท แม้เป็นหัวข้อเดียวกัน)
+    fallback → ใช้ doc_code + suffix ถ้าไม่มี file_code (ข้อมูลเก่า)
     """
-    base = get_doc_code(doc)
-    suffix = "-O" if form_type == "owner" else "-P"
-    return f"{base}{suffix}" if base else None
+    if form_type == "owner":
+        if doc.owner_record and doc.owner_record.file_code:
+            return doc.owner_record.file_code
+        return f"{get_doc_code(doc)}-O" if doc.doc_code else None
+    else:
+        # ใช้ processor record แรกที่มี file_code
+        for pr in (doc.processor_records or []):
+            if pr.file_code:
+                return pr.file_code
+        return f"{get_doc_code(doc)}-P" if doc.doc_code else None
 
 
 def parse_json_field(value: Optional[str]) -> Optional[list]:
@@ -394,7 +403,7 @@ def get_documents(
         owner_status = audit.owner_review_status or 'pending_review'
         all_rows.append(DocumentListItem(
             ropa_doc_id=doc.id,
-            doc_code=get_file_code(doc, "owner"),   # RP-XXXX-O (unique per file)
+            doc_code=get_file_code(doc, "owner"),   # file_code จาก OwnerRecord เช่น RP-2026-0001
             title=doc.title,
             form_type="owner",
             form_label="ผู้รับผิดชอบข้อมูล",
@@ -408,7 +417,7 @@ def get_documents(
         proc_status = audit.processor_review_status or 'pending_review'
         all_rows.append(DocumentListItem(
             ropa_doc_id=doc.id,
-            doc_code=get_file_code(doc, "processor"),  # RP-XXXX-P (unique per file)
+            doc_code=get_file_code(doc, "processor"),  # file_code จาก ProcessorRecord เช่น RP-2026-0002
             title=doc.title,
             form_type="processor",
             form_label="ผู้ประมวลผลข้อมูลส่วนบุคคล",
@@ -561,47 +570,60 @@ def submit_feedback(
     is_approving = len(body.feedbacks) == 0
 
     if is_approving:
-        # ── กรณีอนุมัติ ──
+        # ════════════════════════════════════
+        # กรณีอนุมัติ — แยกอิสระต่อฟอร์ม
+        # ไม่ต้องรอทั้ง 2 ฟอร์มพร้อมกัน
+        # ════════════════════════════════════
+
         if body.form_type == "owner":
             audit.owner_review_status = "approved"
             audit.owner_feedback_sent_at = now
-            audit.owner_feedback = None  # ล้าง feedback เดิมถ้ามี
-        else:
+            audit.owner_feedback = None   # ล้าง feedback เดิมถ้ามี
+
+            # ── คำนวณ owner_expires_at จาก retention_duration (OwnerRecord) ──
+            # OwnerRecord ไม่มี retention_duration_unit → ถือเป็น ปี (year) โดย default
+            owner_record = db.query(OwnerRecord).filter(
+                OwnerRecord.ropa_doc_id == ropa_doc_id
+            ).first()
+            if owner_record and owner_record.retention_duration:
+                try:
+                    duration = int(owner_record.retention_duration)
+                    audit.owner_expires_at = now.replace(year=now.year + duration)
+                except (ValueError, TypeError, OverflowError):
+                    audit.owner_expires_at = None
+
+        else:  # processor form
             audit.processor_review_status = "approved"
             audit.processor_feedback_sent_at = now
             audit.processor_feedback = None
 
-        # ── คำนวณ expires_at จาก retention_duration + retention_duration_unit ──
-        # ดึง ProcessorRecord เพื่อหา retention period ที่กรอกในฟอร์ม Section 4
-        processor_record = (
-            db.query(ProcessorRecord)
-            .filter(ProcessorRecord.ropa_doc_id == ropa_doc_id)
-            .order_by(ProcessorRecord.created_at.desc())
-            .first()
-        )
-        if body.expires_at:
-            # ถ้า Auditor ส่ง expires_at มาเอง → ใช้ค่านั้น (override)
-            doc.expires_at = body.expires_at
-        elif processor_record and processor_record.retention_duration and processor_record.retention_duration_unit:
-            # คำนวณจาก retention period ในฟอร์ม
-            try:
-                duration = int(processor_record.retention_duration)
-                unit = processor_record.retention_duration_unit.lower()
-                if unit == "year":
-                    doc.expires_at = now.replace(year=now.year + duration)
-                elif unit == "month":
-                    # เพิ่มเดือน (handle overflow เช่น month 13)
-                    total_months = now.month + duration
-                    year_offset = (total_months - 1) // 12
-                    new_month = ((total_months - 1) % 12) + 1
-                    doc.expires_at = now.replace(year=now.year + year_offset, month=new_month)
-                elif unit in ("day", "days"):
-                    doc.expires_at = now + timedelta(days=duration)
-            except (ValueError, TypeError, OverflowError):
-                doc.expires_at = None  # ถ้าคำนวณไม่ได้ → ไม่กำหนดวัน
-        # ถ้าไม่มีทั้งคู่ → expires_at = None (Auditor ยังไม่ได้กำหนด)
+            # ── คำนวณ processor_expires_at จาก retention_duration + retention_duration_unit (ProcessorRecord) ──
+            processor_record = (
+                db.query(ProcessorRecord)
+                .filter(ProcessorRecord.ropa_doc_id == ropa_doc_id)
+                .order_by(ProcessorRecord.created_at.desc())
+                .first()
+            )
+            if processor_record and processor_record.retention_duration and processor_record.retention_duration_unit:
+                try:
+                    duration = int(processor_record.retention_duration)
+                    unit = processor_record.retention_duration_unit.lower()
+                    if unit == "year":
+                        audit.processor_expires_at = now.replace(year=now.year + duration)
+                    elif unit == "month":
+                        total_months = now.month + duration
+                        year_offset = (total_months - 1) // 12
+                        new_month = ((total_months - 1) % 12) + 1
+                        audit.processor_expires_at = now.replace(
+                            year=now.year + year_offset, month=new_month
+                        )
+                    elif unit in ("day", "days"):
+                        audit.processor_expires_at = now + timedelta(days=duration)
+                except (ValueError, TypeError, OverflowError):
+                    audit.processor_expires_at = None
 
-        # ── ตรวจสอบว่าทั้ง 2 ฟอร์มอนุมัติแล้วไหม ──
+        # ── ถ้าทั้ง 2 ฟอร์มอนุมัติแล้ว → update audit_status / doc.status ──
+        # (ไม่บังคับ — แต่ละฟอร์มอนุมัติได้อิสระอยู่แล้ว)
         owner_ok = (audit.owner_review_status or 'pending_review') == "approved"
         proc_ok = (audit.processor_review_status or 'pending_review') == "approved"
         if owner_ok and proc_ok:
@@ -611,13 +633,16 @@ def submit_feedback(
 
         db.commit()
         return SubmitFeedbackResponse(
-            message="อนุมัติเอกสารเรียบร้อย",
+            message="อนุมัติเรียบร้อย",
             ropa_doc_id=ropa_doc_id,
             action="approved",
         )
 
     else:
-        # ── กรณีตีกลับ (มี feedback) ──
+        # ════════════════════════════════════
+        # กรณีตีกลับ (มี feedback)
+        # ไม่แตะ expires_at เลย
+        # ════════════════════════════════════
         feedbacks_json = json.dumps(
             [f.model_dump() for f in body.feedbacks],
             ensure_ascii=False,
@@ -627,17 +652,17 @@ def submit_feedback(
             audit.owner_feedback = feedbacks_json
             audit.owner_review_status = "needs_revision"
             audit.owner_feedback_sent_at = now
-            # อัปเดตสถานะเอกสาร → ตีกลับให้ Owner
+            # ตีกลับให้ Owner แก้ไข
             doc.status = DocumentStatus.REJECTED_OWNER
 
         else:
             audit.processor_feedback = feedbacks_json
             audit.processor_review_status = "needs_revision"
             audit.processor_feedback_sent_at = now
-            # อัปเดตสถานะเอกสาร → ตีกลับให้ Processor (ผ่าน Owner)
+            # ตีกลับให้ Processor แก้ไข (ผ่าน Owner)
             doc.status = DocumentStatus.REJECTED_PROCESSOR
             # อัปเดต ProcessorRecord.processor_status = NEEDS_REVISION
-            # เพื่อให้แสดงสถานะสีแดงใน Sidebar 1, 2 ของ Data Processor
+            # เพื่อให้แสดงสถานะ "รอแก้ไข" ใน Sidebar ของ Data Processor
             processor_record = (
                 db.query(ProcessorRecord)
                 .filter(ProcessorRecord.ropa_doc_id == ropa_doc_id)
@@ -672,33 +697,98 @@ def get_expired_documents(
     current_user: User = Depends(require_auditor),
 ):
     """
-    Sidebar 3 — เอกสารครบกำหนด
-    แสดงเอกสารที่ expires_at <= วันนี้ (หมดอายุแล้ว)
-    ลบเอกสารแล้วคือหายออกจาก DB เลย (hard delete) จึงแสดงเฉพาะที่ยังอยู่ในระบบ
+    Sidebar 3 — เอกสารครบกำหนด (แสดงแยกต่อ "ไฟล์" ไม่ใช่ต่อ "เอกสาร")
+    - owner file หมดอายุ (audit.owner_expires_at <= now) → แสดง 1 แถว
+    - processor file หมดอายุ (audit.processor_expires_at <= now) → แสดง 1 แถว
+    - ถ้าทั้ง 2 ไฟล์หมดอายุ → แสดง 2 แถว (ropa_doc_id เดียวกัน แต่ form_type ต่างกัน)
+    ลบเอกสารเป็น hard delete ทั้ง document → หายจาก list ทันที
     """
     auditor_profile = get_auditor_profile(current_user.id, db)
     now = datetime.now(timezone.utc)
 
-    # เอกสารทั้งหมดที่ assigned ให้ auditor นี้ และหมดอายุแล้ว
+    # ── ดึง AuditorAudit ทั้งหมดที่ assigned ให้ auditor นี้ ──
+    # และมีอย่างน้อย 1 ไฟล์ที่หมดอายุแล้ว
+    from sqlalchemy import or_
     base_q = (
-        db.query(RopaDocument)
-        .join(AuditorAudit, AuditorAudit.ropa_doc_id == RopaDocument.id)
+        db.query(AuditorAudit)
+        .join(RopaDocument, AuditorAudit.ropa_doc_id == RopaDocument.id)
         .filter(AuditorAudit.assigned_auditor_id == auditor_profile.id)
-        .filter(RopaDocument.expires_at.isnot(None))
-        .filter(RopaDocument.expires_at <= now)
+        .filter(RopaDocument.deleted_at.is_(None))
+        .filter(
+            or_(
+                AuditorAudit.owner_expires_at.isnot(None),
+                AuditorAudit.processor_expires_at.isnot(None),
+            )
+        )
+        .filter(
+            or_(
+                AuditorAudit.owner_expires_at <= now,
+                AuditorAudit.processor_expires_at <= now,
+            )
+        )
     )
 
-    # apply filters
+    # apply date_from filter บน expires_at แต่ละ form
     if date_from:
-        base_q = base_q.filter(RopaDocument.expires_at >= date_from)
+        base_q = base_q.filter(
+            or_(
+                AuditorAudit.owner_expires_at >= date_from,
+                AuditorAudit.processor_expires_at >= date_from,
+            )
+        )
     cutoff = get_time_cutoff(time_range)
     if cutoff:
-        base_q = base_q.filter(RopaDocument.expires_at >= cutoff)
+        base_q = base_q.filter(
+            or_(
+                AuditorAudit.owner_expires_at >= cutoff,
+                AuditorAudit.processor_expires_at >= cutoff,
+            )
+        )
 
-    all_docs = base_q.all()
+    all_audits = base_q.all()
+
+    # ── สร้าง rows แยกต่อไฟล์ ──
+    all_rows = []
+    for audit in all_audits:
+        doc = audit.document
+        if not doc:
+            continue
+
+        # owner file หมดอายุแล้วไหม
+        if audit.owner_expires_at and audit.owner_expires_at <= now:
+            all_rows.append(
+                (
+                    audit.owner_expires_at,   # ใช้ sort
+                    ExpiredDocItem(
+                        ropa_doc_id=doc.id,
+                        doc_code=get_file_code(doc, "owner"),
+                        title=doc.title,
+                        form_type="owner",
+                        form_label="ผู้รับผิดชอบข้อมูล",
+                        expires_at=audit.owner_expires_at,
+                    ),
+                )
+            )
+
+        # processor file หมดอายุแล้วไหม
+        if audit.processor_expires_at and audit.processor_expires_at <= now:
+            all_rows.append(
+                (
+                    audit.processor_expires_at,
+                    ExpiredDocItem(
+                        ropa_doc_id=doc.id,
+                        doc_code=get_file_code(doc, "processor"),
+                        title=doc.title,
+                        form_type="processor",
+                        form_label="ผู้ประมวลผลข้อมูลส่วนบุคคล",
+                        expires_at=audit.processor_expires_at,
+                    ),
+                )
+            )
 
     # ── stats ──
-    expired_count = len(all_docs)
+    # expired_count = จำนวนแถว (ไฟล์) ที่หมดอายุ
+    expired_count = len(all_rows)
 
     # deleted_count — นับจาก DeletedDocumentLog (hard delete → บันทึก log ก่อนลบ)
     deleted_q = db.query(DeletedDocumentLog).filter(
@@ -711,26 +801,17 @@ def get_expired_documents(
         deleted_q = deleted_q.filter(DeletedDocumentLog.deleted_at >= cutoff2)
     deleted_count = deleted_q.count()
 
-    # เรียงตาม expires_at
-    active_expired = sorted(all_docs, key=lambda d: d.expires_at or now)
+    # เรียงตาม expires_at (ใกล้หมดอายุก่อน)
+    all_rows.sort(key=lambda x: x[0])
+    sorted_items = [item for _, item in all_rows]
 
-    total = len(active_expired)
+    total = len(sorted_items)
     offset = (page - 1) * page_size
-    paginated = active_expired[offset: offset + page_size]
-
-    records = [
-        ExpiredDocItem(
-            ropa_doc_id=d.id,
-            doc_code=get_doc_code(d),
-            title=d.title,
-            expires_at=d.expires_at,
-        )
-        for d in paginated
-    ]
+    paginated = sorted_items[offset: offset + page_size]
 
     return ExpiredDocListResponse(
         stats=ExpiredDocStats(expired_count=expired_count, deleted_count=deleted_count),
-        records=records,
+        records=paginated,
         total=total,
         page=page,
         page_size=page_size,
@@ -765,7 +846,6 @@ def get_expired_document_form(
     if not doc:
         raise HTTPException(404, detail="ไม่พบเอกสาร")
 
-    doc_code = get_doc_code(doc)
     auditor_name = get_auditor_name(audit)
 
     if form_type == "owner":
@@ -777,6 +857,7 @@ def get_expired_document_form(
         form_data = build_owner_form_data(owner_record)
         last_modified = owner_record.updated_at
         form_label = "ผู้รับผิดชอบข้อมูล"
+        display_code = get_file_code(doc, "owner")
     elif form_type == "processor":
         processor_record = (
             db.query(ProcessorRecord)
@@ -789,12 +870,13 @@ def get_expired_document_form(
         form_data = build_processor_form_data(processor_record)
         last_modified = processor_record.updated_at
         form_label = "ผู้ประมวลผลข้อมูลส่วนบุคคล"
+        display_code = get_file_code(doc, "processor")
     else:
         raise HTTPException(400, detail="form_type ต้องเป็น 'owner' หรือ 'processor'")
 
     return FormResponse(
         ropa_doc_id=doc.id,
-        doc_code=doc_code,
+        doc_code=display_code,         # file_code แทน doc_code เพื่อระบุไฟล์นั้นๆ
         title=doc.title,
         last_modified=last_modified,
         auditor_name=auditor_name,

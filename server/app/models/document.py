@@ -220,6 +220,10 @@ class OwnerRecord(Base):
     retention_deletion_method = Column(Text, nullable=True)     # วิธีลบทำลาย
 
     # ── อื่นๆ ──
+    file_code = Column(String, nullable=True, unique=True)
+    # รหัสไฟล์เฉพาะตัวของฟอร์ม Owner เช่น "RP-2026-0001"
+    # สร้างอัตโนมัติตอน record ถูก create — ไม่ซ้ำกับ ProcessorRecord
+
     exemption_disclosure = Column(Text, nullable=True)  # การยกเว้นการเปิดเผย
     rejection_note = Column(Text, nullable=True)        # หมายเหตุเมื่อถูกปฏิเสธ
 
@@ -256,6 +260,10 @@ class ProcessorRecord(Base):
     processor_status = Column(Enum(ProcessorStatus), nullable=False, default=ProcessorStatus.PENDING)
     # สถานะปัจจุบัน: PENDING → IN_PROGRESS → CONFIRMED → SUBMITTED
     # หรือ NEEDS_REVISION ถ้า Auditor ส่งกลับ
+
+    file_code = Column(String, nullable=True, unique=True)
+    # รหัสไฟล์เฉพาะตัวของฟอร์ม Processor เช่น "RP-2026-0002"
+    # สร้างอัตโนมัติตอน record ถูก create — ไม่ซ้ำกับ OwnerRecord
 
     draft_code = Column(String, nullable=True, unique=True)
     # รหัสฉบับร่าง เช่น "DFT-5525" — สร้างครั้งแรกที่กด "บันทึกฉบับร่าง"
@@ -425,6 +433,16 @@ class AuditorAudit(Base):
 
     processor_feedback_sent_at = Column(DateTime, nullable=True)
     # วันเวลาที่ Auditor ส่ง feedback ให้ Processor (แสดงเป็น "วันที่ส่ง" ในตาราง)
+
+    owner_expires_at = Column(DateTime, nullable=True)
+    # วันหมดอายุของ Owner file — set ตอน Auditor อนุมัติฟอร์ม owner
+    # คำนวณจาก retention_duration (OwnerRecord) หรือ Auditor กำหนดเอง
+    # ใช้ใน Sidebar 3 — แสดงเป็นรายการแยกต่อไฟล์
+
+    processor_expires_at = Column(DateTime, nullable=True)
+    # วันหมดอายุของ Processor file — set ตอน Auditor อนุมัติฟอร์ม processor
+    # คำนวณจาก retention_duration + retention_duration_unit (ProcessorRecord)
+    # ใช้ใน Sidebar 3 — แสดงเป็นรายการแยกต่อไฟล์
 
     version = Column(Integer, nullable=True)
     # เวอร์ชันของการตรวจ (เพิ่มขึ้นทุกรอบที่ส่งแก้ไข)
