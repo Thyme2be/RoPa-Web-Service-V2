@@ -8,12 +8,13 @@
 
 Data Owner มีหน้าที่หลักในการสร้างหน้าเอกสาร RoPA ต้นทาง, กรอกข้อมูลของตนเอง, มอบหมายงานส่วนที่เหลือให้แก่ Data Processor และส่งเอกสารที่สมบูรณ์ให้แก่ Auditor เพื่อทำการตรวจสอบ
 
-**สถานะของเอกสาร (Document Status):**
-- `draft`: เอกสารฉบับร่าง (ยังไม่ส่งตรวจ)
-- `pending_processor`: รอการกรอกข้อมูลจากผู้ประมวลผลข้อมูล
-- `pending_auditor`: รอการตรวจจากผู้ตรวจสอบ (Auditor)
-- `approved`: ผ่านการอนุมัติ
-- `rejected_owner` / `rejected_processor`: ถูกตีกลับเพื่อแก้ไข
+**สถานะของเอกสาร (DocumentStatus):**
+- `DRAFT`: เอกสารฉบับร่าง (ยังไม่ส่งตรวจ)
+- `PENDING_PROCESSOR`: รอการกรอกข้อมูลจากผู้ประมวลผลข้อมูล (Data Processor)
+- `PENDING_AUDITOR`: รอการตรวจจากผู้ตรวจสอบ (Auditor)
+- `APPROVED`: ผ่านการอนุมัติ (สมบูรณ์)
+- `REJECTED_OWNER` / `REJECTED_PROCESSOR`: ถูกตีกลับเพื่อแก้ไข (Revision Required)
+- `COMPLETED`: **(ใหม่!)** ข้อมูลกรอกครบทั้ง 2 ฝ่ายแล้ว (DO & DP) พร้อมสำหรับส่งให้ Auditor ตรวจสอบแล้ว
 
 ---
 
@@ -30,13 +31,11 @@ Data Owner มีหน้าที่หลักในการสร้าง
   "owner_record": {
     "title_prefix": "นาย",
     "first_name": "สมมติ",
-    "last_name": "ทดสอบ",
-    "email": "sommot@domain.com",
-    "phone": "089-111-2222",
-    "data_type": "general"
+    ...
   }
 }
 ```
+**การตอบกลับ (Response):** ระบบจะทำการ Generate รหัส **`doc_code`** ในรูปแบบ **`RP-[ปี ค.ศ.]-[ลำดับ 4 หลัก]`** เช่น `RP-2026-0001` คืนกลับมาให้ทันที เพื่อใช้แสดงผลบนหน้าจอรายการครับ
 
 ### 2.2 บันทึกฉบับร่าง (Save Draft)
 **Endpoint:** `PUT /api/owner/documents/{id}/draft`
@@ -87,7 +86,8 @@ Data Owner มีหน้าที่หลักในการสร้าง
 
 ### 3.2 ส่งมอบเอกสารที่สมบูรณ์เข้าสู่ส่วนตรวจสอบ (Submit to Auditor)
 **Endpoint:** `POST /api/owner/auditors/submissions`
-**หน้าที่:** หน้าบ้านทำการแพ็คเอกสารที่ตนเองกรอกเสร็จ (และที่ Processor กรอกเสร็จ) ยิงคำสั่งเพื่อนำส่งเข้าด่านตรวจของ Auditor สถานะจะถูกเปลี่ยนเป็น `pending_auditor` ทันท่ี
+**หน้าที่:** นำส่งเอกสารที่กรอกเสร็จสมบูรณ์เข้าด่านตรวจของ Auditor สถานะจะถูกเปลี่ยนเป็น `PENDING_AUDITOR`
+**เงื่อนไขสำคัญ:** เอกสารที่จะส่งได้ต้องอยู่ในสถานะ **`COMPLETED`** เท่านั้น (ตรวจสอบได้จากเส้น `/api/owner/{owner_id}/auditors/ready`)
 **ตัวอย่าง Payload รูปแบบ JSON:**
 ```json
 {

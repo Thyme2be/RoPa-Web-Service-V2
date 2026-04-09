@@ -14,34 +14,35 @@ from app.database import Base                    # Base class ที่ทุก
 
 class DocumentStatus(str, enum.Enum):
     # สถานะของ RopaDocument (เอกสารหลัก) — ใช้ติดตาม workflow ของทั้งเอกสาร
-    DRAFT = "draft"                          # Data Owner สร้างเอกสารแล้ว ยังไม่ส่งใคร
-    PENDING_PROCESSOR = "pending_processor"  # ส่งให้ Data Processor กรอกแล้ว
-    PENDING_AUDITOR = "pending_auditor"      # Data Owner ส่งให้ Auditor ตรวจแล้ว
-    APPROVED = "approved"                    # Auditor อนุมัติแล้ว
-    REJECTED_PROCESSOR = "rejected_processor"# Auditor ส่งกลับให้ Processor แก้ไข
-    REJECTED_OWNER = "rejected_owner"        # Auditor ส่งกลับให้ Owner แก้ไข
+    DRAFT = "DRAFT"                          # Data Owner สร้างเอกสารแล้ว ยังไม่ส่งใคร
+    PENDING_PROCESSOR = "PENDING_PROCESSOR"  # ส่งให้ Data Processor กรอกแล้ว
+    PENDING_AUDITOR = "PENDING_AUDITOR"      # Data Owner ส่งให้ Auditor ตรวจแล้ว
+    APPROVED = "APPROVED"                    # Auditor อนุมัติแล้ว
+    REJECTED_PROCESSOR = "REJECTED_PROCESSOR"# Auditor ส่งกลับให้ Processor แก้ไข
+    REJECTED_OWNER = "REJECTED_OWNER"        # Auditor ส่งกลับให้ Owner แก้ไข
+    COMPLETED = "COMPLETED"                  # ทั้ง DO และ DP กรอกครบแล้ว พร้อมส่งตรวจสอบ
 
 
 class ProcessorStatus(str, enum.Enum):
     # สถานะของ ProcessorRecord — ติดตาม workflow ของ Data Processor คนเดียว
-    PENDING = "pending"                  # ได้รับมอบหมายแล้ว แต่ยังไม่เปิดฟอร์มเลย
-    IN_PROGRESS = "in_progress"          # กำลังกรอก หรือบันทึกฉบับร่างแล้ว
-    CONFIRMED = "confirmed"              # กรอกครบ กดยืนยันแล้ว รอเลือกส่งให้ Data Owner
-    SUBMITTED = "submitted"              # ส่งให้ Data Owner เรียบร้อยแล้ว
-    NEEDS_REVISION = "needs_revision"    # Auditor สั่งให้กลับมาแก้ไข
+    PENDING = "PENDING"                  # ได้รับมอบหมายแล้ว แต่ยังไม่เปิดฟอร์มเลย
+    IN_PROGRESS = "IN_PROGRESS"          # กำลังกรอก หรือบันทึกฉบับร่างแล้ว
+    CONFIRMED = "CONFIRMED"              # กรอกครบ กดยืนยันแล้ว รอเลือกส่งให้ Data Owner
+    SUBMITTED = "SUBMITTED"              # ส่งให้ Data Owner เรียบร้อยแล้ว
+    NEEDS_REVISION = "NEEDS_REVISION"    # Auditor สั่งให้กลับมาแก้ไข
 
 
 class AuditStatus(str, enum.Enum):
     # สถานะของ AuditorAudit — ผลการตรวจของ Auditor
-    PENDING_REVIEW = "pending_review"    # ยังไม่ได้ตรวจ (รอตรวจสอบ)
-    APPROVED = "approved"               # ตรวจแล้ว ผ่าน (อนุมัติ)
-    NEEDS_REVISION = "needs_revision"   # ตรวจแล้ว ไม่ผ่าน (ต้องแก้ไข)
+    PENDING_REVIEW = "PENDING_REVIEW"    # ยังไม่ได้ตรวจ (รอตรวจสอบ)
+    APPROVED = "APPROVED"               # ตรวจแล้ว ผ่าน (อนุมัติ)
+    NEEDS_REVISION = "NEEDS_REVISION"   # ตรวจแล้ว ไม่ผ่าน (ต้องแก้ไข)
 
 
 class AuditorType(str, enum.Enum):
     # ประเภทของ Auditor
-    INTERNAL = "internal"    # Auditor ภายในองค์กร
-    OUTSOURCE = "outsource"  # Auditor จากภายนอก (จ้าง)
+    INTERNAL = "INTERNAL"    # Auditor ภายในองค์กร
+    OUTSOURCE = "OUTSOURCE"  # Auditor จากภายนอก (จ้าง)
 
 
 # ─────────────────────────────────────────────

@@ -47,6 +47,53 @@ class OwnerRecordBase(BaseModel):
     security_responsibility: Optional[str] = None
     security_audit: Optional[str] = None
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "record_name": "string",
+                "title_prefix": "string",
+                "first_name": "string",
+                "last_name": "string",
+                "address": "string",
+                "email": "string",
+                "phone": "string",
+                "data_subject_name": "string",
+                "processing_activity": "string",
+                "purpose": "string",
+                "personal_data": "string",
+                "data_category": "string",
+                "data_type": "string",
+                "collection_method": "string",
+                "source_direct": True,
+                "source_indirect": True,
+                "data_source": "string",
+                "legal_basis": "string",
+                "minor_under10": True,
+                "minor_10to20": True,
+                "transfer_is_transfer": True,
+                "transfer_country": "string",
+                "transfer_company_name": "string",
+                "transfer_method": "string",
+                "transfer_protection_std": "string",
+                "transfer_exception": "string",
+                "retention_storage_type": "string",
+                "retention_method": "string",
+                "retention_duration": 0,
+                "retention_duration_unit": "string",
+                "retention_access_control": "string",
+                "retention_deletion_method": "string",
+                "exemption_disclosure": "string",
+                "rejection_note": "string",
+                "security_organizational": "string",
+                "security_technical": "string",
+                "security_physical": "string",
+                "security_access_control": "string",
+                "security_responsibility": "string",
+                "security_audit": "string"
+            }
+        }
+    )
+
 class OwnerRecordResponse(OwnerRecordBase):
     id: UUID
     ropa_doc_id: UUID
@@ -109,7 +156,15 @@ class ProcessorAssignment(BaseModel):
 class DocumentCreate(BaseModel):
     title: str
     owner_record: Optional[OwnerRecordBase] = None
-
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "title": "ระบบเก็บข้อมูลพนักงานใหม่",
+                "owner_record": OwnerRecordBase.model_config["json_schema_extra"]["example"]
+            }
+        }
+    
 class DocumentUpdateOwner(BaseModel):
     title: Optional[str] = None
     status: Optional[DocumentStatus] = None

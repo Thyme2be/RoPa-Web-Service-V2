@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timezone
 
@@ -48,7 +48,15 @@ from app.schemas.document import (
     ProcessorDraftSaveResponse,
     ProcessorConfirmResponse,
     ProcessorReadyToSendItem,
-    ProcessorReadyToSendResponse
+    ProcessorReadyToSendResponse,
+    ProcessorDocumentStats,
+    ProcessorActiveRecordItem,
+    ProcessorDraftItem,
+    ProcessorDocumentsListResponse,
+    ProcessorFeedbackItem,
+    ProcessorFeedbackListResponse,
+    ProcessorFeedbackSectionInfo,
+    ProcessorFeedbackDetailResponse
 )
 from app.schemas.notification import NotificationResponse
 from app.api.deps import get_current_user, RoleChecker
@@ -71,10 +79,29 @@ def create_document(
     if db.query(RopaDocument).filter(RopaDocument.title == doc_in.title).first():
         raise HTTPException(status_code=400, detail="Document with this title already exists")
 
-    # 1. Create Wrapper
+    # 1. Generate doc_code: RP-YYYY-XXXX
+    current_year = datetime.now(timezone.utc).year
+    prefix = f"RP-{current_year}-"
+    last_doc = db.query(RopaDocument).filter(
+        RopaDocument.doc_code.like(f"{prefix}%")
+    ).order_by(RopaDocument.doc_code.desc()).first()
+    
+    if last_doc and last_doc.doc_code:
+        try:
+             last_num = int(last_doc.doc_code.split("-")[-1])
+             next_num = last_num + 1
+        except ValueError:
+             next_num = 1
+    else:
+        next_num = 1
+        
+    new_doc_code = f"{prefix}{next_num:04d}"
+
+    # 2. Create Wrapper
     new_doc = RopaDocument(
         owner_id=current_user.id,
         title=doc_in.title,
+        doc_code=new_doc_code,
         status=DocumentStatus.DRAFT,
         version=1
     )
@@ -307,10 +334,10 @@ def get_ready_to_submit(
     if current_user.role != UserRoleEnum.ADMIN and current_user.id != owner_id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Fetch docs that are 'completed but unsent'
+    # Fetch docs that are formally Completed and eligible to be sent to Auditor
     docs = db.query(RopaDocument).filter(
         RopaDocument.owner_id == owner_id,
-        RopaDocument.status.in_([DocumentStatus.DRAFT, DocumentStatus.REJECTED_OWNER, DocumentStatus.REJECTED_PROCESSOR])
+        RopaDocument.status == DocumentStatus.COMPLETED
     ).order_by(RopaDocument.updated_at.desc()).all()
 
     ready = []
@@ -338,6 +365,29 @@ def apply_maimee_default(record_dict: dict, sqla_model) -> dict:
                     if isinstance(column.type, (sqlalchemy.String, sqlalchemy.Text)):
                         record_dict[column.name] = "ไม่มี"
     return record_dict
+
+def update_document_completion_status(doc: RopaDocument, db: Session):
+    """Checks completeness of both parties and auto-assigns status."""
+    if doc.status in [DocumentStatus.PENDING_AUDITOR, DocumentStatus.APPROVED]:
+        return
+        
+    all_dps_submitted = True
+    for pr in doc.processor_records:
+        if pr.processor_status != ProcessorStatus.SUBMITTED:
+            all_dps_submitted = False
+            break
+            
+    do_completed = False
+    if doc.owner_record:
+        missing = validate_owner_record_complete(doc)
+        if not missing:
+            do_completed = True
+            
+    if all_dps_submitted and do_completed:
+        doc.status = DocumentStatus.COMPLETED
+    else:
+        if doc.status not in [DocumentStatus.REJECTED_OWNER, DocumentStatus.REJECTED_PROCESSOR]:
+            doc.status = DocumentStatus.DRAFT
 
 def validate_owner_record_complete(doc: RopaDocument) -> list[str]:
     """Returns a list of missing required fields for a DO document before submission to Auditor."""
@@ -702,8 +752,7 @@ def save_document_draft(
     if not doc:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารหรือไม่มีสิทธิ์เข้าถึง")
 
-    # ห้ามเปลี่ยนสถานะหากเอกสารอยู่ใน pipeline ของ Auditor แล้ว
-    if doc.status not in [DocumentStatus.DRAFT, DocumentStatus.REJECTED_OWNER]:
+    if doc.status not in [DocumentStatus.DRAFT, DocumentStatus.REJECTED_OWNER, DocumentStatus.COMPLETED]:
         raise HTTPException(
             status_code=400,
             detail=f"ไม่สามารถแก้ไขเอกสารที่อยู่ในสถานะ '{doc.status.value}'"
@@ -722,9 +771,9 @@ def save_document_draft(
             for key, value in dump.items():
                 setattr(doc.owner_record, key, value)
 
-    # สถานะคง DRAFT ไม่เปลี่ยน
-    if doc.status != DocumentStatus.REJECTED_OWNER:
-        doc.status = DocumentStatus.DRAFT
+    db.flush()
+    db.refresh(doc)
+    update_document_completion_status(doc, db)
 
     db.commit()
     db.refresh(doc)
@@ -781,8 +830,8 @@ def confirm_document_ropa(
                     if isinstance(column.type, (sqlalchemy.String, sqlalchemy.Text)):
                         setattr(doc.owner_record, column.name, "ไม่มี")
 
-    # ครบแล้ว — เปลี่ยนสถานะเป็น COMPLETED (พร้อมเข้าคิวส่งให้ Auditor)
-    doc.status = DocumentStatus.COMPLETED
+    # ตรวจสอบว่าหลังจากยัด "ไม่มี" แล้ว และเช็ค DP จะเข้าเกณฑ์ COMPLETED ไหม
+    update_document_completion_status(doc, db)
 
     db.commit()
     db.refresh(doc)
@@ -1096,9 +1145,9 @@ def processor_submit_to_owner(
     pr.submitted_at = datetime.now(timezone.utc)
     pr.sent_to_owner_at = datetime.now(timezone.utc)
     
-    # Change parent document state (assuming hybrid logic relies on DRAFT waiting)
-    if pr.document and pr.document.status != DocumentStatus.PENDING_AUDITOR:
-         pr.document.status = DocumentStatus.DRAFT
+    # Change parent document state using universal check logic
+    if pr.document:
+         update_document_completion_status(pr.document, db)
          
     # Trigger notification to DO
     notify = UserNotification(
