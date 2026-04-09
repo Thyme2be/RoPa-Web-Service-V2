@@ -16,7 +16,9 @@ class SectionFeedback(BaseModel):
 class SubmitFeedbackRequest(BaseModel):
     form_type: str                          # "owner" หรือ "processor"
     feedbacks: List[SectionFeedback] = []   # [] = อนุมัติ, มีข้อมูล = ตีกลับ
-    expires_at: Optional[datetime] = None   # required เมื่อ feedbacks=[] (approve)
+    expires_at: Optional[datetime] = None
+    # optional — ถ้าส่งมา → ใช้ค่านี้เป็น expires_at ของเอกสาร (override)
+    # ถ้าไม่ส่ง → คำนวณอัตโนมัติจาก retention_duration + retention_duration_unit ในฟอร์ม Section 4
 
 
 class SubmitFeedbackResponse(BaseModel):

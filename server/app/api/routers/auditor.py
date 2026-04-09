@@ -69,6 +69,17 @@ def get_doc_code(doc: RopaDocument) -> Optional[str]:
     return f"RP-{year}-{str(doc.id)[:4].upper()}"
 
 
+def get_file_code(doc: RopaDocument, form_type: str) -> Optional[str]:
+    """
+    คืนรหัสไฟล์ที่ไม่ซ้ำกัน แยกต่อ form ของแต่ละหัวข้อ
+    owner    → RP-2026-XXXX-O
+    processor → RP-2026-XXXX-P
+    """
+    base = get_doc_code(doc)
+    suffix = "-O" if form_type == "owner" else "-P"
+    return f"{base}{suffix}" if base else None
+
+
 def parse_json_field(value: Optional[str]) -> Optional[list]:
     """แปลง JSON string → Python list (ใช้กับ field ที่เก็บเป็น JSON array)"""
     if not value:
@@ -383,7 +394,7 @@ def get_documents(
         owner_status = audit.owner_review_status or 'pending_review'
         all_rows.append(DocumentListItem(
             ropa_doc_id=doc.id,
-            doc_code=doc_code,
+            doc_code=get_file_code(doc, "owner"),   # RP-XXXX-O (unique per file)
             title=doc.title,
             form_type="owner",
             form_label="ผู้รับผิดชอบข้อมูล",
@@ -397,7 +408,7 @@ def get_documents(
         proc_status = audit.processor_review_status or 'pending_review'
         all_rows.append(DocumentListItem(
             ropa_doc_id=doc.id,
-            doc_code=doc_code,
+            doc_code=get_file_code(doc, "processor"),  # RP-XXXX-P (unique per file)
             title=doc.title,
             form_type="processor",
             form_label="ผู้ประมวลผลข้อมูลส่วนบุคคล",
@@ -551,9 +562,6 @@ def submit_feedback(
 
     if is_approving:
         # ── กรณีอนุมัติ ──
-        if not body.expires_at:
-            raise HTTPException(422, detail="กรุณาระบุ expires_at (วันหมดอายุ) เมื่ออนุมัติเอกสาร")
-
         if body.form_type == "owner":
             audit.owner_review_status = "approved"
             audit.owner_feedback_sent_at = now
@@ -563,8 +571,35 @@ def submit_feedback(
             audit.processor_feedback_sent_at = now
             audit.processor_feedback = None
 
-        # กำหนดวันหมดอายุ
-        doc.expires_at = body.expires_at
+        # ── คำนวณ expires_at จาก retention_duration + retention_duration_unit ──
+        # ดึง ProcessorRecord เพื่อหา retention period ที่กรอกในฟอร์ม Section 4
+        processor_record = (
+            db.query(ProcessorRecord)
+            .filter(ProcessorRecord.ropa_doc_id == ropa_doc_id)
+            .order_by(ProcessorRecord.created_at.desc())
+            .first()
+        )
+        if body.expires_at:
+            # ถ้า Auditor ส่ง expires_at มาเอง → ใช้ค่านั้น (override)
+            doc.expires_at = body.expires_at
+        elif processor_record and processor_record.retention_duration and processor_record.retention_duration_unit:
+            # คำนวณจาก retention period ในฟอร์ม
+            try:
+                duration = int(processor_record.retention_duration)
+                unit = processor_record.retention_duration_unit.lower()
+                if unit == "year":
+                    doc.expires_at = now.replace(year=now.year + duration)
+                elif unit == "month":
+                    # เพิ่มเดือน (handle overflow เช่น month 13)
+                    total_months = now.month + duration
+                    year_offset = (total_months - 1) // 12
+                    new_month = ((total_months - 1) % 12) + 1
+                    doc.expires_at = now.replace(year=now.year + year_offset, month=new_month)
+                elif unit in ("day", "days"):
+                    doc.expires_at = now + timedelta(days=duration)
+            except (ValueError, TypeError, OverflowError):
+                doc.expires_at = None  # ถ้าคำนวณไม่ได้ → ไม่กำหนดวัน
+        # ถ้าไม่มีทั้งคู่ → expires_at = None (Auditor ยังไม่ได้กำหนด)
 
         # ── ตรวจสอบว่าทั้ง 2 ฟอร์มอนุมัติแล้วไหม ──
         owner_ok = (audit.owner_review_status or 'pending_review') == "approved"

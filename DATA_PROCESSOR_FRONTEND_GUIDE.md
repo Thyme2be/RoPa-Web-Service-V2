@@ -516,7 +516,7 @@ is_read_only = false (เพราะ audit_status = needs_revision)
 | `retention_storage_type` | `List[string]` | ✅ | checkboxes → ส่งเป็น array |
 | `retention_method` | `List[string]` | ✅ | multi-select → ส่งเป็น array |
 | `retention_duration` | string | ✅ | ตัวเลข เช่น `"5"` |
-| `retention_duration_unit` | string | ✅ | `"year"` หรือ `"month"` |
+| `retention_duration_unit` | string | ✅ | `"year"` / `"month"` / `"days"` (dropdown) |
 | `retention_access_condition` | string | ✅ | |
 | `retention_deletion_method` | string | ✅ | |
 

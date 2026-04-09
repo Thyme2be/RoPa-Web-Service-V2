@@ -79,6 +79,15 @@ def get_doc_code(doc: RopaDocument) -> Optional[str]:
     return f"RP-{year}-{str(doc.id)[:4].upper()}"  # เช่น "RP-2026-3F2E"
 
 
+def get_file_code(doc: RopaDocument) -> Optional[str]:
+    """
+    คืนรหัสไฟล์ของ Data Processor โดยเฉพาะ → RP-2026-XXXX-P
+    ไม่ซ้ำกับ owner file (RP-2026-XXXX-O) แม้จะหัวข้อเดียวกัน
+    """
+    base = get_doc_code(doc)
+    return f"{base}-P" if base else None
+
+
 def get_status_display(ps: ProcessorStatus) -> str:
     """
     แปลง ProcessorStatus (ภาษาอังกฤษ) → ข้อความแสดงบนหน้าจอ (ภาษาไทย)
@@ -569,7 +578,7 @@ def get_assignments(
     items = [
         AssignmentListItem(
             id=r.id,
-            doc_code=get_doc_code(r.document) if r.document else None,
+            doc_code=get_file_code(r.document) if r.document else None,
             title=r.document.title if r.document else "",
             assigned_by=get_assigned_by_name(r),            # ชื่อ Data Owner
             received_at=r.created_at,
@@ -764,7 +773,7 @@ def get_ready_to_send(
     items = [
         ReadyToSendItem(
             id=r.id,
-            doc_code=get_doc_code(r.document) if r.document else None,
+            doc_code=get_file_code(r.document) if r.document else None,
             title=r.document.title if r.document else "",
             created_at=r.document.created_at if r.document else r.created_at,
             # ใช้วันสร้างของ RopaDocument (วันที่ Data Owner สร้าง)
@@ -899,7 +908,7 @@ def get_documents_page(
         active_items.append(
             ActiveDocumentItem(
                 id=r.id,
-                doc_code=get_doc_code(r.document) if r.document else None,
+                doc_code=get_file_code(r.document) if r.document else None,
                 title=r.document.title if r.document else "",
                 sent_at=r.sent_to_owner_at,
                 audit_status=audit_status_val,
