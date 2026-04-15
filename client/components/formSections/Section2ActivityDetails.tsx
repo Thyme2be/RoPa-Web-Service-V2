@@ -1,7 +1,7 @@
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 
-export default function DataDetails({ form, handleChange, errors }: any) {
+export default function DataDetails({ form, handleChange, errors, disabled }: any) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary">
             {/* Header with Red Accent and Information Icon */}
@@ -26,6 +26,7 @@ export default function DataDetails({ form, handleChange, errors }: any) {
                         required
                         onChange={handleChange}
                         error={errors?.dataSubjectName}
+                        disabled={disabled}
                     />
                 </div>
 
@@ -38,6 +39,7 @@ export default function DataDetails({ form, handleChange, errors }: any) {
                         required
                         onChange={handleChange}
                         error={errors?.processingActivity}
+                        disabled={disabled}
                     />
                     <Input
                         label="วัตถุประสงค์การประมวลผล"
@@ -47,9 +49,11 @@ export default function DataDetails({ form, handleChange, errors }: any) {
                         required
                         onChange={handleChange}
                         error={errors?.purpose}
+                        disabled={disabled}
                     />
                 </div>
             </div>
         </div>
     );
 }
+

@@ -7,7 +7,7 @@ import MultiSelect from "@/components/ui/MultiSelect";
 import Input from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 
-export default function Section3Stored({ form, handleChange, errors }: any) {
+export default function Section3Stored({ form, handleChange, errors, disabled }: any) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary">
             {/* Header with Red Accent and Category Icon */}
@@ -32,6 +32,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                             label="ข้อมูลส่วนบุคคลที่จัดเก็บ"
                             placeholder="ข้อมูลส่วนบุคคลที่จัดเก็บ"
                             required
+                            disabled={disabled}
                             description={
                                 <p className="text-[11px] font-bold text-primary tracking-tight">
                                     (สามารถระบุได้มากกว่า 1)
@@ -61,6 +62,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                                     value={form?.storedDataTypesOther || ""}
                                     placeholder="เช่น กรุ๊ปเลือด , ไอดีไลน์"
                                     required
+                                    disabled={disabled}
                                     onChange={handleChange}
                                     error={errors?.storedDataTypesOther}
                                 />
@@ -70,17 +72,22 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
 
                     {/* Column 2: Data Category (Checkboxes) */}
                     <div className="space-y-4">
-                        <label className="text-sm font-bold text-[#5C403D] block tracking-tight">
+                        <label className={cn(
+                            "text-sm font-bold text-[#5C403D] block tracking-tight",
+                            disabled && "opacity-60"
+                        )}>
                             หมวดหมู่ของข้อมูล <span className="text-primary">*</span>
                         </label>
                         <div className={cn(
                             "space-y-2 p-6 rounded-2xl border transition-all",
-                            errors?.dataCategories ? "bg-red-50/30 border-red-200" : "bg-[#F6F3F2] border-gray-50"
+                            errors?.dataCategories ? "bg-red-50/30 border-red-200" : "bg-[#F6F3F2] border-gray-50",
+                            disabled && "opacity-60 pointer-events-none"
                         )}>
                             <Checkbox 
                                 label="ข้อมูลลูกค้า" 
                                 name="dataCategories[]" 
                                 value="customer"
+                                disabled={disabled}
                                 checked={!!form?.dataCategories?.includes("customer")} 
                                 onChange={handleChange} 
                             />
@@ -88,6 +95,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                                 label="คู่ค้า" 
                                 name="dataCategories[]" 
                                 value="partner"
+                                disabled={disabled}
                                 checked={!!form?.dataCategories?.includes("partner")} 
                                 onChange={handleChange} 
                             />
@@ -95,6 +103,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                                 label="ผู้ติดต่อ" 
                                 name="dataCategories[]" 
                                 value="contact"
+                                disabled={disabled}
                                 checked={!!form?.dataCategories?.includes("contact")} 
                                 onChange={handleChange} 
                             />
@@ -102,6 +111,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                                 label="พนักงาน" 
                                 name="dataCategories[]" 
                                 value="employee"
+                                disabled={disabled}
                                 checked={!!form?.dataCategories?.includes("employee")} 
                                 onChange={handleChange} 
                             />
@@ -115,10 +125,16 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
 
                     {/* Column 3: Type of Data (Radios) */}
                     <div className="space-y-4">
-                        <label className="text-sm font-bold text-[#5C403D] block tracking-tight">
+                        <label className={cn(
+                            "text-sm font-bold text-[#5C403D] block tracking-tight",
+                            disabled && "opacity-60"
+                        )}>
                             ประเภทของข้อมูล <span className="text-primary">*</span>
                         </label>
-                        <div className="flex flex-col gap-3">
+                        <div className={cn(
+                            "flex flex-col gap-3",
+                            disabled && "pointer-events-none"
+                        )}>
                             {errors?.dataType && (
                                 <p className="text-[11px] text-red-500 font-medium px-1 mb-1">
                                     {errors.dataType}
@@ -129,6 +145,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                                 name="dataType"
                                 value="general"
                                 alignRight
+                                disabled={disabled}
                                 checked={form?.dataType === "general"}
                                 onChange={handleChange}
                             />
@@ -137,6 +154,7 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
                                 name="dataType"
                                 value="sensitive"
                                 alignRight
+                                disabled={disabled}
                                 checked={form?.dataType === "sensitive"}
                                 onChange={handleChange}
                             />
@@ -147,3 +165,4 @@ export default function Section3Stored({ form, handleChange, errors }: any) {
         </div>
     );
 }
+

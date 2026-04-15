@@ -3,6 +3,7 @@
 :root {
   /* Material Design 3 Palette (Light Theme Focus) */
   --primary: #ED393C;
+  --primary-rgb: 237, 57, 60;
   --on-primary: #ffffff;
   --primary-container: #ED393C;
   --on-primary-container: #fffbff;
@@ -43,6 +44,13 @@
   --inverse-primary: #ffb3ad;
 
   --sidebar-width: 256px;
+}
+
+.theme-processor {
+  --primary: #00666E;
+  --primary-rgb: 0, 102, 110;
+  --primary-container: #00666E;
+  --tertiary: #ED393C; /* Swap roles for visual variety if needed */
 }
 
 @theme {

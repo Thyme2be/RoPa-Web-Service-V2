@@ -1,15 +1,21 @@
+import React from "react";
+import { cn } from "@/lib/utils";
+
 type Props = React.InputHTMLAttributes<HTMLInputElement> & {
     label: string;
 };
 
 export default function Checkbox({ label, ...props }: Props) {
     return (
-        <label className="flex items-center gap-3 cursor-pointer group select-none">
+        <label className={cn(
+            "flex items-center gap-3 cursor-pointer group select-none",
+            props.disabled && "opacity-60 cursor-not-allowed pointer-events-none"
+        )}>
             <div className="relative flex items-center justify-center">
                 <input
                     type="checkbox"
                     {...props}
-                    className="peer appearance-none h-5 w-5 border border-[#CEC4C2] rounded-md focus:ring-4 focus:ring-primary/10 checked:bg-white checked:border-primary transition-all cursor-pointer bg-white shadow-sm"
+                    className="peer appearance-none h-5 w-5 border border-[#CEC4C2] rounded-md focus:ring-4 focus:ring-primary/10 checked:bg-white checked:border-primary transition-all cursor-pointer bg-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
                 />
                 <svg
                     className="absolute h-3 w-3 text-primary pointer-events-none stroke-[4px] opacity-0 peer-checked:opacity-100 transition-opacity"
