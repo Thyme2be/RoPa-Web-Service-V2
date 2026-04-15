@@ -17,18 +17,18 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     onChange?: (e: { target: { name: string; value: string } }) => void;
 };
 
-export default function Select({ 
-    label, 
-    options, 
-    required, 
-    containerClassName, 
-    value, 
-    name, 
-    onChange, 
+export default function Select({
+    label,
+    options,
+    required,
+    containerClassName,
+    value,
+    name,
+    onChange,
     placeholder,
     error,
     rounding = "2xl",
-    ...props 
+    ...props
 }: Props) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -57,19 +57,19 @@ export default function Select({
     return (
         <div className={cn("space-y-2 w-full", containerClassName)} ref={containerRef}>
             {label && (
-                <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
+                <label className="text-lg font-extrabold text-black block tracking-tight">
                     {label} {required && <span className="text-primary">*</span>}
                 </label>
             )}
-            
+
             <div className="relative">
                 {/* Header / Trigger */}
                 <div
                     onClick={() => !props.disabled && setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between w-full h-11 px-4 py-2 bg-[#F6F3F2] border cursor-pointer transition-all hover:bg-white hover:border-primary/20",
+                        "flex items-center justify-between w-full h-11 px-6 py-2 bg-[#FAFAFA] border border-[#E4E4E7] cursor-pointer transition-all hover:bg-white hover:border-primary/20",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
-                        error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
+                        error ? "border-red-500/50 bg-red-50/50" : "",
                         isOpen && "bg-primary/5 border-primary/20 rounded-b-none",
                         props.disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
                     )}

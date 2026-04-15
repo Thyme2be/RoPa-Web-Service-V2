@@ -6,10 +6,8 @@ import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/ui/LogoutButton";
 
 const menuItems = [
-    { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", href: "/data-owner/dashboard" },
-    { id: "ropa", label: "รายการ RoPA", icon: "list_alt", href: "/data-owner/ropa" },
-    { id: "docs", label: "เอกสาร", icon: "description", href: "/data-owner/documents" },
-    { id: "advice", label: "ข้อเสนอแนะ", icon: "forum", href: "/data-owner/advice" },
+    { id: "dashboard", label: "แดชบอร์ด", icon: "grid_view", href: "/data-owner/dashboard" },
+    { id: "ropa", label: "ตารางเอกสาร", icon: "list_alt", href: "/data-owner/ropa" },
 ];
 
 export default function Sidebar() {

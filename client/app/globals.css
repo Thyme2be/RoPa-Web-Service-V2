@@ -6,17 +6,19 @@
   --primary-rgb: 237, 57, 60;
   --on-primary: #ffffff;
   --primary-container: #ED393C;
-  --on-primary-container: #fffbff;
+  --on-primary-container: #ffffff;
 
-  --secondary: #5f5e5e;
+  --secondary: #7A141B;
   --on-secondary: #ffffff;
-  --secondary-container: #e4e2e1;
-  --on-secondary-container: #656464;
+  --secondary-container: #490D12;
+  --on-secondary-container: #ffffff;
 
-  --tertiary: #00666e;
+  --tertiary: #490D12;
   --on-tertiary: #ffffff;
-  --tertiary-container: #00818b;
-  --on-tertiary-container: #f6feff;
+  --tertiary-container: #250909;
+  --on-tertiary-container: #ffffff;
+
+  --neutral: #250909;
 
   --error: #ba1a1a;
   --on-error: #ffffff;
@@ -65,6 +67,7 @@
   --color-surface-container-lowest: var(--surface-container-lowest);
   --color-tertiary: var(--tertiary);
   --color-tertiary-container: var(--tertiary-container);
+  --color-neutral: var(--neutral);
   --color-error: var(--error);
   --color-outline: var(--outline);
 
