@@ -83,6 +83,12 @@ class RopaDocument(Base):
     sent_to_auditor_at = Column(DateTime, nullable=True)
     # วันเวลาที่ Data Owner ส่งให้ Auditor — null ถ้ายังไม่ส่ง
 
+    expires_at = Column(DateTime, nullable=True)
+    # วันหมดอายุของเอกสาร — Auditor กำหนดตอนอนุมัติ (ใช้ใน Sidebar 3)
+
+    deleted_at = Column(DateTime, nullable=True)
+    # วันที่ลบ (soft delete) — null = ยังอยู่, มีค่า = ลบแล้ว
+
     # ── Relationships (SQLAlchemy จัดการ JOIN ให้อัตโนมัติ) ──
     owner = relationship("User", foreign_keys=[owner_id])
     # ดึงข้อมูล User ที่เป็นเจ้าของเอกสาร → ใช้ตอนต้องการชื่อ Data Owner
@@ -138,6 +144,37 @@ class AuditorProfile(Base):
     audits = relationship("AuditorAudit", back_populates="auditor")
     # ประวัติการตรวจทั้งหมดที่ Auditor คนนี้ทำ
 
+    deleted_document_logs = relationship("DeletedDocumentLog", back_populates="auditor")
+    # ประวัติการลบเอกสาร — เก็บไว้นับ deleted_count ใน Sidebar 3
+
+
+class DeletedDocumentLog(Base):
+    """
+    Log การลบเอกสาร — เก็บหลักฐานว่า Auditor ลบเอกสารไปกี่ฉบับ
+    ใช้เพราะ DELETE เป็น hard delete (ตัวเอกสารหายออกจาก DB เลย)
+    ต้อง insert log นี้ก่อน แล้วค่อย db.delete(doc)
+    """
+    __tablename__ = 'deleted_document_logs'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    ropa_doc_id = Column(UUID(as_uuid=True), nullable=False)
+    # อดีต FK → ropa_documents แต่เอกสารถูกลบแล้ว เก็บไว้เป็น reference เท่านั้น
+
+    doc_code = Column(String, nullable=True)
+    # รหัสเอกสาร เก็บไว้ก่อนลบ เพื่อ reference ในอนาคต
+
+    title = Column(String, nullable=True)
+    # ชื่อเอกสาร เก็บไว้ก่อนลบ
+
+    auditor_profile_id = Column(UUID(as_uuid=True), ForeignKey('auditor_profiles.id', ondelete='SET NULL'), nullable=True)
+    # Auditor ที่ลบเอกสารนี้
+
+    deleted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    # วันเวลาที่ลบ
+
+    auditor = relationship("AuditorProfile", back_populates="deleted_document_logs")
+
 
 class OwnerRecord(Base):
     # ส่วนที่ Data Owner กรอก (ข้อมูลฝั่งเจ้าของข้อมูล)
@@ -189,6 +226,10 @@ class OwnerRecord(Base):
     retention_deletion_method = Column(Text, nullable=True)     # วิธีลบทำลาย
 
     # ── อื่นๆ ──
+    file_code = Column(String, nullable=True, unique=True)
+    # รหัสไฟล์เฉพาะตัวของฟอร์ม Owner เช่น "RP-2026-0001"
+    # สร้างอัตโนมัติตอน record ถูก create — ไม่ซ้ำกับ ProcessorRecord
+
     exemption_disclosure = Column(Text, nullable=True)  # การยกเว้นการเปิดเผย
     rejection_note = Column(Text, nullable=True)        # หมายเหตุเมื่อถูกปฏิเสธ
 
@@ -225,6 +266,10 @@ class ProcessorRecord(Base):
     processor_status = Column(Enum(ProcessorStatus), nullable=False, default=ProcessorStatus.PENDING)
     # สถานะปัจจุบัน: PENDING → IN_PROGRESS → CONFIRMED → SUBMITTED
     # หรือ NEEDS_REVISION ถ้า Auditor ส่งกลับ
+
+    file_code = Column(String, nullable=True, unique=True)
+    # รหัสไฟล์เฉพาะตัวของฟอร์ม Processor เช่น "RP-2026-0002"
+    # สร้างอัตโนมัติตอน record ถูก create — ไม่ซ้ำกับ OwnerRecord
 
     draft_code = Column(String, nullable=True, unique=True)
     # รหัสฉบับร่าง เช่น "DFT-5525" — สร้างครั้งแรกที่กด "บันทึกฉบับร่าง"
@@ -373,6 +418,40 @@ class AuditorAudit(Base):
     # ใช้แสดงใน sidebar 3 (ข้อเสนอแนะ)
 
     owner_feedback = Column(Text, nullable=True)
+    # feedback สำหรับ Data Owner โดยเฉพาะ
+    # เก็บเป็น JSON list: '[{"section":"section_2","section_label":"...","comment":"..."}]'
+
+    owner_received_at = Column(DateTime, nullable=True)
+    # วันที่ owner form ถูกส่งมาให้ Auditor ตรวจ
+    # set ตอน doc.status = PENDING_AUDITOR (ถ้า owner ยังไม่ approved)
+    # ใช้นับ monthly_trend แยกต่างหากจาก processor
+
+    processor_received_at = Column(DateTime, nullable=True)
+    # วันที่ processor form ถูกส่งมาให้ Auditor ตรวจ
+    # set ตอน doc.status = PENDING_AUDITOR (ถ้า processor ยังไม่ approved)
+    # จะ update ใหม่ทุกครั้งที่ processor resubmit หลัง needs_revision
+
+    owner_review_status = Column(String, nullable=True, default='pending_review')
+    # สถานะการตรวจฟอร์ม Owner: pending_review / approved / needs_revision
+
+    owner_feedback_sent_at = Column(DateTime, nullable=True)
+    # วันเวลาที่ Auditor ส่ง feedback ให้ Owner (แสดงเป็น "วันที่ส่ง" ในตาราง)
+
+    processor_review_status = Column(String, nullable=True, default='pending_review')
+    # สถานะการตรวจฟอร์ม Processor: pending_review / approved / needs_revision
+
+    processor_feedback_sent_at = Column(DateTime, nullable=True)
+    # วันเวลาที่ Auditor ส่ง feedback ให้ Processor (แสดงเป็น "วันที่ส่ง" ในตาราง)
+
+    owner_expires_at = Column(DateTime, nullable=True)
+    # วันหมดอายุของ Owner file — set ตอน Auditor อนุมัติฟอร์ม owner
+    # คำนวณจาก retention_duration (OwnerRecord) หรือ Auditor กำหนดเอง
+    # ใช้ใน Sidebar 3 — แสดงเป็นรายการแยกต่อไฟล์
+
+    processor_expires_at = Column(DateTime, nullable=True)
+    # วันหมดอายุของ Processor file — set ตอน Auditor อนุมัติฟอร์ม processor
+    # คำนวณจาก retention_duration + retention_duration_unit (ProcessorRecord)
+    # ใช้ใน Sidebar 3 — แสดงเป็นรายการแยกต่อไฟล์
     # comment แยกตามส่วน สำหรับ Data Owner โดยเฉพาะ
     # เก็บเป็น JSON string เช่น: '{"section_2": "เพิ่มรายละเอียด..."}'
 

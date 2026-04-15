@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers import auth, users, admin
 from app.api.routers.documents import owner_router, processor_docs_router, auditor_docs_router
 from app.api.routers.processor import router as processor_router
+from app.api.routers.auditor import router as auditor_router
 from app.database import engine, Base
 from app.core.config import settings
 
@@ -40,3 +41,4 @@ app.include_router(processor_docs_router, prefix="/processor", tags=["Data Proce
 app.include_router(auditor_docs_router, prefix="/auditor", tags=["Auditor"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin Controls"])
 app.include_router(processor_router, prefix="/processor", tags=["Data Processor"])
+app.include_router(auditor_router, prefix="/auditor", tags=["Auditor"])

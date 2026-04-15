@@ -29,6 +29,7 @@ from app.models.user import User        # model: ข้อมูล user
 
 from app.schemas.processor import (
     ActiveDocumentItem,         # schema: 1 แถวในตาราง "รายการที่ดำเนินการ" sidebar 2
+    AssignmentFormResponse,     # schema: response หน้าฟอร์ม 6 ส่วน (GET /assignments/{id})
     AssignmentListItem,         # schema: 1 แถวในตาราง sidebar 1
     AssignmentListResponse,     # schema: response ทั้งหมดของ sidebar 1
     AssignmentStats,            # schema: กล่อง 4 ใบด้านบน sidebar 1
@@ -76,6 +77,20 @@ def get_doc_code(doc: RopaDocument) -> Optional[str]:
         return doc.doc_code
     year = doc.created_at.year if doc.created_at else datetime.now(timezone.utc).year
     return f"RP-{year}-{str(doc.id)[:4].upper()}"  # เช่น "RP-2026-3F2E"
+
+
+def get_file_code_from_record(record: ProcessorRecord) -> Optional[str]:
+    """
+    คืนรหัสไฟล์ของ ProcessorRecord โดยตรงจาก record.file_code
+    เช่น RP-2026-0002 — ไม่ซ้ำกับ OwnerRecord แม้หัวข้อเดียวกัน
+    fallback → doc_code + -P ถ้าไม่มี file_code (ข้อมูลเก่า)
+    """
+    if record.file_code:
+        return record.file_code
+    doc = record.document
+    if doc and doc.doc_code:
+        return f"{doc.doc_code}-P"
+    return None
 
 
 def get_status_display(ps: ProcessorStatus) -> str:
@@ -568,7 +583,7 @@ def get_assignments(
     items = [
         AssignmentListItem(
             id=r.id,
-            doc_code=get_doc_code(r.document) if r.document else None,
+            doc_code=get_file_code_from_record(r),
             title=r.document.title if r.document else "",
             assigned_by=get_assigned_by_name(r),            # ชื่อ Data Owner
             received_at=r.created_at,
@@ -599,7 +614,7 @@ def get_assignments(
     )
 
 
-@router.get("/assignments/{record_id}")
+@router.get("/assignments/{record_id}", response_model=AssignmentFormResponse)
 def get_assignment_form(
     record_id: UUID,                                    # id จาก URL path
     db: Session = Depends(get_db),
@@ -763,7 +778,7 @@ def get_ready_to_send(
     items = [
         ReadyToSendItem(
             id=r.id,
-            doc_code=get_doc_code(r.document) if r.document else None,
+            doc_code=get_file_code_from_record(r),
             title=r.document.title if r.document else "",
             created_at=r.document.created_at if r.document else r.created_at,
             # ใช้วันสร้างของ RopaDocument (วันที่ Data Owner สร้าง)
@@ -877,10 +892,16 @@ def get_documents_page(
     )
 
     # สร้าง active items พร้อม audit_status ของแต่ละเอกสาร
+    # ใช้ processor_review_status แทน audit_status (overall)
+    # เพราะ Sidebar 2 ของ Processor แสดงสถานะเฉพาะไฟล์ของ Processor เท่านั้น
+    # → approved = processor file ผ่านแล้ว (แม้ owner file ยังไม่ผ่านก็ตาม)
     active_items = []
     for r in active_raw:
         audit = get_latest_audit(r.ropa_doc_id, db)  # ดึง audit ล่าสุด
-        audit_status_val = audit.audit_status.value if (audit and audit.audit_status) else None
+
+        # ใช้ processor_review_status แทน audit_status
+        proc_review = (audit.processor_review_status if audit else None) or 'pending_review'
+        audit_status_val = proc_review  # "pending_review" | "approved" | "needs_revision"
 
         # กรองตาม status_filter (ถ้ามี)
         if status_filter:
@@ -892,22 +913,23 @@ def get_documents_page(
         active_items.append(
             ActiveDocumentItem(
                 id=r.id,
-                doc_code=get_doc_code(r.document) if r.document else None,
+                doc_code=get_file_code_from_record(r),
                 title=r.document.title if r.document else "",
                 sent_at=r.sent_to_owner_at,
                 audit_status=audit_status_val,
                 audit_status_display=get_audit_status_display(audit_status_val),
-                can_edit=(audit and audit.audit_status == AuditStatus.NEEDS_REVISION),
-                # แก้ไขได้เฉพาะเมื่อ Auditor สั่งให้แก้ไข
+                can_edit=(proc_review == 'needs_revision'),
+                # แก้ไขได้เฉพาะเมื่อ Auditor ตีกลับ processor file โดยเฉพาะ
             )
         )
 
-    # นับจำนวน "เอกสารฉบับสมบูรณ์" (approved) จากทุก record ไม่ใช่แค่หน้านี้
+    # นับจำนวน "เอกสารฉบับสมบูรณ์" (approved) — นับจาก processor_review_status
     all_active = active_q.all()
     complete_count = 0
     for r in all_active:
         audit = get_latest_audit(r.ropa_doc_id, db)
-        if audit and audit.audit_status == AuditStatus.APPROVED:
+        proc_review = (audit.processor_review_status if audit else None) or 'pending_review'
+        if proc_review == 'approved':
             complete_count += 1
 
     # ── ตาราง "ฉบับร่าง" ──
@@ -1099,21 +1121,35 @@ def get_feedback_detail(
         auditor_name = f"{u.first_name} {u.last_name}"
 
     # แปลง processor_feedback JSON → list ของ SectionFeedback
-    # processor_feedback เก็บเป็น: '{"section_5": "comment...", "section_6": "comment..."}'
+    # auditor เก็บเป็น list format: [{"section": "section_5", "section_label": "...", "comment": "..."}]
     section_feedbacks = []
     if audit.processor_feedback:
         try:
-            feedback_data = json.loads(audit.processor_feedback)  # แปลง string → dict
-            for key, comment in feedback_data.items():
-                if comment:  # ข้ามส่วนที่ไม่มี comment
-                    section_feedbacks.append(
-                        SectionFeedback(
-                            section=key,        # "section_5"
-                            section_label=SECTION_LABELS.get(key, key),
-                            # แปลง key → ชื่อแสดง เช่น "ส่วนที่ 5 : ฐานทางกฎหมาย..."
-                            comment=str(comment),
+            feedback_data = json.loads(audit.processor_feedback)
+            if isinstance(feedback_data, list):
+                # format ใหม่ (list) — auditor.py เก็บแบบนี้
+                for item in feedback_data:
+                    section = item.get("section", "")
+                    comment = item.get("comment", "")
+                    if comment:
+                        section_feedbacks.append(
+                            SectionFeedback(
+                                section=section,
+                                section_label=item.get("section_label") or SECTION_LABELS.get(section, section),
+                                comment=str(comment),
+                            )
                         )
-                    )
+            elif isinstance(feedback_data, dict):
+                # format เก่า (dict) — backward compat
+                for key, comment in feedback_data.items():
+                    if comment:
+                        section_feedbacks.append(
+                            SectionFeedback(
+                                section=key,
+                                section_label=SECTION_LABELS.get(key, key),
+                                comment=str(comment),
+                            )
+                        )
         except (json.JSONDecodeError, TypeError):
             pass  # ถ้า parse ไม่ได้ → คืน empty list
 

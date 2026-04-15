@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from typing import List
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timezone
@@ -66,6 +68,49 @@ owner_router = APIRouter()
 processor_docs_router = APIRouter()
 auditor_docs_router = APIRouter()
 
+
+# ─────────────────────────────────────────────
+# HELPER: สร้างรหัสไฟล์ RP-YYYY-NNNN แบบ sequential
+# ─────────────────────────────────────────────
+
+def generate_file_code(db: Session) -> str:
+    """
+    สร้างรหัสไฟล์ RP-YYYY-NNNN แบบ sequential ไม่ซ้ำกัน
+    นับร่วมกันระหว่าง OwnerRecord และ ProcessorRecord
+    เช่น RP-2026-0001 (owner), RP-2026-0002 (processor) ในเอกสารเดียวกัน
+    """
+    year = datetime.now(timezone.utc).year
+    prefix = f"RP-{year}-"
+
+    # หาเลขสูงสุดที่มีอยู่ใน OwnerRecord
+    last_owner = (
+        db.query(OwnerRecord)
+        .filter(OwnerRecord.file_code.like(f"{prefix}%"))
+        .order_by(OwnerRecord.file_code.desc())
+        .first()
+    )
+    # หาเลขสูงสุดที่มีอยู่ใน ProcessorRecord
+    last_proc = (
+        db.query(ProcessorRecord)
+        .filter(ProcessorRecord.file_code.like(f"{prefix}%"))
+        .order_by(ProcessorRecord.file_code.desc())
+        .first()
+    )
+
+    max_num = 0
+    for rec in (last_owner, last_proc):
+        if rec and rec.file_code:
+            try:
+                num = int(rec.file_code.replace(prefix, ""))
+                if num > max_num:
+                    max_num = num
+            except (ValueError, AttributeError):
+                pass
+
+    next_num = max_num + 1
+    return f"{prefix}{next_num:04d}"  # zero-padded 4 digits เช่น RP-2026-0001
+
+
 # -----------------
 # DATA OWNER ENDPOINTS
 # -----------------
@@ -110,6 +155,23 @@ def create_document(
 
     # 2. Add Owner Record if provided
     if doc_in.owner_record:
+        owner_rec = OwnerRecord(
+            ropa_doc_id=new_doc.id,
+            file_code=generate_file_code(db),
+            **doc_in.owner_record.model_dump(exclude_unset=True),
+        )
+        db.add(owner_rec)
+
+    # 3. Hybrid Flexible Processors: Optionally blank processor records assigned directly to users
+    if doc_in.processor_records:
+        for pr_in in doc_in.processor_records:
+            pr = ProcessorRecord(
+                ropa_doc_id=new_doc.id,
+                file_code=generate_file_code(db),
+                **pr_in.model_dump(exclude_unset=True),
+            )
+            db.add(pr)
+
         dump = doc_in.owner_record.model_dump() # get all fields explicitly
         # สำหรับการสร้างเอกสาร/Draft จะไม่ยัด 'ไม่มี' เพื่อให้ฟอร์มหน้าบ้านยังคงความว่างเปล่าไว้
         owner_rec = OwnerRecord(ropa_doc_id=new_doc.id, **dump)
@@ -720,6 +782,11 @@ def update_document_owner(
         dump = doc_in.owner_record.model_dump() # Get all fields
         
         if not doc.owner_record:
+            new_rec = OwnerRecord(
+                ropa_doc_id=doc.id,
+                file_code=generate_file_code(db),
+                **doc_in.owner_record.model_dump(exclude_unset=True),
+            )
             new_rec = OwnerRecord(ropa_doc_id=doc.id, **dump)
             db.add(new_rec)
         else:
@@ -729,8 +796,16 @@ def update_document_owner(
     if doc_in.status is not None:
         doc.status = doc_in.status
         if doc.status == DocumentStatus.PENDING_AUDITOR:
-            doc.sent_to_auditor_at = datetime.now(timezone.utc)
-        
+            now = datetime.now(timezone.utc)
+            doc.sent_to_auditor_at = now
+            # อัพเดต received_at แยกต่อ form — เฉพาะ form ที่ยังไม่ approved
+            audit = db.query(AuditorAudit).filter(AuditorAudit.ropa_doc_id == doc.id).first()
+            if audit:
+                if (audit.owner_review_status or 'pending_review') != 'approved':
+                    audit.owner_received_at = now
+                if (audit.processor_review_status or 'pending_review') != 'approved':
+                    audit.processor_received_at = now
+
     db.commit()
     db.refresh(doc)
     return doc
@@ -870,6 +945,10 @@ def owner_assign_processor(
 
     # 2. Attach the ProcessorRecord to the new standalone wrapper
     new_pr = ProcessorRecord(
+        ropa_doc_id=doc.id,
+        assigned_to=assignment.assigned_to,
+        processor_name=assignment.processor_name,
+        file_code=generate_file_code(db),
         ropa_doc_id=new_doc.id, 
         assigned_to=target_user.id,
         record_name=assignment.record_name
@@ -1074,6 +1153,19 @@ def confirm_processor_data(
         for key, value in dump.items():
             setattr(pr, key, value)
             
+    if doc_in.status is not None:
+        doc.status = doc_in.status
+        if doc.status == DocumentStatus.PENDING_AUDITOR:
+            now = datetime.now(timezone.utc)
+            doc.sent_to_auditor_at = now
+            # อัพเดต received_at แยกต่อ form — เฉพาะ form ที่ยังไม่ approved
+            audit = db.query(AuditorAudit).filter(AuditorAudit.ropa_doc_id == doc.id).first()
+            if audit:
+                if (audit.owner_review_status or 'pending_review') != 'approved':
+                    audit.owner_received_at = now
+                if (audit.processor_review_status or 'pending_review') != 'approved':
+                    audit.processor_received_at = now
+
     db.flush()
     db.refresh(pr)
     
@@ -1424,12 +1516,16 @@ def auditor_feedback(
         db.add(auditor_prof)
         db.flush()
         
+    # ถ้าเอกสารถูกส่งให้ Auditor แล้ว (sent_to_auditor_at มีค่า) → set received_at ทั้งคู่
+    _received = doc.sent_to_auditor_at or datetime.now(timezone.utc)
     audit_log = AuditorAudit(
         ropa_doc_id=doc.id,
         assigned_auditor_id=auditor_prof.id,
         status=doc_in.status or doc.status,
         feedback_comment=doc_in.feedback_comment,
-        version=doc.version
+        version=doc.version,
+        owner_received_at=_received,
+        processor_received_at=_received,
     )
     
     if doc_in.status == DocumentStatus.APPROVED:
