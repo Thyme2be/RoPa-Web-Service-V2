@@ -14,34 +14,35 @@ from app.database import Base                    # Base class ที่ทุก
 
 class DocumentStatus(str, enum.Enum):
     # สถานะของ RopaDocument (เอกสารหลัก) — ใช้ติดตาม workflow ของทั้งเอกสาร
-    DRAFT = "draft"                          # Data Owner สร้างเอกสารแล้ว ยังไม่ส่งใคร
-    PENDING_PROCESSOR = "pending_processor"  # ส่งให้ Data Processor กรอกแล้ว
-    PENDING_AUDITOR = "pending_auditor"      # Data Owner ส่งให้ Auditor ตรวจแล้ว
-    APPROVED = "approved"                    # Auditor อนุมัติแล้ว
-    REJECTED_PROCESSOR = "rejected_processor"# Auditor ส่งกลับให้ Processor แก้ไข
-    REJECTED_OWNER = "rejected_owner"        # Auditor ส่งกลับให้ Owner แก้ไข
+    DRAFT = "DRAFT"                          # Data Owner สร้างเอกสารแล้ว ยังไม่ส่งใคร
+    PENDING_PROCESSOR = "PENDING_PROCESSOR"  # ส่งให้ Data Processor กรอกแล้ว
+    PENDING_AUDITOR = "PENDING_AUDITOR"      # Data Owner ส่งให้ Auditor ตรวจแล้ว
+    APPROVED = "APPROVED"                    # Auditor อนุมัติแล้ว
+    REJECTED_PROCESSOR = "REJECTED_PROCESSOR"# Auditor ส่งกลับให้ Processor แก้ไข
+    REJECTED_OWNER = "REJECTED_OWNER"        # Auditor ส่งกลับให้ Owner แก้ไข
+    COMPLETED = "COMPLETED"                  # ทั้ง DO และ DP กรอกครบแล้ว พร้อมส่งตรวจสอบ
 
 
 class ProcessorStatus(str, enum.Enum):
     # สถานะของ ProcessorRecord — ติดตาม workflow ของ Data Processor คนเดียว
-    PENDING = "pending"                  # ได้รับมอบหมายแล้ว แต่ยังไม่เปิดฟอร์มเลย
-    IN_PROGRESS = "in_progress"          # กำลังกรอก หรือบันทึกฉบับร่างแล้ว
-    CONFIRMED = "confirmed"              # กรอกครบ กดยืนยันแล้ว รอเลือกส่งให้ Data Owner
-    SUBMITTED = "submitted"              # ส่งให้ Data Owner เรียบร้อยแล้ว
-    NEEDS_REVISION = "needs_revision"    # Auditor สั่งให้กลับมาแก้ไข
+    PENDING = "PENDING"                  # ได้รับมอบหมายแล้ว แต่ยังไม่เปิดฟอร์มเลย
+    IN_PROGRESS = "IN_PROGRESS"          # กำลังกรอก หรือบันทึกฉบับร่างแล้ว
+    CONFIRMED = "CONFIRMED"              # กรอกครบ กดยืนยันแล้ว รอเลือกส่งให้ Data Owner
+    SUBMITTED = "SUBMITTED"              # ส่งให้ Data Owner เรียบร้อยแล้ว
+    NEEDS_REVISION = "NEEDS_REVISION"    # Auditor สั่งให้กลับมาแก้ไข
 
 
 class AuditStatus(str, enum.Enum):
     # สถานะของ AuditorAudit — ผลการตรวจของ Auditor
-    PENDING_REVIEW = "pending_review"    # ยังไม่ได้ตรวจ (รอตรวจสอบ)
-    APPROVED = "approved"               # ตรวจแล้ว ผ่าน (อนุมัติ)
-    NEEDS_REVISION = "needs_revision"   # ตรวจแล้ว ไม่ผ่าน (ต้องแก้ไข)
+    PENDING_REVIEW = "PENDING_REVIEW"    # ยังไม่ได้ตรวจ (รอตรวจสอบ)
+    APPROVED = "APPROVED"               # ตรวจแล้ว ผ่าน (อนุมัติ)
+    NEEDS_REVISION = "NEEDS_REVISION"   # ตรวจแล้ว ไม่ผ่าน (ต้องแก้ไข)
 
 
 class AuditorType(str, enum.Enum):
     # ประเภทของ Auditor
-    INTERNAL = "internal"    # Auditor ภายในองค์กร
-    OUTSOURCE = "outsource"  # Auditor จากภายนอก (จ้าง)
+    INTERNAL = "INTERNAL"    # Auditor ภายในองค์กร
+    OUTSOURCE = "OUTSOURCE"  # Auditor จากภายนอก (จ้าง)
 
 
 # ─────────────────────────────────────────────
@@ -148,7 +149,10 @@ class OwnerRecord(Base):
     # FK → เอกสารหลัก — record นี้เป็นของเอกสารไหน
 
     # ── ข้อมูลผู้บันทึก ──
-    record_name = Column(String, nullable=True)   # ชื่อผู้บันทึก
+    record_name = Column(String, nullable=True)   # ชื่อผู้บันทึก (legacy)
+    title_prefix = Column(String, nullable=True)  # คำนำหน้า เช่น นาย/นาง/นางสาว
+    first_name = Column(String, nullable=True)    # ชื่อจริง
+    last_name = Column(String, nullable=True)     # นามสกุล
     address = Column(Text, nullable=True)         # ที่อยู่
     email = Column(String, nullable=True)         # อีเมล
     phone = Column(String, nullable=True)         # เบอร์โทร
@@ -160,9 +164,10 @@ class OwnerRecord(Base):
     personal_data = Column(Text, nullable=True)         # ข้อมูลส่วนบุคคลที่เก็บ
     data_category = Column(String, nullable=True)       # หมวดหมู่ข้อมูล
     data_type = Column(String, nullable=True)           # ประเภทข้อมูล (ทั่วไป/อ่อนไหว)
-    collection_method = Column(String, nullable=True)   # วิธีเก็บข้อมูล
-    source_direct = Column(Boolean, nullable=True)      # เก็บจากเจ้าของโดยตรงไหม
-    source_indirect = Column(Boolean, nullable=True)    # เก็บจากแหล่งอื่นไหม
+    collection_method = Column(String, nullable=True)   # วิธีเก็บข้อมูล (electronic/document)
+    source_direct = Column(Boolean, nullable=True)      # เก็บจากเจ้าของโดยตรงไหม (legacy)
+    source_indirect = Column(Boolean, nullable=True)    # เก็บจากแหล่งอื่นไหม (legacy)
+    data_source = Column(String, nullable=True)         # แหล่งที่มา: "from_owner" หรือ "from_other"
     legal_basis = Column(Text, nullable=True)           # ฐานทางกฎหมาย
     minor_under10 = Column(Boolean, nullable=True)      # มีข้อมูลเด็กอายุต่ำกว่า 10 ปีไหม
     minor_10to20 = Column(Boolean, nullable=True)       # มีข้อมูลเด็ก 10-20 ปีไหม
@@ -179,6 +184,7 @@ class OwnerRecord(Base):
     retention_storage_type = Column(String, nullable=True)      # ประเภทการจัดเก็บ
     retention_method = Column(Text, nullable=True)              # วิธีเก็บรักษา
     retention_duration = Column(Integer, nullable=True)         # ระยะเวลาเก็บ (ตัวเลข)
+    retention_duration_unit = Column(String, nullable=True)     # หน่วยระยะเวลา: "year" / "month" / "day"
     retention_access_control = Column(Text, nullable=True)      # การควบคุมการเข้าถึง
     retention_deletion_method = Column(Text, nullable=True)     # วิธีลบทำลาย
 
@@ -233,6 +239,9 @@ class ProcessorRecord(Base):
 
     submitted_at = Column(DateTime, nullable=True)
     # วันเวลาที่ส่งแบบฟอร์ม (ยื่นยัน/ส่งต่อ) — ใช้เพื่อความเข้ากันได้กับ main
+
+    record_name = Column(String, nullable=True)
+    # ชื่อไฟล์เอกสารของ Data Processor (กรณีมอบหมายงานและแยกไฟล์กัน)
 
     # ── Section 1: รายละเอียดของผู้บันทึก RoPA ──
     title_prefix = Column(String, nullable=True)        # คำนำหน้า เช่น นาย/นาง/นางสาว
@@ -362,6 +371,10 @@ class AuditorAudit(Base):
     # เก็บเป็น JSON string เช่น:
     # '{"section_5": "กรุณายืนยัน SCCs...", "section_6": "ระบุ encryption..."}'
     # ใช้แสดงใน sidebar 3 (ข้อเสนอแนะ)
+
+    owner_feedback = Column(Text, nullable=True)
+    # comment แยกตามส่วน สำหรับ Data Owner โดยเฉพาะ
+    # เก็บเป็น JSON string เช่น: '{"section_2": "เพิ่มรายละเอียด..."}'
 
     version = Column(Integer, nullable=True)
     # เวอร์ชันของการตรวจ (เพิ่มขึ้นทุกรอบที่ส่งแก้ไข)
