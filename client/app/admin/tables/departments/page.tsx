@@ -13,20 +13,22 @@ export default function TrackingPage() {
     const API_BASE_URL = "http://localhost:8000";
 
     const fetchTrackingData = async () => {
-        try {
-            const token = localStorage.getItem("token") || "";
-            const response = await fetch(`${API_BASE_URL}/admin/work-tracking/summary`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setTrackingData(data);
-            }
-        } catch (error) {
-            console.error("Failed to fetch tracking data:", error);
-        } finally {
-            setLoading(false);
-        }
+        // Mock data
+        const data = {
+            role_summary: {
+                data_owner: { count: 5, label: "รอยืนยันความถูกต้อง", progress_percent: 30 },
+                data_processor: { count: 8, label: "อยู่ระหว่างประมวลผล", progress_percent: 60 },
+                auditor: { count: 3, label: "รอตรวจสอบความยินยอม", progress_percent: 20 }
+            },
+            tracking_list: [
+                { id: "1", title: "เอกสารข้อมูลพนักงาน (HR)", responsible_person: "สมชาย รักษา", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Owner", last_updated: "2023-11-20 10:30", status: "completed" },
+                { id: "2", title: "ข้อมูลลูกค้าการตลาด", responsible_person: "มาลี ดีใจ", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Processor", last_updated: "2023-11-21 14:15", status: "pending" },
+                { id: "3", title: "บันทึกข้อมูลกล้องวงจรปิด", responsible_person: "สมศักดิ์ ปลอดภัย", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Owner", last_updated: "2023-11-22 09:00", status: "pending" },
+                { id: "4", title: "ข้อมูลสัญญาคู่ค้า", responsible_person: "สมชาย รักษา", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Processor", last_updated: "2023-11-23 11:45", status: "completed" }
+            ]
+        };
+        setTrackingData(data);
+        setLoading(false);
     };
 
     React.useEffect(() => {

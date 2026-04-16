@@ -46,37 +46,42 @@ export default function UsersPage() {
     const API_BASE_URL = "http://localhost:8000";
 
     const fetchUsers = async () => {
-        try {
-            const token = localStorage.getItem("token") || "";
-            const response = await fetch(`${API_BASE_URL}/admin/users`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+        // Mock data
+        const data = {
+            total_users: 25,
+            active_users: 5,
+            total_users_trend: {
+                direction: "up",
+                value: "10%",
+                text_label: "จากเดือนที่แล้ว"
+            },
+            users_list: [
+                { id: "1", first_name: "สมปอง", last_name: "ทดสอบ", email: "sompong@test.com", role: "Admin", status: "active" },
+                { id: "2", first_name: "สมหญิง", last_name: "ทดสอบ", email: "somying@test.com", role: "Auditor", status: "active" },
+                { id: "3", first_name: "สมชาย", last_name: "ทดสอบ", email: "somchai@test.com", role: "Data Owner", status: "inactive" },
+                { id: "4", first_name: "สมศรี", last_name: "ทดสอบ", email: "somsri@test.com", role: "Data Processor", status: "active" },
+                { id: "5", first_name: "สมศักดิ์", last_name: "ทดสอบ", email: "somsak@test.com", role: "NONE", status: "active" }
+            ]
+        };
 
-            if (response.ok) {
-                const data = await response.json();
-                const mappedList = data.users_list.map((u: any) => ({
-                    id: u.id,
-                    name: `${u.first_name} ${u.last_name}`,
-                    email: u.email,
-                    role: u.role === "Admin" ? "ผู้ดูแลระบบ" :
-                        u.role === "Auditor" ? "ผู้ตรวจสอบ" :
-                            u.role === "Data Owner" ? "ผู้รับผิดชอบข้อมูล" :
-                                u.role === "Data Processor" ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ไม่มีสิทธิ์",
-                    status: u.status === "active" ? "ใช้งานอยู่" : "ไม่ได้ใช้งาน",
-                    rawRole: u.role
-                }));
-                setUsersData({
-                    total_users: data.total_users,
-                    active_users: data.active_users,
-                    users_list: mappedList,
-                    total_users_trend: data.total_users_trend
-                });
-            }
-        } catch (error) {
-            console.error("Failed to fetch users:", error);
-        } finally {
-            setLoading(false);
-        }
+        const mappedList = data.users_list.map((u: any) => ({
+            id: u.id,
+            name: `${u.first_name} ${u.last_name}`,
+            email: u.email,
+            role: u.role === "Admin" ? "ผู้ดูแลระบบ" :
+                u.role === "Auditor" ? "ผู้ตรวจสอบ" :
+                    u.role === "Data Owner" ? "ผู้รับผิดชอบข้อมูล" :
+                        u.role === "Data Processor" ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ไม่มีสิทธิ์",
+            status: u.status === "active" ? "ใช้งานอยู่" : "ไม่ได้ใช้งาน",
+            rawRole: u.role
+        }));
+        setUsersData({
+            total_users: data.total_users,
+            active_users: data.active_users,
+            users_list: mappedList,
+            total_users_trend: data.total_users_trend
+        });
+        setLoading(false);
     };
 
     React.useEffect(() => {
@@ -130,88 +135,35 @@ export default function UsersPage() {
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsCreating(true);
-        try {
-            const token = localStorage.getItem("token") || "";
-            const payload = {
-                ...createFormData,
-                role: createFormData.role === "NONE" ? null : createFormData.role
-            };
-
-            const response = await fetch(`${API_BASE_URL}/admin/members`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
+        // Mock create user
+        setTimeout(() => {
+            setIsCreateModalOpen(false);
+            setCreateFormData({
+                username: "", first_name: "", last_name: "",
+                email: "", role: "NONE", password: ""
             });
-
-            if (response.ok) {
-                // Success
-                setIsCreateModalOpen(false);
-                setCreateFormData({
-                    username: "", first_name: "", last_name: "",
-                    email: "", role: "NONE", password: ""
-                });
-                fetchUsers();
-                alert("สร้างผู้ใช้งานสำเร็จ");
-            } else {
-                const errData = await response.json();
-                alert(`เกิดข้อผิดพลาด: ${errData.detail || "ไม่สามารถสร้างผู้ใช้งานได้"}`);
-            }
-        } catch (error) {
-            console.error("Failed to create user:", error);
-            alert("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
-        } finally {
+            fetchUsers();
+            alert("สร้างผู้ใช้งานสำเร็จ (Mock)");
             setIsCreating(false);
-        }
+        }, 500);
     };
 
     const handleRoleChange = async (userId: string, newRole: string) => {
-        try {
-            const token = localStorage.getItem("token") || "";
-            const url = newRole === "NONE"
-                ? `${API_BASE_URL}/admin/users/${userId}/role`
-                : `${API_BASE_URL}/admin/users/${userId}/role?role=${encodeURIComponent(newRole)}`;
-
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                fetchUsers();
-                alert("อัปเดตสิทธิ์การใช้งานสำเร็จ");
-            } else {
-                alert("ไม่สามารถอัปเดตสิทธิ์ได้");
-            }
-        } catch (error) {
-            console.error("Failed to update role:", error);
-            alert("เกิดข้อผิดพลาดในการเรียก API");
-        }
+        // Mock role change
+        alert("อัปเดตสิทธิ์การใช้งานสำเร็จ (Mock)");
+        fetchUsers();
     };
 
     const handleDeleteUser = async () => {
         if (!userToDelete) return;
         setIsDeleting(true);
-        try {
-            const token = localStorage.getItem("token") || "";
-            const response = await fetch(`${API_BASE_URL}/admin/users/${userToDelete.id}`, {
-                method: 'DELETE',
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                setIsDeleteModalOpen(false);
-                fetchUsers();
-                alert("ลบผู้ใช้งานสำเร็จ");
-            } else {
-                alert("ไม่สามารถลบผู้ใช้งานได้");
-            }
-        } catch (error) {
-            console.error("Failed to delete user:", error);
-            alert("เกิดข้อผิดพลาดในการเรียก API");
-        } finally {
+        // Mock delete
+        setTimeout(() => {
+            setIsDeleteModalOpen(false);
+            fetchUsers();
+            alert("ลบผู้ใช้งานสำเร็จ (Mock)");
             setIsDeleting(false);
-        }
+        }, 500);
     };
 
     const userColumns: Column<any>[] = [

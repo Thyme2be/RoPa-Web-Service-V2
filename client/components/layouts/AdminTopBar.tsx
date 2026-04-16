@@ -35,14 +35,7 @@ export default function AdminTopBar() {
         router.push(`${pathname}?${params.toString()}`);
     };
 
-    // Map path to title
-    const getTitle = () => {
-        if (pathname === "/admin/dashboard") return "แดชบอร์ดสำหรับผู้ดูแลระบบ";
-        if (pathname === "/admin/users") return "การจัดการผู้ใช้งาน";
-        if (pathname === "/admin/documents") return "การจัดการเอกสาร";
-        if (pathname === "/admin/work-tracking/summary") return "ติดตามการทำงาน";
-        return "ระบบจัดการหลังบ้าน";
-    };
+
 
     // Role mapping to Thai
     const mapRoleToThai = (role: string | null) => {
@@ -81,37 +74,29 @@ export default function AdminTopBar() {
 
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
-            {/* Page Title & Mode */}
-            <div className="flex items-center gap-4">
-                <h2 className="font-headline font-bold tracking-tight text-neutral-900 text-lg whitespace-nowrap">
-                    {getTitle()}
-                </h2>
-            </div>
-
-            {/* Search, Notifications, Account */}
-            <div className="flex items-center gap-6">
-                {/* Search Bar - Show only on Documents page */}
-                {pathname === "/admin/documents" && (
+            {/* Left side spacer */}
+            <div className="flex items-center gap-4 flex-1">
+                {/* Search Bar - Show on any table page except the main menu */}
+                {pathname !== "/admin/tables" && pathname.startsWith("/admin/tables") && (
                     <div className="relative group hidden lg:block">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
                             search
                         </span>
                         <input
-                            className="bg-[#F6F3F2] border-none rounded-2xl pl-10 pr-4 py-2 text-sm w-64 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
-                            placeholder="ค้นหา..."
+                            className="bg-[#E5E2E1] border-none rounded-2xl pl-10 pr-4 py-2 text-sm w-72 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
+                            placeholder="ค้นหารายการ..."
                             type="text"
                             value={searchValue}
                             onChange={handleSearchChange}
                         />
                     </div>
                 )}
+            </div>
+
+            {/* Notifications, Account */}
+            <div className="flex items-center gap-6">
 
                 <div className="flex items-center gap-2">
-                    {/* Notifications */}
-                    <button className="p-2 text-neutral-500 hover:bg-[#F0EDED] rounded-full transition-colors active:scale-95 duration-200">
-                        <span className="material-symbols-outlined">notifications</span>
-                    </button>
-
                     {/* Divider */}
                     <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
 

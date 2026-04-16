@@ -13,30 +13,32 @@ function DocumentsPageContent() {
     const API_BASE_URL = "http://localhost:8000";
 
     const fetchDocuments = async () => {
-        try {
-            const token = localStorage.getItem("token") || "";
-            const response = await fetch(`${API_BASE_URL}/admin/documents`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setDocsData({
-                    summary: data.summary,
-                    documents_list: data.documents_list.map((d: any) => ({
-                        id: d.id,
-                        name: d.title,
-                        type: d.data_type,
-                        company: d.company,
-                        completeness: d.completeness_percent,
-                        status: d.status
-                    }))
-                });
-            }
-        } catch (error) {
-            console.error("Failed to fetch documents:", error);
-        } finally {
-            setLoading(false);
-        }
+        // Mock data
+        const data = {
+            summary: {
+                total_documents: { count: 120, trend: "เพิ่มขึ้น 15% จากเดือนที่แล้ว" },
+                pending_audit: { count: 12, trend: "ต้องการการตรวจสอบ" }
+            },
+            documents_list: [
+                { id: "1", title: "เอกสารขอความยินยอม PDPA", data_type: "ข้อมูลส่วนบุคคล", company: "บจก. เทสต์ 1", completeness_percent: 100, status: "เสร็จสมบูรณ์" },
+                { id: "2", title: "นโยบายความเป็นส่วนตัว", data_type: "ข้อมูลผู้สมัครงาน", company: "บจก. เทสต์ 2", completeness_percent: 80, status: "รอการตรวจสอบ" },
+                { id: "3", title: "บันทึกการประมวลผล (RoPA)", data_type: "ข้อมูลพนักงาน", company: "บจก. เทสต์ 3", completeness_percent: 45, status: "กำลังกรอกข้อมูล" },
+                { id: "4", title: "สัญญาการประมวลผลข้อมูล", data_type: "ข้อมูลลูกค้า", company: "บจก. เทสต์ 4", completeness_percent: 100, status: "รอการตรวจสอบ" },
+                { id: "5", title: "คำร้องขอใช้สิทธิ (Data Subject Request)", data_type: "ข้อมูลส่วนบุคคล", company: "บจก. เทสต์ 5", completeness_percent: 60, status: "รอการแก้ไข" }
+            ]
+        };
+        setDocsData({
+            summary: data.summary,
+            documents_list: data.documents_list.map((d: any) => ({
+                id: d.id,
+                name: d.title,
+                type: d.data_type,
+                company: d.company,
+                completeness: d.completeness_percent,
+                status: d.status
+            }))
+        });
+        setLoading(false);
     };
 
     React.useEffect(() => {

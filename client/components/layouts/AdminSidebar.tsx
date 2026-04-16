@@ -7,9 +7,7 @@ import LogoutButton from "@/components/ui/LogoutButton";
 
 const adminMenuItems = [
     { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", path: "/admin/dashboard" },
-    { id: "users", label: "การจัดการผู้ใช้งาน", icon: "group", path: "/admin/users" },
-    { id: "documents", label: "การจัดการเอกสาร", icon: "description", path: "/admin/documents" },
-    { id: "tracking", label: "ติดตามการทำงาน", icon: "account_tree", path: "/admin/work-tracking/summary" },
+    { id: "tables", label: "ตารางเอกสาร", icon: "list_alt", path: "/admin/tables" },
 ];
 
 export default function AdminSidebar() {
@@ -25,7 +23,7 @@ export default function AdminSidebar() {
             {/* Menu Items */}
             <nav className="flex-1 pl-4 space-y-2">
                 {adminMenuItems.map((item) => {
-                    const isActive = pathname === item.path;
+                    const isActive = item.id === "tables" ? pathname.startsWith("/admin/tables") : pathname === item.path;
                     return (
                         <Link
                             key={item.id}
@@ -45,7 +43,7 @@ export default function AdminSidebar() {
                                     ? "text-primary scale-110"
                                     : "text-secondary group-hover:text-primary"
                                     }`}
-                                style={{ fontVariationSettings: `'FILL' ${isActive ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}
+                                style={{ fontVariationSettings: `'FILL' ${item.id === 'dashboard' ? 0 : 1}` }}
                             >
                                 {item.icon}
                             </span>
