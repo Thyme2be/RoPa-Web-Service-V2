@@ -1,11 +1,14 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import DataTable, { Column } from "@/components/ui/DataTable";
 
-export default function TrackingPage() {
+function TrackingPageContent() {
+    const searchParams = useSearchParams();
+    const globalSearchQuery = searchParams.get("search") || "";
+
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
-    const [searchQuery, setSearchQuery] = useState("");
 
     const [trackingData, setTrackingData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -54,9 +57,9 @@ export default function TrackingPage() {
 
     const filteredWorkflows = mappedWorkflows.filter((workflow: any) => {
         const matchesStatus = selectedStatus === "ทั้งหมด" || workflow.status === selectedStatus;
-        const matchesSearch = workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            workflow.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            workflow.auditor.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = workflow.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+            workflow.owner.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+            workflow.auditor.toLowerCase().includes(globalSearchQuery.toLowerCase());
         return matchesStatus && matchesSearch;
     });
 
@@ -157,8 +160,7 @@ export default function TrackingPage() {
                         <DataTable
                             columns={trackingColumns}
                             data={paginatedWorkflows}
-                            searchQuery={searchQuery}
-                            onSearchChange={(query) => { setSearchQuery(query); setCurrentPage(1); }}
+                            searchQuery={globalSearchQuery}
                             currentPage={currentPage}
                             totalPages={totalPages}
                             onPageChange={setCurrentPage}
@@ -187,6 +189,14 @@ export default function TrackingPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function TrackingPage() {
+    return (
+        <Suspense fallback={<div className="flex h-full items-center justify-center p-8 text-on-surface-variant font-medium">กำลังโหลด...</div>}>
+            <TrackingPageContent />
+        </Suspense>
     );
 }
 

@@ -76,25 +76,26 @@ export default function AdminTopBar() {
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
             {/* Left side spacer */}
             <div className="flex items-center gap-4 flex-1">
+                {/* Logo or page title could go here if needed in the future */}
+            </div>
+
+            {/* Notifications, Search, Account */}
+            <div className="flex items-center gap-6">
                 {/* Search Bar - Show on any table page except the main menu */}
                 {pathname !== "/admin/tables" && pathname.startsWith("/admin/tables") && (
                     <div className="relative group hidden lg:block">
-                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-lg">
                             search
                         </span>
                         <input
-                            className="bg-[#E5E2E1] border-none rounded-2xl pl-10 pr-4 py-2 text-sm w-72 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
-                            placeholder="ค้นหารายการ..."
+                            className="bg-[#F6F3F2] border-none rounded-2xl pl-10 pr-4 py-2 text-sm w-80 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
+                            placeholder="ค้นหา..."
                             type="text"
                             value={searchValue}
                             onChange={handleSearchChange}
                         />
                     </div>
                 )}
-            </div>
-
-            {/* Notifications, Account */}
-            <div className="flex items-center gap-6">
 
                 <div className="flex items-center gap-2">
                     {/* Divider */}

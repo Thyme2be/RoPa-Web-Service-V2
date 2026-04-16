@@ -215,7 +215,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="space-y-8 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="space-y-8 pb-12 max-w-[1440px] mx-auto">
             {/* Header and Tabs */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>

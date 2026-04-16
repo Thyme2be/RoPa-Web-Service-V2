@@ -19,7 +19,7 @@ const tableMenus = [
 
 export default function TablesMenuPage() {
     return (
-        <div className="max-w-[1440px] mx-auto w-full pb-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="max-w-[1440px] mx-auto pb-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight mb-1">ตารางเอกสาร</h1>

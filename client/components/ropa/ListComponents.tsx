@@ -76,7 +76,25 @@ export function AdvancedFilterBar({ initialTimeframe = "30" }: { initialTimefram
     );
 }
 
-export type RoPaStatusType = "อนุมัติ" | "รอตรวจสอบ" | "ต้องแก้ไข" | "กำลังตรวจสอบ" | "ตรวจสอบเสร็จสิ้น" | "ฉบับร่าง";
+export function GenericFilterBar({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
+    return (
+        <div className="bg-[#EAE6E4]/70 rounded-xl p-6 flex flex-col md:flex-row gap-6 items-end justify-between border border-[#E5E2E1]/40">
+            <div className="flex flex-wrap gap-6 text-[#5C403D] flex-1">
+                {children}
+            </div>
+
+            <button
+                onClick={onClear}
+                className="h-[42px] px-8 bg-[#6B7280] text-white rounded-lg text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#4B5563] transition-colors shadow-sm active:scale-95 whitespace-nowrap cursor-pointer"
+            >
+                <span className="material-symbols-outlined text-[18px]">filter_list</span>
+                ล้างตัวกรอง
+            </button>
+        </div>
+    );
+}
+
+export type RoPaStatusType = "อนุมัติ" | "รอตรวจสอบ" | "ต้องแก้ไข" | "กำลังตรวจสอบ" | "ตรวจสอบเสร็จสิ้น" | "ฉบับร่าง" | "กำลังใช้งาน" | "ปิดการใช้งาน";
 
 export function StatusBadge({ status }: { status: RoPaStatusType }) {
     const styles: Record<string, string> = {
@@ -88,7 +106,9 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
         "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
-        "ฉบับร่าง": "bg-[#9CA3AF] text-white"                    // Secondary Gray
+        "ฉบับร่าง": "bg-[#9CA3AF] text-white",                    // Secondary Gray
+        "กำลังใช้งาน": "bg-[#228B15] text-white",               // Green
+        "ปิดการใช้งาน": "bg-[#ED393C] text-white"                 // Red
     };
 
     return (
