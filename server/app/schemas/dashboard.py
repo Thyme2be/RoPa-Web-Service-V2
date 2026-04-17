@@ -73,12 +73,38 @@ class AdminUserDashboardResponse(BaseModel):
 
 # ─── DPO Dashboard Schemas ────────────────────────────────────────────────────
 
-class DpoDocumentStats(BaseModel):
-    total_assigned: int
-    in_review: int
-    approved: int
+class TotalReviewed(BaseModel):
+    count: int
+
+class RevisionNeeded(BaseModel):
+    owner_count: int
+    processor_count: int
+
+class RiskOverview(BaseModel):
+    total: int
+    low: int
+    medium: int
+    high: int
+
+class PendingDpoReview(BaseModel):
+    for_archiving: int
+    for_destruction: int
+
+class AuditorReviewStatus(BaseModel):
+    pending: int
+    completed: int
+
+class ApprovedDocuments(BaseModel):
+    total: int
+
+class AuditorDelayed(BaseModel):
+    count: int
 
 class DpoDashboardResponse(BaseModel):
-    document_stats: DpoDocumentStats
-    auditor_assignments_created: int
-    pending_deletion_requests: int
+    total_reviewed: TotalReviewed
+    revision_needed: RevisionNeeded
+    risk_overview: RiskOverview
+    pending_dpo_review: PendingDpoReview
+    auditor_review_status: AuditorReviewStatus
+    approved_documents: ApprovedDocuments
+    auditor_delayed: AuditorDelayed
