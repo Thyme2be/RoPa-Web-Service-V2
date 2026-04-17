@@ -22,9 +22,9 @@ export default function UsersPage() {
         password: ""
     });
 
-    const [usersData, setUsersData] = useState<{ 
-        total_users: number, 
-        active_users: number, 
+    const [usersData, setUsersData] = useState<{
+        total_users: number,
+        active_users: number,
         users_list: any[],
         total_users_trend?: {
             direction: string;
@@ -359,13 +359,12 @@ export default function UsersPage() {
                         <div className="relative z-10">
                             <p className="text-[14px] font-bold uppercase tracking-widest text-[#71717A] mb-1">ผู้ใช้งานทั้งหมด</p>
                             <h3 className="text-4xl font-extrabold tracking-tighter text-on-surface">{usersData.total_users.toLocaleString()}</h3>
-                            <div className={`mt-4 flex items-center gap-2 text-xs font-semibold ${
-                                usersData.total_users_trend?.direction === 'up' ? 'text-tertiary' : 
-                                usersData.total_users_trend?.direction === 'down' ? 'text-error' : 'text-on-surface-variant'
-                            }`}>
+                            <div className={`mt-4 flex items-center gap-2 text-xs font-semibold ${usersData.total_users_trend?.direction === 'up' ? 'text-tertiary' :
+                                    usersData.total_users_trend?.direction === 'down' ? 'text-error' : 'text-on-surface-variant'
+                                }`}>
                                 <span className="material-symbols-outlined text-sm">
-                                    {usersData.total_users_trend?.direction === 'up' ? 'trending_up' : 
-                                     usersData.total_users_trend?.direction === 'down' ? 'trending_down' : 'trending_flat'}
+                                    {usersData.total_users_trend?.direction === 'up' ? 'trending_up' :
+                                        usersData.total_users_trend?.direction === 'down' ? 'trending_down' : 'trending_flat'}
                                 </span>
                                 <span>
                                     {usersData.total_users_trend?.value || "0%"} {usersData.total_users_trend?.text_label || "จากเดือนที่แล้ว"}

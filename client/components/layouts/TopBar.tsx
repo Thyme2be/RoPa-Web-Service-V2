@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle, showBack, backUrl, hideSearch, hasError, minimal }: any) {
+export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle, showBack, backUrl, hideSearch, hasError, minimal, formMode }: any) {
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
 
     const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
@@ -21,9 +21,9 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
     ];
 
     return (
-        <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
+        <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 border-b border-[#F6F3F2]">
             <div className="flex items-center gap-4 group">
-                {!minimal && (
+                {!minimal && !formMode && (
                     <>
                         {showBack && (
                             <button
@@ -60,12 +60,17 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                         )}
                     </>
                 )}
+                {formMode && (
+                     <div className="flex items-center gap-2">
+                        {/* Placeholder or just empty space as per screenshot which shows nothing on left */}
+                     </div>
+                )}
             </div>
 
             {/* Notifications & Account */}
             <div className="flex items-center gap-6 relative">
                 {/* Search Bar - Hidden conditionally */}
-                {!hideSearch && (
+                {!hideSearch && !formMode && (
                     <div className="relative group hidden lg:block">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
                             search

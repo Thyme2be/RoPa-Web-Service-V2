@@ -32,7 +32,7 @@ export default function DashboardPage() {
         <div className="flex min-h-screen bg-[#FCF9F8]">
             <Sidebar />
 
-            <main className="flex-1 ml-[var(--sidebar-width)] flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
                 <TopBar hideSearch={true} minimal={true} />
 
                 <div className="p-10 space-y-8">
@@ -165,3 +165,4 @@ export default function DashboardPage() {
         </div>
     );
 }
+

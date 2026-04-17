@@ -37,15 +37,15 @@ export default function RopaAdvicePage() {
         <div className="flex min-h-screen bg-[#FCF9F8]">
             <Sidebar />
 
-            <main className="flex-1 ml-[var(--sidebar-width)] flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
                 <TopBar pageTitle="ข้อเสนอแนะ" />
 
                 <div className="p-10 space-y-10">
                     <div className="space-y-2">
-                        <h1 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight">
+                        <h1 className="text-3xl font-headline font-black text-[#1B1C1C] tracking-tight">
                             รายการแจ้งเตือนข้อเสนอแนะจากผู้ตรวจสอบ
                         </h1>
-                        <p className="text-[#5C403D] text-[15px] font-medium opacity-80">
+                        <p className="text-[#5C403D] text-base font-medium opacity-80">
                             ตรวจสอบและตอบกลับข้อเสนอแนะที่ได้รับจากผู้ตรวจสอบ
                         </p>
                     </div>
@@ -57,8 +57,8 @@ export default function RopaAdvicePage() {
                             value={pendingCount.toString()}
                             accentColor="red"
                             footer={(
-                                <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#DC2626]">
-                                    <span className="material-symbols-outlined text-[16px]">show_chart</span>
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-[#DC2626]">
+                                    <span className="material-symbols-outlined text-base">show_chart</span>
                                     {feedbackRecords.length} รายการที่มีข้อเสนอแนะ
                                 </div>
                             )}
@@ -68,8 +68,8 @@ export default function RopaAdvicePage() {
                             value={processorPendingCount.toString()}
                             accentColor="teal"
                             footer={(
-                                <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#0D9488]">
-                                    <span className="material-symbols-outlined text-[16px]">hourglass_empty</span>
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0D9488]">
+                                    <span className="material-symbols-outlined text-base">hourglass_empty</span>
                                     รอการดำเนินการจากผู้ประมวลผล
                                 </div>
                             )}
@@ -83,24 +83,24 @@ export default function RopaAdvicePage() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[20%] uppercase">รหัสเอกสาร</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[45%] uppercase">ชื่อรายการ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] w-[20%] uppercase">รหัสเอกสาร</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] w-[45%] uppercase">ชื่อรายการ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">
                                 {paginated.map((record) => (
                                     <tr key={record.id} className="hover:bg-[#F9FAFB] transition-colors group">
-                                        <td className="py-8 text-[13px] font-medium text-secondary">{record.id}</td>
-                                        <td className="py-8 text-[14.5px] font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
-                                        <td className="py-8 text-[13px] font-medium text-secondary">
+                                        <td className="py-8 text-sm font-medium text-secondary">{record.id}</td>
+                                        <td className="py-8 text-base font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
+                                        <td className="py-8 text-sm font-medium text-secondary">
                                             {record.suggestions?.[0]?.date || record.dateCreated || "-"}
                                         </td>
                                         <td className="py-8">
                                             <div className="flex items-center justify-center">
                                                 <Link href={`/data-owner/advice/${record.id}`}>
-                                                    <button className="bg-[#E5E7EB]/70 text-[#4B5563] px-6 py-2.5 rounded-lg text-[12.5px] font-black hover:bg-[#E5E7EB] transition-all hover:shadow-sm cursor-pointer">
+                                                    <button className="bg-[#E5E7EB]/70 text-[#4B5563] px-6 py-2.5 rounded-lg text-xs font-black hover:bg-[#E5E7EB] transition-all hover:shadow-sm cursor-pointer">
                                                         ดูข้อเสนอแนะ
                                                     </button>
                                                 </Link>
@@ -110,7 +110,7 @@ export default function RopaAdvicePage() {
                                 ))}
                                 {paginated.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="py-12 text-[#5F5E5E] text-[14px] font-medium">
+                                        <td colSpan={4} className="py-12 text-[#5F5E5E] text-sm font-medium">
                                             ไม่มีข้อเสนอแนะในขณะนี้
                                         </td>
                                     </tr>
@@ -124,3 +124,4 @@ export default function RopaAdvicePage() {
         </div>
     );
 }
+
