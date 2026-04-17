@@ -41,7 +41,9 @@ class UserRead(UserBase):
     model_config = {"from_attributes": True}
 
 class UserUpdate(BaseModel):
+    title: Optional[str] = None
     first_name: Optional[str] = None
+    password: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
     status: Optional[UserStatusEnum] = None
@@ -49,3 +51,23 @@ class UserUpdate(BaseModel):
     department: Optional[str] = None
     company_name: Optional[str] = None
     auditor_type: Optional[AuditorTypeEnum] = None
+
+class PaginatedUserReadItem(BaseModel):
+    id: int
+    user_code: str
+    title: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: str
+    role: UserRoleEnum
+    department: Optional[str] = None
+    company_name: Optional[str] = None
+    status: UserStatusEnum
+    created_at: datetime
+    is_active: bool
+
+class PaginatedUserResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: list[PaginatedUserReadItem]

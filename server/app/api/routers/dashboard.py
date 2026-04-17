@@ -12,7 +12,7 @@ from app.models.document import RopaDocumentModel
 from app.models.user import UserModel
 from app.schemas.user import UserRead
 
-router = APIRouter(tags=["Dashboard"])
+router = APIRouter()
 
 
 from datetime import datetime, timedelta, timezone
@@ -24,7 +24,7 @@ from app.models.section_processor import RopaProcessorSectionModel
 from app.models.workflow import DocumentReviewCycleModel, ReviewAssignmentModel
 from app.schemas.dashboard import AdminDashboardResponse
 
-@router.get("/dashboard", response_model=AdminDashboardResponse, summary="Admin: Organisation Dashboard")
+@router.get("/dashboard", response_model=AdminDashboardResponse, summary="Admin: Organisation Dashboard", tags=["Dashboard (Admin)"])
 def org_dashboard(
     period: str = Query("30_days", description="Filter period: 7_days, 30_days, overdue, custom, all"),
     custom_date: Optional[str] = Query(None, description="Format YYYY-MM-DD. Required if period=custom"),
@@ -59,7 +59,7 @@ def org_dashboard(
         func.count(RopaDocumentModel.id).label("count")
     ).filter(*base_filters).group_by(RopaDocumentModel.status).all()
     
-    docs_by_status = {str(row.status.value): row.count for row in status_counts}
+    docs_by_status = {str(getattr(row.status, 'value', row.status)): row.count for row in status_counts}
     
     overview_map = {
         "draft": docs_by_status.get('IN_PROGRESS', 0) + docs_by_status.get('DRAFT', 0),
@@ -71,7 +71,7 @@ def org_dashboard(
     def format_stat(q, completed_statuses):
         total = q.count()
         rows = q.all()
-        completed = sum(1 for r in rows if getattr(r, 'status', None) and r.status.value in completed_statuses)
+        completed = sum(1 for r in rows if getattr(r, 'status', None) and getattr(r.status, 'value', r.status) in completed_statuses)
         return {"completed": completed, "incomplete": total - completed}
 
     # Data Owner Sections (COMPLETED = SUBMITTED)
@@ -117,7 +117,7 @@ def org_dashboard(
         *base_filters
     ).group_by(RopaDocumentModel.deletion_status).all()
     
-    del_map = {(row.deletion_status.value if row.deletion_status else 'NONE'): row.count for row in del_stats}
+    del_map = {(getattr(row.deletion_status, 'value', row.deletion_status) if row.deletion_status else 'NONE'): row.count for row in del_stats}
 
     return AdminDashboardResponse(
         selected_period=period,
@@ -139,8 +139,47 @@ def org_dashboard(
         }
     )
 
+from app.models.workflow import ReviewDpoAssignmentModel
+from app.models.document import DocumentDeletionRequestModel
+from app.schemas.dashboard import DpoDashboardResponse, DpoDocumentStats
 
-@router.get("/{username}/dashboard", summary="Admin: Per-User Dashboard")
+@router.get("/dashboard/dpo", response_model=DpoDashboardResponse, summary="DPO: Dashboard", tags=["Dashboard (DPO)"])
+def dpo_dashboard(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO)),
+):
+    # Total assigned directly from review_dpo_assignments
+    dpo_assignments_q = db.query(ReviewDpoAssignmentModel).filter(ReviewDpoAssignmentModel.dpo_id == current_user.id)
+    total_assigned = dpo_assignments_q.count()
+    
+    # To get status, we need to join DocumentReviewCycleModel
+    docs_review_status = db.query(DocumentReviewCycleModel.status, func.count(DocumentReviewCycleModel.id)).\
+        join(ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id).\
+        filter(ReviewDpoAssignmentModel.dpo_id == current_user.id).\
+        group_by(DocumentReviewCycleModel.status).all()
+        
+    status_map = {str(getattr(row[0], 'value', row[0])): row[1] for row in docs_review_status}
+    in_review = status_map.get('IN_REVIEW', 0) + status_map.get('CHANGES_REQUESTED', 0)
+    approved = status_map.get('APPROVED', 0)
+    
+    # Auditor assignments created by this DPO
+    auditors_assigned = db.query(AuditorAssignmentModel).filter(AuditorAssignmentModel.assigned_by == current_user.id).count()
+    
+    # Pending deletion requests for this DPO
+    pending_deletion_requests = db.query(DocumentDeletionRequestModel).filter(
+        DocumentDeletionRequestModel.dpo_id == current_user.id,
+        DocumentDeletionRequestModel.status == 'PENDING'
+    ).count()
+
+    return DpoDashboardResponse(
+        document_stats=DpoDocumentStats(
+            total_assigned=total_assigned,
+            in_review=in_review,
+            approved=approved
+        ),
+        auditor_assignments_created=auditors_assigned,
+        pending_deletion_requests=pending_deletion_requests
+    )@router.get("/{username}/dashboard", summary="Admin: Per-User Dashboard", tags=["Dashboard (Admin)"])
 def user_dashboard(
     username: str,
     db: Session = Depends(get_db),
@@ -184,10 +223,147 @@ def user_dashboard(
             "status": target_user.status,
         },
         "statistics": {
-            "documents_created": {str(r.status.value): r.count for r in created_docs},
+            "documents_created": {str(getattr(r.status, 'value', r.status)): r.count for r in created_docs},
             "processor_assignments": processor_assignments,
             "auditor_assignments": auditor_assignments,
             "owned_assignments": owned_assignments,
         },
         "accessed_by": current_user.email,
     }
+
+
+from app.schemas.dashboard import AdminUserDashboardResponse
+
+@router.get("/dashboard/users", response_model=AdminUserDashboardResponse, summary="Admin: User Statistics Dashboard", tags=["Dashboard (Admin)"])
+def user_stats_dashboard(
+    period: str = Query("30_days", description="Filter period: 7_days, 30_days, overdue, custom"),
+    custom_date: Optional[str] = Query(None, description="Format YYYY-MM-DD. Required if period=custom"),
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.ADMIN)),
+):
+    now = datetime.now(timezone.utc)
+    base_filters = []
+
+    if period == '7_days':
+        base_filters.append(UserModel.created_at >= now - timedelta(days=7))
+    elif period == '30_days':
+        base_filters.append(UserModel.created_at >= now - timedelta(days=30))
+    elif period == 'custom':
+        if not custom_date:
+            raise HTTPException(status_code=400, detail="custom_date is required when period is custom")
+        try:
+            c_date = datetime.strptime(custom_date, "%Y-%m-%d").date()
+            base_filters.append(cast(UserModel.created_at, Date) == c_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid custom_date format. Use YYYY-MM-DD")
+    # 'overdue' has no meaning for users → treat as ALL (no filter)
+
+    # ── 1. User Overview (center donut) ──────────────────────────────────────
+    role_counts = db.query(
+        UserModel.role,
+        func.count(UserModel.id).label("count")
+    ).filter(*base_filters, UserModel.status == 'ACTIVE').group_by(UserModel.role).all()
+
+    roles_map = {
+        "OWNER": 0,
+        "PROCESSOR": 0,
+        "DPO": 0,
+        "AUDITOR": 0,
+        "ADMIN": 0,
+        "EXECUTIVE": 0
+    }
+    for r in role_counts:
+        role_key = str(getattr(r.role, 'value', r.role))
+        roles_map[role_key] = r.count
+        
+    total_users = sum(roles_map.values())
+
+    # ── Helper: group by department for a given role ──────────────────────────
+    def by_department(role_value: str):
+        rows = db.query(
+            UserModel.department,
+            func.count(UserModel.id).label("count")
+        ).filter(
+            *base_filters,
+            UserModel.role == role_value,
+            UserModel.status == 'ACTIVE',
+            UserModel.department.isnot(None)
+        ).group_by(UserModel.department).all()
+        return [{"department": f"แผนกที่ {i+1} [{r.department or 'ไม่ระบุ'}]", "count": r.count} for i, r in enumerate(rows)]
+
+    def by_company(role_value: str):
+        rows = db.query(
+            UserModel.company_name,
+            func.count(UserModel.id).label("count")
+        ).filter(
+            *base_filters,
+            UserModel.role == role_value,
+            UserModel.status == 'ACTIVE',
+            UserModel.company_name.isnot(None)
+        ).group_by(UserModel.company_name).all()
+        return [{"company": f"บริษัทที่ {i+1} [{r.company_name or 'ไม่ระบุ'}]", "count": r.count} for i, r in enumerate(rows)]
+
+    # ── 2. Role Breakdowns ────────────────────────────────────────────────────
+    owner_by_dept = by_department('OWNER')
+    dpo_by_dept   = by_department('DPO')
+    admin_by_dept = by_department('ADMIN')
+    exec_by_dept  = by_department('EXECUTIVE')
+    proc_by_co    = by_company('PROCESSOR')
+
+    # Auditor: Internal → dept, External → company
+    aud_internal_rows = db.query(
+        UserModel.department,
+        func.count(UserModel.id).label("count")
+    ).filter(
+        *base_filters,
+        UserModel.role == 'AUDITOR',
+        UserModel.auditor_type == 'INTERNAL',
+        UserModel.status == 'ACTIVE'
+    ).group_by(UserModel.department).all()
+
+    aud_external_rows = db.query(
+        UserModel.company_name,
+        func.count(UserModel.id).label("count")
+    ).filter(
+        *base_filters,
+        UserModel.role == 'AUDITOR',
+        UserModel.auditor_type == 'EXTERNAL',
+        UserModel.status == 'ACTIVE'
+    ).group_by(UserModel.company_name).all()
+
+    aud_internal_total = sum(r.count for r in aud_internal_rows)
+    aud_external_total = sum(r.count for r in aud_external_rows)
+
+    return AdminUserDashboardResponse(
+        selected_period=period,
+        user_overview={
+            "total": total_users,
+            "roles": roles_map
+        },
+        role_breakdowns={
+            "owner_breakdown": {
+                "by_department": owner_by_dept
+            },
+            "processor_breakdown": {
+                "by_company": proc_by_co
+            },
+            "dpo_breakdown": {
+                "by_department": dpo_by_dept
+            },
+            "auditor_breakdown": {
+                "internal": {
+                    "by_department": [{"department": f"แผนกที่ {i+1} [{r.department or 'ไม่ระบุ'}]", "count": r.count} for i, r in enumerate(aud_internal_rows)]
+                },
+                "external": {
+                    "by_company": [{"company": f"บริษัทที่ {i+1} [{r.company_name or 'ไม่ระบุ'}]", "count": r.count} for i, r in enumerate(aud_external_rows)]
+                }
+            },
+            "admin_breakdown": {
+                "by_department": admin_by_dept
+            },
+            "executive_breakdown": {
+                "by_department": exec_by_dept
+            }
+        }
+    )
+
