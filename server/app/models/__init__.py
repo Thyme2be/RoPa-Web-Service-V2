@@ -3,6 +3,7 @@ from app.models.enums import *
 
 # 1. Base entities
 from app.models.user import UserModel, UserSessionModel, PasswordResetTokenModel
+from app.models.master_data import MstDepartmentModel, MstCompanyModel, MstRoleModel
 
 # 2. Document entities
 from app.models.document import (
@@ -87,5 +88,8 @@ __all__ = [
     "ProcessorStorageTypeModel",
     "ProcessorStorageMethodModel",
     "AuditLogModel",
-    "DocumentVersionModel"
+    "DocumentVersionModel",
+    "MstDepartmentModel",
+    "MstCompanyModel",
+    "MstRoleModel"
 ]
