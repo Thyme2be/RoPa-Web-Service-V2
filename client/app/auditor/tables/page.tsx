@@ -1,38 +1,65 @@
 "use client";
+
 import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from "next/link";
 import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
-import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
-function AuditorSubmissionTableContent() {
+function AuditorTableContent() {
     const searchParams = useSearchParams();
     const globalSearchQuery = searchParams.get("search") || "";
 
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
-    const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
+    const [selectedDateRange, setSelectedDateRange] = useState("ภายใน 7 วัน");
     const [customDate, setCustomDate] = useState("");
-    const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-    const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
     const ITEMS_PER_PAGE = 5;
 
-    // Expanded Mock data for Auditor Submission
+    // Mock data for Auditor
     const mockDocsBase = [
-        { id: "RP-2026-07", name: "ข้อมูลประสิทธิภาพเครือข่าย", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-04-05", displayReceivedDate: "05/04/2569", auditor: "Internal Audit - Legal Team", status: "รอตรวจสอบ", statusType: "warning" },
-        { id: "RP-2026-08", name: "ข้อมูลนโยบายรักษาความปลอดภัย", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-04-06", displayReceivedDate: "06/04/2569", auditor: "External Audit - ABC Consulting", status: "ตรวจสอบเสร็จสิ้น", statusType: "success" },
-        { id: "RP-2026-09", name: "ข้อมูลการสำรองข้อมูลรายปี", owner: "นายวิชาญ ดวงดี", receivedDate: "2026-04-07", displayReceivedDate: "07/04/2569", auditor: "Internal Audit - IT Dept", status: "รอตรวจสอบ", statusType: "warning" },
-        { id: "RP-2026-10", name: "รายงานการเข้าถึงระบบ", owner: "นางสาวปิยะนาถ มั่นคง", receivedDate: "2026-04-08", displayReceivedDate: "08/04/2569", auditor: "External Audit - XYZ Audit", status: "ตรวจสอบเสร็จสิ้น", statusType: "success" },
-        { id: "RP-2026-11", name: "ข้อมูลการบริหารจัดการความเสี่ยง", owner: "นายสมชาย ใจดี", receivedDate: "2026-04-09", displayReceivedDate: "09/04/2569", auditor: "Internal Audit - Compliance", status: "รอตรวจสอบ", statusType: "warning" },
-        { id: "RP-2026-12", name: "ข้อมูลการตรวจประเมินภายใน", owner: "นางสาววรัญญา มีชัย", receivedDate: "2026-04-10", displayReceivedDate: "10/04/2569", auditor: "Audit Committee", status: "ตรวจสอบเสร็จสิ้น", statusType: "success" }
+        {
+            id: "RP-2026-03",
+            name: "ข้อมูลลูกค้า",
+            owner: "นายธนกร จิตต์สุวรรณ",
+            receivedDate: "2026-03-20",
+            displayReceivedDate: "20/03/2569",
+            auditDate: "25/03/2569",
+            deadline: "25/03/2569",
+            status: "รอตรวจสอบ",
+            statusType: "warning"
+        },
+        {
+            id: "RP-2026-02",
+            name: "การกำกับดูแลข้อมูลธุรกรรม",
+            owner: "นายธนกร จิตต์สุวรรณ",
+            receivedDate: "2026-03-18",
+            displayReceivedDate: "18/03/2569",
+            auditDate: "28/03/2569",
+            deadline: "25/03/2569",
+            status: "รอตรวจสอบ",
+            statusType: "warning",
+            isOverdue: true
+        },
+        {
+            id: "RP-2026-01",
+            name: "การจัดการข้อมูลโครงข่าย",
+            owner: "นายธนกร จิตต์สุวรรณ",
+            receivedDate: "2026-03-15",
+            displayReceivedDate: "15/03/2569",
+            auditDate: "29/03/2569",
+            deadline: "29/03/2569",
+            status: "ตรวจสอบเสร็จสิ้น",
+            statusType: "success"
+        }
     ];
 
     const getStatusColor = (type: string) => {
         switch (type) {
             case "success": return "bg-[#228B15] text-white"; // Green
             case "warning": return "bg-[#FBBF24] text-[#5C403D]"; // Yellow
-            case "edit": return "bg-[#ED393C] text-white"; // Red
+            case "danger": return "bg-[#ED393C] text-white"; // Red
             default: return "bg-gray-200 text-gray-700";
         }
     };
@@ -42,8 +69,7 @@ function AuditorSubmissionTableContent() {
         const matchesSearch = globalSearchQuery === "" ||
             doc.id.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
             doc.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.owner.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.auditor.toLowerCase().includes(globalSearchQuery.toLowerCase());
+            doc.owner.toLowerCase().includes(globalSearchQuery.toLowerCase());
 
         const matchesStatus = selectedStatus === "ทั้งหมด" || doc.status === selectedStatus;
 
@@ -55,10 +81,7 @@ function AuditorSubmissionTableContent() {
 
             if (selectedDateRange === "ภายใน 7 วัน") matchesDate = diffDays <= 7;
             else if (selectedDateRange === "ภายใน 30 วัน") matchesDate = diffDays <= 30;
-            else if (selectedDateRange === "เกินกำหนด") matchesDate = diffDays > 30 && doc.status === "รอตรวจสอบ";
-            else if (selectedDateRange === "กำหนดเอง" && customDate) {
-                matchesDate = doc.receivedDate === customDate;
-            }
+            else if (selectedDateRange === "เลยกำหนด") matchesDate = !!doc.isOverdue;
         }
 
         return matchesSearch && matchesStatus && matchesDate;
@@ -73,7 +96,7 @@ function AuditorSubmissionTableContent() {
             <div className="flex-1 p-8 space-y-6">
                 {/* Page Header */}
                 <div>
-                    <h2 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight mb-1">ตารางแสดงเอกสารที่ส่งให้ผู้ตรวจสอบ</h2>
+                    <h2 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight mb-1">ตารางแสดงเอกสารที่ได้รับจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</h2>
                 </div>
 
                 {/* Filters Box */}
@@ -109,41 +132,27 @@ function AuditorSubmissionTableContent() {
                                     { label: "ทั้งหมด", value: "ทั้งหมด" },
                                     { label: "ภายใน 7 วัน", value: "ภายใน 7 วัน" },
                                     { label: "ภายใน 30 วัน", value: "ภายใน 30 วัน" },
-                                    { label: "เกินกำหนด", value: "เกินกำหนด" },
+                                    { label: "เลยกำหนด", value: "เลยกำหนด" },
                                     { label: "กำหนดเอง", value: "กำหนดเอง" }
                                 ]}
                                 containerClassName="!w-full"
                             />
                         </div>
-
-                        {selectedDateRange === "กำหนดเอง" && (
-                            <div className="w-[200px] animate-in fade-in slide-in-from-left-2 duration-300">
-                                <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight mb-2">เลือกวันที่</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={customDate}
-                                        onChange={(e) => { setCustomDate(e.target.value); setCurrentPage(1); }}
-                                        className="w-full h-11 bg-white border border-[#E5E2E1] rounded-xl px-4 py-2 text-sm font-medium outline-none hover:border-primary/20 transition-all text-[#6B7280]"
-                                    />
-                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">calendar_month</span>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </GenericFilterBar>
 
                 {/* Table Section */}
                 <div className="relative z-10">
-                    <ListCard title="เอกสารที่ส่งให้ผู้ตรวจสอบ" icon="assignment_turned_in" iconColor="#FFB800">
+                    <ListCard title="เอกสารที่ได้รับจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" icon="assignment_turned_in" iconColor="#FFB800">
                         <div className="overflow-visible">
                             <table className="w-full text-center border-collapse">
                                 <thead className="relative z-20">
                                     <tr className="border-b border-[#E5E2E1]/40">
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อเอกสาร</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อผู้รับผิดชอบข้อมูล</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อผู้ตรวจสอบข้อมูล</th>
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ผู้ตรวจสอบ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ตรวจสอบ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่กำหนดส่ง</th>
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                     </tr>
@@ -159,7 +168,15 @@ function AuditorSubmissionTableContent() {
                                             </td>
                                             <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.owner}</td>
                                             <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.displayReceivedDate}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.auditor}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.auditDate}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center flex items-center justify-center gap-2 min-h-[64px]">
+                                                {doc.isOverdue && (
+                                                    <span className="px-2 py-0.5 bg-[#ED393C] text-white text-[10px] font-black rounded-md shadow-sm">
+                                                        {doc.deadline}
+                                                    </span>
+                                                )}
+                                                {!doc.isOverdue && doc.deadline}
+                                            </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center py-1">
                                                     <span className={`px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center shadow-sm ${getStatusColor(doc.statusType)}`}>
@@ -169,19 +186,15 @@ function AuditorSubmissionTableContent() {
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center">
-                                                    <button
-                                                        onClick={() => { setSelectedDocId(doc.id); setIsSendModalOpen(true); }}
-                                                        title="ส่งให้ผู้ตรวจสอบเพิ่มเติม"
-                                                        className="text-secondary opacity-60 hover:opacity-100 hover:text-[#ED393C] transition-all cursor-pointer"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>send</span>
-                                                    </button>
+                                                    <Link href={`/auditor/tables/${doc.id}`} title="ดูรายละเอียดและตรวจสอบ" className="text-secondary opacity-60 hover:opacity-100 hover:text-primary transition-all">
+                                                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>assignment_turned_in</span>
+                                                    </Link>
                                                 </div>
                                             </td>
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={6} className="py-12 text-center text-secondary opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
+                                            <td colSpan={7} className="py-12 text-center text-secondary opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -191,7 +204,7 @@ function AuditorSubmissionTableContent() {
                             <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                                 <div className="px-6 flex items-center justify-between">
                                     <p className="text-[12px] font-medium text-secondary opacity-80">
-                                        แสดง {startIndex + 1} ถึง {Math.min(startIndex + ITEMS_PER_PAGE, filteredDocs.length)} จากทั้งหมด {filteredDocs.length} รายการ
+                                        แสดง {startIndex + 1} ถึง {Math.min(startIndex + ITEMS_PER_PAGE, filteredDocs.length)} จากทั้งหมด 10 รายการ
                                     </p>
                                     <div className="[&_p]:hidden [&_div]:mt-0">
                                         <Pagination
@@ -206,24 +219,14 @@ function AuditorSubmissionTableContent() {
                     </ListCard>
                 </div>
             </div>
-
-            {/* Send to Auditor Modal */}
-            <SendToAuditorModal
-                isOpen={isSendModalOpen}
-                onClose={() => setIsSendModalOpen(false)}
-                onConfirm={(data) => {
-                    console.log("Sending to auditor for doc:", selectedDocId, data);
-                    setIsSendModalOpen(false);
-                }}
-            />
         </div>
     );
 }
 
-export default function AuditorSubmissionPage() {
+export default function AuditorPage() {
     return (
         <Suspense fallback={<div className="p-8">กำลังโหลด...</div>}>
-            <AuditorSubmissionTableContent />
+            <AuditorTableContent />
         </Suspense>
     );
 }

@@ -43,7 +43,7 @@ export default function DPOSidebar() {
                                     ? "text-primary scale-110"
                                     : "text-secondary group-hover:text-primary"
                                     }`}
-                                style={{ fontVariationSettings: `'FILL' ${isActive ? 1 : 0}` }}
+                                style={{ fontVariationSettings: `'FILL' ${item.id === "dashboard" ? 0 : 1}` }}
                             >
                                 {item.icon}
                             </span>

@@ -43,7 +43,7 @@ export default function AdminSidebar() {
                                     ? "text-primary scale-110"
                                     : "text-secondary group-hover:text-primary"
                                     }`}
-                                style={{ fontVariationSettings: `'FILL' ${item.id === 'dashboard' ? 0 : 1}` }}
+                                style={{ fontVariationSettings: `'FILL' ${item.id === "dashboard" ? 0 : 1}` }}
                             >
                                 {item.icon}
                             </span>

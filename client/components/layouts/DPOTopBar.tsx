@@ -60,10 +60,27 @@ export default function DPOTopBar() {
 
     // Check if we are on a table list page (not the menu or detail pages)
     const isTableListPage = pathname.startsWith("/dpo/tables/") && !pathname.match(/\/dpo\/tables\/[^\/]+\/[^\/]+/);
+    
+    // Mock data lookup for display names (similar to Auditor layout)
+    const mockDocs = [
+        { id: "RP-2026-03", name: "ข้อมูลลูกค้า" },
+        { id: "RP-2026-02", name: "การกำกับดูแลข้อมูลธุรกรรม" },
+        { id: "RP-2026-01", name: "การจัดการข้อมูลโครงข่าย" }
+    ];
+
+    // Check if we are on any DPO detail page
+    const detailPaths = ["in-progress", "destruction", "auditor-submission"];
+    const isDetailPage = detailPaths.some(p => pathname.includes(`/dpo/tables/${p}/`) && pathname.split('/').length > 4);
+    const docId = isDetailPage ? pathname.split('/').pop() : "";
+    const docName = isDetailPage ? (mockDocs.find(d => d.id === docId)?.name || "รายละเอียดเอกสาร") : "";
 
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
-            <div className="flex-1"></div>
+            <div className="flex-1 flex items-center">
+                {isDetailPage && (
+                    <span className="text-[20px] font-bold text-neutral-900">{docName}</span>
+                )}
+            </div>
 
             <div className="flex items-center gap-6">
                 {/* Search Bar - only for specific table pages */}
