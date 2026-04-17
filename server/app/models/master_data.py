@@ -24,7 +24,6 @@ class MstRoleModel(Base):
     __tablename__ = "mst_roles"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    code = Column(String(50), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

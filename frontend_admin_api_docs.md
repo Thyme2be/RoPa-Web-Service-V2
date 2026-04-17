@@ -106,16 +106,15 @@
 *   **Delete** (`DELETE /admin/companies/{id}`): 204 No Content (Soft delete)
 
 ### 2.3 จัดการชื่อบทบาท (Roles)
-*   **List & Search** (`GET /admin/roles`): มี Query เพิ่มจากปกติ คือ `search` จะหาทั้งชื่อและรหัส (Code)
-*   **Create** (`POST /admin/roles`): **ตัวนี้ต้องส่ง Code ควบคู่มาด้วย!**
+*   **List & Search** (`GET /admin/roles`): มี Query `search`, `page`, `limit`
+*   **Create** (`POST /admin/roles`):
     ```json
     { 
-      "code": "SUPERVISOR", 
       "name": "หัวหน้าผู้ควบคุมข้อมูล" 
     }
     ```
-*   **Update** (`PUT /admin/roles/{id}`): `{ "name": "เปลี่ยนชื่อแปลไทย" }` (สามารถแก้ code ได้ถ้าจำเป็น)
-*   **Delete** (`DELETE /admin/roles/{id}`) 
+*   **Update** (`PUT /admin/roles/{id}`): `{ "name": "เปลี่ยนชื่อแปลไทย" }`
+*   **Delete** (`DELETE /admin/roles/{id}`)  
 
 **หน้าตา Response ตัวอย่างของฝั่ง Master Data ทั้ง 3 ตัว:**
 ```json
@@ -128,54 +127,10 @@
       "id": 1,
       "name": "แผนก IT",
       "is_active": true,
-      "created_at": "2026-04-17T09:00:00Z",
-      ... "code": "ADMIN" // (มีเพิ่มให้เฉพาะเส้น Roles)
+      "created_at": "2026-04-17T09:00:00Z"
     }
   ]
 }
 ```
 
----
 
-## 3. 📊 ดึงสถิติหน้ากระดานส่วนกลาง (Dashboards)
-
-### 3.1 สถิติการเกิดเอกสาร (Organization Overview)
-*   **Endpoint**: `GET /dashboard`
-*   **Query**:
-    *   `period` (Default = `"30_days"`) ค่าที่เป็นไปได้: `7_days`, `30_days`, `custom`, `overdue`, `all`
-    *   `custom_date` (ใช้ถ้า period เป็น custom ส่งรูปแบบ `YYYY-MM-DD`)
-
-### 3.2 สถิติประชากรในระบบ (User Stats Dashboard)
-*   **Endpoint**: `GET /dashboard/users`
-*   **Query**: ใช้รูปแบบฟิลเตอร์ `period` และ `custom_date` รูปแบบเดียวกัน
-*   **สิ่งที่ Frontend จะได้รับ** (โครงสร้างถูกเตรียม String ปรุงสุกให้พร้อมโชว์ตารางแล้ว):
-    ```json
-    {
-      "selected_period": "30_days",
-      "user_overview": {
-        "total": 45,
-        "roles": { "OWNER": 10, "PROCESSOR": 5, "DPO": 2, "AUDITOR": 8, "ADMIN": 20, "EXECUTIVE": 0 }
-      },
-      "role_breakdowns": {
-        "owner_breakdown": {
-          "by_department": [
-            { "department": "แผนกที่ 1 [แผนกการเงิน]", "count": 10 }
-          ]
-        },
-        "processor_breakdown": {
-          "by_company": [
-            { "company": "บริษัทที่ 1 [บริษัท อิมพอร์ต จำกัด]", "count": 5 }
-          ]
-        },
-        "auditor_breakdown": {
-          "internal": { "by_department": [...] },
-          "external": { "by_company": [...] }
-        }
-      }
-    }
-    ```
-
-### 3.3 สควอทส่องกล้องพนักงานรายบุคคล (Per-User Dashboard)
-*   **Endpoint**: `GET /{username}/dashboard`
-*   **การอ้างอิง**: ใช้ `username` ของผู้ใช้นั้นๆ หย่อนลงไปใน Path ตรงๆ
-*   **ผลลัพธ์**: จะคายรายละเอียดเลยว่า คนคนนี้สร้างตารางไปแล้วกี่อัน, ค้างตรวจงานอยู่กี่ตัว หรือ อนุมัติเอกสารไปแล้วกี่กระดาษ
