@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/ListComponents";
@@ -24,83 +24,45 @@ function DocumentsPageContent() {
 
     const ITEMS_PER_PAGE = 5;
 
+    const API_BASE_URL = "http://localhost:8000";
+
     const fetchDocuments = async () => {
-        // Mock data with timestamps for filtering
-        const now = new Date();
-        const twoDaysAgo = new Date(); twoDaysAgo.setDate(now.getDate() - 2);
-        const tenDaysAgo = new Date(); tenDaysAgo.setDate(now.getDate() - 10);
-        const twelveDaysAgo = new Date(); twelveDaysAgo.setDate(now.getDate() - 12);
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+            const res = await fetch(`${API_BASE_URL}/admin/documents?limit=1000`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                const mappedDocs = data.items.map((doc: any) => ({
+                    id: doc.ropa_code || `DOC-${doc.id}`,
+                    name: doc.activity_name || "ไม่ระบุชื่อกิจกรรม",
+                    owner: doc.owner_name || "-",
+                    department: doc.department || "-",
+                    dpo: doc.dpo_name || "-",
+                    activity: doc.status === 'COMPLETED' ? `เสร็จสมบูรณ์เมื่อ ${new Date(doc.updated_at).toLocaleDateString('th-TH')}` : `อัปเดตเมื่อ ${new Date(doc.updated_at).toLocaleDateString('th-TH')}`,
+                    status: doc.status === 'DRAFT' ? 'ฉบับร่าง' : 
+                            doc.status === 'IN_PROGRESS' ? 'รอดำเนินการ' : 
+                            doc.status === 'REVIEW' ? 'รอตรวจสอบ' : 
+                            doc.status === 'COMPLETED' ? 'เสร็จสมบูรณ์' : doc.status,
+                    timestamp: doc.updated_at
+                }));
 
-        const formatDateThai = (date: Date) => {
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear() + 543;
-            return `${day}/${month}/${year}`;
-        };
-
-        const data = {
-            documents_list: [
-                {
-                    id: "RP-2026-03",
-                    name: "ข้อมูลลูกค้า",
-                    owner: "นางสาวพรรษชล บุญมาก",
-                    department: "แผนก IT",
-                    dpo: "นางสาวพิมพ์ชนก วัฒนากุล",
-                    activity: `สร้างเมื่อ ${formatDateThai(twoDaysAgo)}`,
-                    status: "รอดำเนินการ",
-                    timestamp: twoDaysAgo.toISOString()
-                },
-                {
-                    id: "RP-2026-02",
-                    name: "การกำกับดูแลข้อมูลธุรกรรม",
-                    owner: "นางสาวพรรษชล บุญมาก",
-                    department: "แผนก IT",
-                    dpo: "นางสาวพิมพ์ชนก วัฒนากุล",
-                    activity: `แก้ไขล่าสุดเมื่อ ${formatDateThai(tenDaysAgo)}`,
-                    status: "รอตรวจสอบ",
-                    timestamp: tenDaysAgo.toISOString()
-                },
-                {
-                    id: "RP-2026-01",
-                    name: "การจัดการข้อมูลโครงข่าย",
-                    owner: "นางสาวพรรษชล บุญมาก",
-                    department: "แผนก IT",
-                    dpo: "นางสาวพิมพ์ชนก วัฒนากุล",
-                    activity: `สร้างเมื่อ ${formatDateThai(now)}`,
-                    status: "เสร็จสมบูรณ์",
-                    timestamp: now.toISOString()
-                },
-                {
-                    id: "RP-2026-04",
-                    name: "ข้อมูลพนักงาน",
-                    owner: "นายสมชาย ใจดี",
-                    department: "แผนก HR",
-                    dpo: "นางสาวพิมพ์ชนก วัฒนากุล",
-                    activity: `สร้างเมื่อ ${formatDateThai(twelveDaysAgo)}`,
-                    status: "เสร็จสมบูรณ์",
-                    timestamp: twelveDaysAgo.toISOString()
-                },
-                {
-                    id: "RP-2026-05",
-                    name: "ข้อมูลผู้สมัครงาน",
-                    owner: "นางสาววิไลลักษณ์ สวยสม",
-                    department: "แผนก HR",
-                    dpo: "นางสาวพิมพ์ชนก วัฒนากุล",
-                    activity: `กำลังแก้ไขเมื่อ ${formatDateThai(now)}`,
-                    status: "รอดำเนินการ",
-                    timestamp: now.toISOString()
-                }
-            ]
-        };
-
-        setDocsData({
-            summary: null,
-            documents_list: data.documents_list
-        });
-        setLoading(false);
+                setDocsData({
+                    summary: data.summary || null,
+                    documents_list: mappedDocs
+                });
+            }
+        } catch (err) {
+            console.error("Failed to fetch documents:", err);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    React.useEffect(() => {
+    useEffect(() => {
         fetchDocuments();
     }, []);
 
@@ -178,6 +140,7 @@ function DocumentsPageContent() {
                                     { label: "ทั้งหมด", value: "ทั้งหมด" },
                                     { label: "ภายใน 7 วัน", value: "ภายใน 7 วัน" },
                                     { label: "ภายใน 30 วัน", value: "ภายใน 30 วัน" },
+                                    { label: "เกินกำหนด", value: "เกินกำหนด" },
                                     { label: "กำหนดเอง", value: "กำหนดเอง" }
                                 ]}
                                 containerClassName="!w-full"

@@ -17,27 +17,35 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
-      const formData = new URLSearchParams();
-      formData.append("username", username);
-      formData.append("password", password);
-
       const response = await fetch("http://localhost:8000/auth/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: formData.toString(),
+        body: JSON.stringify({
+          username_or_email: username,
+          password: password,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน");
+        const errorData = await response.json().catch(() => ({}));
+        let message = "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน";
+        
+        if (typeof errorData.detail === "string") {
+          message = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          // Handle FastAPI's list of error objects
+          message = errorData.detail.map((err: any) => err.msg).join(", ");
+        }
+        
+        throw new Error(message);
       }
 
       const data = await response.json();
 
-      if (data.access_token || data.token) {
-        localStorage.setItem("token", data.access_token || data.token);
+      if (data.access_token) {
+        localStorage.setItem("token", data.access_token);
       }
 
       router.push("/");

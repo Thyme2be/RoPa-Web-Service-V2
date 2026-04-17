@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { ListCard, Pagination } from "@/components/ropa/ListComponents";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 
@@ -85,31 +85,35 @@ function DeptManagementPageContent() {
 
     const ITEMS_PER_PAGE = 3;
 
-    // Mock Data
-    const depts = [
-        { id: 1, name: "แผนกการตลาด" },
-        { id: 2, name: "แผนกประชาสัมพันธ์" },
-        { id: 3, name: "แผนกการขาย" },
-        { id: 4, name: "แผนก IT" },
-        { id: 5, name: "แผนก HR" }
-    ];
+    const API_BASE_URL = "http://localhost:8000";
 
-    const roles = [
-        { id: 1, name: "ผู้รับผิดชอบข้อมูล" },
-        { id: 2, name: "ผู้ประมวลผลข้อมูลส่วนบุคคล" },
-        { id: 3, name: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" },
-        { id: 4, name: "ผู้ตรวจสอบ" },
-        { id: 5, name: "ผู้ดูแลระบบ" },
-        { id: 6, name: "ผู้บริหารระดับสูง" }
-    ];
+    const [depts, setDepts] = useState<any[]>([]);
+    const [roles, setRoles] = useState<any[]>([]);
+    const [companies, setCompanies] = useState<any[]>([]);
 
-    const companies = [
-        { id: 1, name: "บริษัท A" },
-        { id: 2, name: "บริษัท B" },
-        { id: 3, name: "บริษัท C" },
-        { id: 4, name: "บริษัท D" },
-        { id: 5, name: "บริษัท E" }
-    ];
+    const fetchMasterData = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+            const headers = { "Authorization": `Bearer ${token}` };
+
+            const [dRes, rRes, cRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/admin/departments?limit=1000`, { headers }),
+                fetch(`${API_BASE_URL}/admin/roles?limit=1000`, { headers }),
+                fetch(`${API_BASE_URL}/admin/companies?limit=1000`, { headers })
+            ]);
+
+            if (dRes.ok) setDepts((await dRes.json()).items || []);
+            if (rRes.ok) setRoles((await rRes.json()).items || []);
+            if (cRes.ok) setCompanies((await cRes.json()).items || []);
+        } catch (e) {
+            console.error("Failed to fetch master data:", e);
+        }
+    };
+
+    useEffect(() => {
+        fetchMasterData();
+    }, []);
 
     // Pagination helper
     const paginate = (data: any[], page: number) => data.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -122,20 +126,69 @@ function DeptManagementPageContent() {
     const totalRolePages = Math.ceil(roles.length / ITEMS_PER_PAGE);
     const totalCompPages = Math.ceil(companies.length / ITEMS_PER_PAGE);
 
-    const handleSave = (value: string) => {
-        setIsProcessing(true);
-        setTimeout(() => {
-            setIsProcessing(false);
-            setModalConfig({ ...modalConfig, isOpen: false });
-        }, 400);
+    const getApiPath = (type: string) => {
+        if (type === 'dept') return '/admin/departments';
+        if (type === 'role') return '/admin/roles';
+        if (type === 'company') return '/admin/companies';
+        return '';
     };
 
-    const handleDelete = () => {
+    const handleSave = async (value: string) => {
         setIsProcessing(true);
-        setTimeout(() => {
+        try {
+            const token = localStorage.getItem("token");
+            const path = getApiPath(modalConfig.type);
+            const method = modalConfig.mode === 'edit' ? 'PUT' : 'POST';
+            const url = modalConfig.mode === 'edit' 
+                ? `${API_BASE_URL}${path}/${modalConfig.data.id}` 
+                : `${API_BASE_URL}${path}`;
+                
+            const payload = modalConfig.type === 'role' && modalConfig.mode === 'add' 
+                ? { name: value, code: "" } 
+                : { name: value };
+
+            const res = await fetch(url, {
+                method,
+                headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                setModalConfig({ ...modalConfig, isOpen: false });
+                await fetchMasterData();
+            } else {
+                console.error("Failed to save", await res.text());
+                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+            }
+        } catch(e) {
+            console.error(e);
+        } finally {
             setIsProcessing(false);
-            setDeleteConfig({ ...deleteConfig, isOpen: false });
-        }, 400);
+        }
+    };
+
+    const handleDelete = async () => {
+        setIsProcessing(true);
+        try {
+            const token = localStorage.getItem("token");
+            const path = getApiPath(deleteConfig.type);
+            const res = await fetch(`${API_BASE_URL}${path}/${deleteConfig.data.id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                setDeleteConfig({ ...deleteConfig, isOpen: false });
+                await fetchMasterData();
+            } else {
+                console.error("Failed to delete", await res.text());
+                alert("เกิดข้อผิดพลาดในการลบข้อมูล");
+            }
+        } catch(e) {
+            console.error(e);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const deleteContentMap = {

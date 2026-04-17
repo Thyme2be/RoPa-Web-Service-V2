@@ -56,61 +56,107 @@ function UsersPageContent() {
     const [loading, setLoading] = useState(true);
 
     const API_BASE_URL = "http://localhost:8000";
+    const ITEMS_PER_PAGE = 5;
+
+    // Mapping for Thai labels to Backend Enums
+    const roleToEnum: Record<string, string> = {
+        "ทั้งหมด": "",
+        "ผู้รับผิดชอบข้อมูล": "OWNER",
+        "ผู้ประมวลผลข้อมูลส่วนบุคคล": "PROCESSOR",
+        "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล": "DPO",
+        "ผู้ตรวจสอบ": "AUDITOR",
+        "ผู้ดูแลระบบ": "ADMIN",
+        "ผู้บริหารระดับสูง": "EXECUTIVE",
+        "ไม่มีบทบาท": "NONE"
+    };
+
+    const statusToEnum: Record<string, string> = {
+        "ทั้งหมด": "",
+        "กำลังใช้งาน": "ACTIVE",
+        "ปิดการใช้งาน": "INACTIVE"
+    };
+
+    // Mapping for Backend Enums back to Thai Labels
+    const enumToRole: Record<string, string> = {
+        "OWNER": "ผู้รับผิดชอบข้อมูล",
+        "PROCESSOR": "ผู้ประมวลผลข้อมูลส่วนบุคคล",
+        "DPO": "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล",
+        "AUDITOR": "ผู้ตรวจสอบ",
+        "ADMIN": "ผู้ดูแลระบบ",
+        "EXECUTIVE": "ผู้บริหารระดับสูง",
+        "NONE": "ไม่มีบทบาท"
+    };
+
+    const enumToStatus: Record<string, string> = {
+        "ACTIVE": "กำลังใช้งาน",
+        "INACTIVE": "ปิดการใช้งาน"
+    };
 
     const fetchUsers = async () => {
-        // Mock data to match screenshot
-        const data = {
-            total_users: 10,
-            active_users: 3,
-            total_users_trend: {
-                direction: "up",
-                value: "10%",
-                text_label: "จากเดือนที่แล้ว"
-            },
-            users_list: [
-                { id: "user-15", name: "นางสาวศิริพร ใจงาม", email: "name15@gmail.com", role: "ผู้รับผิดชอบข้อมูล", department: "แผนก IT", status: "กำลังใช้งาน" },
-                { id: "user-14", name: "นายมานะ ขยันทำงาน", email: "name14@gmail.com", role: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", department: "แผนกกฎหมาย", status: "กำลังใช้งาน" },
-                { id: "user-13", name: "นางสาวสมหญิง รักเรียน", email: "name13@gmail.com", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", department: "แผนกบัญชี", status: "ปิดการใช้งาน" },
-                { id: "user-12", name: "นายวิชัย ชนะศึก", email: "name12@gmail.com", role: "ผู้รับผิดชอบข้อมูล", department: "แผนกขาย", status: "กำลังใช้งาน" },
-                { id: "user-11", name: "นางสาววิไลลักษณ์ สวยสม", email: "name11@gmail.com", role: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", department: "แผนกการตลาด", status: "กำลังใช้งาน" },
-                { id: "user-10", name: "นายสมชาย สายเสมอ", email: "name10@gmail.com", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", department: "แผนกขนส่ง", status: "ปิดการใช้งาน" },
-                { id: "user-09", name: "นางสาวเกศรา พรหมศร", email: "name9@gmail.com", role: "ผู้รับผิดชอบข้อมูล", department: "แผนก HR", status: "กำลังใช้งาน" },
-                { id: "user-08", name: "นายปกรณ์ บุณยเกียรติ", email: "name8@gmail.com", role: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", department: "แผนก IT", status: "กำลังใช้งาน" },
-                { id: "user-07", name: "นางสาวอารีวรรณ นามวงศ์", email: "name7@gmail.com", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", department: "แผนกจัดซื้อ", status: "ปิดการใช้งาน" },
-                { id: "user-06", name: "นายธนพล มีสุข", email: "name6@gmail.com", role: "ผู้รับผิดชอบข้อมูล", department: "แผนกคลังสินค้า", status: "กำลังใช้งาน" },
-                { id: "user-05", name: "นางสาวสิรินทรา ชัยชนะ", email: "name5@gmail.com", role: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", department: "แผนกบริการลูกค้า", status: "กำลังใช้งาน" },
-                { id: "user-04", name: "นายณัฐพล บุญส่ง", email: "name4@gmail.com", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", department: "แผนก IT", status: "ปิดการใช้งาน" },
-                { id: "user-03", name: "นางสาวพรรษชล บุญมาก", email: "name3@gmail.com", role: "ผู้รับผิดชอบข้อมูล", department: "แผนก IT", status: "กำลังใช้งาน" },
-                { id: "user-02", name: "นางสาวพิมพ์ชนก วัฒนากุล", email: "name2@gmail.com", role: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", department: "แผนกการตลาด", status: "กำลังใช้งาน" },
-                { id: "user-01", name: "นายกิตติพงศ์ สุวรรณชัย", email: "name1@gmail.com", role: "ผู้ประมวลผลข้อมูลส่วนบุคคล", department: "แผนก HR", status: "ปิดการใช้งาน" }
-            ]
-        };
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        
+        if (!token) {
+            console.warn("No token found, using mock data...");
+            // Use mock data fallback if no token
+            setUsersData(prev => ({ ...prev, users_list: [] }));
+            setLoading(false);
+            return;
+        }
 
-        setUsersData({
-            total_users: 15,
-            active_users: data.active_users,
-            users_list: data.users_list,
-            total_users_trend: data.total_users_trend
-        });
-        setLoading(false);
+        try {
+            const roleFilter = roleToEnum[selectedRole] || "";
+            const statusFilter = statusToEnum[selectedStatus] || "";
+            const searchParam = globalSearchQuery ? `&search=${encodeURIComponent(globalSearchQuery)}` : "";
+            const roleParam = roleFilter ? `&role=${roleFilter}` : "";
+            const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+
+            const response = await fetch(
+                `${API_BASE_URL}/admin/users?page=${currentPage}&limit=${ITEMS_PER_PAGE}${searchParam}${roleParam}${statusParam}`,
+                {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                }
+            );
+
+            if (!response.ok) throw new Error("Failed to fetch users");
+            const data = await response.json();
+
+            const transformedUsers = data.items.map((u: any) => ({
+                id: u.user_code || `user-${u.id}`,
+                db_id: u.id,
+                name: `${u.title || ""} ${u.first_name} ${u.last_name || ""}`.trim(),
+                email: u.email,
+                role: enumToRole[u.role] || u.role,
+                department: u.department || "ไม่ระบุ",
+                status: enumToStatus[u.status] || u.status
+            }));
+
+            setUsersData({
+                total_users: data.total,
+                active_users: data.items.filter((u: any) => u.status === "ACTIVE").length, // Approximate active in current view
+                users_list: transformedUsers,
+                total_users_trend: {
+                    direction: "neutral",
+                    value: "0%",
+                    text_label: "จากเดือนที่แล้ว"
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching users:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     React.useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [currentPage, selectedRole, selectedStatus, globalSearchQuery]);
 
-    const filteredUsers = usersData.users_list.filter(user => {
-        const matchesRole = selectedRole === "ทั้งหมด" || user.role === selectedRole;
-        const matchesStatus = selectedStatus === "ทั้งหมด" || user.status === selectedStatus;
-        const matchesSearch = user.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            user.email.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            user.id.toLowerCase().includes(globalSearchQuery.toLowerCase());
-        return matchesRole && matchesStatus && matchesSearch;
-    });
-
-    const ITEMS_PER_PAGE = 5;
-    const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-    const paginatedUsers = filteredUsers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    // Filters are now handled server-side, so paginatedUsers is just usersData.users_list
+    const paginatedUsers = usersData.users_list;
+    const totalPages = Math.ceil(usersData.total_users / ITEMS_PER_PAGE);
 
     const handleOpenCreateModal = () => {
         setCreateFormData(initialCreateFormData);
@@ -312,7 +358,7 @@ function UsersPageContent() {
                         <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                             <div className="px-6 flex items-center justify-between">
                                 <p className="text-[12px] font-medium text-secondary opacity-80">
-                                    แสดง {(currentPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)} จากทั้งหมด {filteredUsers.length} รายการ
+                                    แสดง {(currentPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentPage * ITEMS_PER_PAGE, usersData.total_users)} จากทั้งหมด {usersData.total_users} รายการ
                                 </p>
                                 <div className="[&_p]:hidden [&_div]:mt-0">
                                     <Pagination current={currentPage} total={totalPages} onChange={setCurrentPage} />

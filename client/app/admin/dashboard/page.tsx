@@ -3,117 +3,34 @@ import React, { useEffect, useState } from "react";
 
 interface DashboardData {
     document_status_chart: {
-        this_week: { draft: number; in_progress: number; completed: number; rejected: number };
-        this_month: { draft: number; in_progress: number; completed: number; rejected: number };
-        all_time: { draft: number; in_progress: number; completed: number; rejected: number };
+        draft: number;
+        pending: number;
+        completed: number;
+        reviewing: number;
     };
+    role_stats: {
+        data_owner_docs: { title: string, completed: number, incomplete: number };
+        processor_docs: { title: string, completed: number, incomplete: number };
+        dpo_docs: { title: string, completed: number, incomplete: number };
+        auditor_docs: { title: string, completed: number, incomplete: number };
+    };
+    revision_stats: {
+        owner_revisions: { title: string, completed: number, incomplete: number };
+        processor_revisions: { title: string, completed: number, incomplete: number };
+        destroyed_docs: { title: string, completed: number, incomplete: number };
+        due_for_destruction: { title: string, completed: number, incomplete: number };
+    };
+    user_stats: any;
 }
 
-const getMultiplier = (range: string) => {
-    switch (range) {
-        case 'today': return 0.15;
-        case 'yesterday': return 0.15;
-        case '7days': return 1;
-        case '14days': return 2;
-        case '30days': return 4;
-        case '90days': return 12;
-        default: return 1;
-    }
-};
-
-// Document Tab Mock Data helper
-const getDocumentsMiniChartsData = (range: string) => {
-    const multi = getMultiplier(range);
-    return [
-        { title: "เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดของผู้ประมวลผลข้อมูลส่วนบุคคล", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดที่ต้องตรวจโดยเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดที่ต้องตรวจสอบโดยผู้ตรวจสอบ", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดที่รอผู้รับผิดชอบข้อมูลแก้ไข", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดที่รอผู้ประมวลผลข้อมูลส่วนบุคคลแก้ไข", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดที่ถูกทำลาย", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-        { title: "เอกสารทั้งหมดที่ครบกำหนดทำลาย", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
-    ];
-};
-
-// Users Tab Mock Data helpers
-const getUsersRoleData = (range: string) => {
-    const multi = getMultiplier(range);
-    return [
-        { title: "ผู้รับผิดชอบข้อมูล", count: Math.ceil(15 * multi), color: "#BF0D21" },
-        { title: "ผู้ประมวลผลข้อมูลส่วนบุคคล", count: Math.ceil(20 * multi), color: "#E1424E" },
-        { title: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", count: Math.ceil(25 * multi), color: "#FFC000" },
-        { title: "ผู้ตรวจสอบ", count: Math.ceil(15 * multi), color: "#1F4E79" },
-        { title: "ผู้ดูแลระบบ", count: Math.ceil(15 * multi), color: "#4472C4" },
-        { title: "ผู้บริหารระดับสูง", count: Math.ceil(5 * multi), color: "#7030A0" },
-    ];
-};
-
-const getUsersDepartmentData = (range: string) => {
-    const multi = getMultiplier(range);
-    
-    const getGenericItems = () => [
-        { name: "แผนกที่ 1 แผนกขาย", count: Math.ceil(3 * multi) },
-        { name: "แผนกที่ 2 แผนกการตลาด", count: Math.ceil(3 * multi) },
-        { name: "แผนกที่ 3 แผนกประชาสัมพันธ์", count: Math.ceil(3 * multi) },
-        { name: "แผนกที่ 4 แผนก IT", count: Math.ceil(3 * multi) },
-        { name: "แผนกที่ 5 แผนก HR", count: Math.ceil(3 * multi) },
-    ];
-
-    const getProcessorItems = () => [
-        { name: "บริษัทที่ 1 A", count: Math.ceil(4 * multi) },
-        { name: "บริษัทที่ 2 B", count: Math.ceil(4 * multi) },
-        { name: "บริษัทที่ 3 C", count: Math.ceil(4 * multi) },
-        { name: "บริษัทที่ 4 D", count: Math.ceil(4 * multi) },
-        { name: "บริษัทที่ 5 E", count: Math.ceil(4 * multi) },
-    ];
-
-    const generic = getGenericItems();
-    const processors = getProcessorItems();
-
-    const sumCounts = (items: any[]) => items.reduce((sum, item) => sum + item.count, 0);
-
-    return [
-        { 
-            title: "จำนวนผู้รับผิดชอบข้อมูล", 
-            subtitle: "แบ่งตามแผนกการทำงาน", 
-            total: sumCounts(generic), 
-            items: generic 
-        },
-        { 
-            title: "จำนวนผู้ประมวลผลข้อมูลส่วนบุคคล", 
-            subtitle: "แบ่งตามบริษัท", 
-            total: sumCounts(processors), 
-            items: processors 
-        },
-        { 
-            title: "จำนวนเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", 
-            subtitle: "แบ่งตามแผนกการทำงาน", 
-            total: sumCounts(generic.map(d => ({ ...d, count: d.count + Math.ceil(2 * multi) }))), 
-            items: generic.map(d => ({ ...d, count: d.count + Math.ceil(2 * multi) })) 
-        },
-        {
-            title: "จำนวนผู้ตรวจสอบ", subtitle: "แบ่งตามแผนกการทำงาน", 
-            total: 0, // Calculated dynamically in tab logic normally, but we'll provide a placeholder
-            hasTabs: true,
-            tabData: {
-                "คนในบริษัท": generic.slice(0, 5).map(d => ({ ...d, count: Math.ceil(d.count / 3) })),
-                "คนนอกบริษัท": processors.slice(0, 5).map(d => ({ ...d, count: Math.ceil(d.count / 4) }))
-            }
-        },
-        { 
-            title: "จำนวนผู้ดูแลระบบ", 
-            subtitle: "แบ่งตามแผนกการทำงาน", 
-            total: sumCounts(getGenericItems()), 
-            items: getGenericItems() 
-        },
-        { 
-            title: "จำนวนผู้บริหารระดับสูง", 
-            subtitle: "แบ่งตามแผนกการทำงาน", 
-            total: sumCounts(generic.map(d => ({ ...d, count: Math.max(1, Math.ceil(multi)) }))), 
-            items: generic.map(d => ({ ...d, count: Math.max(1, Math.ceil(multi)) })) 
-        },
-    ];
+// Helper to map API role keys to Thai labels and colors
+const roleMap: Record<string, { label: string, color: string }> = {
+    OWNER: { label: "ผู้รับผิดชอบข้อมูล", color: "#BF0D21" },
+    PROCESSOR: { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", color: "#E1424E" },
+    DPO: { label: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", color: "#FFB000" },
+    AUDITOR: { label: "ผู้ตรวจสอบ", color: "#1F4E79" },
+    ADMIN: { label: "ผู้ดูแลระบบ", color: "#4472C4" },
+    EXECUTIVE: { label: "ผู้บริหารระดับสูง", color: "#7030A0" }
 };
 
 function MiniDonutChartCard({ title, completed, empty }: { title: string, completed: number, empty: number }) {
@@ -183,16 +100,16 @@ function UserListCard({ data }: { data: any }) {
                             <div className="flex gap-2 mr-1">
                                 <button
                                     onClick={() => setActiveTab("คนในบริษัท")}
-                                    className={`h-7 px-3 text-[12px] font-bold transition-all rounded-md border cursor-pointer ${activeTab === "คนในบริษัท" 
-                                        ? "bg-[#ED393C] text-white border-[#ED393C] shadow-sm" 
+                                    className={`h-7 px-3 text-[12px] font-bold transition-all rounded-md border cursor-pointer ${activeTab === "คนในบริษัท"
+                                        ? "bg-[#ED393C] text-white border-[#ED393C] shadow-sm"
                                         : "bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50"}`}
                                 >
                                     คนในบริษัท
                                 </button>
                                 <button
                                     onClick={() => setActiveTab("คนนอกบริษัท")}
-                                    className={`h-7 px-3 text-[12px] font-bold transition-all rounded-md border cursor-pointer ${activeTab === "คนนอกบริษัท" 
-                                        ? "bg-[#ED393C] text-white border-[#ED393C] shadow-sm" 
+                                    className={`h-7 px-3 text-[12px] font-bold transition-all rounded-md border cursor-pointer ${activeTab === "คนนอกบริษัท"
+                                        ? "bg-[#ED393C] text-white border-[#ED393C] shadow-sm"
                                         : "bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50"}`}
                                 >
                                     คนนอกบริษัท
@@ -228,26 +145,84 @@ function UserListCard({ data }: { data: any }) {
 
 export default function DashboardPage() {
     const [activeTab, setActiveTab] = useState<"documents" | "users">("documents");
-    const [timeRange, setTimeRange] = useState<"today" | "yesterday" | "7days" | "14days" | "30days" | "90days">("7days");
+    const [timeRange, setTimeRange] = useState<"7_days" | "30_days" | "all">("30_days");
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            // Mock data directly
-            const result = {
-                document_status_chart: {
-                    this_week: { draft: 215, in_progress: 482, completed: 840, rejected: 42 },
-                    this_month: { draft: 315, in_progress: 682, completed: 1840, rejected: 82 },
-                    all_time: { draft: 1215, in_progress: 2482, completed: 5840, rejected: 342 }
+    const API_BASE_URL = "http://localhost:8000";
+
+    const fetchDashboardData = async () => {
+        setLoading(true);
+
+        const mockData = {
+            document_status_chart: { draft: 50, pending: 100, completed: 300, reviewing: 10 },
+            user_stats: {
+                user_overview: { total: 460, roles: { OWNER: 150, PROCESSOR: 100, DPO: 80, AUDITOR: 70, ADMIN: 50, EXECUTIVE: 10 } },
+                role_breakdowns: {
+                    owner_breakdown: { by_department: [{ department: "IT", count: 40 }, { department: "HR", count: 30 }] },
+                    processor_breakdown: { by_company: [{ company: "บริษัท A", count: 60 }, { company: "บริษัท B", count: 40 }] },
+                    dpo_breakdown: { by_department: [{ department: "Legal", count: 50 }, { department: "Compliance", count: 30 }] },
+                    auditor_breakdown: {
+                        internal: { by_department: [{ department: "Audit", count: 20 }] },
+                        external: { by_company: [{ company: "Consult A", count: 50 }] }
+                    }
                 }
-            };
-            setData(result);
-            setLoading(false);
+            },
+            role_stats: {
+                data_owner_docs: { title: "เอกสารของผู้รับผิดชอบข้อมูล", completed: 30, incomplete: 20 },
+                processor_docs: { title: "เอกสารของผู้ประมวลผล", completed: 25, incomplete: 25 },
+                dpo_docs: { title: "เอกสารที่ตรวจโดย DPO", completed: 40, incomplete: 10 },
+                auditor_docs: { title: "เอกสารที่ตรวจโดย Auditor", completed: 35, incomplete: 15 },
+            },
+            revision_stats: {
+                owner_revisions: { title: "แก้ไขโดย Owner", completed: 10, incomplete: 5 },
+                processor_revisions: { title: "แก้ไขโดย Processor", completed: 8, incomplete: 2 },
+                destroyed_docs: { title: "เอกสารที่ถูกทำลาย", completed: 5, incomplete: 0 },
+                due_for_destruction: { title: "ครบกำหนดทำลาย", completed: 0, incomplete: 3 },
+            }
         };
 
+        const token = localStorage.getItem("token");
+        if (!token) {
+            console.warn("No token found, using mock data for preview...");
+            setData(mockData);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const headers = { "Authorization": `Bearer ${token}` };
+
+            // Fetch Documents Dashboard
+            const docRes = await fetch(`${API_BASE_URL}/dashboard?period=${timeRange}`, { headers });
+            const docJson = await docRes.json();
+
+            // Fetch Users Dashboard
+            const userRes = await fetch(`${API_BASE_URL}/dashboard/users?period=${timeRange}`, { headers });
+            const userJson = await userRes.json();
+
+            setData({
+                document_status_chart: {
+                    draft: docJson.document_overview.statuses.draft || 0,
+                    pending: docJson.document_overview.statuses.pending || 0,
+                    completed: docJson.document_overview.statuses.completed || 0,
+                    reviewing: docJson.document_overview.statuses.reviewing || 0
+                },
+                role_stats: docJson.role_based_stats,
+                revision_stats: docJson.revision_and_deletion_stats,
+                user_stats: userJson
+            });
+        } catch (error) {
+            console.error("Dashboard fetch error, using mock data fallback:", error);
+            setData(mockData);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchDashboardData();
-    }, []);
+    }, [timeRange]);
 
     if (loading) {
         return <div className="flex h-full items-center justify-center p-8 text-on-surface-variant">กำลังโหลดข้อมูล...</div>;
@@ -301,12 +276,9 @@ export default function DashboardPage() {
                                 onChange={(e) => setTimeRange(e.target.value as any)}
                                 className="h-9 px-4 pr-10 appearance-none bg-white border border-neutral-200 rounded-md text-sm font-medium text-neutral-700 focus:outline-none focus:ring-1 focus:ring-primary shadow-sm hover:bg-neutral-50 cursor-pointer min-w-[200px]"
                             >
-                                <option value="today">วันนี้</option>
-                                <option value="yesterday">เมื่อวาน</option>
-                                <option value="7days">7 วันล่าสุด</option>
-                                <option value="14days">14 วันล่าสุด</option>
-                                <option value="30days">30 วันล่าสุด</option>
-                                <option value="90days">90 วันล่าสุด</option>
+                                <option value="7_days">7 วันล่าสุด</option>
+                                <option value="30_days">30 วันล่าสุด</option>
+                                <option value="all">ทั้งหมด</option>
                             </select>
                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-sm">
                                 expand_more
@@ -330,29 +302,18 @@ export default function DashboardPage() {
 
                             <div className="flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24">
                                 {(() => {
-                                    // Map timeRange to mock data keys
-                                    const multi = getMultiplier(timeRange);
-                                    
-                                    // Scale based on "this_week" base data
-                                    const chartBase = data.document_status_chart.this_week;
-                                    const chartData = {
-                                        draft: Math.ceil(chartBase.draft * multi),
-                                        in_progress: Math.ceil(chartBase.in_progress * multi),
-                                        completed: Math.ceil(chartBase.completed * multi),
-                                        rejected: Math.ceil(chartBase.rejected * multi),
-                                    };
-                                    const totalDocsTimeRange = chartData.draft + chartData.in_progress + chartData.completed + chartData.rejected;
-
+                                    const chartData = data.document_status_chart;
+                                    const totalDocsTimeRange = chartData.draft + chartData.pending + chartData.completed + chartData.reviewing;
                                     const draftPct = totalDocsTimeRange > 0 ? (chartData.draft / totalDocsTimeRange) * 100 : 0;
-                                    const inProgressPct = totalDocsTimeRange > 0 ? (chartData.in_progress / totalDocsTimeRange) * 100 : 0;
+                                    const pendingPct = totalDocsTimeRange > 0 ? (chartData.pending / totalDocsTimeRange) * 100 : 0;
                                     const completedPct = totalDocsTimeRange > 0 ? (chartData.completed / totalDocsTimeRange) * 100 : 0;
-                                    const rejectedPct = totalDocsTimeRange > 0 ? (chartData.rejected / totalDocsTimeRange) * 100 : 0;
+                                    const reviewingPct = totalDocsTimeRange > 0 ? (chartData.reviewing / totalDocsTimeRange) * 100 : 0;
 
                                     // Custom ordering for the SVG stroke offset (starting from top)
                                     const completedOffset = 0;
-                                    const rejectedOffset = -completedPct;
-                                    const inProgressOffset = rejectedOffset - rejectedPct;
-                                    const draftOffset = inProgressOffset - inProgressPct;
+                                    const reviewingOffset = -completedPct;
+                                    const pendingOffset = reviewingOffset - reviewingPct;
+                                    const draftOffset = pendingOffset - pendingPct;
 
                                     return (
                                         <>
@@ -361,8 +322,8 @@ export default function DashboardPage() {
                                                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                                                     <circle cx="18" cy="18" fill="transparent" r="16" stroke="#f0eded" strokeWidth="3.5"></circle>
                                                     {completedPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#2C8C00" strokeDasharray={`${completedPct} 100`} strokeDashoffset={`${completedOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-200"></circle>}
-                                                    {rejectedPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#ED393C" strokeDasharray={`${rejectedPct} 100`} strokeDashoffset={`${rejectedOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-300"></circle>}
-                                                    {inProgressPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#FFCC00" strokeDasharray={`${inProgressPct} 100`} strokeDashoffset={`${inProgressOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-100"></circle>}
+                                                    {reviewingPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#ED393C" strokeDasharray={`${reviewingPct} 100`} strokeDashoffset={`${reviewingOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-300"></circle>}
+                                                    {pendingPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#FFCC00" strokeDasharray={`${pendingPct} 100`} strokeDashoffset={`${pendingOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-100"></circle>}
                                                     {draftPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#F0EDED" strokeDasharray={`${draftPct} 100`} strokeDashoffset={`${draftOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out"></circle>}
                                                 </svg>
                                                 <div className="absolute inset-0 flex items-center justify-center flex-col transition-all duration-500 group-hover:scale-110 text-center px-4">
@@ -386,14 +347,14 @@ export default function DashboardPage() {
                                                         <div className="w-3.5 h-3.5 rounded-full bg-[#FFCC00] shadow-sm"></div>
                                                         <span className="text-sm font-bold text-neutral-700">รอดำเนินการ</span>
                                                     </div>
-                                                    <span className="text-sm font-black text-neutral-500">{chartData.in_progress} ฉบับ</span>
+                                                    <span className="text-sm font-black text-neutral-500">{chartData.pending} ฉบับ</span>
                                                 </div>
                                                 <div className="flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition-colors duration-200 cursor-default group">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-3.5 h-3.5 rounded-full bg-[#ED393C] shadow-sm"></div>
                                                         <span className="text-sm font-bold text-neutral-700">รอตรวจสอบ</span>
                                                     </div>
-                                                    <span className="text-sm font-black text-neutral-500">{chartData.rejected} ฉบับ</span>
+                                                    <span className="text-sm font-black text-neutral-500">{chartData.reviewing} ฉบับ</span>
                                                 </div>
                                                 <div className="flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition-colors duration-200 cursor-default group">
                                                     <div className="flex items-center gap-4">
@@ -410,16 +371,56 @@ export default function DashboardPage() {
                         </div>
                     </section>
 
-                    {/* Mini Charts Grid */}
-                    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {getDocumentsMiniChartsData(timeRange).map((chart, idx) => (
-                            <MiniDonutChartCard key={idx} title={chart.title} completed={chart.completed} empty={chart.empty} />
-                        ))}
-                    </section>
+                    {/* Role-based Document Insights */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <MiniDonutChartCard
+                            title={data.role_stats.data_owner_docs.title}
+                            completed={data.role_stats.data_owner_docs.completed}
+                            empty={data.role_stats.data_owner_docs.incomplete}
+                        />
+                        <MiniDonutChartCard
+                            title={data.role_stats.processor_docs.title}
+                            completed={data.role_stats.processor_docs.completed}
+                            empty={data.role_stats.processor_docs.incomplete}
+                        />
+                        <MiniDonutChartCard
+                            title={data.role_stats.dpo_docs.title}
+                            completed={data.role_stats.dpo_docs.completed}
+                            empty={data.role_stats.dpo_docs.incomplete}
+                        />
+                        <MiniDonutChartCard
+                            title={data.role_stats.auditor_docs.title}
+                            completed={data.role_stats.auditor_docs.completed}
+                            empty={data.role_stats.auditor_docs.incomplete}
+                        />
+                    </div>
+
+                    {/* Revision and Deletion Insights */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <MiniDonutChartCard
+                            title={data.revision_stats.owner_revisions.title}
+                            completed={data.revision_stats.owner_revisions.completed}
+                            empty={data.revision_stats.owner_revisions.incomplete}
+                        />
+                        <MiniDonutChartCard
+                            title={data.revision_stats.processor_revisions.title}
+                            completed={data.revision_stats.processor_revisions.completed}
+                            empty={data.revision_stats.processor_revisions.incomplete}
+                        />
+                        <MiniDonutChartCard
+                            title={data.revision_stats.destroyed_docs.title}
+                            completed={data.revision_stats.destroyed_docs.completed}
+                            empty={data.revision_stats.destroyed_docs.incomplete}
+                        />
+                        <MiniDonutChartCard
+                            title={data.revision_stats.due_for_destruction.title}
+                            completed={data.revision_stats.due_for_destruction.completed}
+                            empty={data.revision_stats.due_for_destruction.incomplete}
+                        />
+                    </div>
                 </div>
             )}
 
-            {/* User Dashboard View */}
             {activeTab === "users" && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-8">
                     <section className="bg-surface-container-lowest p-8 rounded-xl shadow-[0px_12px_32px_rgba(27,28,28,0.06)] border border-neutral-100">
@@ -430,8 +431,16 @@ export default function DashboardPage() {
 
                         <div className="flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24">
                             {(() => {
-                                const activeUserRoleData = getUsersRoleData(timeRange);
-                                const totalUsersCount = activeUserRoleData.reduce((sum, item) => sum + item.count, 0);
+                                const userStats = (data as any).user_stats;
+                                const overview = userStats.user_overview || { total: 0, roles: {} };
+
+                                const roleChartData = Object.entries(overview.roles).map(([key, count]) => ({
+                                    title: roleMap[key]?.label || key,
+                                    count: count as number,
+                                    color: roleMap[key]?.color || "#CCC"
+                                }));
+
+                                const totalUsersCount = overview.total || 0;
                                 let currentOffset = 0;
 
                                 return (
@@ -440,8 +449,8 @@ export default function DashboardPage() {
                                         <div className="relative w-56 h-56 drop-shadow-md cursor-pointer group">
                                             <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                                                 <circle cx="18" cy="18" fill="transparent" r="16" stroke="#f0eded" strokeWidth="3.5"></circle>
-                                                {activeUserRoleData.map((item, idx) => {
-                                                    const pct = (item.count / totalUsersCount) * 100;
+                                                {roleChartData.map((item, idx) => {
+                                                    const pct = totalUsersCount > 0 ? (item.count / totalUsersCount) * 100 : 0;
                                                     const dashArray = `${pct} 100`;
                                                     const offset = currentOffset;
                                                     currentOffset -= pct;
@@ -471,7 +480,7 @@ export default function DashboardPage() {
 
                                         {/* Legend List */}
                                         <div className="w-full max-w-[320px] space-y-1">
-                                            {activeUserRoleData.map((item, idx) => (
+                                            {roleChartData.map((item, idx) => (
                                                 <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition-colors duration-200 cursor-default group">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ backgroundColor: item.color }}></div>
@@ -489,9 +498,45 @@ export default function DashboardPage() {
 
                     {/* Department Grids */}
                     <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {getUsersDepartmentData(timeRange).map((data, idx) => (
-                            <UserListCard key={idx} data={data} />
-                        ))}
+                        {(() => {
+                            const bd = (data as any).user_stats.role_breakdowns || {};
+                            const aud = bd.auditor_breakdown || { internal: { by_department: [] }, external: { by_company: [] } };
+
+                            const cards = [
+                                {
+                                    title: "จำนวนผู้รับผิดชอบข้อมูล",
+                                    subtitle: "แบ่งตามแผนกการทำงาน",
+                                    items: (bd.owner_breakdown?.by_department || []).map((i: any) => ({ name: i.department, count: i.count }))
+                                },
+                                {
+                                    title: "จำนวนผู้ประมวลผลข้อมูลส่วนบุคคล",
+                                    subtitle: "แบ่งตามบริษัท",
+                                    items: (bd.processor_breakdown?.by_company || []).map((i: any) => ({ name: i.company, count: i.count }))
+                                },
+                                {
+                                    title: "จำนวนเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล",
+                                    subtitle: "แบ่งตามแผนกการทำงาน",
+                                    items: (bd.dpo_breakdown?.by_department || []).map((i: any) => ({ name: i.department, count: i.count }))
+                                },
+                                {
+                                    title: "จำนวนผู้ตรวจสอบ",
+                                    subtitle: "แบ่งตามแผนกการทำงาน",
+                                    hasTabs: true,
+                                    tabData: {
+                                        "คนในบริษัท": (aud.internal?.by_department || []).map((i: any) => ({ name: i.department, count: i.count })),
+                                        "คนนอกบริษัท": (aud.external?.by_company || []).map((i: any) => ({ name: i.company, count: i.count }))
+                                    }
+                                }
+                            ];
+
+                            return cards.map((c, idx) => {
+                                const total = c.hasTabs
+                                    ? (c.tabData["คนในบริษัท"].reduce((s: any, i: any) => s + i.count, 0) + c.tabData["คนนอกบริษัท"].reduce((s: any, i: any) => s + i.count, 0))
+                                    : c.items.reduce((s: any, i: any) => s + i.count, 0);
+
+                                return <UserListCard key={idx} data={{ ...c, total }} />;
+                            });
+                        })()}
                     </section>
                 </div>
             )}
