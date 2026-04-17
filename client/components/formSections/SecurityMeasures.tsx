@@ -1,9 +1,9 @@
 "use client";
-
+import React from "react";
 import Input from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 
-export default function Section6TOMs({ form, handleChange, errors, disabled }: any) {
+export default function SecurityMeasures({ form, handleChange, errors, disabled }: any) {
     const measures = [
         { id: "securityMeasures.organizational", label: "มาตรการเชิงองค์กร", icon: "corporate_fare", placeholder: "ระบุมาตรการเชิงองค์กร" },
         { id: "securityMeasures.accessControl", label: "การควบคุมการเข้าถึงข้อมูล", icon: "lock", placeholder: "ระบุการควบคุมการเข้าถึงข้อมูล" },
@@ -14,16 +14,16 @@ export default function Section6TOMs({ form, handleChange, errors, disabled }: a
     ];
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary">
-            {/* Header with Red Accent and Security Icon */}
+        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#ED393C] overflow-hidden">
+            {/* Header: Security Icon */}
             <div className="flex items-center gap-4 px-8 py-6">
-                <div className="bg-primary/5 p-2.5 rounded-xl flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary text-2xl font-semibold">
-                        policy
+                <div className="bg-[#ED393C]/10 p-2.5 rounded-xl flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[#ED393C] text-2xl font-bold">
+                        security
                     </span>
                 </div>
-                <h2 className="font-bold text-xl text-black tracking-tight">
-                    ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs)
+                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                    ส่วนที่ 7 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs)
                 </h2>
             </div>
 
@@ -37,26 +37,29 @@ export default function Section6TOMs({ form, handleChange, errors, disabled }: a
 
                         return (
                             <div key={m.id} className="flex flex-col space-y-4">
+                                {/* Top Label Box: White with Icon */}
                                 <div className={cn(
-                                    "flex items-center gap-4 px-5 py-4 bg-white border border-[#F0F2F5] rounded-2xl shadow-sm",
-                                    disabled && "opacity-60"
+                                    "flex items-center gap-4 px-5 py-4 bg-white border border-[#F0F2F5] rounded-2xl shadow-sm transition-all",
+                                    disabled && "pointer-events-none"
                                 )}>
                                     <div className="text-gray-500/80">
-                                        <span className="material-symbols-outlined text-[22px]">
+                                        <span className="material-symbols-outlined text-[20px]">
                                             {m.icon}
                                         </span>
                                     </div>
-                                    <label className="text-sm font-bold text-[#5C403D] tracking-tight">
+                                    <label className="text-[14px] font-extrabold text-[#5C403D] tracking-tight">
                                         {m.label}
                                     </label>
                                 </div>
 
+                                {/* Bottom Input Box: Standard Gray */}
                                 <Input
                                     name={m.id}
                                     value={value || ""}
                                     placeholder={m.placeholder}
                                     onChange={handleChange}
                                     disabled={disabled}
+                                    className="bg-[#F6F3F2] border-none"
                                 />
                             </div>
                         );

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { cn, formatDateThai, parseDateStr } from "@/lib/utils";
 
 interface ThaiDatePickerProps {
@@ -16,6 +17,8 @@ interface ThaiDatePickerProps {
     bgColor?: string;
     labelClassName?: string;
     variant?: "default" | "compact";
+    // Prop to allow portaling into a specific container (e.g. Modal overlay)
+    portalContainerId?: string;
 }
 
 const THAI_MONTHS = [
@@ -25,10 +28,10 @@ const THAI_MONTHS = [
 
 const DAYS_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
-export default function ThaiDatePicker({ 
-    value, 
-    onChange, 
-    placeholder = "วัน/เดือน/ปี", 
+export default function ThaiDatePicker({
+    value,
+    onChange,
+    placeholder = "วัน/เดือน/ปี",
     label,
     required,
     containerClassName,
@@ -37,34 +40,83 @@ export default function ThaiDatePicker({
     disabled,
     bgColor,
     labelClassName,
-    variant = "default"
+    variant = "default",
+    portalContainerId
 }: ThaiDatePickerProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const [viewDate, setViewDate] = useState(new Date()); // The month we are currently viewing
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [viewDate, setViewDate] = useState(new Date());
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+    const [isMounted, setIsMounted] = useState(false);
 
-    // Sync viewDate with current value when opening
+    const inputRef = useRef<HTMLInputElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const updatePosition = () => {
+        if (!inputRef.current) return;
+        const rect = inputRef.current.getBoundingClientRect();
+        
+        // If we have a portal container like a modal overlay, we should check space
+        // Most modals have enough top space, but little bottom space.
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const dropdownHeight = 350;
+
+        if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+            // Open UPWARDS
+            setDropdownStyle({
+                position: "fixed",
+                bottom: window.innerHeight - rect.top + 8,
+                left: rect.left,
+                width: Math.max(rect.width, 320),
+            });
+        } else {
+            // Open DOWNWARDS
+            setDropdownStyle({
+                position: "fixed",
+                top: rect.bottom + 8,
+                left: rect.left,
+                width: Math.max(rect.width, 320),
+            });
+        }
+    };
+
     useEffect(() => {
         if (isOpen) {
             const timestamp = parseDateStr(value);
-            if (timestamp) {
-                setViewDate(new Date(timestamp));
-            } else {
-                setViewDate(new Date());
-            }
+            setViewDate(timestamp ? new Date(timestamp) : new Date());
+            updatePosition();
         }
     }, [isOpen, value]);
 
-    // Close on click outside
+    // Handle outside clicks
     useEffect(() => {
+        if (!isOpen) return;
         const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            if (
+                inputRef.current && !inputRef.current.contains(target) &&
+                dropdownRef.current && !dropdownRef.current.contains(target)
+            ) {
                 setIsOpen(false);
             }
         };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        document.addEventListener("mousedown", handleClickOutside, true);
+        return () => document.removeEventListener("mousedown", handleClickOutside, true);
+    }, [isOpen]);
+
+    // Track scroll/resize to update position if portaled
+    useEffect(() => {
+        if (!isOpen) return;
+        window.addEventListener("scroll", updatePosition, true);
+        window.addEventListener("resize", updatePosition);
+        return () => {
+            window.removeEventListener("scroll", updatePosition, true);
+            window.removeEventListener("resize", updatePosition);
+        };
+    }, [isOpen]);
 
     const selectedTimestamp = useMemo(() => parseDateStr(value), [value]);
     const selectedDate = selectedTimestamp ? new Date(selectedTimestamp) : null;
@@ -72,45 +124,20 @@ export default function ThaiDatePicker({
     const calendarGrid = useMemo(() => {
         const year = viewDate.getFullYear();
         const month = viewDate.getMonth();
-
         const firstDayOfMonth = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-
         const prevMonthLastDay = new Date(year, month, 0).getDate();
-
         const grid = [];
-
-        // Previous month days
         for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-            grid.push({
-                day: prevMonthLastDay - i,
-                month: month - 1,
-                year: year,
-                isCurrentMonth: false
-            });
+            grid.push({ day: prevMonthLastDay - i, month: month - 1, year, isCurrentMonth: false });
         }
-
-        // Current month days
         for (let i = 1; i <= daysInMonth; i++) {
-            grid.push({
-                day: i,
-                month: month,
-                year: year,
-                isCurrentMonth: true
-            });
+            grid.push({ day: i, month: month, year, isCurrentMonth: true });
         }
-
-        // Next month days
         const remainingCells = 42 - grid.length;
         for (let i = 1; i <= remainingCells; i++) {
-            grid.push({
-                day: i,
-                month: month + 1,
-                year: year,
-                isCurrentMonth: false
-            });
+            grid.push({ day: i, month: month + 1, year, isCurrentMonth: false });
         }
-
         return grid;
     }, [viewDate]);
 
@@ -119,15 +146,12 @@ export default function ThaiDatePicker({
         const day = String(newDate.getDate()).padStart(2, "0");
         const month = String(newDate.getMonth() + 1).padStart(2, "0");
         const year = newDate.getFullYear();
-
-        // We store it as DD/MM/YYYY internally for consistency
         onChange(`${year}-${month}-${day}`);
         setIsOpen(false);
     };
 
-    // Replace the exact function block for changeMonth
     const changeMonth = (offset: number) => {
-        setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
+        setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
     };
 
     const isToday = (d: number, m: number, y: number) => {
@@ -141,112 +165,94 @@ export default function ThaiDatePicker({
 
     const displayYear = viewDate.getFullYear() + 543;
 
+    const popover = (
+        <div
+            ref={dropdownRef}
+            style={{ ...dropdownStyle, zIndex: 9999 }}
+            className="bg-white rounded-[24px] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-[#E5E2E1] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onMouseDown={(e) => e.stopPropagation()}
+        >
+            <div className="p-4 flex items-center justify-between border-b border-[#F6F3F2] bg-white">
+                <button type="button" onClick={() => changeMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F6F3F2]">
+                    <span className="material-symbols-outlined text-secondary">chevron_left</span>
+                </button>
+                <div className="flex flex-col items-center">
+                    <span className="text-[14px] font-black text-[#1B1C1C]">{THAI_MONTHS[viewDate.getMonth()]}</span>
+                    <span className="text-[11px] font-bold text-[#5F5E5E]">พ.ศ. {displayYear}</span>
+                </div>
+                <button type="button" onClick={() => changeMonth(1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F6F3F2]">
+                    <span className="material-symbols-outlined text-secondary">chevron_right</span>
+                </button>
+            </div>
+            <div className="p-3">
+                <div className="grid grid-cols-7 mb-1">
+                    {DAYS_SHORT.map(d => (
+                        <span key={d} className="text-[10px] font-black text-[#9CA3AF] text-center">{d}</span>
+                    ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                    {calendarGrid.map((dateObj, idx) => (
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleDateSelect(dateObj.day, dateObj.month, dateObj.year)}
+                            className={cn(
+                                "h-8 w-full rounded-lg flex items-center justify-center text-[12px] font-bold transition-all",
+                                !dateObj.isCurrentMonth ? "text-gray-300 font-medium" : "text-[#1B1C1C]",
+                                isSelected(dateObj.day, dateObj.month, dateObj.year)
+                                    ? "bg-primary text-white"
+                                    : "hover:bg-[#F6F3F2]",
+                                isToday(dateObj.day, dateObj.month, dateObj.year) && !isSelected(dateObj.day, dateObj.month, dateObj.year) && "text-primary border border-primary/20"
+                            )}
+                        >
+                            {dateObj.day}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="p-2 border-t border-[#F6F3F2] flex justify-center">
+                <button type="button" onClick={() => { const today = new Date(); handleDateSelect(today.getDate(), today.getMonth(), today.getFullYear()); }} className="text-[11px] font-bold text-primary px-3 py-1 hover:bg-primary/5 rounded-full">
+                    วันนี้
+                </button>
+            </div>
+        </div>
+    );
+
+    const portalTarget = portalContainerId ? document.getElementById(portalContainerId) : (typeof document !== 'undefined' ? document.body : null);
+
     return (
-        <div className={cn("space-y-2 w-full relative", containerClassName)} ref={containerRef}>
+        <div className={cn("space-y-2 w-full", containerClassName)}>
             {label && (
-                <label className={cn("text-[15px] font-extrabold text-[#5C403D] block tracking-tight ml-0", labelClassName)}>
+                <label className={cn("text-sm font-black text-[#5C403D] block mb-1.5", labelClassName)}>
                     {label} {required && <span className="text-primary">*</span>}
                 </label>
             )}
 
             <div className="relative group">
                 <input
+                    ref={inputRef}
                     type="text"
                     readOnly
                     disabled={disabled}
                     placeholder={placeholder}
                     value={value ? formatDateThai(value) : ""}
-                    onClick={() => !disabled && setIsOpen(!isOpen)}
+                    onClick={() => !disabled && setIsOpen(prev => !prev)}
                     className={cn(
-                        "w-full px-6 py-2 text-sm font-medium outline-none transition-all cursor-pointer border placeholder:text-[#999] placeholder:opacity-100",
-                        variant === "compact" ? "h-[48px] bg-[#F1F1F1] border-none" : (bgColor === "white" ? "bg-white" : "bg-[#FAFAFA]"),
+                        "w-full px-4 h-[44px] text-sm font-medium outline-none transition-all cursor-pointer border",
+                        variant === "compact" ? "bg-[#F6F3F2] border-none" : "bg-white border-[#E5E2E1]",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
-                        error ? "border-red-500/50 bg-red-50/50" : (variant === "compact" ? "" : "border-[#E4E4E7]"),
-                        "hover:bg-white hover:border-primary/20",
-                        isOpen && "bg-primary/5 border-primary/20 rounded-b-none",
-                        disabled ? "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none text-[#6B7280]" : "text-black"
+                        error ? "border-red-500 bg-red-50" : "",
+                        "hover:bg-white hover:ring-1 hover:ring-primary/20",
+                        isOpen && "ring-2 ring-primary/20",
+                        disabled && "opacity-100 cursor-not-allowed bg-gray-50 text-[#1B1C1C] font-bold"
                     )}
                 />
-                <span className={cn(
-                    "material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-colors",
-                    isOpen ? "text-primary" : "text-[#6B7280]"
-                )}>
+                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[20px]">
                     calendar_month
                 </span>
-
-                {/* Date Picker Popover */}
-                {isOpen && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 z-[100] w-[320px] bg-white rounded-[24px] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] border border-primary/10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        {/* Header */}
-                        <div className="p-5 flex items-center justify-between border-b border-primary/5 bg-primary/[0.02]">
-                            <button
-                                onClick={() => changeMonth(-1)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all active:scale-90"
-                            >
-                                <span className="material-symbols-outlined text-[20px] text-secondary">chevron_left</span>
-                            </button>
-
-                            <div className="flex flex-col items-center">
-                                <span className="text-[15px] font-black text-[#1B1C1C] leading-none">{THAI_MONTHS[viewDate.getMonth()]}</span>
-                                <span className="text-[12px] font-bold text-secondary/60 mt-1">พ.ศ. {displayYear}</span>
-                            </div>
-
-                            <button
-                                onClick={() => changeMonth(1)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all active:scale-90"
-                            >
-                                <span className="material-symbols-outlined text-[20px] text-secondary">chevron_right</span>
-                            </button>
-                        </div>
-
-                        {/* Calendar Body */}
-                        <div className="p-4">
-                            {/* Week Header */}
-                            <div className="grid grid-cols-7 mb-2">
-                                {DAYS_SHORT.map(d => (
-                                    <span key={d} className="text-[11px] font-black text-secondary/40 text-center uppercase tracking-wider">{d}</span>
-                                ))}
-                            </div>
-
-                            {/* Grid */}
-                            <div className="grid grid-cols-7 gap-1">
-                                {calendarGrid.map((dateObj, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleDateSelect(dateObj.day, dateObj.month, dateObj.year)}
-                                        className={cn(
-                                            "h-9 w-full rounded-xl flex items-center justify-center text-[13px] font-bold transition-all relative group/day",
-                                            !dateObj.isCurrentMonth ? "text-secondary/20 font-medium" : "text-[#1B1C1C]",
-                                            isSelected(dateObj.day, dateObj.month, dateObj.year)
-                                                ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105 z-10"
-                                                : "hover:bg-primary/5 hover:text-primary",
-                                            isToday(dateObj.day, dateObj.month, dateObj.year) && !isSelected(dateObj.day, dateObj.month, dateObj.year) && "text-primary bg-primary/10 ring-1 ring-primary/20"
-                                        )}
-                                    >
-                                        {dateObj.day}
-                                        {isToday(dateObj.day, dateObj.month, dateObj.year) && !isSelected(dateObj.day, dateObj.month, dateObj.year) && (
-                                            <span className="absolute bottom-1 w-1 h-1 bg-primary rounded-full animate-pulse" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="p-3 border-t border-primary/5 bg-primary/[0.01] flex justify-center">
-                            <button
-                                onClick={() => {
-                                    const today = new Date();
-                                    handleDateSelect(today.getDate(), today.getMonth(), today.getFullYear());
-                                }}
-                                className="text-[12px] font-black text-primary px-4 py-1.5 rounded-full hover:bg-primary/5 transition-colors"
-                            >
-                                กลับสู่ปฏิทินวันนี้
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {isOpen && isMounted && portalTarget && createPortal(popover, portalTarget)}
         </div>
     );
 }

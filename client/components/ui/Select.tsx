@@ -61,8 +61,8 @@ export default function Select({
     return (
         <div className={cn("space-y-2 w-full", containerClassName)} ref={containerRef}>
             {label && (
-                <label className={cn("text-lg font-extrabold text-black block tracking-tight", labelClassName)}>
-                    {label} {required && <span className="text-primary">*</span>}
+                <label className={cn("text-[13px] font-extrabold text-[#5C403D] block tracking-tight", labelClassName)}>
+                    {label} {required && <span className="text-primary font-bold">*</span>}
                 </label>
             )}
 
@@ -71,17 +71,18 @@ export default function Select({
                 <div
                     onClick={() => !props.disabled && setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between w-full h-11 px-6 py-2 border border-[#E4E4E7] cursor-pointer transition-all hover:bg-white hover:border-primary/20",
-                        bgColor === "white" ? "bg-white" : "bg-[#FAFAFA]",
+                        "flex items-center justify-between w-full h-11 px-4 py-2 border-none cursor-pointer transition-all hover:bg-[#E5BDBA]/10",
+                        bgColor === "white" ? "bg-white" : "bg-[#F6F3F2]",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
-                        error ? "border-red-500/50 bg-red-50/50" : "",
-                        isOpen && "bg-primary/5 border-primary/20 rounded-b-none",
-                        props.disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
+                        error ? "ring-2 ring-red-500/20 bg-red-50/50" : "",
+                        isOpen && "bg-primary/5 rounded-b-none",
+                        props.disabled && "opacity-100 cursor-not-allowed bg-[#F6F3F2] pointer-events-none"
                     )}
                 >
                     <span className={cn(
-                        "text-sm font-medium transition-colors",
-                        selectedOption ? "text-black" : "text-[#6B7280]"
+                        "text-sm font-bold transition-colors",
+                        selectedOption ? "text-[#1B1C1C]" : "text-[#6B7280]",
+                        props.disabled && "text-[#1B1C1C]"
                     )}>
                         {selectedOption ? selectedOption.label : placeholder || "เลือกรายการ..."}
                     </span>

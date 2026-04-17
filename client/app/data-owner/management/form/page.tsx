@@ -3,21 +3,29 @@
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Stepper from "@/components/layouts/Stepper";
-import FormActions from "@/components/layouts/FormActions";
-import Section1GeneralInfo from "@/components/formSections/Section1GeneralInfo";
-import Section2ActivityDetails from "@/components/formSections/Section2ActivityDetails";
-import Section3Stored from "@/components/formSections/Section3Stored";
-import Section4Retention from "@/components/formSections/Section4Retention";
-import Section5Legal from "@/components/formSections/Section5Legal";
-import Section6TOMs from "@/components/formSections/Section6TOMs";
-import Section1_5Channel from "@/components/formSections/Section1_5Channel";
+import GeneralInfo from "@/components/formSections/GeneralInfo";
+import ActivityDetails from "@/components/formSections/ActivityDetails";
+import StoredInfo from "@/components/formSections/StoredInfo";
+import RetentionInfo from "@/components/formSections/RetentionInfo";
+import LegalInfo from "@/components/formSections/LegalInfo";
+import SecurityMeasures from "@/components/formSections/SecurityMeasures";
+import RightsChannel from "@/components/formSections/RightsChannel";
+import FeedbackModal from "@/components/ropa/FeedbackModal";
+import RiskAssessment from "@/components/ropa/RiskAssessment";
+import FormTabs from "@/components/ropa/FormTabs";
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { cn } from "@/lib/utils";
-import FormTabs from "@/components/ropa/FormTabs";
+
+// ─── DP Section placeholder data (mock until real DP integration) ─────────────
+const mockDpSections = [
+    { id: "dp-1", label: "ส่วนที่ 1 : รายละเอียดของผู้ประมวลผล" },
+    { id: "dp-2", label: "ส่วนที่ 2 : กิจกรรมการประมวลผล" },
+    { id: "dp-3", label: "ส่วนที่ 3 : มาตรการความปลอดภัย" },
+];
 
 function ManagementFormContent() {
     const router = useRouter();
@@ -27,11 +35,15 @@ function ManagementFormContent() {
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
     const viewMode = searchParams.get("mode") === "view";
-    
+
     const [activeTab, setActiveTab] = useState("owner");
-    const { saveRecord, getById } = useRopa();
+    const { saveRecord, getById, submitDoSection, sendToDpo, saveRiskAssessment } = useRopa();
     const [isReviewMode, setIsReviewMode] = useState(false);
+    const [isLocked, setIsLocked] = useState(true);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
+    const [feedbackModal, setFeedbackModal] = useState<{ open: boolean; section: string }>({ open: false, section: "" });
+
     const [form, setForm] = useState<Partial<OwnerRecord>>({
         documentName: nameParam || "",
         processorCompany: companyParam || "",
@@ -42,6 +54,8 @@ function ManagementFormContent() {
         address: "",
         email: "",
         phoneNumber: "",
+        rightsEmail: "",
+        rightsPhone: "",
         status: RopaStatus.Draft,
         id: crypto.randomUUID(),
         dataSource: { direct: false, indirect: false },
@@ -58,15 +72,15 @@ function ManagementFormContent() {
             accessControl: "",
             deletionMethod: ""
         },
-        dataType: DataType.General,
-        securityMeasures: {}
+        dataType: [DataType.General],
+        securityMeasures: {},
+        processingStatus: { doStatus: "pending", dpStatus: "pending" },
+        workflow: "processing",
     });
-
-    const initialFormState = { ...form, id: crypto.randomUUID() };
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Load draft from localStorage or existing record by ID
+    // Load existing record if id is provided
     useEffect(() => {
         if (recordId) {
             const existing = getById(recordId);
@@ -77,7 +91,7 @@ function ManagementFormContent() {
         }
         // Fallback to draft
         const savedDraft = localStorage.getItem("ropa_owner_draft");
-        if (savedDraft && !recordId) {
+        if (savedDraft && savedDraft.trim() !== "" && !recordId) {
             try {
                 const parsed = JSON.parse(savedDraft);
                 setForm(prev => ({ ...prev, ...parsed }));
@@ -100,7 +114,6 @@ function ManagementFormContent() {
                 error = "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 10 หลัก)";
             }
         }
-
         setErrors(prev => ({ ...prev, [name]: error }));
         return error === "";
     };
@@ -108,7 +121,6 @@ function ManagementFormContent() {
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
 
-        // Document Name
         if (!form.documentName?.trim()) newErrors.documentName = "กรุณากรอกชื่อเอกสาร";
 
         // Section 1
@@ -121,27 +133,30 @@ function ManagementFormContent() {
         if (!form.phoneNumber) newErrors.phoneNumber = "กรุณากรอกเบอร์โทรศัพท์";
         else if (!/^[0-9]{10}$/.test(form.phoneNumber)) newErrors.phoneNumber = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
 
-        // Section 2 - Activity
+        // Section 2
+        if (!form.rightsEmail) newErrors.rightsEmail = "กรุณากรอกอีเมลช่องทางใช้สิทธิ";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.rightsEmail)) newErrors.rightsEmail = "รูปแบบอีเมลไม่ถูกต้อง";
+        if (!form.rightsPhone) newErrors.rightsPhone = "กรุณากรอกเบอร์โทรศัพท์ช่องทางใช้สิทธิ";
+
+        // Section 3
         if (!form.dataSubjectName) newErrors.dataSubjectName = "กรุณากรอกชื่อเจ้าของข้อมูลส่วนบุคคล";
         if (!form.processingActivity) newErrors.processingActivity = "กรุณากรอกกิจกรรมประมวลผล";
         if (!form.purpose) newErrors.purpose = "กรุณากรอกวัตถุประสงค์การประมวลผล";
 
-        // Section 3 - Stored
+        // Section 4
         if (!form.storedDataTypes || form.storedDataTypes.length === 0) newErrors.storedDataTypes = "กรุณาเลือกข้อมูลส่วนบุคคลอย่างน้อย 1 รายการ";
         if (form.storedDataTypes?.includes("อื่นๆ") && !form.storedDataTypesOther) newErrors.storedDataTypesOther = "กรุณาระบุข้อมูลส่วนบุคคลอื่นๆ";
         if (!form.dataCategories || form.dataCategories.length === 0) newErrors.dataCategories = "กรุณาเลือกหมวดหมู่ของข้อมูลอย่างน้อย 1 รายการ";
-        if (!form.dataType) newErrors.dataType = "กรุณาเลือกประเภทของข้อมูล";
+        if (!form.dataType || (Array.isArray(form.dataType) && form.dataType.length === 0)) newErrors.dataType = "กรุณาเลือกประเภทของข้อมูล";
 
-        // Section 4 - Retention
+        // Section 5
         if (!form.collectionMethod) newErrors.collectionMethod = "กรุณาเลือกวิธีการได้มาซึ่งข้อมูล";
-        if (!form.dataSource?.direct && !form.dataSource?.indirect) newErrors.dataSource = "กรุณาเลือกแหล่งที่ได้มาอย่างน้อย 1 แหล่ง";
         if (!form.retention?.storageType) newErrors.storageType = "กรุณาเลือกประเภทของข้อมูลที่จัดเก็บ";
-        if (!form.retention?.method || form.retention?.method.length === 0) newErrors.retentionMethod = "กรุณาเลือกวิธีการเก็บรักษาข้อมูล";
         if (!form.retention?.duration || form.retention?.duration <= 0) newErrors.retentionDuration = "กรุณาระบุระยะเวลาการเก็บรักษาข้อมูล";
         if (!form.retention?.accessControl) newErrors.accessControl = "กรุณาระบุสิทธิและวิธีการเข้าถึงข้อมูล";
         if (!form.retention?.deletionMethod) newErrors.deletionMethod = "กรุณาระบุวิธีการลบหรือทำลายข้อมูล";
 
-        // Section 5 - Legal
+        // Section 6
         if (!form.legalBasis) newErrors.legalBasis = "กรุณาระบุฐานในการประมวลผล";
         if (!form.minorConsent?.under10 && !form.minorConsent?.age10to20 && !form.minorConsent?.none) newErrors.minorConsent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์อย่างน้อย 1 รายการ";
         if (form.internationalTransfer?.isTransfer === undefined || form.internationalTransfer?.isTransfer === null) newErrors.isTransfer = "กรุณาเลือกว่ามีการส่งข้อมูลไปต่างประเทศหรือไม่";
@@ -166,7 +181,6 @@ function ManagementFormContent() {
             alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
             return false;
         }
-
         return true;
     };
 
@@ -226,61 +240,37 @@ function ManagementFormContent() {
 
     const getCompletedSteps = () => {
         const completed = [];
-
-        // Step 1: Recorder
-        if (form.title && form.firstName && form.lastName && form.address && form.email && form.phoneNumber) {
-            completed.push(1);
-        }
-
-        // Step 2: Channel
-        if (form.dataSource?.direct || form.dataSource?.indirect) {
-            completed.push(2);
-        }
-
-        // Step 3: Activity
-        if (form.dataSubjectName && form.processingActivity && form.purpose) {
-            completed.push(3);
-        }
-
-        // Step 4: Data Types
-        if (
-            form.dataCategories && form.dataCategories.length > 0 &&
-            form.dataType &&
-            form.storedDataTypes && form.storedDataTypes.length > 0
-        ) {
-            completed.push(4);
-        }
-
-        // Step 5: Storage
-        if (
-            form.collectionMethod &&
-            form.retention?.duration &&
-            form.retention?.unit &&
-            form.retention?.accessControl &&
-            form.retention?.deletionMethod
-        ) {
-            completed.push(5);
-        }
-
-        // Step 6: Consent
-        const isTransferComplete = form.internationalTransfer?.isTransfer === false ||
-            (form.internationalTransfer?.isTransfer === true && form.internationalTransfer?.country && form.internationalTransfer?.transferMethod);
-
-        if (form.legalBasis && isTransferComplete && form.exemptionDisclosure) {
-            completed.push(6);
-        }
-
-        // Step 7: Measures
+        if (form.title && form.firstName && form.lastName && form.address && form.email && form.phoneNumber) completed.push(1);
+        if (form.rightsEmail && form.rightsPhone) completed.push(2);
+        if (form.dataSubjectName && form.processingActivity && form.purpose) completed.push(3);
+        if (form.dataCategories && form.dataCategories.length > 0 && form.dataType && (Array.isArray(form.dataType) ? form.dataType.length > 0 : true) && form.storedDataTypes && form.storedDataTypes.length > 0) completed.push(4);
+        if (form.collectionMethod && form.retention?.duration && form.retention?.unit && form.retention?.accessControl && form.retention?.deletionMethod) completed.push(5);
+        const isTransferComplete = form.internationalTransfer?.isTransfer === false || (form.internationalTransfer?.isTransfer === true && form.internationalTransfer?.country && form.internationalTransfer?.transferMethod);
+        if (form.legalBasis && isTransferComplete && form.exemptionDisclosure) completed.push(6);
         const sm = form.securityMeasures;
-        if (sm?.organizational && sm?.accessControl && sm?.technical && sm?.responsibility && sm?.physical && sm?.audit) {
-            completed.push(7);
-        }
-
+        if (sm?.organizational && sm?.accessControl && sm?.technical && sm?.responsibility && sm?.physical && sm?.audit) completed.push(7);
         return completed;
     };
 
     const completedSteps = getCompletedSteps();
+    const doStatus = form.processingStatus?.doStatus ?? "pending";
+    const dpStatus = form.processingStatus?.dpStatus ?? "pending";
 
+    // ─── Handlers ──────────────────────────────────────────────────────────────
+
+    /** ยกเลิก → กลับหน้า processing */
+    const handleCancel = () => {
+        router.push("/data-owner/management/processing");
+    };
+
+    /** บันทึกฉบับร่าง → save Draft + กลับ processing */
+    const handleDraft = () => {
+        const saved = saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
+        localStorage.setItem("ropa_owner_draft", JSON.stringify({ ...form, id: saved.id }));
+        setIsDraftSuccessOpen(true);
+    };
+
+    /** กดบันทึก → validate → review mode */
     const handleSave = () => {
         if (!form.documentName) {
             setErrors(prev => ({ ...prev, documentName: "กรุณาตั้งชื่อเอกสาร" }));
@@ -291,27 +281,29 @@ function ManagementFormContent() {
         }
     };
 
+    /** ยืนยันบันทึก → submitDoSection → modal สำเร็จ */
     const handleFinalConfirm = () => {
-        const saved = saveRecord({
-            ...form,
-            status: RopaStatus.Active,
-        } as OwnerRecord);
+        const saved = saveRecord({ ...form, status: RopaStatus.Processing } as OwnerRecord);
+        submitDoSection(saved.id);
         localStorage.removeItem("ropa_owner_draft");
         setIsSuccessModalOpen(true);
     };
 
-    const handleCancel = () => {
-        if (confirm("คุณต้องการยกเลิกการกรอกข้อมูลใช่หรือไม่? ข้อมูลที่ยังไม่ได้บันทึกจะหายไป")) {
-            setForm(initialFormState);
-            setErrors({});
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+    /** ส่งคำร้องขอเปลี่ยนแปลง DP section */
+    const handleFeedbackConfirm = () => {
+        setFeedbackModal({ open: false, section: "" });
+        // In real app: call API to notify DP
     };
 
-    const handleDraft = () => {
-        saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
-        alert("บันทึกฉบับร่างเรียบร้อยแล้ว");
+    /** Risk Assessment submitted */
+    const handleRiskSubmit = (probability: number, impact: number) => {
+        if (recordId) {
+            saveRiskAssessment(recordId, probability, impact);
+        }
+        alert("ส่งการประเมินความเสี่ยงเรียบร้อยแล้ว");
     };
+
+    // ─── Render ────────────────────────────────────────────────────────────────
 
     return (
         <div className="flex min-h-screen">
@@ -328,10 +320,40 @@ function ManagementFormContent() {
                 />
 
                 <div className="flex-1 overflow-y-auto pt-6 pb-36 space-y-6 animate-in fade-in duration-1000">
-                    
-                    <FormTabs activeTab={activeTab} onTabChange={setActiveTab} />
+                    <div className="px-10">
+                        <h1 className="text-2xl font-black text-[#1B1C1C] tracking-tight">ข้อมูลลูกค้า</h1>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-10">
+                        <div className="flex-1">
+                            <FormTabs
+                                activeTab={activeTab}
+                                onTabChange={setActiveTab}
+                                doComplete={doStatus === "done"}
+                                dpComplete={dpStatus === "done"}
+                            />
+                        </div>
+                        {activeTab === "owner" && (
+                            <button
+                                onClick={() => setIsLocked(!isLocked)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0",
+                                    isLocked 
+                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none" 
+                                        : "text-[#5C403D] border-none hover:bg-black/5"
+                                )}
+                            >
+                                <span className="material-symbols-outlined text-[20px]">
+                                    {isLocked ? "edit" : "done_all"}
+                                </span>
+                                {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
+                            </button>
+                        )}
+                    </div>
 
                     <div className="px-10">
+
+                        {/* ─── Tab: DO (ส่วนของผู้รับผิดชอบข้อมูล) ─────────────── */}
                         {activeTab === "owner" && (
                             <div className="space-y-8">
                                 <Stepper completedSteps={completedSteps} />
@@ -340,80 +362,178 @@ function ManagementFormContent() {
                                     "space-y-8 transition-all duration-300",
                                     isReviewMode && "opacity-75 pointer-events-none grayscale-[0.2]"
                                 )}>
-                                    <Section1GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
-                                    <Section1_5Channel form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
-                                    <Section2ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
-                                    <Section3Stored form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
-                                    <Section4Retention form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
-                                    <Section5Legal form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
-                                    <Section6TOMs form={form} handleChange={handleChange} errors={errors} disabled={viewMode || isReviewMode} />
+                                    <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    <RightsChannel form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
                                 </div>
                             </div>
                         )}
 
-                        {activeTab !== "owner" && (
+                        {/* ─── Tab: DP (ส่วนของผู้ประมวลผล) ───────────────────── */}
+                        {activeTab === "processor" && (
+                            <div className="space-y-6 mt-4">
+                                {mockDpSections.map((section) => (
+                                    <div key={section.id} className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#5C403D] relative">
+                                        {/* Pencil icon to send feedback */}
+                                        <button
+                                            onClick={() => setFeedbackModal({ open: true, section: section.label })}
+                                            className="absolute top-5 right-5 p-2 hover:bg-[#F6F3F2] rounded-lg transition-colors group"
+                                            title="ส่งคำร้องขอเปลี่ยนแปลง"
+                                        >
+                                            <span className="material-symbols-outlined text-[#5C403D] group-hover:text-primary text-[20px]">
+                                                edit
+                                            </span>
+                                        </button>
+                                        <div className="flex items-center gap-4 px-8 py-6 pr-16">
+                                            <div className="bg-[#5C403D]/5 p-2.5 rounded-xl">
+                                                <span className="material-symbols-outlined text-[#5C403D] text-2xl">business</span>
+                                            </div>
+                                            <h2 className="font-black text-xl text-[#1B1C1C] tracking-tight">
+                                                {section.label}
+                                            </h2>
+                                        </div>
+                                        <div className="px-8 pb-8">
+                                            <div className="bg-[#F6F3F2] rounded-xl p-6 text-center">
+                                                <p className="text-sm font-bold text-[#5F5E5E]">
+                                                    {dpStatus === "done"
+                                                        ? "ข้อมูลจากผู้ประมวลผลข้อมูลส่วนบุคคล (แสดงข้อมูลจริงเมื่อ DP ส่งข้อมูล)"
+                                                        : "รอผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการ..."
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ─── Tab: Risk Assessment ────────────────────────────── */}
+                        {activeTab === "risk" && (
+                            <div className="mt-4">
+                                <RiskAssessment
+                                    doStatus={doStatus}
+                                    dpStatus={dpStatus}
+                                    existingRisk={form.riskAssessment}
+                                    onViewDoSection={() => setActiveTab("owner")}
+                                    onViewDpSection={() => setActiveTab("processor")}
+                                    onSubmit={handleRiskSubmit}
+                                    onCancel={() => setActiveTab("owner")}
+                                />
+                            </div>
+                        )}
+
+                        {/* ─── Tab: ยื่นคำร้องขอทำลาย ──────────────────────────── */}
+                        {activeTab === "destruction" && (
                             <div className="bg-white rounded-[32px] p-20 flex flex-col items-center justify-center text-center opacity-50 border border-[#E5E2E1] border-dashed mt-8">
                                 <span className="material-symbols-outlined text-[64px] mb-4 text-[#5C403D]">construction</span>
                                 <h3 className="text-2xl font-black text-[#5C403D]">กำลังพัฒนาส่วนนี้</h3>
-                                <p className="text-[#5F5E5E] font-bold mt-2">โปรดจัดการในส่วน "ส่วนของผู้รับผิดชอบข้อมูล" ก่อน</p>
+                                <p className="text-[#5F5E5E] font-bold mt-2">ยื่นคำร้องขอทำลายเอกสาร</p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {!viewMode ? (
+                {/* ─── Bottom Action Bar ────────────────────────────────────── */}
+                {activeTab === "owner" && !viewMode && (
                     !isReviewMode ? (
-                        <FormActions onSave={handleSave} onDraft={handleDraft} onCancel={handleCancel} />
-                    ) : (
-                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/60 p-4 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                            <button 
-                                onClick={() => setIsReviewMode(false)}
-                                className="text-base font-bold text-[#5C403D] hover:text-[#ED393C] transition-all px-6 py-2"
+                        /* Normal form mode */
+                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
+                            {/* Left: Cancellation */}
+                            <button
+                                onClick={handleCancel}
+                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                             >
-                                ย้อนกลับ
+                                ยกเลิก
                             </button>
-                            <button 
+
+                            {/* Right Group: Draft + Save */}
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleDraft}
+                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                >
+                                    บันทึกฉบับร่าง
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                >
+                                    บันทึก
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Review mode confirmation */
+                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            <button
                                 onClick={handleFinalConfirm}
-                                className="bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-xl font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all"
+                                className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
                             >
                                 ยืนยันข้อมูล RoPA
                             </button>
                         </div>
                     )
-                ) : (
-                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/60 p-4 px-10 flex items-center justify-center z-40 gap-4">
-                        <button 
-                            onClick={() => router.back()}
-                            className="bg-[#1B1C1C] text-white px-12 h-[52px] rounded-xl font-bold text-base shadow-lg hover:opacity-90 transition-all active:scale-95"
-                        >
-                            ปิดหน้าต่าง
-                        </button>
-                    </div>
                 )}
 
-                {/* Final Success Modal */}
-                {isSuccessModalOpen && (
-                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
-                        <div className="bg-white w-full max-w-[560px] rounded-[48px] shadow-2xl p-16 relative flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
-                            <div className="space-y-5 w-full">
-                                <h2 className="text-4xl font-headline font-black text-[#1B1C1C] tracking-tight leading-tight whitespace-nowrap">
-                                    บันทึกรายการ RoPA เสร็จสิ้น
-                                </h2>
-                                <p className="text-lg font-bold text-[#5F5E5E] leading-relaxed max-w-[420px] mx-auto pb-4">
-                                    สามารถจัดการข้อมูลผ่านรายการ RoPA ที่บันทึกไว้
-                                </p>
-                                
-                                <button 
-                                    onClick={() => router.push("/data-owner/management")}
-                                    className="bg-logout-gradient leading-none text-white w-full h-[56px] rounded-2xl font-black text-lg shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
-                                >
-                                    กลับสู่หน้ารายการ RoPA
-                                </button>
-                            </div>
+                {/* View mode close */}
+                {/* View Mode empty footer placeholder or just removed */}
+            </main>
+
+            {/* ─── Feedback Modal ───────────────────────────────────────────── */}
+            <FeedbackModal
+                isOpen={feedbackModal.open}
+                sectionName={feedbackModal.section}
+                onClose={() => setFeedbackModal({ open: false, section: "" })}
+                onConfirm={handleFeedbackConfirm}
+            />
+
+            {/* ─── Draft Success Modal ──────────────────────────────────────── */}
+            {isDraftSuccessOpen && (
+                <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-[500px] rounded-[48px] shadow-2xl p-14 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+                        <div className="bg-primary/5 p-4 rounded-2xl mb-6">
+                            <span className="material-symbols-outlined text-primary text-[40px]">save</span>
+                        </div>
+                        <h2 className="text-3xl font-black text-[#1B1C1C] tracking-tight mb-2">บันทึกฉบับร่างแล้ว</h2>
+                        <p className="text-base font-bold text-[#5F5E5E] mb-8">
+                            สามารถกลับมาแก้ไขได้จากหน้าเอกสารที่ดำเนินการ
+                        </p>
+                        <button
+                            onClick={() => router.push("/data-owner/management/processing")}
+                            className="bg-logout-gradient leading-none text-white w-full h-[52px] rounded-2xl font-black text-base shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
+                        >
+                            กลับสู่หน้าเอกสารที่ดำเนินการ
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Submit Success Modal ─────────────────────────────────────── */}
+            {isSuccessModalOpen && (
+                <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-[560px] rounded-[48px] shadow-2xl p-16 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+                        <div className="space-y-5 w-full">
+                            <h2 className="text-4xl font-headline font-black text-[#1B1C1C] tracking-tight leading-tight">
+                                บันทึกรายการ RoPA เสร็จสิ้น
+                            </h2>
+                            <p className="text-lg font-bold text-[#5F5E5E] leading-relaxed max-w-[420px] mx-auto pb-4">
+                                ส่วนของผู้รับผิดชอบข้อมูลเสร็จสมบูรณ์แล้ว<br />
+                                รอผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการ
+                            </p>
+                            <button
+                                onClick={() => router.push("/data-owner/management/processing")}
+                                className="bg-logout-gradient leading-none text-white w-full h-[56px] rounded-2xl font-black text-lg shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
+                            >
+                                กลับสู่หน้าเอกสารที่ดำเนินการ
+                            </button>
                         </div>
                     </div>
-                )}
-            </main>
+                </div>
+            )}
         </div>
     );
 }
@@ -431,5 +551,3 @@ function ManagementFormPage() {
 }
 
 export default ManagementFormPage;
-
-

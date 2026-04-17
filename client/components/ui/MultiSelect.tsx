@@ -82,23 +82,22 @@ export default function MultiSelect({
                 {selectedValues.map((val) => (
                     <div
                         key={val}
-                        className="flex items-center justify-between px-4 py-1.5 bg-primary/5 border border-primary/30 text-black rounded-full text-xs font-semibold transition-all hover:bg-primary/10"
+                        className="flex items-center justify-between px-4 py-1.5 bg-[#FFF1F1] border border-[#FFD9D9] text-[#1B1C1C] rounded-full text-xs font-bold transition-all hover:bg-red-50"
                     >
-                        <span className="truncate mr-1">{val}</span>
+                        <span className="truncate mr-2 font-black">{val}</span>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 removeTag(val);
                             }}
-                            className="flex items-center justify-center hover:bg-primary/20 rounded-full w-4 h-4 flex-shrink-0"
+                            className="flex items-center justify-center hover:bg-red-200/50 rounded-full w-4 h-4 flex-shrink-0 transition-colors"
                         >
-                            <span className="material-symbols-outlined text-[12px] font-bold">close</span>
+                            <span className="material-symbols-outlined text-[16px] font-bold text-black">close</span>
                         </button>
                     </div>
                 ))}
             </div>
 
-            {/* Input and Dropdown Container */}
             <div className="relative">
                 <div
                     onClick={() => !disabled && setIsOpen(!isOpen)}

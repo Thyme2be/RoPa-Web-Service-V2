@@ -12,7 +12,7 @@ import { OwnerRecord } from "@/types/dataOwner";
 import { RopaStatus } from "@/types/enums";
 import { mockOwnerRecords } from "@/lib/mockRecords";
 
-const STORAGE_KEY = "ropa_owner_records";
+const STORAGE_KEY = "ropa_owner_records_v4";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -44,13 +44,15 @@ export function getRecords(): OwnerRecord[] {
     if (typeof window === "undefined") return mockOwnerRecords;
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
+        // Robust check for empty or malformed storage
+        if (!raw || raw.trim() === "") {
             // Seed with mock data on first load
             localStorage.setItem(STORAGE_KEY, JSON.stringify(mockOwnerRecords));
             return mockOwnerRecords;
         }
         return JSON.parse(raw) as OwnerRecord[];
-    } catch {
+    } catch (e) {
+        console.error("Failed to parse JSON from localStorage", e);
         return mockOwnerRecords;
     }
 }
@@ -132,4 +134,66 @@ export function assignProcessor(
 
 export function resetToMockData(): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mockOwnerRecords));
+}
+
+// ─── Workflow Functions ───────────────────────────────────────────────────────
+
+/** DO กดบันทึก — เปลี่ยน doStatus เป็น done */
+export function submitDoSection(id: string): void {
+    const records = getRecords();
+    const idx = records.findIndex(r => r.id === id);
+    if (idx !== -1) {
+        records[idx].processingStatus = {
+            ...(records[idx].processingStatus ?? { doStatus: "pending", dpStatus: "pending" }),
+            doStatus: "done",
+            doSubmittedDate: formatDate(),
+        };
+        records[idx].status = RopaStatus.Processing;
+        records[idx].workflow = "processing";
+        records[idx].updatedDate = formatDate();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+}
+
+/** ส่งเอกสารให้ DPO ตรวจสอบ */
+export function sendToDpo(id: string): void {
+    const records = getRecords();
+    const idx = records.findIndex(r => r.id === id);
+    if (idx !== -1) {
+        records[idx].status = RopaStatus.ReviewPending;
+        records[idx].workflow = "sent_dpo";
+        records[idx].updatedDate = formatDate();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+}
+
+/** ส่งคำขอลบให้ DPO */
+export function requestDelete(id: string): void {
+    const records = getRecords();
+    const idx = records.findIndex(r => r.id === id);
+    if (idx !== -1) {
+        records[idx].status = RopaStatus.DeletePending;
+        records[idx].workflow = "delete_pending";
+        records[idx].updatedDate = formatDate();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+}
+
+/** บันทึกการประเมินความเสี่ยง */
+export function saveRiskAssessment(id: string, probability: number, impact: number): void {
+    const records = getRecords();
+    const idx = records.findIndex(r => r.id === id);
+    if (idx !== -1) {
+        const total = probability * impact;
+        const level = total <= 6 ? "ต่ำ" : total <= 14 ? "ปานกลาง" : "สูง";
+        records[idx].riskAssessment = {
+            probability,
+            impact,
+            total,
+            level,
+            submittedDate: formatDate(),
+        };
+        records[idx].updatedDate = formatDate();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
 }
