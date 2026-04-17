@@ -91,12 +91,13 @@ CREATE TYPE auditor_type_enum AS ENUM ('INTERNAL', 'EXTERNAL');
 -- =============================================================================
 
 CREATE TABLE users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id serial PRIMARY KEY,
   email varchar UNIQUE NOT NULL,
   username varchar UNIQUE,
   password_hash varchar NOT NULL,
   role user_role_enum NOT NULL,
-  full_name varchar,
+  first_name varchar,
+  last_name varchar,
   department varchar,
   company_name varchar,
   auditor_type auditor_type_enum,
@@ -109,7 +110,7 @@ CREATE TABLE users (
 
 CREATE TABLE user_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   refresh_token_hash varchar NOT NULL,
   user_agent text,
   ip_address varchar,
@@ -120,7 +121,7 @@ CREATE TABLE user_sessions (
 
 CREATE TABLE password_reset_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash varchar NOT NULL,
   expires_at timestamp NOT NULL,
   used_at timestamp,
@@ -131,8 +132,8 @@ CREATE TABLE ropa_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title varchar,
   description text,
-  created_by uuid NOT NULL REFERENCES users(id),
-  updated_by uuid REFERENCES users(id),
+  created_by int NOT NULL REFERENCES users(id),
+  updated_by int REFERENCES users(id),
   status document_status_enum NOT NULL DEFAULT 'IN_PROGRESS',
   deletion_status deletion_status_enum,
   deleted_at timestamp,
@@ -148,9 +149,9 @@ CREATE TABLE ropa_documents (
 CREATE TABLE document_deletion_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  requested_by uuid NOT NULL REFERENCES users(id),
+  requested_by int NOT NULL REFERENCES users(id),
   owner_reason text NOT NULL,
-  dpo_id uuid REFERENCES users(id),
+  dpo_id int REFERENCES users(id),
   dpo_decision decision_enum,
   dpo_reason text,
   status deletion_request_status_enum NOT NULL DEFAULT 'PENDING',
@@ -161,8 +162,8 @@ CREATE TABLE document_deletion_requests (
 CREATE TABLE auditor_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  auditor_id uuid NOT NULL REFERENCES users(id),
-  assigned_by uuid NOT NULL REFERENCES users(id),
+  auditor_id int NOT NULL REFERENCES users(id),
+  assigned_by int NOT NULL REFERENCES users(id),
   auditor_type auditor_type_enum,
   department varchar,
   preferred_first_name varchar,
@@ -175,8 +176,8 @@ CREATE TABLE auditor_assignments (
 CREATE TABLE processor_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  processor_id uuid NOT NULL REFERENCES users(id),
-  assigned_by uuid NOT NULL REFERENCES users(id),
+  processor_id int NOT NULL REFERENCES users(id),
+  assigned_by int NOT NULL REFERENCES users(id),
   due_date timestamp,
   status assignment_status_enum DEFAULT 'IN_PROGRESS',
   created_at timestamp DEFAULT NOW()
@@ -185,7 +186,7 @@ CREATE TABLE processor_assignments (
 CREATE TABLE ropa_risk_assessments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid UNIQUE NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  assessed_by uuid NOT NULL REFERENCES users(id),
+  assessed_by int NOT NULL REFERENCES users(id),
   likelihood int,
   impact int,
   risk_score int,
@@ -197,15 +198,15 @@ CREATE TABLE ropa_risk_assessments (
 CREATE TABLE document_participants (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role document_participant_role_enum
 );
 
 CREATE TABLE ropa_owner_sections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid UNIQUE NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  owner_id uuid NOT NULL REFERENCES users(id),
-  updated_by uuid REFERENCES users(id),
+  owner_id int NOT NULL REFERENCES users(id),
+  updated_by int REFERENCES users(id),
   
   title_prefix varchar,
   first_name varchar,
@@ -308,8 +309,8 @@ CREATE TABLE owner_minor_consent_types (
 CREATE TABLE ropa_processor_sections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
-  processor_id uuid NOT NULL REFERENCES users(id),
-  updated_by uuid REFERENCES users(id),
+  processor_id int NOT NULL REFERENCES users(id),
+  updated_by int REFERENCES users(id),
   
   title_prefix varchar,
   first_name varchar,
@@ -402,8 +403,8 @@ CREATE TABLE document_review_cycles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
   cycle_number int,
-  requested_by uuid NOT NULL REFERENCES users(id),
-  reviewed_by uuid REFERENCES users(id),
+  requested_by int NOT NULL REFERENCES users(id),
+  reviewed_by int REFERENCES users(id),
   status review_status_enum NOT NULL DEFAULT 'IN_REVIEW',
   requested_at timestamp DEFAULT NOW(),
   reviewed_at timestamp
@@ -412,7 +413,7 @@ CREATE TABLE document_review_cycles (
 CREATE TABLE review_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   review_cycle_id uuid NOT NULL REFERENCES document_review_cycles(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role review_assignment_role_enum NOT NULL,
   status review_assignment_status_enum NOT NULL DEFAULT 'FIX_IN_PROGRESS',
   updated_at timestamp DEFAULT NOW()
@@ -421,8 +422,8 @@ CREATE TABLE review_assignments (
 CREATE TABLE review_feedbacks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   review_cycle_id uuid NOT NULL REFERENCES document_review_cycles(id) ON DELETE CASCADE,
-  from_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  to_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  from_user_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target_type feedback_target_enum NOT NULL,
   target_id uuid NOT NULL,
   field_name varchar,
@@ -435,14 +436,14 @@ CREATE TABLE review_feedbacks (
 CREATE TABLE review_dpo_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   review_cycle_id uuid NOT NULL REFERENCES document_review_cycles(id) ON DELETE CASCADE,
-  dpo_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dpo_id int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   assigned_at timestamp DEFAULT NOW(),
   assignment_method varchar
 );
 
 CREATE TABLE audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  user_id int REFERENCES users(id) ON DELETE SET NULL,
   action varchar,
   entity_type varchar,
   entity_id uuid,
@@ -459,7 +460,7 @@ CREATE TABLE document_versions (
   document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
   version_number int,
   snapshot jsonb,
-  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_by int REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamp DEFAULT NOW()
 );
 
@@ -467,12 +468,13 @@ CREATE TABLE document_versions (
 -- Admin Root User Generation
 -- Note: bcrypt hash for Admin@1234
 -- =============================================================================
-INSERT INTO users (email, username, password_hash, role, full_name, status)
+INSERT INTO users (email, username, password_hash, role, first_name, last_name, status)
 VALUES (
     'admin@ropa.local',
     'admin',
     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewlzAM3FeGnI6mkm',
     'ADMIN',
-    'System Administrator',
+    'System',
+    'Administrator',
     'ACTIVE'
 );

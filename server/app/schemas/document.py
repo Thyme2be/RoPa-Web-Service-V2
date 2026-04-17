@@ -15,7 +15,7 @@ from app.schemas.enums import (
 class OwnerSectionRead(BaseModel):
     id: UUID
     document_id: UUID
-    owner_id: UUID
+    owner_id: int
     status: RopaSectionEnum
     
     first_name: Optional[str]
@@ -29,7 +29,7 @@ class OwnerSectionRead(BaseModel):
 class ProcessorSectionRead(BaseModel):
     id: UUID
     document_id: UUID
-    processor_id: UUID
+    processor_id: int
     status: RopaSectionEnum
     
     first_name: Optional[str]
@@ -47,8 +47,8 @@ class ProcessorSectionRead(BaseModel):
 class ProcessorAssignmentRead(BaseModel):
     id: UUID
     document_id: UUID
-    processor_id: UUID
-    assigned_by: UUID
+    processor_id: int
+    assigned_by: int
     status: AssignmentStatusEnum
     due_date: Optional[datetime]
 
@@ -57,8 +57,8 @@ class ProcessorAssignmentRead(BaseModel):
 class AuditorAssignmentRead(BaseModel):
     id: UUID
     document_id: UUID
-    auditor_id: UUID
-    assigned_by: UUID
+    auditor_id: int
+    assigned_by: int
     auditor_type: Optional[AuditorTypeEnum]
     status: AuditorAssignmentStatusEnum
     due_date: datetime
@@ -80,7 +80,7 @@ class DocumentRead(BaseModel):
     title: Optional[str]
     description: Optional[str]
     status: DocumentStatusEnum
-    created_by: UUID
+    created_by: int
     created_at: datetime
     updated_at: datetime
 
@@ -91,3 +91,17 @@ class DocumentDetailRead(DocumentRead):
     processor_sections: List[ProcessorSectionRead] = []
     processor_assignments: List[ProcessorAssignmentRead] = []
     auditor_assignments: List[AuditorAssignmentRead] = []
+
+# ---------------------------------------------------------------------------
+# Assignment Requests
+# ---------------------------------------------------------------------------
+class DpoAssignRequest(BaseModel):
+    dpo_id: int
+
+class AuditorAssignRequest(BaseModel):
+    auditor_id: int
+    auditor_type: AuditorTypeEnum
+    department: str
+    preferred_first_name: str
+    preferred_last_name: str
+    due_date: datetime

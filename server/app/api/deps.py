@@ -6,7 +6,7 @@ get_current_user → decodes JWT, loads user from DB (with role), returns UserRe
 """
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -15,12 +15,12 @@ from app.database import get_db
 from app.models.user import UserModel
 from app.schemas.user import UserRead
 
-# Bearer token extractor
-bearer_scheme = HTTPBearer(auto_error=True)
+# Bearer token extractor pointing to the new swagger-login endpoint
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/swagger-login")
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> UserRead:
     """
@@ -41,11 +41,12 @@ def get_current_user(
     )
 
     try:
-        payload = decode_access_token(credentials.credentials)
-        user_id: str | None = payload.get("sub")
-        if user_id is None:
+        payload = decode_access_token(token)
+        user_id_str: str | None = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
-    except JWTError:
+        user_id = int(user_id_str)
+    except (JWTError, ValueError):
         raise credentials_exception
 
     # Load from DB — also picks up the latest role value

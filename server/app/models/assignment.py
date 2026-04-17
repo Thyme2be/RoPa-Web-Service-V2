@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -13,8 +13,8 @@ class AuditorAssignmentModel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("ropa_documents.id", ondelete="CASCADE"), nullable=False, index=True)
-    auditor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    assigned_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    auditor_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     auditor_type = Column(auditor_type_enum, nullable=True)
     department = Column(String, nullable=True)
@@ -35,8 +35,8 @@ class ProcessorAssignmentModel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("ropa_documents.id", ondelete="CASCADE"), nullable=False, index=True)
-    processor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    assigned_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    processor_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     due_date = Column(DateTime(timezone=True), nullable=True)
     status = Column(assignment_status_enum, default='IN_PROGRESS')
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

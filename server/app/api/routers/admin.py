@@ -26,33 +26,40 @@ def list_users(
 ):
     return db.query(UserModel).offset(skip).limit(limit).all()
 
+from app.schemas.auth import RegisterRequest
+
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED, summary="Create User")
 def create_user(
-    payload: UserCreate,
+    payload: RegisterRequest,
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
 ):
     if db.query(UserModel).filter(UserModel.email == payload.email).first():
         raise HTTPException(status_code=409, detail=f"Email '{payload.email}' already registered.")
+    
+    if db.query(UserModel).filter(UserModel.username == payload.username).first():
+        raise HTTPException(status_code=409, detail=f"Username '{payload.username}' already registered.")
 
     user = UserModel(
         email=payload.email,
-        full_name=payload.full_name,
         username=payload.username,
+        first_name=f"{payload.title} {payload.first_name}".strip() if payload.title else payload.first_name,
+        last_name=payload.last_name,
         department=payload.department,
         company_name=payload.company_name,
         auditor_type=payload.auditor_type,
         password_hash=get_password_hash(payload.password),
-        role=payload.role,
+        role=payload.role or "PROCESSOR",
+        status=payload.status or "ACTIVE",
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
-@router.patch("/users/{user_id}", response_model=UserRead, summary="Update User")
+@router.put("/users/{user_id}", response_model=UserRead, summary="Update User")
 def update_user(
-    user_id: UUID,
+    user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
@@ -61,7 +68,8 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
-    if payload.full_name is not None: user.full_name = payload.full_name
+    if payload.first_name is not None: user.first_name = payload.first_name
+    if payload.last_name is not None: user.last_name = payload.last_name
     if payload.username is not None: user.username = payload.username
     if payload.status is not None: user.status = payload.status
     if payload.role is not None: user.role = payload.role
@@ -75,7 +83,7 @@ def update_user(
 
 @router.delete("/users/{user_id}", status_code=204, summary="Deactivate User")
 def deactivate_user(
-    user_id: UUID,
+    user_id: int,
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
 ):

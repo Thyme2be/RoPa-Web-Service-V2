@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 from email_validator import validate_email, EmailNotValidError
 from app.schemas.enums import UserRoleEnum, UserStatusEnum, AuditorTypeEnum
 
@@ -12,9 +12,9 @@ class LoginRequest(BaseModel):
     def validate_email_format_if_present(cls, v: str) -> str:
         if "@" in v:
             try:
-                validate_email(v, check_deliverability=False)
+                validate_email(v, check_deliverability=False, test_environment=True)
             except EmailNotValidError as e:
-                raise ValueError(f"รูปแบบอีเมลไม่ถูกต้อง: {str(e)}")
+                pass # Ignore here for login to fallback to username match
         return v
 
 class RegisterRequest(BaseModel):
@@ -22,7 +22,7 @@ class RegisterRequest(BaseModel):
     title: str
     first_name: str
     last_name: str
-    email: EmailStr
+    email: str
     password: str
     role: Optional[UserRoleEnum] = None
     company_name: Optional[str] = None
@@ -34,9 +34,10 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_email_format(cls, v: str) -> str:
         try:
-            validate_email(v, check_deliverability=False)
+            validate_email(v, check_deliverability=False, test_environment=True)
         except EmailNotValidError as e:
-            raise ValueError(f"รูปแบบอีเมลไม่ถูกต้อง: {str(e)}")
+            if "@" not in v:
+                raise ValueError(f"รูปแบบอีเมลไม่ถูกต้อง: {str(e)}")
         return v
 
     @field_validator("password")

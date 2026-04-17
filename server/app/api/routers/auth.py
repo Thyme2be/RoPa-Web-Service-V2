@@ -40,6 +40,8 @@ def _store_refresh_token(db: Session, user_id, token: str) -> None:
     db.commit()
 
 
+from fastapi.security import OAuth2PasswordRequestForm
+
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = _authenticate_user(db, payload.username_or_email, payload.password)
@@ -60,6 +62,31 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     _store_refresh_token(db, user.id, refresh_token)
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/swagger-login", summary="Swagger UI Login Form", include_in_schema=False)
+def swagger_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """This endpoint is specifically designed for Swagger UI's OAuth2 authorization flow."""
+    user = _authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email/username or password.",
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is deactivated.",
+        )
+
+    role_name = user.role or "unknown"
+    access_token = create_access_token(user.id, role_name)
+    
+    # Swagger requires token_type to be included
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -122,13 +149,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(UserModel).filter(UserModel.username == payload.username).first():
         raise HTTPException(status_code=409, detail=f"ชื่อผู้ใช้งาน '{payload.username}' มีในระบบแล้ว")
 
-    # Construct full name from title, first name, last name
-    full_name_str = f"{payload.title} {payload.first_name} {payload.last_name}".strip()
-
     user = UserModel(
         email=payload.email,
         username=payload.username,
-        full_name=full_name_str,
+        first_name=f"{payload.title} {payload.first_name}".strip() if payload.title else payload.first_name,
+        last_name=payload.last_name,
         department=payload.department,
         company_name=payload.company_name,
         auditor_type=payload.auditor_type,

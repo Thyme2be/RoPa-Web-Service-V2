@@ -21,8 +21,8 @@ class RopaDocumentModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String, nullable=True)
     description = Column(Text, nullable=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(document_status_enum, nullable=False, default='IN_PROGRESS', index=True)
     deletion_status = Column(deletion_status_enum, nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -49,7 +49,7 @@ class RopaRiskAssessmentModel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("ropa_documents.id", ondelete="CASCADE"), unique=True, nullable=False)
-    assessed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    assessed_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     likelihood = Column(Integer, nullable=True)
     impact = Column(Integer, nullable=True)
     risk_score = Column(Integer, nullable=True)
@@ -66,9 +66,9 @@ class DocumentDeletionRequestModel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("ropa_documents.id", ondelete="CASCADE"), nullable=False)
-    requested_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    requested_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     owner_reason = Column(Text, nullable=False)
-    dpo_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    dpo_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     dpo_decision = Column(decision_enum, nullable=True)
     dpo_reason = Column(Text, nullable=True)
     status = Column(deletion_request_status_enum, nullable=False, default='PENDING')
@@ -83,7 +83,7 @@ class DocumentParticipantModel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("ropa_documents.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(document_participant_role_enum, nullable=True)
 
     document = relationship("RopaDocumentModel", back_populates="participants")
