@@ -52,20 +52,36 @@ export default function AdminTopBar() {
         const fetchUserProfile = async () => {
             try {
                 const token = localStorage.getItem("token");
-                if (!token) return;
+                console.log("[AdminTopBar] Token from localStorage:", token ? "Found" : "Not Found");
+                
+                if (!token) {
+                    console.warn("[AdminTopBar] No token found, staying on default user.");
+                    return;
+                }
 
-                const response = await fetch("http://localhost:8000/users/me", {
+                const apiUrl = "http://localhost:8000/users/me";
+                console.log("[AdminTopBar] Fetching profile from:", apiUrl);
+
+                const response = await fetch(apiUrl, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
                 });
 
+                console.log("[AdminTopBar] API Response Status:", response.status);
+
                 if (response.ok) {
                     const data = await response.json();
+                    console.log("[AdminTopBar] Profile data received:", data);
                     setUser(data);
+                } else if (response.status === 401) {
+                    console.error("[AdminTopBar] Unauthorized: Token might be expired.");
+                    // Fallback to default but could also trigger logout here
+                } else {
+                    console.error("[AdminTopBar] Failed to fetch profile. Status:", response.status);
                 }
             } catch (error) {
-                console.error("Failed to fetch user profile:", error);
+                console.error("[AdminTopBar] Network error while fetching profile:", error);
             }
         };
 

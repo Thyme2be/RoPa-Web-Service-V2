@@ -72,7 +72,7 @@ export default function Select({
                         "flex items-center justify-between w-full h-11 px-4 py-2 border cursor-pointer transition-all hover:bg-white hover:border-primary/20",
                         bgColor === "white" ? "bg-white" : "bg-[#F6F3F2]",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
-                        error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
+                        error ? "border-red-500/50 bg-red-50/50" : "border-[#E5E2E1]",
                         isOpen && "bg-primary/5 border-primary/20 rounded-b-none",
                         props.disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
                     )}

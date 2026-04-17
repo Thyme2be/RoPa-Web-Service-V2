@@ -139,7 +139,7 @@ export function ActionButton({ icon, label, color = "black", onClick, disabled }
 
 export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSort = false, filled = false }: { title: string; icon: string; iconColor?: string; children: React.ReactNode; showSort?: boolean; filled?: boolean }) {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-[#E5E2E1]/40 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-[#E5E2E1]/40">
             <div className="p-5 flex items-center justify-between bg-[#F1EDEC]">
                 <div className="flex items-center gap-3">
                     <span 
