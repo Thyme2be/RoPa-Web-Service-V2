@@ -286,7 +286,7 @@ function UsersPageContent() {
                                                 </button>
                                                 {user.role !== "ผู้ประมวลผลข้อมูลส่วนบุคคล" && user.role !== "ผู้ตรวจสอบ" && user.role !== "Data Processor" && user.role !== "Auditor" && (
                                                     <Link
-                                                        href={`/admin/users/${user.id}/dashboard`}
+                                                        href={`/admin/tables/users/${user.id}/dashboard`}
                                                         title="ดูแดชบอร์ด"
                                                         className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >
@@ -483,20 +483,25 @@ function UsersPageContent() {
                             </div>
 
                             {/* Department */}
-                            <div className="space-y-2">
-                                <label className="text-[13px] font-bold text-[#5E5D5D] block tracking-tight">แผนก</label>
-                                <div className="relative">
-                                    <select
-                                        value={createFormData.department}
-                                        onChange={(e) => setCreateFormData(prev => ({ ...prev, department: e.target.value }))}
-                                        className="w-full h-[42px] bg-[#F6F3F2] border-transparent rounded-[8px] pl-4 pr-10 text-[14px] outline-none hover:bg-[#EAE6E4] focus:ring-2 focus:ring-[#ED393C]/20 transition-all font-medium text-[#6B7280] appearance-none cursor-pointer"
-                                    >
-                                        <option>แผนก IT</option>
-                                        <option>แผนก HR</option>
-                                    </select>
-                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+                            {createFormData.company_type === "ภายในองค์กร" && (
+                                <div className="space-y-2">
+                                    <label className="text-[13px] font-bold text-[#5E5D5D] block tracking-tight">แผนก</label>
+                                    <div className="relative">
+                                        <select
+                                            value={createFormData.department}
+                                            onChange={(e) => setCreateFormData(prev => ({ ...prev, department: e.target.value }))}
+                                            className="w-full h-[42px] bg-[#F6F3F2] border-transparent rounded-[8px] pl-4 pr-10 text-[14px] outline-none hover:bg-[#EAE6E4] focus:ring-2 focus:ring-[#ED393C]/20 transition-all font-medium text-[#6B7280] appearance-none cursor-pointer"
+                                        >
+                                            <option>แผนกขาย</option>
+                                            <option>แผนกการตลาด</option>
+                                            <option>แผนกประชาสัมพันธ์</option>
+                                            <option>แผนก IT</option>
+                                            <option>แผนก HR</option>
+                                        </select>
+                                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Status */}
                             <div className="space-y-2">

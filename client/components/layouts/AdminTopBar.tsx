@@ -81,8 +81,8 @@ export default function AdminTopBar() {
 
             {/* Notifications, Search, Account */}
             <div className="flex items-center gap-6">
-                {/* Search Bar - Show on any table page except the main menu */}
-                {pathname !== "/admin/tables" && pathname.startsWith("/admin/tables") && (
+                {/* Search Bar - Show on table pages except the main menu and individual dashboards */}
+                {pathname !== "/admin/tables" && pathname.startsWith("/admin/tables") && !pathname.includes("/dashboard") && (
                     <div className="relative group hidden lg:block">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-lg">
                             search

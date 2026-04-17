@@ -9,67 +9,110 @@ interface DashboardData {
     };
 }
 
+const getMultiplier = (range: string) => {
+    switch (range) {
+        case 'today': return 0.15;
+        case 'yesterday': return 0.15;
+        case '7days': return 1;
+        case '14days': return 2;
+        case '30days': return 4;
+        case '90days': return 12;
+        default: return 1;
+    }
+};
+
 // Document Tab Mock Data helper
 const getDocumentsMiniChartsData = (range: string) => {
-    const multi = range === 'week' ? 1 : range === 'month' ? 4 : range === '6months' ? 24 : range === '12months' ? 48 : 82;
+    const multi = getMultiplier(range);
     return [
-        { title: "เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดของผู้ประมวลผลข้อมูลส่วนบุคคล", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดที่ต้องตรวจโดยเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดที่ต้องตรวจสอบโดยผู้ตรวจสอบ", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดที่รอผู้รับผิดชอบข้อมูลแก้ไข", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดที่รอผู้ประมวลผลข้อมูลส่วนบุคคลแก้ไข", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดที่ถูกทำลาย", completed: 80 * multi, empty: 20 * multi },
-        { title: "เอกสารทั้งหมดที่ครบกำหนดทำลาย", completed: 80 * multi, empty: 20 * multi },
+        { title: "เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดของผู้ประมวลผลข้อมูลส่วนบุคคล", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดที่ต้องตรวจโดยเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดที่ต้องตรวจสอบโดยผู้ตรวจสอบ", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดที่รอผู้รับผิดชอบข้อมูลแก้ไข", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดที่รอผู้ประมวลผลข้อมูลส่วนบุคคลแก้ไข", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดที่ถูกทำลาย", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
+        { title: "เอกสารทั้งหมดที่ครบกำหนดทำลาย", completed: Math.ceil(80 * multi), empty: Math.ceil(20 * multi) },
     ];
 };
 
 // Users Tab Mock Data helpers
 const getUsersRoleData = (range: string) => {
-    const multi = range === 'week' ? 1 : range === 'month' ? 4 : range === '6months' ? 24 : range === '12months' ? 48 : 82;
+    const multi = getMultiplier(range);
     return [
-        { title: "ผู้รับผิดชอบข้อมูล", count: 15 * multi, color: "#BF0D21" },
-        { title: "ผู้ประมวลผลข้อมูลส่วนบุคคล", count: 20 * multi, color: "#E1424E" },
-        { title: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", count: 25 * multi, color: "#FFC000" },
-        { title: "ผู้ตรวจสอบ", count: 15 * multi, color: "#1F4E79" },
-        { title: "ผู้ดูแลระบบ", count: 15 * multi, color: "#4472C4" },
-        { title: "ผู้บริหารระดับสูง", count: 5 * multi, color: "#7030A0" },
+        { title: "ผู้รับผิดชอบข้อมูล", count: Math.ceil(15 * multi), color: "#BF0D21" },
+        { title: "ผู้ประมวลผลข้อมูลส่วนบุคคล", count: Math.ceil(20 * multi), color: "#E1424E" },
+        { title: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", count: Math.ceil(25 * multi), color: "#FFC000" },
+        { title: "ผู้ตรวจสอบ", count: Math.ceil(15 * multi), color: "#1F4E79" },
+        { title: "ผู้ดูแลระบบ", count: Math.ceil(15 * multi), color: "#4472C4" },
+        { title: "ผู้บริหารระดับสูง", count: Math.ceil(5 * multi), color: "#7030A0" },
     ];
 };
 
 const getUsersDepartmentData = (range: string) => {
-    const multi = range === 'week' ? 1 : range === 'month' ? 4 : range === '6months' ? 24 : range === '12months' ? 48 : 82;
+    const multi = getMultiplier(range);
     
-    const generic = [
-        { name: "แผนกที่ 1 แผนกขาย", count: 3 * multi },
-        { name: "แผนกที่ 2 แผนกการตลาด", count: 3 * multi },
-        { name: "แผนกที่ 3 แผนกประชาสัมพันธ์", count: 3 * multi },
-        { name: "แผนกที่ 4 แผนก IT", count: 3 * multi },
-        { name: "แผนกที่ 5 แผนก HR", count: 3 * multi },
+    const getGenericItems = () => [
+        { name: "แผนกที่ 1 แผนกขาย", count: Math.ceil(3 * multi) },
+        { name: "แผนกที่ 2 แผนกการตลาด", count: Math.ceil(3 * multi) },
+        { name: "แผนกที่ 3 แผนกประชาสัมพันธ์", count: Math.ceil(3 * multi) },
+        { name: "แผนกที่ 4 แผนก IT", count: Math.ceil(3 * multi) },
+        { name: "แผนกที่ 5 แผนก HR", count: Math.ceil(3 * multi) },
     ];
 
-    const processors = [
-        { name: "บริษัทที่ 1 A", count: 4 * multi },
-        { name: "บริษัทที่ 2 B", count: 4 * multi },
-        { name: "บริษัทที่ 3 C", count: 4 * multi },
-        { name: "บริษัทที่ 4 D", count: 4 * multi },
-        { name: "บริษัทที่ 5 E", count: 4 * multi },
+    const getProcessorItems = () => [
+        { name: "บริษัทที่ 1 A", count: Math.ceil(4 * multi) },
+        { name: "บริษัทที่ 2 B", count: Math.ceil(4 * multi) },
+        { name: "บริษัทที่ 3 C", count: Math.ceil(4 * multi) },
+        { name: "บริษัทที่ 4 D", count: Math.ceil(4 * multi) },
+        { name: "บริษัทที่ 5 E", count: Math.ceil(4 * multi) },
     ];
+
+    const generic = getGenericItems();
+    const processors = getProcessorItems();
+
+    const sumCounts = (items: any[]) => items.reduce((sum, item) => sum + item.count, 0);
 
     return [
-        { title: "จำนวนผู้รับผิดชอบข้อมูล", subtitle: "แบ่งตามแผนกการทำงาน", total: 15 * multi, items: generic },
-        { title: "จำนวนผู้ประมวลผลข้อมูลส่วนบุคคล", subtitle: "แบ่งตามบริษัท", total: 20 * multi, items: processors },
-        { title: "จำนวนเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", subtitle: "แบ่งตามแผนกการทำงาน", total: 25 * multi, items: generic.map(d => ({ ...d, count: d.count + 2 * multi })) },
+        { 
+            title: "จำนวนผู้รับผิดชอบข้อมูล", 
+            subtitle: "แบ่งตามแผนกการทำงาน", 
+            total: sumCounts(generic), 
+            items: generic 
+        },
+        { 
+            title: "จำนวนผู้ประมวลผลข้อมูลส่วนบุคคล", 
+            subtitle: "แบ่งตามบริษัท", 
+            total: sumCounts(processors), 
+            items: processors 
+        },
+        { 
+            title: "จำนวนเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", 
+            subtitle: "แบ่งตามแผนกการทำงาน", 
+            total: sumCounts(generic.map(d => ({ ...d, count: d.count + Math.ceil(2 * multi) }))), 
+            items: generic.map(d => ({ ...d, count: d.count + Math.ceil(2 * multi) })) 
+        },
         {
-            title: "จำนวนผู้ตรวจสอบ", subtitle: "แบ่งตามแผนกการทำงาน", total: 9 * multi,
+            title: "จำนวนผู้ตรวจสอบ", subtitle: "แบ่งตามแผนกการทำงาน", 
+            total: 0, // Calculated dynamically in tab logic normally, but we'll provide a placeholder
             hasTabs: true,
             tabData: {
                 "คนในบริษัท": generic.slice(0, 5).map(d => ({ ...d, count: Math.ceil(d.count / 3) })),
                 "คนนอกบริษัท": processors.slice(0, 5).map(d => ({ ...d, count: Math.ceil(d.count / 4) }))
             }
         },
-        { title: "จำนวนผู้ดูแลระบบ", subtitle: "แบ่งตามแผนกการทำงาน", total: 15 * multi, items: generic },
-        { title: "จำนวนผู้บริหารระดับสูง", subtitle: "แบ่งตามแผนกการทำงาน", total: 5 * multi, items: generic.map(d => ({ ...d, count: Math.ceil(multi) })) },
+        { 
+            title: "จำนวนผู้ดูแลระบบ", 
+            subtitle: "แบ่งตามแผนกการทำงาน", 
+            total: sumCounts(getGenericItems()), 
+            items: getGenericItems() 
+        },
+        { 
+            title: "จำนวนผู้บริหารระดับสูง", 
+            subtitle: "แบ่งตามแผนกการทำงาน", 
+            total: sumCounts(generic.map(d => ({ ...d, count: Math.max(1, Math.ceil(multi)) }))), 
+            items: generic.map(d => ({ ...d, count: Math.max(1, Math.ceil(multi)) })) 
+        },
     ];
 };
 
@@ -185,7 +228,7 @@ function UserListCard({ data }: { data: any }) {
 
 export default function DashboardPage() {
     const [activeTab, setActiveTab] = useState<"documents" | "users">("documents");
-    const [timeRange, setTimeRange] = useState<"week" | "month">("week");
+    const [timeRange, setTimeRange] = useState<"today" | "yesterday" | "7days" | "14days" | "30days" | "90days">("7days");
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -258,11 +301,12 @@ export default function DashboardPage() {
                                 onChange={(e) => setTimeRange(e.target.value as any)}
                                 className="h-9 px-4 pr-10 appearance-none bg-white border border-neutral-200 rounded-md text-sm font-medium text-neutral-700 focus:outline-none focus:ring-1 focus:ring-primary shadow-sm hover:bg-neutral-50 cursor-pointer min-w-[200px]"
                             >
-                                <option value="week">สัปดาห์นี้</option>
-                                <option value="month">เดือนนี้</option>
-                                <option value="6months">6 เดือนล่าสุด</option>
-                                <option value="12months">1 ปีล่าสุด</option>
-                                <option value="all">ทั้งหมด</option>
+                                <option value="today">วันนี้</option>
+                                <option value="yesterday">เมื่อวาน</option>
+                                <option value="7days">7 วันล่าสุด</option>
+                                <option value="14days">14 วันล่าสุด</option>
+                                <option value="30days">30 วันล่าสุด</option>
+                                <option value="90days">90 วันล่าสุด</option>
                             </select>
                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-sm">
                                 expand_more
@@ -287,19 +331,16 @@ export default function DashboardPage() {
                             <div className="flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24">
                                 {(() => {
                                     // Map timeRange to mock data keys
-                                    let chartData = data.document_status_chart.this_week;
-                                    const multi = timeRange === 'week' ? 1 : timeRange === 'month' ? 4 : timeRange === '6months' ? 24 : timeRange === '12months' ? 48 : 82;
+                                    const multi = getMultiplier(timeRange);
                                     
-                                    if (timeRange === "month") chartData = data.document_status_chart.this_month;
-                                    else if (timeRange !== "week") {
-                                        // Scale month data for larger ranges
-                                        chartData = {
-                                            draft: data.document_status_chart.this_month.draft * (multi/4),
-                                            in_progress: data.document_status_chart.this_month.in_progress * (multi/4),
-                                            completed: data.document_status_chart.this_month.completed * (multi/4),
-                                            rejected: data.document_status_chart.this_month.rejected * (multi/4),
-                                        };
-                                    }
+                                    // Scale based on "this_week" base data
+                                    const chartBase = data.document_status_chart.this_week;
+                                    const chartData = {
+                                        draft: Math.ceil(chartBase.draft * multi),
+                                        in_progress: Math.ceil(chartBase.in_progress * multi),
+                                        completed: Math.ceil(chartBase.completed * multi),
+                                        rejected: Math.ceil(chartBase.rejected * multi),
+                                    };
                                     const totalDocsTimeRange = chartData.draft + chartData.in_progress + chartData.completed + chartData.rejected;
 
                                     const draftPct = totalDocsTimeRange > 0 ? (chartData.draft / totalDocsTimeRange) * 100 : 0;
