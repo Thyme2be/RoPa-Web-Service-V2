@@ -76,6 +76,7 @@ class OwnerDataTypeModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=True)
+    is_sensitive = Column(Boolean, nullable=False, default=False)  # ข้อมูลทั่วไป=False / ข้อมูลอ่อนไหว=True
 
 class OwnerCollectionMethodModel(Base):
     __tablename__ = "owner_collection_methods"
@@ -103,13 +104,9 @@ class OwnerStorageMethodModel(Base):
     method = Column(String, nullable=True)
     other_description = Column(Text, nullable=True)
 
-class OwnerMinorConsentModel(Base):
-    __tablename__ = "owner_minor_consents"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
-
 class OwnerMinorConsentTypeModel(Base):
+    """ตรงกับ 3 checkbox ใน UI: อายุไม่เกิน 10 ปี / อายุ 10-20 ปี / ไม่มีการขอ"""
     __tablename__ = "owner_minor_consent_types"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    consent_id = Column(UUID(as_uuid=True), ForeignKey("owner_minor_consents.id", ondelete="CASCADE"), nullable=False)
-    type = Column(String, nullable=True)
+    owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String, nullable=False)
