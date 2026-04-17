@@ -139,47 +139,117 @@ def org_dashboard(
         }
     )
 
-from app.models.workflow import ReviewDpoAssignmentModel
-from app.models.document import DocumentDeletionRequestModel
-from app.schemas.dashboard import DpoDashboardResponse, DpoDocumentStats
+from app.models.workflow import ReviewDpoAssignmentModel, ReviewFeedbackModel, DocumentReviewCycleModel
+from app.models.document import DocumentDeletionRequestModel, RopaRiskAssessmentModel
+from app.models.assignment import AuditorAssignmentModel
+from app.schemas.dashboard import (
+    DpoDashboardResponse, TotalReviewed, RevisionNeeded, RiskOverview, 
+    PendingDpoReview, AuditorReviewStatus, ApprovedDocuments, AuditorDelayed
+)
 
 @router.get("/dashboard/dpo", response_model=DpoDashboardResponse, summary="DPO: Dashboard", tags=["Dashboard (DPO)"])
 def dpo_dashboard(
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
-    # Total assigned directly from review_dpo_assignments
-    dpo_assignments_q = db.query(ReviewDpoAssignmentModel).filter(ReviewDpoAssignmentModel.dpo_id == current_user.id)
-    total_assigned = dpo_assignments_q.count()
+    now = datetime.now(timezone.utc)
     
-    # To get status, we need to join DocumentReviewCycleModel
-    docs_review_status = db.query(DocumentReviewCycleModel.status, func.count(DocumentReviewCycleModel.id)).\
-        join(ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id).\
-        filter(ReviewDpoAssignmentModel.dpo_id == current_user.id).\
-        group_by(DocumentReviewCycleModel.status).all()
-        
-    status_map = {str(getattr(row[0], 'value', row[0])): row[1] for row in docs_review_status}
-    in_review = status_map.get('IN_REVIEW', 0) + status_map.get('CHANGES_REQUESTED', 0)
-    approved = status_map.get('APPROVED', 0)
+    # 1. Total Assigned
+    total_assigned = db.query(ReviewDpoAssignmentModel).filter(
+        ReviewDpoAssignmentModel.dpo_id == current_user.id
+    ).count()
+
+    # 2. Revision Needed (Feedbacks created by this DPO)
+    feedbacks = db.query(
+        ReviewFeedbackModel.target_type, func.count(ReviewFeedbackModel.id)
+    ).join(
+        ReviewDpoAssignmentModel,
+        ReviewDpoAssignmentModel.review_cycle_id == ReviewFeedbackModel.review_cycle_id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == current_user.id,
+        ReviewFeedbackModel.from_user_id == current_user.id,
+        ReviewFeedbackModel.status == 'OPEN'
+    ).group_by(ReviewFeedbackModel.target_type).all()
     
-    # Auditor assignments created by this DPO
-    auditors_assigned = db.query(AuditorAssignmentModel).filter(AuditorAssignmentModel.assigned_by == current_user.id).count()
+    owner_rev, proc_rev = 0, 0
+    for target, count in feedbacks:
+        if str(getattr(target, 'value', target)) == 'OWNER_SECTION': owner_rev += count
+        elif str(getattr(target, 'value', target)) == 'PROCESSOR_SECTION': proc_rev += count
+
+    # 3. Risk Overview
+    risks = db.query(
+        RopaRiskAssessmentModel.risk_level, func.count(RopaRiskAssessmentModel.id)
+    ).join(
+        DocumentReviewCycleModel,
+        DocumentReviewCycleModel.document_id == RopaRiskAssessmentModel.document_id
+    ).join(
+        ReviewDpoAssignmentModel,
+        ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == current_user.id
+    ).group_by(RopaRiskAssessmentModel.risk_level).all()
     
-    # Pending deletion requests for this DPO
-    pending_deletion_requests = db.query(DocumentDeletionRequestModel).filter(
+    low, medium, high = 0, 0, 0
+    total_risks = 0
+    for r_level, count in risks:
+        total_risks += count
+        level_str = str(getattr(r_level, 'value', r_level))
+        if level_str == 'LOW': low += count
+        elif level_str == 'MEDIUM': medium += count
+        elif level_str == 'HIGH': high += count
+
+    # 4. Pending DPO Review
+    archiving_pending = db.query(DocumentReviewCycleModel.id).join(
+        ReviewDpoAssignmentModel,
+        ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == current_user.id,
+        DocumentReviewCycleModel.status == 'IN_REVIEW'
+    ).count()
+
+    destruction_pending = db.query(DocumentDeletionRequestModel.id).filter(
         DocumentDeletionRequestModel.dpo_id == current_user.id,
         DocumentDeletionRequestModel.status == 'PENDING'
     ).count()
 
+    # 5. Auditor Review Status
+    auditor_stats = db.query(
+        AuditorAssignmentModel.status, func.count(AuditorAssignmentModel.id)
+    ).filter(AuditorAssignmentModel.assigned_by == current_user.id).group_by(AuditorAssignmentModel.status).all()
+    
+    aud_pending, aud_completed = 0, 0
+    for status, count in auditor_stats:
+        status_str = str(getattr(status, 'value', status))
+        if status_str == 'ASSIGNED': aud_pending += count
+        elif status_str == 'COMPLETED': aud_completed += count
+
+    # 6. Approved Documents
+    approved = db.query(DocumentReviewCycleModel.id).join(
+        ReviewDpoAssignmentModel,
+        ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == current_user.id,
+        DocumentReviewCycleModel.status == 'APPROVED'
+    ).count()
+
+    # 7. Auditor Delayed
+    delayed = db.query(AuditorAssignmentModel.id).filter(
+        AuditorAssignmentModel.assigned_by == current_user.id,
+        AuditorAssignmentModel.status != 'COMPLETED',
+        AuditorAssignmentModel.due_date < now
+    ).count()
+
     return DpoDashboardResponse(
-        document_stats=DpoDocumentStats(
-            total_assigned=total_assigned,
-            in_review=in_review,
-            approved=approved
-        ),
-        auditor_assignments_created=auditors_assigned,
-        pending_deletion_requests=pending_deletion_requests
-    )@router.get("/{username}/dashboard", summary="Admin: Per-User Dashboard", tags=["Dashboard (Admin)"])
+        total_reviewed=TotalReviewed(count=total_assigned),
+        revision_needed=RevisionNeeded(owner_count=owner_rev, processor_count=proc_rev),
+        risk_overview=RiskOverview(total=total_risks, low=low, medium=medium, high=high),
+        pending_dpo_review=PendingDpoReview(for_archiving=archiving_pending, for_destruction=destruction_pending),
+        auditor_review_status=AuditorReviewStatus(pending=aud_pending, completed=aud_completed),
+        approved_documents=ApprovedDocuments(total=approved),
+        auditor_delayed=AuditorDelayed(count=delayed)
+    )
+
+@router.get("/{username}/dashboard", summary="Admin: Per-User Dashboard", tags=["Dashboard (Admin)"])
 def user_dashboard(
     username: str,
     db: Session = Depends(get_db),
