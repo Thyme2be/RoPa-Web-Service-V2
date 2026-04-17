@@ -224,13 +224,17 @@ function InProgressTableContent() {
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center gap-3">
-                                                    <Link href={`/dpo/tables/in-progress/${doc.id}`} title="ดูรายละเอียดและส่งข้อเสนอแนะ" className="text-secondary opacity-60 hover:opacity-100 hover:text-primary transition-all">
+                                                    <Link 
+                                                        href={`/dpo/tables/in-progress/${doc.id}`} 
+                                                        title="ดูรายละเอียดและส่งข้อเสนอแนะ" 
+                                                        className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
+                                                    >
                                                         <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>comment</span>
                                                     </Link>
                                                     <button
                                                         onClick={() => { setSelectedDocId(doc.id); setIsSendModalOpen(true); }}
                                                         title="ส่งให้ผู้ตรวจสอบ"
-                                                        className="text-secondary opacity-60 hover:opacity-100 hover:text-[#ED393C] transition-all cursor-pointer"
+                                                        className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >
                                                         <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>send</span>
                                                     </button>

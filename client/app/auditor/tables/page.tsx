@@ -186,7 +186,11 @@ function AuditorTableContent() {
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center">
-                                                    <Link href={`/auditor/tables/${doc.id}`} title="ดูรายละเอียดและตรวจสอบ" className="text-secondary opacity-60 hover:opacity-100 hover:text-primary transition-all">
+                                                    <Link
+                                                        href={`/auditor/tables/${doc.id}`}
+                                                        title="ตรวจสอบ"
+                                                        className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
+                                                    >
                                                         <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>assignment_turned_in</span>
                                                     </Link>
                                                 </div>
