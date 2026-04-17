@@ -101,11 +101,11 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "อนุมัติ": "bg-[#228B15] text-white",                    // Reference Green
         "ตรวจสอบเสร็จสิ้น": "bg-[#228B15] text-white",           // Reference Green (Review)
         "เสร็จสมบูรณ์": "bg-[#228B15] text-white",               // Reference Green (Processor)
-        "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
+        "รอตรวจสอบ": "bg-[#FBBF24] text-[#5C403D]",               // Yellow
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
-        "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
+        "รอดำเนินการ": "bg-[#FBBF24] text-[#5C403D]",                // Yellow
         "ฉบับร่าง": "bg-[#9CA3AF] text-white",                    // Secondary Gray
         "กำลังใช้งาน": "bg-[#228B15] text-white",               // Green
         "ปิดการใช้งาน": "bg-[#ED393C] text-white"                 // Red
@@ -137,12 +137,17 @@ export function ActionButton({ icon, label, color = "black", onClick, disabled }
     );
 }
 
-export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSort = false }: { title: string; icon: string; iconColor?: string; children: React.ReactNode; showSort?: boolean }) {
+export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSort = false, filled = false }: { title: string; icon: string; iconColor?: string; children: React.ReactNode; showSort?: boolean; filled?: boolean }) {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-[#E5E2E1]/40 overflow-hidden">
             <div className="p-5 flex items-center justify-between bg-[#F1EDEC]">
                 <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined font-bold text-[22px]" style={{ color: iconColor }}>{icon}</span>
+                    <span 
+                        className="material-symbols-outlined font-bold text-[22px]" 
+                        style={{ color: iconColor, fontVariationSettings: filled ? "'FILL' 1" : undefined }}
+                    >
+                        {icon}
+                    </span>
                     <h2 className="text-[17px] font-headline font-black text-[#1B1C1C] tracking-tight">{title}</h2>
                 </div>
                 {showSort && <span className="material-symbols-outlined text-secondary text-lg cursor-pointer">sort</span>}
@@ -174,7 +179,7 @@ export function Pagination({ current, total, onChange }: { current: number; tota
                     <button
                         key={p}
                         onClick={() => onChange?.(p)}
-                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${p === current ? "bg-[#ED393C] text-white font-bold shadow-sm" : "hover:bg-gray-100 font-medium"}`}
+                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer ${p === current ? "bg-[#ED393C] text-white font-bold shadow-sm" : "hover:bg-gray-100 font-medium"}`}
                     >
                         {p}
                     </button>

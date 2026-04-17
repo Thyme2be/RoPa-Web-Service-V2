@@ -1,202 +1,347 @@
 "use client";
-import React, { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import DataTable, { Column } from "@/components/ui/DataTable";
+import React, { useState, Suspense } from 'react';
+import { ListCard, Pagination } from "@/components/ropa/ListComponents";
+import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 
-function TrackingPageContent() {
-    const searchParams = useSearchParams();
-    const globalSearchQuery = searchParams.get("search") || "";
-
-    const [currentPage, setCurrentPage] = useState(1);
-    const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
-
-    const [trackingData, setTrackingData] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-
-    const API_BASE_URL = "http://localhost:8000";
-
-    const fetchTrackingData = async () => {
-        // Mock data
-        const data = {
-            role_summary: {
-                data_owner: { count: 5, label: "รอยืนยันความถูกต้อง", progress_percent: 30 },
-                data_processor: { count: 8, label: "อยู่ระหว่างประมวลผล", progress_percent: 60 },
-                auditor: { count: 3, label: "รอตรวจสอบความยินยอม", progress_percent: 20 }
-            },
-            tracking_list: [
-                { id: "1", title: "เอกสารข้อมูลพนักงาน (HR)", responsible_person: "สมชาย รักษา", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Owner", last_updated: "2023-11-20 10:30", status: "completed" },
-                { id: "2", title: "ข้อมูลลูกค้าการตลาด", responsible_person: "มาลี ดีใจ", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Processor", last_updated: "2023-11-21 14:15", status: "pending" },
-                { id: "3", title: "บันทึกข้อมูลกล้องวงจรปิด", responsible_person: "สมศักดิ์ ปลอดภัย", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Owner", last_updated: "2023-11-22 09:00", status: "pending" },
-                { id: "4", title: "ข้อมูลสัญญาคู่ค้า", responsible_person: "สมชาย รักษา", auditor_name: "สมหญิง ตรวจสอบ", role: "Data Processor", last_updated: "2023-11-23 11:45", status: "completed" }
-            ]
-        };
-        setTrackingData(data);
-        setLoading(false);
-    };
+function ManagementModal({ isOpen, onClose, type, mode, initialData, onSave }: any) {
+    const [inputValue, setInputValue] = React.useState(initialData?.name || "");
 
     React.useEffect(() => {
-        fetchTrackingData();
-    }, []);
+        if (isOpen) {
+            setInputValue(initialData?.name || "");
+        }
+    }, [isOpen, initialData]);
 
-    const mapStatus = (raw: string) => {
-        if (!raw) return "รอดำเนินการ";
-        if (raw.toLowerCase() === "completed") return "เสร็จสมบูรณ์";
-        return "รอดำเนินการ";
+    if (!isOpen) return null;
+
+    const contentMap = {
+        dept: {
+            addTitle: "เพิ่มแผนกใหม่", editTitle: "แก้ไขข้อมูลแผนก",
+            addDesc: "กรอกข้อมูลเพื่อเพิ่มแผนกใหม่", editDesc: "กรอกข้อมูลเพื่อแก้ไขข้อมูลแผนก",
+            label: "ชื่อแผนก", placeholder: "ระบุชื่อแผนก",
+        },
+        role: {
+            addTitle: "เพิ่มบทบาทใหม่", editTitle: "แก้ไขข้อมูลบทบาท",
+            addDesc: "กรอกข้อมูลเพื่อเพิ่มบทบาทใหม่", editDesc: "กรอกข้อมูลเพื่อแก้ไขข้อมูลบทบาท",
+            label: "ชื่อบทบาท", placeholder: "ระบุชื่อบทบาท",
+        },
+        company: {
+            addTitle: "เพิ่มบริษัทภายนอกองค์กร", editTitle: "แก้ไขข้อมูลบริษัทภายนอกองค์กร",
+            addDesc: "กรอกข้อมูลเพื่อเพิ่มบริษัทของผู้ประมวลผลข้อมูลส่วนบุคคล", editDesc: "กรอกข้อมูลเพื่อแก้ไขข้อมูลบริษัทของผู้ประมวลผลข้อมูลส่วนบุคคล",
+            label: "ชื่อบริษัทภายนอกองค์กร", placeholder: "ระบุชื่อบริษัทภายนอกองค์กร",
+        }
     };
 
-    const safeTrackingList = trackingData?.tracking_list || [];
-    const mappedWorkflows = safeTrackingList.map((item: any) => ({
-        id: item.id,
-        name: item.title,
-        owner: item.responsible_person || "-",
-        auditor: item.auditor_name || "-",
-        role: item.role || "",
-        updatedAt: item.last_updated,
-        status: mapStatus(item.status)
-    }));
-
-    const filteredWorkflows = mappedWorkflows.filter((workflow: any) => {
-        const matchesStatus = selectedStatus === "ทั้งหมด" || workflow.status === selectedStatus;
-        const matchesSearch = workflow.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            workflow.owner.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            workflow.auditor.toLowerCase().includes(globalSearchQuery.toLowerCase());
-        return matchesStatus && matchesSearch;
-    });
-
-    const ITEMS_PER_PAGE = 4;
-    const totalPages = Math.ceil(filteredWorkflows.length / ITEMS_PER_PAGE);
-    const paginatedWorkflows = filteredWorkflows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-    const trackingColumns: Column<any>[] = [
-        { header: "ชื่อเอกสาร", key: "name", width: "30%" },
-        {
-            header: "ผู้รับผิดชอบ", key: "owner", width: "20%", align: "center", render: (item) => (
-                <span className="text-sm text-on-surface">{item.owner}</span>
-            )
-        },
-        {
-            header: "ผู้ตรวจสอบ", key: "auditor", width: "20%", align: "center", render: (item) => (
-                <span className="text-sm text-on-surface">{item.auditor}</span>
-            )
-        },
-        {
-            header: "วันที่แก้ไขล่าสุด", key: "updatedAt", width: "15%", align: "center", render: (item) => (
-                <span className="text-sm font-medium text-secondary">{item.updatedAt}</span>
-            )
-        },
-        {
-            header: "สถานะ", key: "status", width: "15%", align: "center", render: (item) => (
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-white text-[10px] font-bold rounded-full ${item.status === "เสร็จสมบูรณ์" ? "bg-[#2C8C00]" : "bg-[#EFC65F]"}`}>
-                    {item.status}
-                </span>
-            )
-        }
-    ];
+    const currentContent = contentMap[type as keyof typeof contentMap];
 
     return (
-        <div className="flex flex-col h-full -m-8">
-            <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                {/* Page Header */}
-                <div className="flex justify-between items-end mb-8">
-                    <div>
-                        <p className="text-xl font-bold tracking-tight text-[#5C403D]">ติดตามการทำงานภายในองค์กร</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-[#1B1C1C]/40 backdrop-blur-[2px] transition-opacity" onClick={onClose}></div>
+            <div className="relative bg-white w-full max-w-[500px] rounded-[16px] shadow-2xl overflow-hidden flex flex-col">
+                <div className="px-8 pt-8 pb-4 relative shrink-0">
+                    <button onClick={onClose} className="absolute right-6 top-6 text-gray-500 hover:text-gray-800 transition-colors cursor-pointer">
+                        <span className="material-symbols-outlined text-[28px] font-light">close</span>
+                    </button>
+                    <h3 className="text-[26px] font-black text-[#1B1C1C] mb-1 tracking-tight">
+                        {mode === "add" ? currentContent.addTitle : currentContent.editTitle}
+                    </h3>
+                    <p className="text-[#5C403D] font-medium text-[16px]">
+                        {mode === "add" ? currentContent.addDesc : currentContent.editDesc}
+                    </p>
+                </div>
+                <div className="px-8 pb-6">
+                    <div className="space-y-2">
+                        <label className="text-[13px] font-bold text-[#5E5D5D] block tracking-tight">{currentContent.label}</label>
+                        <input
+                            type="text"
+                            placeholder={currentContent.placeholder}
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            className="w-full h-[42px] bg-[#F6F3F2] border-transparent rounded-[8px] px-4 text-[14px] outline-none hover:bg-[#EAE6E4] focus:ring-2 focus:ring-[#ED393C]/20 transition-all font-medium text-[#1B1C1C] placeholder:text-gray-500"
+                        />
                     </div>
                 </div>
-
-                {loading ? (
-                    <div className="flex h-full items-center justify-center p-8 text-on-surface-variant font-medium">กำลังโหลดข้อมูล...</div>
-                ) : (
-                    <>
-                        {/* Bento Summary Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            {/* Controller */}
-                            <div className="bg-white p-6 rounded-xl shadow-[0px_12px_32px_rgba(27,28,28,0.04)] border-l-4 border-[#B90A1E]">
-                                <div className="flex justify-between items-start mb-4">
-                                    <p className="text-[14px] font-bold uppercase tracking-widest text-secondary">บทบาท: ผู้รับผิดชอบข้อมูล</p>
-                                    <span className="material-symbols-outlined text-[#B90A1E]">admin_panel_settings</span>
-                                </div>
-                                <h3 className="text-2xl font-extrabold mb-1">
-                                    {trackingData?.role_summary?.data_owner?.count || 0}
-                                    <span className="text-sm font-medium text-secondary"> ฉบับ</span>
-                                </h3>
-                                <p className="text-xs text-on-surface-variant">{trackingData?.role_summary?.data_owner?.label || "รอยืนยันความถูกต้อง"}</p>
-                                <div className="mt-4 h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-                                    <div className="bg-[#B90A1E] h-full transition-all" style={{ width: `${trackingData?.role_summary?.data_owner?.progress_percent || 0}%` }}></div>
-                                </div>
-                            </div>
-                            {/* Processor */}
-                            <div className="bg-white p-6 rounded-xl shadow-[0px_12px_32px_rgba(27,28,28,0.04)] border-l-4 border-tertiary-container">
-                                <div className="flex justify-between items-start mb-4">
-                                    <p className="text-[14px] font-bold uppercase tracking-widest text-secondary">บทบาท: ผู้ประมวลผลข้อมูลส่วนบุคคล</p>
-                                    <span className="material-symbols-outlined text-tertiary-container">account_tree</span>
-                                </div>
-                                <h3 className="text-2xl font-extrabold mb-1">
-                                    {trackingData?.role_summary?.data_processor?.count || 0}
-                                    <span className="text-sm font-medium text-secondary"> ฉบับ</span>
-                                </h3>
-                                <p className="text-xs text-on-surface-variant">{trackingData?.role_summary?.data_processor?.label || "อยู่ระหว่างประมวลผล"}</p>
-                                <div className="mt-4 h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-                                    <div className="bg-tertiary-container h-full transition-all" style={{ width: `${trackingData?.role_summary?.data_processor?.progress_percent || 0}%` }}></div>
-                                </div>
-                            </div>
-                            {/* DPO */}
-                            <div className="bg-white p-6 rounded-xl shadow-[0px_12px_32px_rgba(27,28,28,0.04)] border-l-4 border-[#474747]">
-                                <div className="flex justify-between items-start mb-4">
-                                    <p className="text-[14px] font-bold uppercase tracking-widest text-secondary">บทบาท: ผู้ตรวจสอบ</p>
-                                    <span className="material-symbols-outlined text-secondary">verified_user</span>
-                                </div>
-                                <h3 className="text-2xl font-extrabold mb-1">
-                                    {trackingData?.role_summary?.auditor?.count || 0}
-                                    <span className="text-sm font-medium text-secondary"> ฉบับ</span>
-                                </h3>
-                                <p className="text-xs text-on-surface-variant">{trackingData?.role_summary?.auditor?.label || "รอตรวจสอบความยินยอม"}</p>
-                                <div className="mt-4 h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-                                    <div className="bg-secondary h-full transition-all" style={{ width: `${trackingData?.role_summary?.auditor?.progress_percent || 0}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Reusable Data Table Section */}
-                        <DataTable
-                            columns={trackingColumns}
-                            data={paginatedWorkflows}
-                            searchQuery={globalSearchQuery}
-                            currentPage={currentPage}
-                            totalPages={totalPages}
-                            onPageChange={setCurrentPage}
-                            itemsPerPage={ITEMS_PER_PAGE}
-                            totalItems={filteredWorkflows.length}
-                            filters={
-                                <>
-                                    {/* Status Filter */}
-                                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-md shadow-[0px_2px_8px_rgba(27,28,28,0.04)] relative group h-auto">
-                                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] shrink-0">สถานะ:</span>
-                                        <select
-                                            value={selectedStatus}
-                                            onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
-                                            className="bg-transparent border-none text-sm font-bold text-on-surface focus:ring-0 p-0 pl-2 pr-10 cursor-pointer appearance-none outline-none relative z-10 leading-relaxed py-1"
-                                        >
-                                            <option value="ทั้งหมด">ทั้งหมด</option>
-                                            <option value="เสร็จสมบูรณ์">เสร็จสมบูรณ์</option>
-                                            <option value="รอดำเนินการ">รอดำเนินการ</option>
-                                        </select>
-                                        <span className="material-symbols-outlined absolute right-3 text-lg text-secondary pointer-events-none group-hover:text-primary transition-colors">expand_more</span>
-                                    </div>
-                                </>
-                            }
-                        />
-                    </>
-                )}
+                <div className="px-8 py-5 flex items-center justify-between border-t border-transparent bg-white">
+                    <button onClick={onClose} className="px-8 h-11 rounded-2xl text-[15px] font-bold text-secondary hover:bg-surface-container-high transition-colors cursor-pointer">
+                        ยกเลิก
+                    </button>
+                    <button onClick={() => onSave(inputValue)} className="px-10 h-11 bg-logout-gradient rounded-2xl shadow-lg shadow-red-900/20 text-white font-bold cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all">
+                        {mode === "add" ? "บันทึกข้อมูล" : "บันทึกการแก้ไข"}
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
 
-export default function TrackingPage() {
+function DeptManagementPageContent() {
+    const [deptPage, setDeptPage] = useState(1);
+    const [rolePage, setRolePage] = useState(1);
+    const [compPage, setCompPage] = useState(1);
+    
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'dept', mode: 'add', data: null as any });
+    const [deleteConfig, setDeleteConfig] = useState({ isOpen: false, type: 'dept', data: null as any });
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const ITEMS_PER_PAGE = 3;
+
+    // Mock Data
+    const depts = [
+        { id: 1, name: "แผนกการตลาด" },
+        { id: 2, name: "แผนกประชาสัมพันธ์" },
+        { id: 3, name: "แผนกการขาย" },
+        { id: 4, name: "แผนก IT" },
+        { id: 5, name: "แผนก HR" }
+    ];
+
+    const roles = [
+        { id: 1, name: "ผู้รับผิดชอบข้อมูล" },
+        { id: 2, name: "ผู้ประมวลผลข้อมูลส่วนบุคคล" },
+        { id: 3, name: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" },
+        { id: 4, name: "ผู้ตรวจสอบ" },
+        { id: 5, name: "ผู้ดูแลระบบ" },
+        { id: 6, name: "ผู้บริหารระดับสูง" }
+    ];
+
+    const companies = [
+        { id: 1, name: "บริษัท A" },
+        { id: 2, name: "บริษัท B" },
+        { id: 3, name: "บริษัท C" },
+        { id: 4, name: "บริษัท D" },
+        { id: 5, name: "บริษัท E" }
+    ];
+
+    // Pagination helper
+    const paginate = (data: any[], page: number) => data.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+    const paginatedDepts = paginate(depts, deptPage);
+    const paginatedRoles = paginate(roles, rolePage);
+    const paginatedCompanies = paginate(companies, compPage);
+
+    const totalDeptPages = Math.ceil(depts.length / ITEMS_PER_PAGE);
+    const totalRolePages = Math.ceil(roles.length / ITEMS_PER_PAGE);
+    const totalCompPages = Math.ceil(companies.length / ITEMS_PER_PAGE);
+
+    const handleSave = (value: string) => {
+        setIsProcessing(true);
+        setTimeout(() => {
+            setIsProcessing(false);
+            setModalConfig({ ...modalConfig, isOpen: false });
+        }, 400);
+    };
+
+    const handleDelete = () => {
+        setIsProcessing(true);
+        setTimeout(() => {
+            setIsProcessing(false);
+            setDeleteConfig({ ...deleteConfig, isOpen: false });
+        }, 400);
+    };
+
+    const deleteContentMap = {
+        dept: { title: "ยืนยันการลบข้อมูลแผนก", desc: "กรุณาตรวจสอบข้อมูลแผนกให้เรียบร้อยก่อนดำเนินการลบ", btn: "ลบแผนก" },
+        role: { title: "ยืนยันการลบข้อมูลบทบาท", desc: "กรุณาตรวจสอบข้อมูลบทบาทให้เรียบร้อยก่อนดำเนินการลบ", btn: "ลบบทบาท" },
+        company: { title: "ยืนยันการลบข้อมูลบริษัท", desc: "กรุณาตรวจสอบข้อมูลบริษัทให้เรียบร้อยก่อนดำเนินการลบ", btn: "ลบบริษัท" }
+    };
+    const currentDeleteContent = deleteConfig.type ? deleteContentMap[deleteConfig.type as keyof typeof deleteContentMap] : deleteContentMap.dept;
+
     return (
-        <Suspense fallback={<div className="flex h-full items-center justify-center p-8 text-on-surface-variant font-medium">กำลังโหลด...</div>}>
-            <TrackingPageContent />
-        </Suspense>
+        <div className="flex flex-col h-full -m-8">
+            <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-20">
+                {/* Page Header */}
+                <h1 className="text-[24px] font-headline font-black text-[#1B1C1C] tracking-tight mb-4">
+                    ตารางการจัดการแผนก บทบาท และบริษัทของผู้ประมวลผลข้อมูลส่วนบุคคล
+                </h1>
+
+                {/* Section 1: Departments */}
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-[18px] font-headline font-black text-[#1B1C1C] tracking-tight">ตารางการจัดการแผนก</h2>
+                        <button onClick={() => setModalConfig({ isOpen: true, type: 'dept', mode: 'add', data: null })} className="flex items-center gap-2 bg-[#ED393C] text-white px-4 py-2 rounded-lg font-black text-[14px] shadow-sm hover:opacity-90 transition-all cursor-pointer">
+                            <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                            เพิ่มแผนกใหม่
+                        </button>
+                    </div>
+                    <div className="max-w-4xl mx-auto w-full">
+                        <ListCard title="แผนกในบริษัททั้งหมด" icon="group" filled={true} iconColor="#5C403D">
+                            <table className="w-full text-center border-collapse">
+                                <thead>
+                                    <tr className="border-b border-[#E5E2E1]/40">
+                                        <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase w-2/3">ชื่อสังกัด/แผนก</th>
+                                        <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#E5E2E1]/10">
+                                    {paginatedDepts.map((item) => (
+                                        <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                                            <td className="py-7 text-[13.5px] font-medium text-secondary">{item.name}</td>
+                                            <td className="py-7">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                                        <button onClick={() => setModalConfig({ isOpen: true, type: 'dept', mode: 'edit', data: item })} title="แก้ไข" className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer">
+                                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                                        </button>
+                                                    </div>
+                                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                                        <button onClick={() => setDeleteConfig({ isOpen: true, type: 'dept', data: item })} title="ลบ" className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer">
+                                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
+                                <div className="px-6 flex items-center justify-between">
+                                    <p className="text-[12px] font-medium text-secondary opacity-80">
+                                        แสดง {(deptPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(deptPage * ITEMS_PER_PAGE, depts.length)} จากทั้งหมด {depts.length} รายการ
+                                    </p>
+                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                        <Pagination current={deptPage} total={totalDeptPages} onChange={setDeptPage} />
+                                    </div>
+                                </div>
+                            </div>
+                        </ListCard>
+                    </div>
+                </div>
+
+                {/* Section 2: Roles */}
+                <div className="space-y-4 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-[18px] font-headline font-black text-[#1B1C1C] tracking-tight">ตารางการจัดการบทบาท</h2>
+                        <button onClick={() => setModalConfig({ isOpen: true, type: 'role', mode: 'add', data: null })} className="flex items-center gap-2 bg-[#ED393C] text-white px-4 py-2 rounded-lg font-black text-[14px] shadow-sm hover:opacity-90 transition-all cursor-pointer">
+                            <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                            เพิ่มบทบาทใหม่
+                        </button>
+                    </div>
+                    <div className="max-w-4xl mx-auto w-full">
+                        <ListCard title="บทบาทในบริษัททั้งหมด" icon="account_circle" filled={true} iconColor="#5C403D">
+                            <table className="w-full text-center border-collapse">
+                                <thead>
+                                    <tr className="border-b border-[#E5E2E1]/40">
+                                        <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase w-2/3">บทบาท</th>
+                                        <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#E5E2E1]/10">
+                                    {paginatedRoles.map((item) => (
+                                        <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                                            <td className="py-7 text-[13.5px] font-medium text-secondary">{item.name}</td>
+                                            <td className="py-7">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                                        <button onClick={() => setModalConfig({ isOpen: true, type: 'role', mode: 'edit', data: item })} title="แก้ไข" className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer">
+                                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                                        </button>
+                                                    </div>
+                                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                                        <button onClick={() => setDeleteConfig({ isOpen: true, type: 'role', data: item })} title="ลบ" className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer">
+                                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
+                                <div className="px-6 flex items-center justify-between">
+                                    <p className="text-[12px] font-medium text-secondary opacity-80">
+                                        แสดง {(rolePage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(rolePage * ITEMS_PER_PAGE, roles.length)} จากทั้งหมด {roles.length} รายการ
+                                    </p>
+                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                        <Pagination current={rolePage} total={totalRolePages} onChange={setRolePage} />
+                                    </div>
+                                </div>
+                            </div>
+                        </ListCard>
+                    </div>
+                </div>
+
+                {/* Section 3: Companies */}
+                <div className="space-y-4 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-[18px] font-headline font-black text-[#1B1C1C] tracking-tight">ตารางการจัดการบริษัทของผู้ประมวลผลข้อมูลส่วนบุคคล</h2>
+                        <button onClick={() => setModalConfig({ isOpen: true, type: 'company', mode: 'add', data: null })} className="flex items-center gap-2 bg-[#ED393C] text-white px-4 py-2 rounded-lg font-black text-[14px] shadow-sm hover:opacity-90 transition-all cursor-pointer">
+                            <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                            เพิ่มบริษัทใหม่
+                        </button>
+                    </div>
+                    <div className="max-w-4xl mx-auto w-full">
+                        <ListCard title="บริษัทของผู้ประมวลผลข้อมูลส่วนบุคคล" icon="corporate_fare">
+                            <table className="w-full text-center border-collapse">
+                                <thead>
+                                    <tr className="border-b border-[#E5E2E1]/40">
+                                        <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase w-2/3">บริษัท</th>
+                                        <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#E5E2E1]/10">
+                                    {paginatedCompanies.map((item) => (
+                                        <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                                            <td className="py-7 text-[13.5px] font-medium text-secondary">{item.name}</td>
+                                            <td className="py-7">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                                        <button onClick={() => setModalConfig({ isOpen: true, type: 'company', mode: 'edit', data: item })} title="แก้ไข" className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer">
+                                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                                        </button>
+                                                    </div>
+                                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                                        <button onClick={() => setDeleteConfig({ isOpen: true, type: 'company', data: item })} title="ลบ" className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer">
+                                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
+                                <div className="px-6 flex items-center justify-between">
+                                    <p className="text-[12px] font-medium text-secondary opacity-80">
+                                        แสดง {(compPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(compPage * ITEMS_PER_PAGE, companies.length)} จากทั้งหมด {companies.length} รายการ
+                                    </p>
+                                    <div className="[&_p]:hidden [&_div]:mt-0">
+                                        <Pagination current={compPage} total={totalCompPages} onChange={setCompPage} />
+                                    </div>
+                                </div>
+                            </div>
+                        </ListCard>
+                    </div>
+                </div>
+            </div>
+
+            <ManagementModal 
+                isOpen={modalConfig.isOpen} 
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })} 
+                type={modalConfig.type} 
+                mode={modalConfig.mode} 
+                initialData={modalConfig.data} 
+                onSave={handleSave} 
+            />
+
+            <DeleteConfirmModal
+                isOpen={deleteConfig.isOpen}
+                onClose={() => setDeleteConfig({ ...deleteConfig, isOpen: false })}
+                onConfirm={handleDelete}
+                title={currentDeleteContent.title}
+                description={currentDeleteContent.desc}
+                confirmLabel={currentDeleteContent.btn}
+                isLoading={isProcessing}
+            />
+        </div>
     );
 }
 
+export default function DeptManagementPage() {
+    return (
+        <Suspense fallback={<div className="flex h-full items-center justify-center p-8 text-on-surface-variant font-medium">กำลังโหลด...</div>}>
+            <DeptManagementPageContent />
+        </Suspense>
+    );
+}

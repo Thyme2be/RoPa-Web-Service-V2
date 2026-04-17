@@ -18,7 +18,7 @@ function UsersPageContent() {
     const [userToDelete, setUserToDelete] = useState<any>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
-    const [createFormData, setCreateFormData] = useState<Record<string, string>>({
+    const initialCreateFormData = {
         username: "",
         prefix: "นางสาว",
         first_name: "",
@@ -30,7 +30,9 @@ function UsersPageContent() {
         company_type: "ภายในองค์กร",
         department: "แผนก IT",
         status: "กำลังใช้งาน"
-    });
+    };
+
+    const [createFormData, setCreateFormData] = useState<Record<string, string>>(initialCreateFormData);
 
     const [usersData, setUsersData] = useState<{
         total_users: number,
@@ -110,6 +112,12 @@ function UsersPageContent() {
     const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
     const paginatedUsers = filteredUsers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
+    const handleOpenCreateModal = () => {
+        setCreateFormData(initialCreateFormData);
+        setIsEditMode(false);
+        setIsCreateModalOpen(true);
+    };
+
     const [isCreating, setIsCreating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -118,11 +126,7 @@ function UsersPageContent() {
         setIsCreating(true);
         setTimeout(() => {
             setIsCreateModalOpen(false);
-            setCreateFormData({
-                username: "", prefix: "นางสาว", first_name: "", last_name: "",
-                email: "", password: "", role: "ไม่มีบทบาท", company: "บริษัท A",
-                company_type: "ภายในองค์กร", department: "แผนก IT", status: "กำลังใช้งาน"
-            });
+            setCreateFormData(initialCreateFormData);
             fetchUsers();
             setIsCreating(false);
             setIsEditMode(false);
@@ -188,7 +192,7 @@ function UsersPageContent() {
                         <h2 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight mb-1">ตารางแสดงรายชื่อผู้ใช้ในระบบ</h2>
                     </div>
                     <button
-                        onClick={() => setIsCreateModalOpen(true)}
+                        onClick={handleOpenCreateModal}
                         className="flex items-center gap-2 bg-[#ED393C] text-white px-6 py-2.5 rounded-lg font-bold shadow-md hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
                     >
                         <span className="material-symbols-outlined">add_circle</span>
@@ -238,7 +242,7 @@ function UsersPageContent() {
 
                 {/* ListCard Table */}
                 <div className="space-y-0">
-                    <ListCard title="รายชื่อผู้ใช้ทั้งหมด" icon="account_circle">
+                    <ListCard title="รายชื่อผู้ใช้ทั้งหมด" icon="account_circle" filled={true} iconColor="#5C403D">
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
@@ -255,7 +259,7 @@ function UsersPageContent() {
                                 {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
                                         <td className="py-7 text-[13.5px] font-medium text-secondary">{user.id}</td>
-                                        <td className="py-7 text-[15.5px] font-medium text-[#1B1C1C] tracking-tight leading-snug">{user.name}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#1B1C1C] tracking-tight leading-snug">{user.name}</td>
                                         <td className="py-7 text-[13.5px] font-medium text-secondary">{user.email}</td>
                                         <td className="py-7 text-[13.5px] font-medium text-secondary">{user.role}</td>
                                         <td className="py-7 text-[13.5px] font-medium text-secondary">{user.department}</td>
@@ -269,24 +273,26 @@ function UsersPageContent() {
                                                 <button
                                                     onClick={() => handleOpenEditModal(user)}
                                                     title="จัดการผู้ใช้"
-                                                    className="w-7 h-7 rounded-full bg-[#E5E2E1]/60 flex items-center justify-center text-secondary hover:text-[#1B1C1C] transition-colors cursor-pointer"
+                                                    className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                 >
-                                                    <span className="material-symbols-outlined text-[15px]">account_circle</span>
+                                                    <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>account_circle</span>
                                                 </button>
                                                 <button
                                                     onClick={() => { setUserToDelete(user); setIsDeleteModalOpen(true); }}
                                                     title="ลบผู้ใช้งาน"
-                                                    className="w-7 h-7 rounded-full bg-[#E5E2E1]/60 flex items-center justify-center text-secondary hover:text-[#ED393C] transition-colors cursor-pointer"
+                                                    className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                 >
-                                                    <span className="material-symbols-outlined text-[15px]">delete</span>
+                                                    <span className="material-symbols-outlined text-[18px]">delete</span>
                                                 </button>
-                                                <Link
-                                                    href={`/admin/users/${user.id}/dashboard`}
-                                                    title="ดูแดชบอร์ด"
-                                                    className="w-7 h-7 rounded-full bg-[#E5E2E1]/60 flex items-center justify-center text-secondary hover:text-[#1B1C1C] transition-colors cursor-pointer"
-                                                >
-                                                    <span className="material-symbols-outlined text-[15px]">visibility</span>
-                                                </Link>
+                                                {user.role !== "ผู้ประมวลผลข้อมูลส่วนบุคคล" && user.role !== "ผู้ตรวจสอบ" && user.role !== "Data Processor" && user.role !== "Auditor" && (
+                                                    <Link
+                                                        href={`/admin/users/${user.id}/dashboard`}
+                                                        title="ดูแดชบอร์ด"
+                                                        className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[18px]">visibility</span>
+                                                    </Link>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -304,8 +310,13 @@ function UsersPageContent() {
                             Actually, Data Owner puts it INSIDE the ListCard.
                         */}
                         <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
-                            <div className="px-6 mt-[-24px]">
-                                <Pagination current={currentPage} total={totalPages} onChange={setCurrentPage} />
+                            <div className="px-6 flex items-center justify-between">
+                                <p className="text-[12px] font-medium text-secondary opacity-80">
+                                    แสดง {(currentPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)} จากทั้งหมด {filteredUsers.length} รายการ
+                                </p>
+                                <div className="[&_p]:hidden [&_div]:mt-0">
+                                    <Pagination current={currentPage} total={totalPages} onChange={setCurrentPage} />
+                                </div>
                             </div>
                         </div>
                     </ListCard>
