@@ -3,25 +3,24 @@ admin.py ─ Admin-only user management endpoints.
 """
 
 from uuid import UUID
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.rbac import Role, require_roles
 from app.core.security import get_password_hash
 from app.models.user import UserModel
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.user import UserCreate, UserRead, UserUpdate, PaginatedUserResponse, PaginatedUserReadItem
+from app.schemas.enums import UserRoleEnum, UserStatusEnum
+from app.schemas.auth import RegisterRequest
 
 router = APIRouter(prefix="/admin", tags=["Admin — User Management"])
 
 AdminOnly = Depends(require_roles(Role.ADMIN))
 
-from sqlalchemy import or_
-from fastapi import Query
-from typing import Optional
-from app.schemas.user import PaginatedUserResponse, PaginatedUserReadItem
-from app.schemas.enums import UserRoleEnum, UserStatusEnum
 
 @router.get("/users", response_model=PaginatedUserResponse, summary="List All Users")
 def list_users(
@@ -55,20 +54,12 @@ def list_users(
     
     items = []
     for u in users:
-        title_val = None
-        fname_val = u.first_name
-        
-        if u.first_name and " " in u.first_name:
-            parts = u.first_name.split(" ", 1)
-            title_val = parts[0]
-            fname_val = parts[1]
-            
         items.append(
             PaginatedUserReadItem(
                 id=u.id,
                 user_code=f"user-{u.id:02d}",
-                title=title_val,
-                first_name=fname_val,
+                title=u.title,
+                first_name=u.first_name,
                 last_name=u.last_name,
                 email=u.email,
                 role=u.role,
@@ -87,7 +78,6 @@ def list_users(
         items=items
     )
 
-from app.schemas.auth import RegisterRequest
 
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED, summary="Create User")
 def create_user(
@@ -104,7 +94,8 @@ def create_user(
     user = UserModel(
         email=payload.email,
         username=payload.username,
-        first_name=f"{payload.title} {payload.first_name}".strip() if payload.title else payload.first_name,
+        title=payload.title,
+        first_name=payload.first_name,
         last_name=payload.last_name,
         department=payload.department,
         company_name=payload.company_name,
@@ -117,6 +108,7 @@ def create_user(
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.put("/users/{user_id}", response_model=UserRead, summary="Update User")
 def update_user(
@@ -132,19 +124,8 @@ def update_user(
     if payload.password:
         user.password_hash = get_password_hash(payload.password)
     
-    if payload.title is not None or payload.first_name is not None:
-        current_title = ""
-        current_fname = user.first_name or ""
-        if " " in current_fname:
-            parts = current_fname.split(" ", 1)
-            current_title = parts[0]
-            current_fname = parts[1]
-        
-        new_title = payload.title if payload.title is not None else current_title
-        new_fname = payload.first_name if payload.first_name is not None else current_fname
-        
-        user.first_name = f"{new_title} {new_fname}".strip() if new_title else new_fname
-
+    if payload.title is not None: user.title = payload.title
+    if payload.first_name is not None: user.first_name = payload.first_name
     if payload.last_name is not None: user.last_name = payload.last_name
     if payload.username is not None: user.username = payload.username
     if payload.status is not None: user.status = payload.status
@@ -156,6 +137,7 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.delete("/users/{user_id}", status_code=204, summary="Deactivate User")
 def deactivate_user(

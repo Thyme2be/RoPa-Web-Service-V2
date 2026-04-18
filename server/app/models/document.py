@@ -19,6 +19,7 @@ class RopaDocumentModel(Base):
     __tablename__ = "ropa_documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_number = Column(String, nullable=True)  # DFT-YYYY-XX หรือ RP-YYYY-XX
     title = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

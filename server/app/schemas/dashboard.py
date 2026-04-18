@@ -1,5 +1,7 @@
 from pydantic import BaseModel
-from typing import Dict, List
+from uuid import UUID
+from typing import Dict, List, Optional
+from datetime import datetime
 
 class DashboardStatItem(BaseModel):
     title: str
@@ -108,3 +110,72 @@ class DpoDashboardResponse(BaseModel):
     auditor_review_status: AuditorReviewStatus
     approved_documents: ApprovedDocuments
     auditor_delayed: AuditorDelayed
+
+class DocumentStatusFlags(BaseModel):
+    owner_completed: bool
+    processor_completed: bool
+
+class DpoDocumentTableItem(BaseModel):
+    document_id: str
+    title: str
+    data_owner_name: str
+    assigned_at: datetime
+    reviewed_at: Optional[datetime] = None
+    status_flags: DocumentStatusFlags
+    review_status: str
+
+class PaginatedDpoDocumentTableResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[DpoDocumentTableItem]
+
+class DpoDestructionTableItem(BaseModel):
+    request_id: str
+    document_id: str
+    title: str
+    data_owner_name: str
+    requested_at: datetime
+    reviewed_at: Optional[datetime] = None
+    review_status: str
+
+class PaginatedDpoDestructionTableResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[DpoDestructionTableItem]
+
+class DpoAuditorAssignmentTableItem(BaseModel):
+    assignment_id: str
+    document_id: str
+    title: str
+    auditor_name: str
+    assigned_at: datetime
+    reviewed_at: Optional[datetime] = None
+    review_status: str
+
+class PaginatedDpoAuditorAssignmentTableResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[DpoAuditorAssignmentTableItem]
+
+# --- Documents from DPO (Owner/Processor/Auditor View) ---
+
+class OwnerDpoReviewedDocumentTableItem(BaseModel):
+    document_id: str             # RP-YYYY-XX
+    raw_document_id: UUID        # UUID for internal routing
+    document_name: str
+    reviewer_name: Optional[str] # DPO Name
+    received_date: Optional[datetime] # Date DPO assigned
+    review_date: Optional[datetime]   # Date DPO approved/sent feedback
+    due_date: Optional[datetime]
+    status: str                  # WAITING_FOR_DPO, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED
+    is_overdue: bool
+
+class PaginatedOwnerDpoReviewedDocumentResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[OwnerDpoReviewedDocumentTableItem]
+    filters: Dict[str, Optional[str]]

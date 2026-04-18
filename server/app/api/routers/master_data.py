@@ -9,7 +9,6 @@ from app.schemas.user import UserRead
 from app.models.master_data import MstDepartmentModel, MstCompanyModel, MstRoleModel
 from app.schemas.master_data import (
     MasterDataRead, MasterDataCreate, MasterDataUpdate, 
-    RoleMasterDataRead, RoleMasterDataCreate, RoleMasterDataUpdate,
     PaginatedDepartmentResponse, PaginatedCompanyResponse, PaginatedRoleResponse
 )
 
@@ -126,31 +125,29 @@ def list_roles(
 ):
     query = db.query(MstRoleModel).filter(MstRoleModel.is_active == True)
     if search:
-        query = query.filter(or_(
-            MstRoleModel.name.ilike(f"%{search}%"),
-            MstRoleModel.code.ilike(f"%{search}%")
-        ))
+        query = query.filter(
+            MstRoleModel.name.ilike(f"%{search}%")
+        )
     total = query.count()
     items = query.order_by(MstRoleModel.id).offset((page - 1) * limit).limit(limit).all()
     return PaginatedRoleResponse(total=total, page=page, limit=limit, items=items)
 
-@router.post("/roles", response_model=RoleMasterDataRead, status_code=status.HTTP_201_CREATED, summary="Create Role")
-def create_role(payload: RoleMasterDataCreate, db: Session = Depends(get_db), current_user: UserRead = AdminOnly):
-    if db.query(MstRoleModel).filter(MstRoleModel.code == payload.code).first():
-        raise HTTPException(status_code=409, detail="Role code already exists.")
-    role = MstRoleModel(name=payload.name, code=payload.code)
+@router.post("/roles", response_model=MasterDataRead, status_code=status.HTTP_201_CREATED, summary="Create Role")
+def create_role(payload: MasterDataCreate, db: Session = Depends(get_db), current_user: UserRead = AdminOnly):
+    if db.query(MstRoleModel).filter(MstRoleModel.name == payload.name).first():
+        raise HTTPException(status_code=409, detail="Role already exists.")
+    role = MstRoleModel(name=payload.name)
     db.add(role)
     db.commit()
     db.refresh(role)
     return role
 
-@router.put("/roles/{role_id}", response_model=RoleMasterDataRead, summary="Update Role")
-def update_role(role_id: int, payload: RoleMasterDataUpdate, db: Session = Depends(get_db), current_user: UserRead = AdminOnly):
+@router.put("/roles/{role_id}", response_model=MasterDataRead, summary="Update Role")
+def update_role(role_id: int, payload: MasterDataUpdate, db: Session = Depends(get_db), current_user: UserRead = AdminOnly):
     role = db.query(MstRoleModel).filter(MstRoleModel.id == role_id, MstRoleModel.is_active == True).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found.")
     if payload.name is not None: role.name = payload.name
-    if payload.code is not None: role.code = payload.code
     db.commit()
     db.refresh(role)
     return role

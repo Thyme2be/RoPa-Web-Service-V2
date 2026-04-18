@@ -7,6 +7,7 @@ from email_validator import validate_email, EmailNotValidError
 from app.schemas.enums import UserRoleEnum, UserStatusEnum, AuditorTypeEnum
 
 class UserBase(BaseModel):
+    title: Optional[str] = None
     email: str
     username: Optional[str] = None
     first_name: Optional[str] = None
