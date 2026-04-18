@@ -111,6 +111,30 @@ class DpoDashboardResponse(BaseModel):
     approved_documents: ApprovedDocuments
     auditor_delayed: AuditorDelayed
 
+class AuditorDashboardResponse(BaseModel):
+    total_assigned: int
+    pending_audits: int
+    completed_audits: int
+    overdue_audits: int
+
+class ProcessorDashboardResponse(BaseModel):
+    total_assigned: int
+    pending_submissions: int
+    completed_submissions: int
+    revision_needed: int
+
+class OwnerDashboardResponse(BaseModel):
+    total_documents: int
+    draft_documents: int
+    in_review_documents: int
+    approved_documents: int
+    revision_needed: int
+
+class ExecutiveDashboardResponse(BaseModel):
+    document_overview: DocumentOverview
+    risk_overview: RiskOverview
+    compliance_score: float # Percentage of approved vs total
+
 class DocumentStatusFlags(BaseModel):
     owner_completed: bool
     processor_completed: bool
