@@ -73,19 +73,15 @@ router = APIRouter(prefix="/processor", tags=["Data Processor"])
 
 def _processor_status_badge(
     proc_section: Optional[RopaProcessorSectionModel],
-    has_open_feedback: bool,
 ) -> ProcessorStatusBadge:
     """
-    badge สถานะ DP เอง — 3 ค่า:
-      NEEDS_FIX  = มี feedback จาก DO หรือ DPO ที่ยังไม่ได้แก้ไข (ตรวจก่อน)
+    badge สถานะ DP ใน ตาราง 1 — 2 ค่า:
       DP_DONE    = กดบันทึกเสร็จแล้ว (SUBMITTED)
-      WAITING_DP = ยังกรอกไม่เสร็จ (DRAFT)
+      WAITING_DP = ยังไม่ได้กรอก หรือ บันทึกฉบับร่างไว้ (DRAFT / ไม่มี section)
     """
-    if has_open_feedback:
-        return ProcessorStatusBadge(label="รอแก้ไข", code="NEEDS_FIX")
     if proc_section and proc_section.status == "SUBMITTED":
-        return ProcessorStatusBadge(label="DP ดำเนินการเสร็จสิ้น", code="DP_DONE")
-    return ProcessorStatusBadge(label="รอ DP", code="WAITING_DP")
+        return ProcessorStatusBadge(label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE")
+    return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 
 
 def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
@@ -288,13 +284,13 @@ def get_assigned_table(
             assignment_status=assignment.status,
             due_date=assignment.due_date,
             received_at=assignment.created_at,
-            status=_processor_status_badge(proc_section, has_open_feedback),
+            status=_processor_status_badge(proc_section),
             has_open_feedback=has_open_feedback,
             created_at=doc.created_at,
         ))
 
-        # DRAFT หรือ NEEDS_FIX ขึ้นในตารางฉบับร่างด้วย (แสดงซ้ำ)
-        if not proc_section or proc_section.status == "DRAFT" or has_open_feedback:
+        # เฉพาะ DRAFT เท่านั้นที่ขึ้นในตารางฉบับร่าง
+        if proc_section and proc_section.status == "DRAFT":
             draft_items.append(ProcessorDraftTableItem(
                 document_id=doc.id,
                 document_number=doc.document_number,
@@ -529,8 +525,8 @@ def get_received_feedbacks(
 
 @router.delete(
     "/documents/{document_id}/section/draft",
-    response_model=MessageResponse,
-    summary="ล้างข้อมูลฉบับร่าง Processor Section (reset กลับเป็น DRAFT เปล่า)",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="ลบข้อมูลฉบับร่าง Processor Section (เอกสารยังอยู่ใน ตาราง 1)",
 )
 def delete_processor_section_draft(
     document_id: UUID,
@@ -539,8 +535,8 @@ def delete_processor_section_draft(
 ):
     """
     ปุ่มลบในตารางฉบับร่าง
-    ล้างข้อมูลทุก field ใน processor_section + ลบ sub-tables ทั้งหมด
-    เอกสารยังอยู่ใน list แต่ข้อมูลที่กรอกไว้หายหมด (เหมือนเริ่มใหม่)
+    ลบ processor_section + sub-tables ทั้งหมดออกจาก DB
+    เอกสารยังอยู่ใน ตาราง 1 สามารถกดรูปตากรอกใหม่ตั้งแต่ต้น
     เงื่อนไข: processor_section.status ต้องเป็น DRAFT เท่านั้น
     """
     check_document_access(document_id, current_user, db)
@@ -558,30 +554,8 @@ def delete_processor_section_draft(
     if section.status != "DRAFT":
         raise HTTPException(status_code=400, detail="ลบได้เฉพาะฉบับร่าง (DRAFT) เท่านั้น")
 
-    # ล้าง sub-tables
-    db.query(ProcessorPersonalDataItemModel).filter_by(processor_section_id=section.id).delete()
-    db.query(ProcessorDataCategoryModel).filter_by(processor_section_id=section.id).delete()
-    db.query(ProcessorDataTypeModel).filter_by(processor_section_id=section.id).delete()
-    db.query(ProcessorCollectionMethodModel).filter_by(processor_section_id=section.id).delete()
-    db.query(ProcessorDataSourceModel).filter_by(processor_section_id=section.id).delete()
-    db.query(ProcessorStorageTypeModel).filter_by(processor_section_id=section.id).delete()
-    db.query(ProcessorStorageMethodModel).filter_by(processor_section_id=section.id).delete()
-
-    # ล้าง scalar fields ทั้งหมด
-    scalar_fields = [
-        "title_prefix", "first_name", "last_name", "address", "email", "phone",
-        "processor_name", "controller_address", "processing_activity", "purpose_of_processing",
-        "data_source_other", "retention_value", "retention_unit", "access_policy", "deletion_method",
-        "legal_basis", "has_cross_border_transfer", "transfer_country", "transfer_in_group",
-        "transfer_method", "transfer_protection_standard", "transfer_exception",
-        "org_measures", "access_control_measures", "technical_measures",
-        "responsibility_measures", "physical_measures", "audit_measures",
-    ]
-    for field in scalar_fields:
-        setattr(section, field, None)
-
+    db.delete(section)
     db.commit()
-    return {"message": "ล้างข้อมูลฉบับร่างสำเร็จ"}
 
 
 # =============================================================================

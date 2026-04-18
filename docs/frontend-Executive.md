@@ -147,13 +147,13 @@ Authorization: Bearer eyJhbGci...
 
 | Field | Type | คำอธิบาย |
 |-------|------|---------|
-| `department` | `string` | ชื่อแผนก (มาจาก `auditor_assignments.department` ที่ DPO ตั้งตอน assign auditor) |
+| `department` | `string` | ชื่อแผนก (มาจาก `users.department` ของ Data Owner ที่ Admin ตั้งตอนสร้าง user) |
 | `low` | `int` | จำนวนเอกสารความเสี่ยงต่ำในแผนกนั้น |
 | `medium` | `int` | จำนวนเอกสารความเสี่ยงปานกลาง |
 | `high` | `int` | จำนวนเอกสารความเสี่ยงสูง |
 | `total` | `int` | รวม low + medium + high |
 
-> **หมายเหตุ:** List นี้จะเป็น `[]` ถ้า DPO ยังไม่ได้ assign auditor ให้เอกสารไหนเลย เพราะข้อมูลแผนกมาจาก `auditor_assignments` เท่านั้น
+> **หมายเหตุ:** List นี้จะเป็น `[]` ถ้า Admin ยังไม่ได้ตั้ง department ให้ Data Owner เลย
 
 ---
 
@@ -161,10 +161,11 @@ Authorization: Bearer eyJhbGci...
 
 | Field | Type | คำอธิบาย |
 |-------|------|---------|
-| `department` | `string` | ชื่อแผนก (มาจาก `auditor_assignments.department` เช่นกัน) |
+| `department` | `string` | ชื่อแผนก (มาจาก `users.department` ของ Data Owner เช่นกัน) |
 | `count` | `int` | จำนวนเอกสาร (distinct) ที่มี data type ที่ `is_sensitive = true` |
 
-> นับจาก `owner_data_types.is_sensitive = true` ในส่วนของ Data Owner
+> นับ distinct document ที่มี `owner_data_types.is_sensitive = true` อย่างน้อย 1 รายการ  
+> แผนกมาจาก `users.department` ของ Data Owner ที่เป็นเจ้าของเอกสาร
 
 ---
 
