@@ -72,39 +72,19 @@ export function AdvancedFilterBar({ initialTimeframe = "30" }: { initialTimefram
     );
 }
 
-export function GenericFilterBar({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
-    return (
-        <div className="bg-[#EAE6E4]/70 rounded-xl p-6 flex flex-col md:flex-row gap-6 items-end justify-between border border-[#E5E2E1]/40">
-            <div className="flex flex-wrap gap-6 text-[#5C403D] flex-1">
-                {children}
-            </div>
-
-            <button
-                onClick={onClear}
-                className="h-[42px] px-8 bg-[#6B7280] text-white rounded-lg text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#4B5563] transition-colors shadow-sm active:scale-95 whitespace-nowrap cursor-pointer"
-            >
-                <span className="material-symbols-outlined text-[18px]">filter_list</span>
-                ล้างตัวกรอง
-            </button>
-        </div>
-    );
-}
-
-export type RoPaStatusType = "อนุมัติ" | "รอตรวจสอบ" | "ต้องแก้ไข" | "กำลังตรวจสอบ" | "ตรวจสอบเสร็จสิ้น" | "ฉบับร่าง" | "กำลังใช้งาน" | "ปิดการใช้งาน";
+export type RoPaStatusType = "อนุมัติ" | "รอตรวจสอบ" | "ต้องแก้ไข" | "กำลังตรวจสอบ" | "ตรวจสอบเสร็จสิ้น" | "ฉบับร่าง";
 
 export function StatusBadge({ status }: { status: RoPaStatusType }) {
     const styles: Record<string, string> = {
         "อนุมัติ": "bg-[#228B15] text-white",                    // Reference Green
         "ตรวจสอบเสร็จสิ้น": "bg-[#228B15] text-white",           // Reference Green (Review)
         "เสร็จสมบูรณ์": "bg-[#228B15] text-white",               // Reference Green (Processor)
-        "รอตรวจสอบ": "bg-[#FBBF24] text-[#5C403D]",               // Yellow
+        "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
-        "รอดำเนินการ": "bg-[#FBBF24] text-[#5C403D]",                // Yellow
-        "ฉบับร่าง": "bg-[#9CA3AF] text-white",                    // Secondary Gray
-        "กำลังใช้งาน": "bg-[#228B15] text-white",               // Green
-        "ปิดการใช้งาน": "bg-[#ED393C] text-white"                 // Red
+        "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
+        "ฉบับร่าง": "bg-[#9CA3AF] text-white"                    // Secondary Gray
     };
 
     return (
@@ -133,36 +113,12 @@ export function ActionButton({ icon, label, color = "black", onClick, disabled }
     );
 }
 
-export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSort = false, filled = false }: { title: string; icon: string; iconColor?: string; children: React.ReactNode; showSort?: boolean; filled?: boolean }) {
-    return (
-        <div className="bg-white rounded-xl shadow-sm border border-[#E5E2E1]/40">
-            <div className="p-5 flex items-center justify-between bg-[#F1EDEC]">
-                <div className="flex items-center gap-3">
-                    <span 
-                        className="material-symbols-outlined font-bold text-[22px]" 
-                        style={{ color: iconColor, fontVariationSettings: filled ? "'FILL' 1" : undefined }}
-                    >
-                        {icon}
-                    </span>
-                    <h2 className="text-[17px] font-headline font-black text-[#1B1C1C] tracking-tight">{title}</h2>
-                </div>
-                {showSort && <span className="material-symbols-outlined text-secondary text-lg cursor-pointer">sort</span>}
-            </div>
-            <div className="p-6 pt-2 overflow-x-auto">
-                {children}
-            </div>
-        </div>
-    );
-}
-
-// แยกระบบใหม่ของคุณออกมาเป็น DocumentListCard เพื่อไม่ให้กระทบโค้ดเดิมของเพื่อน
-export function DocumentListCard({ 
+export function ListCard({ 
     title, 
     icon, 
     iconColor = "#1B1C1C", 
     children, 
     showSort = false,
-    filled = false,
     bodyClassName = "p-6 pt-2"
 }: { 
     title: string; 
@@ -170,19 +126,13 @@ export function DocumentListCard({
     iconColor?: string; 
     children: React.ReactNode; 
     showSort?: boolean;
-    filled?: boolean;
     bodyClassName?: string;
 }) {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-[#E5E2E1]/40">
             <div className="p-5 flex items-center justify-between bg-[#E0D9D7] rounded-t-[11px]">
                 <div className="flex items-center gap-3">
-                    <span 
-                        className="material-symbols-outlined font-bold text-[22px]" 
-                        style={{ color: iconColor, fontVariationSettings: filled ? "'FILL' 1" : undefined }}
-                    >
-                        {icon}
-                    </span>
+                    <span className="material-symbols-outlined font-bold text-[22px]" style={{ color: iconColor }}>{icon}</span>
                     <h2 className="text-[17px] font-headline font-black text-[#1B1C1C] tracking-tight">{title}</h2>
                 </div>
                 {showSort && <span className="material-symbols-outlined text-secondary text-lg cursor-pointer">sort</span>}
@@ -214,7 +164,7 @@ export function Pagination({ current, total, onChange }: { current: number; tota
                     <button
                         key={p}
                         onClick={() => onChange?.(p)}
-                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer ${p === current ? "bg-[#ED393C] text-white font-bold shadow-sm" : "hover:bg-gray-100 font-medium"}`}
+                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${p === current ? "bg-[#ED393C] text-white font-bold shadow-sm" : "hover:bg-gray-100 font-medium"}`}
                     >
                         {p}
                     </button>
@@ -265,7 +215,7 @@ export function DocumentFilterBar({
                         { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "done_owner" },
                         { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "done_processor" }
                     ]}
-                    onChange={(e) => { onStatusChange?.(e.target.value) }}
+                    onChange={(e) => onStatusChange?.(e.target.value)}
                 />
             </div>
             <div className="flex items-end gap-4 w-[516px] shrink-0 overflow-visible">
@@ -281,7 +231,7 @@ export function DocumentFilterBar({
                             { label: "เกินกำหนด", value: "overdue" },
                             { label: "กำหนดเอง", value: "custom" }
                         ]}
-                        onChange={(e) => { onDateChange?.(e.target.value) }}
+                        onChange={(e) => onDateChange?.(e.target.value)}
                     />
                 </div>
                 <div className="w-[200px] shrink-0">

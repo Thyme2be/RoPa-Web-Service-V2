@@ -6,13 +6,17 @@ import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
+import { useRopa } from "@/context/RopaContext";
+
 export default function RopaSubmittedPage() {
+    const { records } = useRopa();
     const [page, setPage] = useState(1);
-    const mockSubmitted = [
-        { id: "RP-2026-03", name: "RP-2026-03 ข้อมูลลูกค้า", dpo: "นายกิตติพงศ์ ศรีวัฒนากุล", sendDate: "20/03/2569", checkDate: "25/03/2569", statusDO: "รอส่วนของ Data Owner แก้ไข", statusDP: "รอส่วนของ Data Processor แก้ไข", multiStatus: true },
-        { id: "RP-2026-02", name: "RP-2026-02 การกำกับดูแลข้อมูลธุรกรรม", dpo: "นายกิตติพงศ์ ศรีวัฒนากุล", sendDate: "18/03/2569", checkDate: "-", status: "รอตรวจสอบ", multiStatus: false },
-        { id: "RP-2026-01", name: "RP-2026-01 การจัดการข้อมูลโดรงข่าย", dpo: "นายกิตติพงศ์ ศรีวัฒนากุล", sendDate: "15/03/2569", checkDate: "-", status: "รอตรวจสอบเพื่อทำลาย", multiStatus: false },
-    ];
+    
+    // Filter records sent to DPO
+    const submittedRecords = records.filter(r => r.workflow === "sent_dpo");
+
+    const ITEMS_PER_PAGE = 5;
+    const paginatedRecords = submittedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#FCF9F8]">
@@ -52,46 +56,41 @@ export default function RopaSubmittedPage() {
                                 <DocumentTableHeader width="w-[10%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
-                                {mockSubmitted.map((record) => (
-                                    <DocumentTableRow key={record.id}>
-                                        <DocumentTableCell align="left">{record.name}</DocumentTableCell>
-                                        <DocumentTableCell>{record.dpo}</DocumentTableCell>
-                                        <DocumentTableCell align="left">{record.sendDate}</DocumentTableCell>
-                                        <DocumentTableCell align="left">{record.checkDate}</DocumentTableCell>
-                                        <DocumentTableCell>
-                                            <div className="flex flex-col items-center gap-1">
-                                                {record.multiStatus ? (
-                                                    <>
-                                                        <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#FFC107] text-[#1B1C1C]">
-                                                            {record.statusDO}
-                                                        </span>
-                                                        <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#FFC107] text-[#1B1C1C]">
-                                                            {record.statusDP}
-                                                        </span>
-                                                    </>
-                                                ) : (
-                                                    <span className="px-3 py-1 rounded-[4px] text-[10px] font-bold bg-[#FFC107] text-[#1B1C1C]">
-                                                        {record.status}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </DocumentTableCell>
-                                        <DocumentTableCell>
-                                            <div className="flex items-center justify-center gap-3">
-                                                <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                                <ActionIconWithTooltip icon="send" tooltipText="ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                                <ActionIconWithTooltip icon="cancel_schedule_send" tooltipText="ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                            </div>
+                                {paginatedRecords.length === 0 ? (
+                                    <DocumentTableRow>
+                                        <DocumentTableCell colSpan={6} align="center">
+                                            <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารที่ส่งตรวจสอบ</span>
                                         </DocumentTableCell>
                                     </DocumentTableRow>
-                                ))}
+                                ) : (
+                                    paginatedRecords.map((record) => (
+                                        <DocumentTableRow key={record.id}>
+                                            <DocumentTableCell align="left">{record.id} {record.documentName}</DocumentTableCell>
+                                            <DocumentTableCell>นายกิตติพงศ์ ศรีวัฒนากุล</DocumentTableCell>
+                                            <DocumentTableCell align="left">{record.submittedDate || record.updatedDate || "—"}</DocumentTableCell>
+                                            <DocumentTableCell align="left">—</DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="px-3 py-1 rounded-[4px] text-[10px] font-bold bg-[#FFC107] text-[#1B1C1C]">
+                                                        {record.status === "review_pending" ? "รอตรวจสอบ" : "รอตรวจสอบเพื่อทำลาย"}
+                                                    </span>
+                                                </div>
+                                            </DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
+                                                </div>
+                                            </DocumentTableCell>
+                                        </DocumentTableRow>
+                                    ))
+                                )}
                             </DocumentTableBody>
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={4} 
-                            totalItems={10} 
-                            itemsPerPage={3} 
+                            totalPages={Math.max(1, Math.ceil(submittedRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={submittedRecords.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
                     </ListCard>

@@ -65,7 +65,7 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                 {formMode && (
                     <div className="flex items-center gap-4">
                         <h1 className="text-[20px] font-black text-[#1B1C1C] tracking-tight">
-                            {documentName || "ข้อมูลลูกค้า"}
+                            {pageTitle || "ข้อมูลลูกค้า"}
                         </h1>
                     </div>
                 )}

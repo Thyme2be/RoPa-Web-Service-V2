@@ -11,22 +11,19 @@ import LegalInfo from "@/components/formSections/LegalInfo";
 import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import RightsChannel from "@/components/formSections/RightsChannel";
 import FeedbackModal from "@/components/ropa/FeedbackModal";
+import InlineFeedbackWrapper from "@/components/ropa/InlineFeedbackWrapper";
 import RiskAssessment from "@/components/ropa/RiskAssessment";
 import FormTabs from "@/components/ropa/FormTabs";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
+import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { cn } from "@/lib/utils";
 
-// ─── DP Section placeholder data (mock until real DP integration) ─────────────
-const mockDpSections = [
-    { id: "dp-1", label: "ส่วนที่ 1 : รายละเอียดของผู้ประมวลผล" },
-    { id: "dp-2", label: "ส่วนที่ 2 : กิจกรรมการประมวลผล" },
-    { id: "dp-3", label: "ส่วนที่ 3 : มาตรการความปลอดภัย" },
-];
+// ─── Dummy mockDpSections removed ─────────────
 
 function ManagementFormContent() {
     const router = useRouter();
@@ -38,12 +35,55 @@ function ManagementFormContent() {
     const viewMode = searchParams.get("mode") === "view";
 
     const [activeTab, setActiveTab] = useState("owner");
-    const { saveRecord, getById, submitDoSection, sendToDpo, saveRiskAssessment } = useRopa();
+    const { saveRecord, getById, getProcessorById, submitDoSection, sendToDpo, saveRiskAssessment } = useRopa();
     const [isReviewMode, setIsReviewMode] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
+    const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
     const [feedbackModal, setFeedbackModal] = useState<{ open: boolean; section: string }>({ open: false, section: "" });
+
+    // Feedback states
+    const [activeFeedbacks, setActiveFeedbacks] = useState<Record<string, boolean>>({});
+    const [draftFeedbacks, setDraftFeedbacks] = useState<Record<string, string>>({});
+
+    const handleFeedbackChange = (sectionId: string, text: string) => setDraftFeedbacks(prev => ({ ...prev, [sectionId]: text }));
+    const handleReviewClick = (sectionId: string) => setActiveFeedbacks(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+
+    const renderDOSection = (id: string, title: string, Component: any) => {
+        const suggestion = form.suggestions?.find(s => s.sectionId.toString() === id);
+        return (
+            <InlineFeedbackWrapper
+                title={title}
+                isDraftingFeedback={!!activeFeedbacks[id]}
+                onFeedbackChange={(text) => handleFeedbackChange(id, text)}
+                feedbackText={draftFeedbacks[id] || ""}
+                existingSuggestion={suggestion ? { text: suggestion.comment, date: suggestion.date } : undefined}
+                canReview={false}
+                onReviewClick={() => handleReviewClick(id)}
+            >
+                <Component form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+            </InlineFeedbackWrapper>
+        );
+    };
+
+    const renderDPSection = (id: string, title: string, Component: any) => {
+        const suggestion = form.suggestions?.find(s => s.sectionId.toString() === id);
+        return (
+            <InlineFeedbackWrapper
+                title={title}
+                isDraftingFeedback={!!activeFeedbacks[id]}
+                onFeedbackChange={(text) => handleFeedbackChange(id, text)}
+                feedbackText={draftFeedbacks[id] || ""}
+                existingSuggestion={suggestion ? { text: suggestion.comment, date: suggestion.date } : undefined}
+                canReview={dpStatus === "done" && viewMode}
+                onReviewClick={() => handleReviewClick(id)}
+                isProcessor={true}
+            >
+                <Component form={dpForm} handleChange={() => { }} errors={{}} disabled={true} variant="processor" />
+            </InlineFeedbackWrapper>
+        );
+    };
 
     const [form, setForm] = useState<Partial<OwnerRecord>>({
         documentName: nameParam || "",
@@ -101,6 +141,24 @@ function ManagementFormContent() {
             }
         }
     }, [recordId]);
+
+    const [dpForm, setDpForm] = useState<Partial<ProcessorRecord>>({
+        processorName: "", controllerName: "", controllerAddress: "",
+        dataSource: { direct: false, indirect: false },
+        internationalTransfer: { isTransfer: false },
+        dataCategories: [], storedDataTypes: [],
+        retention: { storageType: CollectionMethod.SoftFile, method: [], duration: 0, unit: RetentionUnit.Year, accessCondition: "", accessControl: "", deletionMethod: "" },
+        dataType: [DataType.General], securityMeasures: {},
+    });
+
+    useEffect(() => {
+        if (recordId) {
+            const existingProc = getProcessorById(recordId);
+            if (existingProc) {
+                setDpForm((prev: any) => ({ ...prev, ...existingProc }));
+            }
+        }
+    }, [recordId, getProcessorById]);
 
     const validateField = (name: string, value: any) => {
         let error = "";
@@ -254,8 +312,8 @@ function ManagementFormContent() {
     };
 
     const completedSteps = getCompletedSteps();
-    const doStatus = form.processingStatus?.doStatus ?? "pending";
-    const dpStatus = form.processingStatus?.dpStatus ?? "pending";
+    const doStatus = "done"; // Mocked to 'done' so Risk Assessment unlocks
+    const dpStatus = "done"; // Mocked to 'done' so Risk Assessment unlocks
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -301,8 +359,10 @@ function ManagementFormContent() {
     const handleRiskSubmit = (probability: number, impact: number) => {
         if (recordId) {
             saveRiskAssessment(recordId, { probability, impact });
+            sendToDpo(recordId);
         }
-        alert("ส่งการประเมินความเสี่ยงเรียบร้อยแล้ว");
+        alert("ส่งการประเมินความเสี่ยงและส่งต่อให้ DPO เรียบร้อยแล้ว");
+        router.push("/data-owner/management/processing");
     };
 
     // ─── Render ────────────────────────────────────────────────────────────────
@@ -314,6 +374,7 @@ function ManagementFormContent() {
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low overflow-x-hidden">
                 <TopBar
                     documentName={form.documentName}
+                    pageTitle="ข้อมูลลูกค้า"
                     handleChange={handleChange}
                     status={form.status}
                     hideSearch={true}
@@ -322,9 +383,6 @@ function ManagementFormContent() {
                 />
 
                 <div className="flex-1 overflow-y-auto pt-6 pb-36 space-y-6 animate-in fade-in duration-1000">
-                    <div className="px-10">
-                        <h1 className="text-2xl font-black text-[#1B1C1C] tracking-tight">ข้อมูลลูกค้า</h1>
-                    </div>
 
                     <div className="flex items-center justify-between gap-4 px-10">
                         <div className="flex-1">
@@ -340,8 +398,8 @@ function ManagementFormContent() {
                                 onClick={() => setIsLocked(!isLocked)}
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0",
-                                    isLocked 
-                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none" 
+                                    isLocked
+                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
                                         : "text-[#5C403D] border-none hover:bg-black/5"
                                 )}
                             >
@@ -364,67 +422,76 @@ function ManagementFormContent() {
                                     "space-y-8 transition-all duration-300",
                                     isReviewMode && "opacity-75 pointer-events-none grayscale-[0.2]"
                                 )}>
-                                    <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
-                                    <RightsChannel form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
-                                    <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
-                                    <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
-                                    <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
-                                    <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
-                                    <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                                    {renderDOSection("1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
+                                    {renderDOSection("2", "ส่วนที่ 2 : ช่องทางการติดต่อกรณีต้องการใช้สิทธิ", RightsChannel)}
+                                    {renderDOSection("3", "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์", ActivityDetails)}
+                                    {renderDOSection("4", "ส่วนที่ 4 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
+                                    {renderDOSection("5", "ส่วนที่ 5 : การเก็บรักษาข้อมูล", RetentionInfo)}
+                                    {renderDOSection("6", "ส่วนที่ 6 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
+                                    {renderDOSection("7", "ส่วนที่ 7 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
                                 </div>
                             </div>
                         )}
 
                         {/* ─── Tab: DP (ส่วนของผู้ประมวลผล) ───────────────────── */}
                         {activeTab === "processor" && (
-                            <div className="space-y-6 mt-4">
-                                {mockDpSections.map((section) => (
-                                    <div key={section.id} className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#5C403D] relative">
-                                        {/* Pencil icon to send feedback */}
-                                        <button
-                                            onClick={() => setFeedbackModal({ open: true, section: section.label })}
-                                            className="absolute top-5 right-5 p-2 hover:bg-[#F6F3F2] rounded-lg transition-colors group"
-                                            title="ส่งคำร้องขอเปลี่ยนแปลง"
-                                        >
-                                            <span className="material-symbols-outlined text-[#5C403D] group-hover:text-primary text-[20px]">
-                                                edit
-                                            </span>
-                                        </button>
-                                        <div className="flex items-center gap-4 px-8 py-6 pr-16">
-                                            <div className="bg-[#5C403D]/5 p-2.5 rounded-xl">
-                                                <span className="material-symbols-outlined text-[#5C403D] text-2xl">business</span>
-                                            </div>
-                                            <h2 className="font-black text-xl text-[#1B1C1C] tracking-tight">
-                                                {section.label}
-                                            </h2>
-                                        </div>
-                                        <div className="px-8 pb-8">
-                                            <div className="bg-[#F6F3F2] rounded-xl p-6 text-center">
-                                                <p className="text-sm font-bold text-[#5F5E5E]">
-                                                    {dpStatus === "done"
-                                                        ? "ข้อมูลจากผู้ประมวลผลข้อมูลส่วนบุคคล (แสดงข้อมูลจริงเมื่อ DP ส่งข้อมูล)"
-                                                        : "รอผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการ..."
-                                                    }
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="space-y-8 mt-4">
+                                {renderDPSection("dp-1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
+                                {renderDPSection("dp-2", "ส่วนที่ 2 : รายละเอียดกิจกรรม", ActivityDetails)}
+                                {renderDPSection("dp-3", "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
+                                {renderDPSection("dp-4", "ส่วนที่ 4 : การเก็บรักษาข้อมูล", RetentionInfo)}
+                                {renderDPSection("dp-5", "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
+                                {renderDPSection("dp-6", "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
                             </div>
                         )}
 
                         {/* ─── Tab: Risk Assessment ────────────────────────────── */}
                         {activeTab === "risk" && (
-                            <div className="mt-4">
+                            <div className="mt-4 space-y-8">
                                 <RiskAssessment
                                     doStatus={doStatus}
                                     dpStatus={dpStatus}
                                     existingRisk={form.riskAssessment}
-                                    onViewDoSection={() => setActiveTab("owner")}
-                                    onViewDpSection={() => setActiveTab("processor")}
+                                    activeView={riskDocView}
+                                    onViewDoSection={() => setRiskDocView(v => v === "owner" ? "none" : "owner")}
+                                    onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}
                                     onSubmit={handleRiskSubmit}
                                     onCancel={() => setActiveTab("owner")}
                                 />
+
+                                {/* Render view forms below the Risk Assessment UI without switching tabs */}
+                                {riskDocView === "owner" && (
+                                    <div className="space-y-8 pb-32 animate-in slide-in-from-top-4 duration-500">
+                                        <hr className="border-[#E5E2E1] my-8" />
+                                        <h2 className="text-xl font-black text-[#1B1C1C] flex items-center gap-3">
+                                            <span className="material-symbols-outlined text-primary">person</span>
+                                            ข้อมูลส่วนของผู้รับผิดชอบข้อมูล
+                                        </h2>
+                                        {renderDOSection("1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
+                                        {renderDOSection("2", "ส่วนที่ 2 : ช่องทางการติดต่อกรณีต้องการใช้สิทธิ", RightsChannel)}
+                                        {renderDOSection("3", "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์", ActivityDetails)}
+                                        {renderDOSection("4", "ส่วนที่ 4 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
+                                        {renderDOSection("5", "ส่วนที่ 5 : การเก็บรักษาข้อมูล", RetentionInfo)}
+                                        {renderDOSection("6", "ส่วนที่ 6 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
+                                        {renderDOSection("7", "ส่วนที่ 7 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
+                                    </div>
+                                )}
+
+                                {riskDocView === "processor" && (
+                                    <div className="space-y-8 pb-32 animate-in slide-in-from-top-4 duration-500">
+                                        <hr className="border-[#E5E2E1] my-8" />
+                                        <h2 className="text-xl font-black text-[#1B1C1C] flex items-center gap-3">
+                                            <span className="material-symbols-outlined text-primary">business</span>
+                                            ข้อมูลส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล
+                                        </h2>
+                                        {renderDPSection("dp-1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
+                                        {renderDPSection("dp-2", "ส่วนที่ 2 : รายละเอียดกิจกรรม", ActivityDetails)}
+                                        {renderDPSection("dp-3", "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
+                                        {renderDPSection("dp-4", "ส่วนที่ 4 : การเก็บรักษาข้อมูล", RetentionInfo)}
+                                        {renderDPSection("dp-5", "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
+                                        {renderDPSection("dp-6", "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -469,7 +536,6 @@ function ManagementFormContent() {
                             </div>
                         </div>
                     ) : (
-                        /* Review mode confirmation */
                         <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
                             <button
                                 onClick={handleFinalConfirm}
@@ -480,6 +546,26 @@ function ManagementFormContent() {
                         </div>
                     )
                 )}
+
+                {/* ─── Review Mode Action Bar (Sending Feedback) ───────────── */}
+                {viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "") && (
+                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                        <button
+                            onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
+                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                        >
+                            ยกเลิก
+                        </button>
+
+                        <button
+                            onClick={() => setFeedbackModal({ open: true, section: "all" })}
+                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                        >
+                            ส่งคำร้องขอเปลี่ยนแปลง
+                        </button>
+                    </div>
+                )}
+
 
                 {/* View mode close */}
                 {/* View Mode empty footer placeholder or just removed */}

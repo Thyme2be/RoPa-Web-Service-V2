@@ -94,10 +94,7 @@ export default function Select({
                     )}>
                         {selectedOption ? selectedOption.label : placeholder || "เลือกรายการ..."}
                     </span>
-                    <span className={cn(
-                        "material-symbols-outlined text-gray-400 transition-transform duration-300",
-                        isOpen && "rotate-180"
-                    )}
+                    <span className="material-symbols-outlined text-gray-400 transition-transform duration-300"
                         style={{ color: isOpen ? primaryColor : undefined }}>
                         expand_more
                     </span>

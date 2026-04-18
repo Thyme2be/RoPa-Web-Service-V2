@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { ropaStore } from "@/lib/ropaStore";
-import { mockOwnerRecords, mockProcessorRecords } from "@/lib/mockRecords";
+import { mockOwnerRecords } from "@/lib/mockRecords";
 import { RopaStatus } from "@/types/enums";
 
 // SSR-Safe UUID Helper
@@ -61,12 +61,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         }
 
         const savedProcessorRecords = ropaStore.getProcessorRecords();
-        if (savedProcessorRecords.length === 0) {
-            setProcessorRecords(mockProcessorRecords);
-            ropaStore.saveProcessorRecords(mockProcessorRecords);
-        } else {
-            setProcessorRecords(savedProcessorRecords);
-        }
+        setProcessorRecords(savedProcessorRecords);
     }, []);
 
     const refresh = () => {

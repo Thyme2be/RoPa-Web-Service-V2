@@ -33,10 +33,7 @@ export default function FeedbackModal({ isOpen, sectionName, onClose, onConfirm 
                     ส่งคำร้องขอเปลี่ยนแปลง
                 </h2>
                 <p className="text-sm font-bold text-[#5F5E5E] leading-relaxed mb-8">
-                    ไปยังส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล
-                    {sectionName && (
-                        <span className="block text-[#1B1C1C] mt-1">({sectionName})</span>
-                    )}
+                    โปรดตรวจสอบข้อมูลให้ครบถ้วน
                 </p>
 
                 {/* Confirm Button */}
@@ -44,7 +41,7 @@ export default function FeedbackModal({ isOpen, sectionName, onClose, onConfirm 
                     onClick={onConfirm}
                     className="w-full bg-logout-gradient leading-none text-white h-[52px] rounded-2xl font-black text-base shadow-lg shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all"
                 >
-                    ยืนยันการร้องขอ
+                    ยืนยันการส่งคำร้อง
                 </button>
             </div>
         </div>

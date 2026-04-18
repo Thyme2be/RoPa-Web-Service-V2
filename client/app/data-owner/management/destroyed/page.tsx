@@ -6,13 +6,17 @@ import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
+import { useRopa } from "@/context/RopaContext";
+
 export default function RopaDestroyedPage() {
+    const { records } = useRopa();
     const [page, setPage] = useState(1);
-    const mockDestroyed = [
-        { id: "RP-2026-03", name: "RP-2026-03 ข้อมูลลูกค้า", doName: "นางสาวพรรษชล บุญมาก", dpoName: "นายกิตติพงศ์ ศรีวัฒนากุล", destroyDate: "20/03/2571" },
-        { id: "RP-2026-02", name: "RP-2026-02 การกำกับดูแลข้อมูลธุรกรรม", doName: "นางสาวพรรษชล บุญมาก", dpoName: "นายกิตติพงศ์ ศรีวัฒนากุล", destroyDate: "18/03/2571" },
-        { id: "RP-2026-01", name: "RP-2026-01 การจัดการข้อมูลโดรงข่าย", doName: "นางสาวพรรษชล บุญมาก", dpoName: "นายกิตติพงศ์ ศรีวัฒนากุล", destroyDate: "15/03/2571" },
-    ];
+    
+    // Filter destroyed records
+    const destroyedRecords = records.filter(r => r.workflow === "destroyed");
+
+    const ITEMS_PER_PAGE = 5;
+    const paginatedRecords = destroyedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#FCF9F8]">
@@ -42,26 +46,34 @@ export default function RopaDestroyedPage() {
                                 <DocumentTableHeader width="w-[10%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
-                                {mockDestroyed.map((record) => (
-                                    <DocumentTableRow key={record.id}>
-                                        <DocumentTableCell align="left">{record.name}</DocumentTableCell>
-                                        <DocumentTableCell>{record.doName}</DocumentTableCell>
-                                        <DocumentTableCell>{record.dpoName}</DocumentTableCell>
-                                        <DocumentTableCell align="left">{record.destroyDate}</DocumentTableCell>
-                                        <DocumentTableCell>
-                                            <div className="flex items-center justify-center gap-3">
-                                                <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                            </div>
+                                {paginatedRecords.length === 0 ? (
+                                    <DocumentTableRow>
+                                        <DocumentTableCell colSpan={6} align="center">
+                                            <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารที่ถูกทำลายแล้ว</span>
                                         </DocumentTableCell>
                                     </DocumentTableRow>
-                                ))}
+                                ) : (
+                                    paginatedRecords.map((record) => (
+                                        <DocumentTableRow key={record.id}>
+                                            <DocumentTableCell align="left">{record.id} {record.documentName}</DocumentTableCell>
+                                            <DocumentTableCell>{record.title}{record.firstName} {record.lastName}</DocumentTableCell>
+                                            <DocumentTableCell>นายกิตติพงศ์ ศรีวัฒนากุล</DocumentTableCell>
+                                            <DocumentTableCell align="left">{record.updatedDate || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
+                                                </div>
+                                            </DocumentTableCell>
+                                        </DocumentTableRow>
+                                    ))
+                                )}
                             </DocumentTableBody>
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={4} 
-                            totalItems={10} 
-                            itemsPerPage={3} 
+                            totalPages={Math.max(1, Math.ceil(destroyedRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={destroyedRecords.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
                     </ListCard>

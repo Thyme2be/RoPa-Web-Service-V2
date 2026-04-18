@@ -1,4 +1,5 @@
 import { OwnerRecord } from "@/types/dataOwner";
+import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus, DataType, CollectionMethod, RetentionUnit } from "@/types/enums";
 
 export const mockOwnerRecords: OwnerRecord[] = [
@@ -7,6 +8,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ข้อมูลลูกค้าเพื่อการตลาด",
         status: RopaStatus.Processing,
         workflow: "processing",
+        department: "แผนกการตลาด",
         processorCompany: "บริษัท NetBay Marketing",
         dueDate: "20/03/2569",
         dateCreated: "01/03/2569",
@@ -22,21 +24,21 @@ export const mockOwnerRecords: OwnerRecord[] = [
         address: "99/1 ถนนวิภาวดีรังสิต แขวงลาดยาว เขตจตุจักร กรุงเทพฯ 10900",
         email: "thanakorn.w@netbay.co.th", phoneNumber: "081-234-5678",
         rightsEmail: "dpo@netbay.co.th", rightsPhone: "02-123-4567",
-        dataSubjectName: "ลูกค้าทั่วไป", processingActivity: "การส่งข่าวสารประชาสัมพันธ์", 
+        dataSubjectName: "ลูกค้าทั่วไป", processingActivity: "การส่งข่าวสารประชาสัมพันธ์",
         purpose: "เพื่อแจ้งสิทธิประโยชน์และกิจกรรมทางการตลาด", personalData: "ชื่อ, อีเมล, เบอร์โทรศัพท์",
         dataCategories: ["customer"], dataType: DataType.General, storedDataTypes: ["ชื่อ - นามสกุล", "อีเมล", "เบอร์โทรศัพท์"],
-        collectionMethod: CollectionMethod.SoftFile, 
+        collectionMethod: CollectionMethod.SoftFile,
         dataSource: { direct: true, indirect: false },
-        legalBasis: "ฐานความยินยอม (Consent)", 
+        legalBasis: "ฐานความยินยอม (Consent)",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: false },
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: ["Cloud Storage (AWS)"], 
-            duration: 5, 
-            unit: RetentionUnit.Year, 
-            accessControl: "ฝ่ายการตลาดและฝ่าย IT", 
-            deletionMethod: "ลบไฟล์ข้อมูลถาวรออกจากระบบ" 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Cloud Storage (AWS)"],
+            duration: 5,
+            unit: RetentionUnit.Year,
+            accessControl: "ฝ่ายการตลาดและฝ่าย IT",
+            deletionMethod: "ลบไฟล์ข้อมูลถาวรออกจากระบบ"
         },
         exemptionDisclosure: "ไม่มีการใช้หรือเปิดเผยข้อมูลที่ได้รับยกเว้น",
         securityMeasures: {
@@ -51,6 +53,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ข้อมูลธุรกรรมการซื้อขาย",
         status: RopaStatus.Processing,
         workflow: "processing",
+        department: "แผนกขาย",
         processorCompany: "บริษัท บัญชีดี จำกัด",
         dueDate: "18/03/2569",
         dateCreated: "01/03/2569",
@@ -66,21 +69,21 @@ export const mockOwnerRecords: OwnerRecord[] = [
         address: "123 อาคารพญาไทพลาซ่า กรุงเทพฯ 10400",
         email: "kanya.m@accounting.co.th", phoneNumber: "089-876-5432",
         rightsEmail: "contact@accounting.co.th", rightsPhone: "02-987-6543",
-        dataSubjectName: "คู่ค้าและซัพพลายเออร์", processingActivity: "Record-to-Report", 
+        dataSubjectName: "คู่ค้าและซัพพลายเออร์", processingActivity: "Record-to-Report",
         purpose: "เพื่อจัดทำบัญชีและเสียภาษีตามกฎหมาย", personalData: "ชื่อบริษัท, เลขประจำตัวผู้เสียภาษี",
         dataCategories: ["partner"], dataType: DataType.General, storedDataTypes: ["เลขประจำตัวประชาชน", "ชื่อ - นามสกุล"],
-        collectionMethod: CollectionMethod.HardCopy, 
+        collectionMethod: CollectionMethod.HardCopy,
         dataSource: { direct: true, indirect: true },
-        legalBasis: "ฐานการปฏิบัติตามกฎหมาย (Legal Obligation)", 
+        legalBasis: "ฐานการปฏิบัติตามกฎหมาย (Legal Obligation)",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: false },
-        retention: { 
-            storageType: CollectionMethod.HardCopy, 
-            method: ["ตู้เก็บเอกสารนิรภัย"], 
-            duration: 10, 
-            unit: RetentionUnit.Year, 
-            accessControl: "เจ้าหน้าที่บัญชีอาวุโส", 
-            deletionMethod: "ใช้เครื่องทำลายเอกสาร (Shredder)" 
+        retention: {
+            storageType: CollectionMethod.HardCopy,
+            method: ["ตู้เก็บเอกสารนิรภัย"],
+            duration: 10,
+            unit: RetentionUnit.Year,
+            accessControl: "เจ้าหน้าที่บัญชีอาวุโส",
+            deletionMethod: "ใช้เครื่องทำลายเอกสาร (Shredder)"
         },
         exemptionDisclosure: "การส่งข้อมูลให้กรมสรรพากร",
         securityMeasures: {
@@ -93,6 +96,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "บันทึกการเข้าออกคลาวด์เซิร์ฟเวอร์",
         status: RopaStatus.Processing,
         workflow: "processing",
+        department: "แผนก IT",
         processorCompany: "บริษัท IT Security Pro",
         dueDate: "15/03/2569",
         dateCreated: "01/03/2569",
@@ -108,22 +112,22 @@ export const mockOwnerRecords: OwnerRecord[] = [
         address: "อาคารซอฟต์แวร์พาร์ค นนทบุรี",
         email: "piti.s@itsecurity.co.th", phoneNumber: "087-654-3210",
         rightsEmail: "support@itsecurity.co.th",
-        dataSubjectName: "ผู้ดูแลระบบ (Admin)", processingActivity: "System Monitoring", 
+        dataSubjectName: "ผู้ดูแลระบบ (Admin)", processingActivity: "System Monitoring",
         purpose: "เพื่อรักษาความมั่นคงปลอดภัยทางสารสนเทศ", personalData: "IP Address, Login Log",
         dataCategories: ["contact"], dataType: DataType.General, storedDataTypes: ["อื่นๆ"],
         storedDataTypesOther: "IP Address, MAC Address",
-        collectionMethod: CollectionMethod.SoftFile, 
+        collectionMethod: CollectionMethod.SoftFile,
         dataSource: { direct: false, indirect: true },
-        legalBasis: "ฐานประโยชน์โดยชอบธรรม (Legitimate Interest)", 
+        legalBasis: "ฐานประโยชน์โดยชอบธรรม (Legitimate Interest)",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: true, country: "Singapore", transferMethod: "Log Forwarding" },
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: ["Central Log Management Server"], 
-            duration: 90, 
-            unit: RetentionUnit.Day, 
-            accessControl: "IT Auditor", 
-            deletionMethod: "Auto-overwrite by System" 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Central Log Management Server"],
+            duration: 90,
+            unit: RetentionUnit.Day,
+            accessControl: "IT Auditor",
+            deletionMethod: "Auto-overwrite by System"
         },
         exemptionDisclosure: "ตรวจพบบุกรุกระบบส่งพยานหลักฐานให้ตำรวจ",
         securityMeasures: {
@@ -136,6 +140,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ระบบบริหารจัดการเงินเดือนพนักงาน",
         status: RopaStatus.ReviewPending,
         workflow: "sent_dpo",
+        department: "แผนก HR",
         processorCompany: "บริษัท PayCheck Thailand",
         dueDate: "01/04/2569",
         dateCreated: "01/03/2569",
@@ -144,21 +149,21 @@ export const mockOwnerRecords: OwnerRecord[] = [
         assignedProcessor: { name: "นางสาวศิริพร บุญเหลือ", assignedDate: "02/03/2569", processorStatus: "เสร็จสมบูรณ์", documentTitle: "ระบบบริหารจัดการเงินเดือนพนักงาน" },
         title: "นางสาว", firstName: "วิภา", lastName: "มหาทรัพย์",
         address: "เขตลาดพร้าว กรุงเทพฯ", email: "wipa@netbay.co.th", phoneNumber: "02-555-4444",
-        dataSubjectName: "พนักงานประจำและสัญญาจ้าง", processingActivity: "Payroll Calculation", 
+        dataSubjectName: "พนักงานประจำและสัญญาจ้าง", processingActivity: "Payroll Calculation",
         purpose: "เพื่อคำนวณเงินเดือนและนำส่งภาษี/ประกันสังคม", personalData: "ชื่อ, เลขที่บัญชีธนาคาร, เงินเดือน",
-        dataCategories: ["employee"], dataType: [DataType.General, DataType.Sensitive], 
+        dataCategories: ["employee"], dataType: [DataType.General, DataType.Sensitive],
         storedDataTypes: ["ชื่อ - นามสกุล", "เลขประจำตัวประชาชน", "วัน/เดือน/ปีเกิด"],
         collectionMethod: CollectionMethod.SoftFile, dataSource: { direct: true, indirect: false },
-        legalBasis: "ฐานการปฏิบัติตามกฎหมาย", 
+        legalBasis: "ฐานการปฏิบัติตามกฎหมาย",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: false },
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: ["ERP Storage"], 
-            duration: 10, 
-            unit: RetentionUnit.Year, 
-            accessControl: "HR Manager", 
-            deletionMethod: "Purge Database Record" 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["ERP Storage"],
+            duration: 10,
+            unit: RetentionUnit.Year,
+            accessControl: "HR Manager",
+            deletionMethod: "Purge Database Record"
         },
         exemptionDisclosure: "นำส่งข้อมูลให้สำนักงานประกันสังคม",
         securityMeasures: { organizational: "HR Access Policy", technical: "Database Encryption" }
@@ -168,6 +173,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ข้อมูลลูกค้าในระบบ CRM",
         status: RopaStatus.Approved,
         workflow: "approved",
+        department: "แผนกขาย",
         processorCompany: "บริษัท Cloud-Solution Ltd.",
         dueDate: "25/03/2569",
         dateCreated: "01/01/2569",
@@ -176,21 +182,21 @@ export const mockOwnerRecords: OwnerRecord[] = [
         assignedProcessor: { name: "นายอรรถพล เมืองไทย", assignedDate: "05/01/2569", processorStatus: "เสร็จสมบูรณ์", documentTitle: "ข้อมูลลูกค้าในระบบ CRM" },
         title: "นาย", firstName: "สมศักดิ์", lastName: "รุ่งเรือง",
         address: "ระยอง", email: "somsak@crmpro.com", phoneNumber: "038-123-456",
-        dataSubjectName: "ลูกค้าเป้าหมาย", processingActivity: "Customer Relationship Management", 
+        dataSubjectName: "ลูกค้าเป้าหมาย", processingActivity: "Customer Relationship Management",
         purpose: "เพื่อวิเคราะห์พฤติกรรมการซื้อและนำเสนอโปรโมชั่น", personalData: "ประวัติการซื้อ, ความสนใจ",
-        dataCategories: ["customer"], dataType: DataType.General, 
+        dataCategories: ["customer"], dataType: DataType.General,
         storedDataTypes: ["ชื่อ - นามสกุล", "เบอร์โทรศัพท์", "อีเมล"],
         collectionMethod: CollectionMethod.SoftFile, dataSource: { direct: true, indirect: true },
-        legalBasis: "ฐานความยินยอม", 
+        legalBasis: "ฐานความยินยอม",
         minorConsent: { under10: false, age10to20: true, none: false },
         internationalTransfer: { isTransfer: true, country: "USA", transferMethod: "Cloud Sync" },
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: ["Salesforce CRM"], 
-            duration: 2, 
-            unit: RetentionUnit.Year, 
-            accessControl: "Sales Team", 
-            deletionMethod: "Delete from CRM Portal" 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Salesforce CRM"],
+            duration: 2,
+            unit: RetentionUnit.Year,
+            accessControl: "Sales Team",
+            deletionMethod: "Delete from CRM Portal"
         },
         exemptionDisclosure: "ไม่มี",
         securityMeasures: { organizational: "Data Privacy Policy", accessControl: "Role-based Access Control" }
@@ -200,6 +206,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "บันทึกประวัติผู้มาติดต่อ",
         status: RopaStatus.DeletePending,
         workflow: "delete_pending",
+        department: "แผนก IT",
         processorCompany: "บริษัท Security-Plus นิติบุคคล",
         dueDate: "10/03/2569",
         dateCreated: "01/01/2568",
@@ -208,49 +215,79 @@ export const mockOwnerRecords: OwnerRecord[] = [
         assignedProcessor: { name: "นายสมชาย ใจดี", assignedDate: "02/01/2568", processorStatus: "เสร็จสมบูรณ์", documentTitle: "บันทึกประวัติผู้มาติดต่อ" },
         title: "นาย", firstName: "มานะ", lastName: "อดทน",
         address: "สมุทรปราการ", email: "mana@security.co.th", phoneNumber: "02-333-2222",
-        dataSubjectName: "บุคคลภายนอกที่มาติดต่อ", processingActivity: "Visitor Registration", 
+        dataSubjectName: "บุคคลภายนอกที่มาติดต่อ", processingActivity: "Visitor Registration",
         purpose: "เพื่อรักษาความปลอดภัยภายในอาคาร", personalData: "ภาพถ่ายใบหน้า, ทะเบียนรถ",
-        dataCategories: ["contact"], dataType: DataType.Sensitive, 
+        dataCategories: ["contact"], dataType: DataType.Sensitive,
         storedDataTypes: ["เลขประจำตัวประชาชน", "ชื่อ - นามสกุล"],
         collectionMethod: CollectionMethod.HardCopy, dataSource: { direct: true, indirect: false },
-        legalBasis: "ฐานประโยชน์โดยชอบธรรม", 
+        legalBasis: "ฐานประโยชน์โดยชอบธรรม",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: false },
-        retention: { 
-            storageType: CollectionMethod.HardCopy, 
-            method: ["สมุดบันทึกหน้าป้อมยาม"], 
-            duration: 30, 
-            unit: RetentionUnit.Day, 
-            accessControl: "เจ้าหน้าที่หัวหน้ารักษาความปลอดภัย", 
-            deletionMethod: "ทำลายทิ้งทุกสิ้นเดือน" 
+        retention: {
+            storageType: CollectionMethod.HardCopy,
+            method: ["สมุดบันทึกหน้าป้อมยาม"],
+            duration: 30,
+            unit: RetentionUnit.Day,
+            accessControl: "เจ้าหน้าที่หัวหน้ารักษาความปลอดภัย",
+            deletionMethod: "ทำลายทิ้งทุกสิ้นเดือน"
         },
         exemptionDisclosure: "ขอดูย้อนหลังโดยเจ้าหน้าที่ตำรวจกรณีมีเหตุอาชญากรรม",
         securityMeasures: { physical: "Lock box, CCTV coverage" }
     },
     {
+        id: "RP-2026-07",
+        documentName: "ข้อมูลผู้สมัครงานที่ไม่ผ่านการคัดเลือก",
+        status: RopaStatus.Destroyed,
+        workflow: "destroyed",
+        department: "แผนก HR",
+        dateCreated: "01/01/2567",
+        updatedDate: "15/01/2569",
+        title: "นาย", firstName: "สมคิด", lastName: "มานะชีพ",
+        address: "กรุงเทพฯ", email: "somkid@hr.co.th", phoneNumber: "02-111-2222",
+        dataSubjectName: "ผู้สมัครงาน", processingActivity: "Recruitment",
+        purpose: "เพื่อพิจารณาความเหมาะสมกับตำแหน่งงาน", personalData: "ประวัติการทำงาน, วุฒิการศึกษา",
+        dataCategories: ["employee"], dataType: DataType.General,
+        storedDataTypes: ["ชื่อ - นามสกุล", "เบอร์โทรศัพท์", "อีเมล"],
+        collectionMethod: CollectionMethod.SoftFile, dataSource: { direct: true, indirect: false },
+        legalBasis: "ฐานความยินยอม",
+        minorConsent: { under10: false, age10to20: false, none: true },
+        internationalTransfer: { isTransfer: false },
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["HR Shared Drive"],
+            duration: 1,
+            unit: RetentionUnit.Year,
+            accessControl: "Recruiter",
+            deletionMethod: "Delete from Server"
+        },
+        exemptionDisclosure: "ไม่มี",
+        securityMeasures: { organizational: "Retention Policy" }
+    },
+    {
         id: "DFT-2026-02",
         documentName: "ข้อมูลการส่งออกพัสดุ",
         status: RopaStatus.Draft,
+        department: "แผนก IT",
         dateCreated: "10/03/2026",
         updatedDate: "16/03/2026",
         title: "นาย", firstName: "สืบพงศ์", lastName: "สายส่ง",
         address: "บางนา กรุงเทพฯ", email: "subpong@delivery.com", phoneNumber: "085-555-5555",
-        dataSubjectName: "ผู้ส่งและผู้รับพัสดุ", processingActivity: "Logistics Tracking", 
+        dataSubjectName: "ผู้ส่งและผู้รับพัสดุ", processingActivity: "Logistics Tracking",
         purpose: "เพื่อติดตามสถานะการจัดส่งพัสดุ", personalData: "พิกัด GPS, ลายเซ็นรับของ",
-        dataCategories: ["customer"], dataType: DataType.General, 
+        dataCategories: ["customer"], dataType: DataType.General,
         storedDataTypes: ["ชื่อ - นามสกุล", "เบอร์โทรศัพท์", "อื่นๆ"],
         storedDataTypesOther: "ลายเซ็นดิจิทัล",
         collectionMethod: CollectionMethod.SoftFile, dataSource: { direct: true, indirect: false },
-        legalBasis: "ฐานสัญญา", 
+        legalBasis: "ฐานสัญญา",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: false },
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: ["Delivery App DB"], 
-            duration: 1, 
-            unit: RetentionUnit.Year, 
-            accessControl: "Dispatcher", 
-            deletionMethod: "Soft delete from DB" 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Delivery App DB"],
+            duration: 1,
+            unit: RetentionUnit.Year,
+            accessControl: "Dispatcher",
+            deletionMethod: "Soft delete from DB"
         },
         exemptionDisclosure: "ไม่มี",
         securityMeasures: { technical: "Mobile App Encryption" }
@@ -259,91 +296,78 @@ export const mockOwnerRecords: OwnerRecord[] = [
         id: "DFT-2026-01",
         documentName: "ฐานข้อมูลผู้รับเหมาช่วง",
         status: RopaStatus.Draft,
+        department: "แผนก HR",
         dateCreated: "12/03/2569",
         updatedDate: "15/03/2569",
         title: "นางสาว", firstName: "ใจดี", lastName: "มีวาสนา",
         address: "ปทุมธานี", email: "jaidee@contractor.com", phoneNumber: "086-666-6666",
-        dataSubjectName: "บุคคลสาธารณะและนิติบุคคล", processingActivity: "Vendor Management", 
+        dataSubjectName: "บุคคลสาธารณะและนิติบุคคล", processingActivity: "Vendor Management",
         purpose: "เพื่อคัดเลือกและจัดจ้างผู้จัดการภายนอก", personalData: "โปรไฟล์งาน, ราคาเสนอ",
-        dataCategories: ["partner"], dataType: DataType.General, 
+        dataCategories: ["partner"], dataType: DataType.General,
         storedDataTypes: ["ชื่อ - นามสกุล", "เลขประจำตัวผู้เสียภาษี"],
         collectionMethod: CollectionMethod.SoftFile, dataSource: { direct: true, indirect: true },
-        legalBasis: "ฐานสัญญา", 
+        legalBasis: "ฐานสัญญา",
         minorConsent: { under10: false, age10to20: false, none: true },
         internationalTransfer: { isTransfer: false },
-        retention: { 
-            storageType: CollectionMethod.SoftFile, 
-            method: ["Procurement System"], 
-            duration: 5, 
-            unit: RetentionUnit.Year, 
-            accessControl: "Procurement Officer", 
-            deletionMethod: "Remove from Active System" 
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Procurement System"],
+            duration: 5,
+            unit: RetentionUnit.Year,
+            accessControl: "Procurement Officer",
+            deletionMethod: "Remove from Active System"
         },
         exemptionDisclosure: "ไม่มี",
         securityMeasures: { organizational: "Vendor Code of Conduct" }
     }
 ];
 
-export const mockProcessorRecords: any[] = [
+export const mockProcessorRecords: RopaProcessorRecord[] = [
     {
-        id: "RP-2026-04",
-        ropaId: "RP-2026-04",
-        documentName: "ระบบบริหารจัดการเงินเดือนพนักงาน",
-        processorName: "บริษัท PayCheck Thailand",
-        status: RopaStatus.ReviewPending,
-        controllerName: "บริษัท เน็ตเบย์ จำกัด (มหาชน)",
-        controllerAddress: "123 อาคารเน็ตเบย์ กรุงเทพฯ",
-        title: "นาย", firstName: "ธนาวุฒิ", lastName: "ศรีสุข",
-        address: "99 ถนนรัชดาภิเษก กรุงเทพฯ",
-        email: "thanawut.s@paycheck.co.th",
-        phoneNumber: "02-111-2222",
-        processingActivity: "การคำนวณและจ่ายเงินเดือนพนักงาน",
-        purpose: "เพื่อดำเนินการจ่ายเงินส่ง และนำส่งภาษีตามกฎหมายแรงงาน",
-        dataCategories: ["employee"],
-        storedDataTypes: ["ชื่อ - นามสกุล", "เลขประจำตัวประชาชน", "เลขบัญชีธนาคาร"],
-        retention: {
-            storageType: CollectionMethod.SoftFile,
-            method: ["Cloud Server (Internal DB)"],
-            duration: 10,
-            unit: RetentionUnit.Year,
-            accessControl: "เจ้าหน้าที่ Payroll และฝ่ายบัญชีตรวจสอบ",
-            deletionMethod: "การทำลายข้อมูลในฐานข้อมูล (Permanent Delete)"
-        },
-        legalBasis: "ฐานการปฏิบัติตามสัญญา (Contract)",
-        exemptionDisclosure: "การนำส่งข้อมูลให้ธนาคารและกรมสรรพากร",
-        securityMeasures: {
-            organizational: "นโยบายการเข้าถึงข้อมูลรายบุคคล",
-            technical: "SSL Encryption, Database Encryption",
-            accessControl: "Multi-factor Authentication (MFA)"
-        }
-    },
-    {
-        id: "RP-2026-03",
-        ropaId: "RP-2026-03",
+        id: "RP-2026-03", // Same ID to link to the DO portion
         documentName: "ข้อมูลลูกค้าเพื่อการตลาด",
-        processorName: "บริษัท NetBay Marketing",
+        title: "นาย",
+        firstName: "กิตติพงศ์",
+        lastName: "สุวรรณชัย",
+        address: "123 NetBay Company, Bangkok",
+        email: "kittipong@netbay.co.th",
+        phoneNumber: "081-111-2222",
         status: RopaStatus.Processing,
-        controllerName: "บริษัท เน็ตเบย์ จำกัด (มหาชน)",
-        controllerAddress: "123 อาคารเน็ตเบย์ กรุงเทพฯ",
-        title: "นางสาว", firstName: "พรรณราย", lastName: "แก้วมณี",
-        address: "456 ถนนสุขุมวิท กรุงเทพฯ",
-        email: "pannarai.k@marketing-pro.co.th",
-        processingActivity: "การส่งจดหมายข่าวและสิทธิประโยชน์",
-        purpose: "เพื่อการทำการตลาดออนไลน์และวิเคราะห์ข้อมูลความสนใจ",
+        lastUpdated: "12/03/2569",
+        updatedDate: "12/03/2569",
+
+        // Processor Specific Form
+        processorName: "บริษัท NetBay Marketing",
+        controllerName: "บริษัท เมนคอนโทรลเลอร์ จำกัด",
+        controllerAddress: "99/1 ถนนวิภาวดีรังสิต",
+        processingActivity: "การส่งข่าวสารประชาสัมพันธ์",
+        purpose: "เพื่อแจ้งสิทธิประโยชน์และโฆษณา",
+        personalData: "ชื่อ, อีเมล, เบอร์โทรศัพท์",
+        legalBasis: "ฐานความยินยอม (Consent)",
+
         dataCategories: ["customer"],
-        storedDataTypes: ["ชื่อ", "อีเมล", "เบอร์โทรศัพท์"],
+        dataType: DataType.General,
+        storedDataTypes: ["ชื่อ - นามสกุล", "อีเมล", "เบอร์โทรศัพท์"],
+
+        dataSource: { direct: true, indirect: false },
+        collectionMethod: CollectionMethod.SoftFile,
+        internationalTransfer: { isTransfer: false },
+
         retention: {
             storageType: CollectionMethod.SoftFile,
-            method: ["CRM Database"],
+            method: ["Cloud Storage (AWS)"],
             duration: 5,
             unit: RetentionUnit.Year,
-            accessControl: "ฝ่ายการตลาดเท่านั้น",
-            deletionMethod: "ลบออกจากรายชื่อผู้ติดต่อในระบบ CRM"
+            accessControl: "ฝ่ายการตลาดของ Processor",
+            deletionMethod: "ลบข้อมูลจากฐานข้อมูลของ NetBay",
+            accessCondition: "เพื่อประมวลผลทางการตลาดตามคำสั่ง DO เท่านั้น"
         },
-        legalBasis: "ฐานความยินยอม (Consent)",
-        exemptionDisclosure: "ไม่มี",
+
         securityMeasures: {
-            technical: "Firewall, Cloud Access Control"
+            organizational: "นโยบายความมั่นคงปลอดภัยสารสนเทศของบริษัท Processor",
+            technical: "เข้ารหัส Database แบบ AES-256",
+            accessControl: "บังคับยืนยัน 2FA สำหรับฝั่ง Processor",
+            responsibility: "เซ็นสัญญารักษาความลับระหว่าง DO/DP"
         }
     }
 ];

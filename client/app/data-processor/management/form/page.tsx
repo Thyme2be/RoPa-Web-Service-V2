@@ -194,7 +194,8 @@ function DataProcessorFormContent() {
 
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low overflow-x-hidden">
                 <TopBar
-                    documentName="ข้อมูลลูกค้า"
+                    documentName={form.documentName}
+                    pageTitle="ข้อมูลลูกค้า"
                     handleChange={handleChange}
                     status={form.status}
                     hideSearch={true}

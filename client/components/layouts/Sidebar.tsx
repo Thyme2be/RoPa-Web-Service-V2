@@ -18,11 +18,15 @@ export default function Sidebar() {
     // Menu Configuration
     const ownerMenu = [
         { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", path: "/data-owner/dashboard" },
-        { id: "documents", label: "การจัดการเอกสาร", icon: "description", path: "/data-owner/documents" },
+        { id: "documents", label: "ตารางเอกสาร", icon: "description", path: "/data-owner/management" },
     ];
 
     const executiveMenu = [
         { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", path: "/executive/dashboard" },
+    ];
+
+    const processorMenu = [
+        { id: "processing", label: "ตารางเอกสาร", icon: "assignment", path: "/data-processor/management/processing" },
     ];
 
     const menuItems = isExecutive ? executiveMenu : (isProcessor ? processorMenu : ownerMenu);
@@ -37,9 +41,9 @@ export default function Sidebar() {
             {/* Menu Items */}
             <nav className="flex-1 pl-4 space-y-2 mt-4">
                 {menuItems.map((item) => {
-                    const isActive = pathname.startsWith(item.path) || 
-                                   (item.id === "processing" && pathname.startsWith("/data-processor/management/")) ||
-                                   (item.id === "documents" && pathname.startsWith("/data-owner/management/"));
+                    const isActive = pathname.startsWith(item.path) ||
+                        (item.id === "processing" && pathname.startsWith("/data-processor/management/")) ||
+                        (item.id === "documents" && pathname.startsWith("/data-owner/management/"));
                     return (
                         <Link
                             key={item.id}
