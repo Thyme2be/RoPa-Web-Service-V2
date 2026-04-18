@@ -2,7 +2,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
-import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/ListComponents";
+import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 
 function DocumentsPageContent() {

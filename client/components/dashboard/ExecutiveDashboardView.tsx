@@ -134,7 +134,8 @@ export default function ExecutiveDashboardView() {
             </div>
 
             {/* Bottom Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
+                {/* Pending — 2 col */}
                 <div className="lg:col-span-2">
                     <DashboardSummaryCard
                         icon="hourglass_empty"
@@ -146,12 +147,28 @@ export default function ExecutiveDashboardView() {
                         ]}
                     />
                 </div>
+
+                {/* Approved — 1 col */}
                 <DashboardSummaryCard
                     icon="check_circle"
-                    label="เอกสารที่ได้รับอนุมัติ"
+                    label="เอกสารที่ได้รับการอนุมัติ"
                     value={dept.approved}
+                    subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
                     accentColor="success"
                 />
+
+                {/* DPO Review — full width */}
+                <div className="lg:col-span-3">
+                    <DashboardSummaryCard
+                        icon="hourglass_empty"
+                        label="เอกสารรอเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
+                        accentColor="info"
+                        splitValues={[
+                            { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: dept.dpo.store },
+                            { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: dept.dpo.destroy },
+                        ]}
+                    />
+                </div>
             </div>
         </div>
     );

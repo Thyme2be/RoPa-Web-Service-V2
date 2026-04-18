@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ReusableForm, { FormField } from "@/components/ui/ReusableForm";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
-import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/ListComponents";
+import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 
 function UsersPageContent() {

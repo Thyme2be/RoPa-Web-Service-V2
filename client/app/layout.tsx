@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   description: "Enterprise Record of Processing Activities Manager",
 };
 
+import { RopaProvider } from "@/context/RopaContext";
+import { RopaAuditProvider } from "@/context/RopaAuditContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,7 +32,13 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&display=block"
         />
       </head>
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        <RopaProvider>
+          <RopaAuditProvider>
+            {children}
+          </RopaAuditProvider>
+        </RopaProvider>
+      </body>
     </html>
   );
 }

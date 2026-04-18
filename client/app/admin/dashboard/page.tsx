@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import RopaDonutChart from "@/components/ui/RopaDonutChart";
 
 interface DashboardData {
     document_status_chart: {

@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { ropaStore } from "@/lib/ropaStore";
-import { mockOwnerRecords } from "@/lib/mockRecords";
+import { mockOwnerRecords, mockProcessorRecords } from "@/lib/mockRecords";
 import { RopaStatus } from "@/types/enums";
 
 // SSR-Safe UUID Helper
@@ -18,7 +18,7 @@ const generateId = () => {
 interface RopaContextType {
     records: OwnerRecord[];
     processorRecords: RopaProcessorRecord[];
-    
+
     // Data Owner Actions
     saveRecord: (record: Partial<OwnerRecord>) => OwnerRecord;
     getById: (id: string) => OwnerRecord | undefined;
@@ -61,7 +61,12 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         }
 
         const savedProcessorRecords = ropaStore.getProcessorRecords();
-        setProcessorRecords(savedProcessorRecords);
+        if (savedProcessorRecords.length === 0) {
+            setProcessorRecords(mockProcessorRecords);
+            ropaStore.saveProcessorRecords(mockProcessorRecords);
+        } else {
+            setProcessorRecords(savedProcessorRecords);
+        }
     }, []);
 
     const refresh = () => {
@@ -78,11 +83,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const saveRecord = (record: Partial<OwnerRecord>): OwnerRecord => {
         const current = ropaStore.getRecords();
         const index = current.findIndex(r => r.id === record.id);
-        
+
         let saved: OwnerRecord;
         let updated: OwnerRecord[];
         const now = new Date().toLocaleString("th-TH");
-        
+
         if (index > -1) {
             updated = [...current];
             saved = { ...updated[index], ...record, updatedDate: now, lastUpdated: now } as OwnerRecord;
@@ -99,7 +104,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             } as OwnerRecord;
             updated = [saved, ...current];
         }
-        
+
         ropaStore.saveRecords(updated);
         setRecords(updated);
         return saved;
@@ -130,7 +135,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         // 2. Sync to Processor Records (the "separate but linked" part)
         const currentPr = ropaStore.getProcessorRecords();
         const existingPrIndex = currentPr.findIndex(p => p.id === recordId);
-        
+
         let updatedPrList;
         if (existingPrIndex > -1) {
             updatedPrList = [...currentPr];
@@ -161,8 +166,8 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const submitDoSection = (id: string) => {
         const record = getById(id);
         if (record) {
-            saveRecord({ 
-                ...record, 
+            saveRecord({
+                ...record,
                 processingStatus: { ...record.processingStatus, doStatus: "done" } as any
             });
         }
@@ -199,11 +204,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const saveProcessorRecord = (record: Partial<RopaProcessorRecord>): RopaProcessorRecord => {
         const current = ropaStore.getProcessorRecords();
         const index = current.findIndex(r => r.id === record.id);
-        
+
         let saved: RopaProcessorRecord;
         let updated: RopaProcessorRecord[];
         const now = new Date().toLocaleString("th-TH");
-        
+
         if (index > -1) {
             updated = [...current];
             saved = { ...updated[index], ...record, lastUpdated: now, updatedDate: now } as RopaProcessorRecord;
@@ -219,7 +224,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             } as RopaProcessorRecord;
             updated = [saved, ...current];
         }
-        
+
         ropaStore.saveProcessorRecords(updated);
         setProcessorRecords(updated);
         return saved;

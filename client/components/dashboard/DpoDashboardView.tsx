@@ -1,6 +1,5 @@
-"use client";
-
 import React from "react";
+import RopaDonutChart from "@/components/ui/RopaDonutChart";
 
 interface DpoDashboardProps {
     stats: {
@@ -172,29 +171,19 @@ function SummaryCard({ title, value, unit, subtitle, icon, color = "primary", bo
 }
 
 function RiskDonutChart({ riskData }: { riskData: any }) {
-    return (
-        <div className="bg-white p-8 rounded-xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] border-b-4 border-zinc-200 flex flex-col items-center h-full">
-            <h4 className="text-[17px] font-bold text-neutral-900 w-full text-left mb-8">ความเสี่ยงของเอกสารทั้งหมด</h4>
-            
-            <div className="relative w-48 h-48 mb-8 drop-shadow-sm group cursor-pointer">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#f0eded" strokeWidth="4"></circle>
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#A7F305" strokeDasharray={`${riskData.low} 100`} strokeDashoffset="0" strokeWidth="4" className="transition-all duration-1000 ease-out"></circle>
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#F9A506" strokeDasharray={`${riskData.medium} 100`} strokeDashoffset={`-${riskData.low}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-100"></circle>
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#FB8827" strokeDasharray={`${riskData.high} 100`} strokeDashoffset={`-${riskData.low+riskData.medium}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-200"></circle>
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-center px-4 flex-col transition-transform duration-300 group-hover:scale-105">
-                    <span className="text-[13px] font-bold text-neutral-900 leading-tight uppercase">จากเอกสารทั้งหมด</span>
-                    <span className="text-[14px] font-bold text-neutral-900">0 ฉบับ</span>
-                </div>
-            </div>
+    const chartData = [
+        { label: "ความเสี่ยงต่ำ (1)", value: riskData.low, color: "#A7F305" },
+        { label: "ความเสี่ยงปานกลาง (2)", value: riskData.medium, color: "#F9A506" },
+        { label: "ความเสี่ยงสูง (3)", value: riskData.high, color: "#FB8827" },
+    ];
 
-            <div className="w-full space-y-3">
-                <RiskLegendItem color="#A7F305" label="ความเสี่ยงต่ำ (1)" value={riskData.low} />
-                <RiskLegendItem color="#F9A506" label="ความเสี่ยงปานกลาง (2)" value={riskData.medium} />
-                <RiskLegendItem color="#FB8827" label="ความเสี่ยงสูง (3)" value={riskData.high} />
-            </div>
-        </div>
+    return (
+        <RopaDonutChart
+            variant="card"
+            title="ความเสี่ยงของเอกสารทั้งหมด"
+            data={chartData}
+            total={riskData.low + riskData.medium + riskData.high}
+        />
     );
 }
 

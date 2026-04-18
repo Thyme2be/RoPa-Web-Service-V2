@@ -2,7 +2,7 @@
 import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
-import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/ListComponents";
+import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";

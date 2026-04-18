@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/ListComponents";
+import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
