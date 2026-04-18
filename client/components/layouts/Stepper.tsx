@@ -2,11 +2,12 @@
 
 const steps = [
     { id: 1, label: "ผู้บันทึก" },
-    { id: 2, label: "กิจกรรม" },
-    { id: 3, label: "ประเภทข้อมูล" },
-    { id: 4, label: "การจัดเก็บ" },
-    { id: 5, label: "ความยินยอม" },
-    { id: 6, label: "มาตรการ" },
+    { id: 2, label: "ช่องทาง" },
+    { id: 3, label: "กิจกรรม" },
+    { id: 4, label: "ประเภทข้อมูล" },
+    { id: 5, label: "การจัดเก็บ" },
+    { id: 6, label: "ความยินยอม" },
+    { id: 7, label: "มาตรการ" },
 ];
 
 export default function Stepper({ completedSteps = [] }: { completedSteps?: number[] }) {
@@ -15,7 +16,7 @@ export default function Stepper({ completedSteps = [] }: { completedSteps?: numb
             {/* Background Decorative Line */}
             <div className="absolute top-[70px] left-[10%] right-[10%] h-[1px] bg-[#E5E2E1] -translate-y-1/2"></div>
 
-            <div className="flex justify-between w-full max-w-5xl mx-auto relative z-10">
+            <div className="flex justify-between w-full relative z-10 px-10">
                 {steps.map((step) => {
                     const isStepComplete = completedSteps.includes(step.id);
 

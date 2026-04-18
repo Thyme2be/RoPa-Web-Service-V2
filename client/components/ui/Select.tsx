@@ -14,23 +14,25 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     error?: string;
     rounding?: "lg" | "xl" | "2xl";
     disabled?: boolean;
-    bgColor?: "white" | "gray";
+    bgColor?: "white" | "gray" | string;
+    labelClassName?: string;
     onChange?: (e: { target: { name: string; value: string } }) => void;
 };
 
-export default function Select({ 
-    label, 
-    options, 
-    required, 
-    containerClassName, 
-    value, 
-    name, 
-    onChange, 
+export default function Select({
+    label,
+    options,
+    required,
+    containerClassName,
+    value,
+    name,
+    onChange,
     placeholder,
     error,
     rounding = "2xl",
     bgColor = "gray",
-    ...props 
+    labelClassName,
+    ...props
 }: Props) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -59,18 +61,18 @@ export default function Select({
     return (
         <div className={cn("space-y-2 w-full", containerClassName)} ref={containerRef}>
             {label && (
-                <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
+                <label className={cn("text-lg font-extrabold text-black block tracking-tight", labelClassName)}>
                     {label} {required && <span className="text-primary">*</span>}
                 </label>
             )}
-            
+
             <div className="relative">
                 {/* Header / Trigger */}
                 <div
                     onClick={() => !props.disabled && setIsOpen(!isOpen)}
                     className={cn(
                         "flex items-center justify-between w-full h-11 px-4 py-2 border cursor-pointer transition-all hover:bg-white hover:border-primary/20",
-                        bgColor === "white" ? "bg-white" : "bg-[#F6F3F2]",
+                        bgColor === "white" ? "bg-white" : bgColor === "gray" ? "bg-[#F6F3F2]" : "bg-[#FAFAFA]",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
                         error ? "border-red-500/50 bg-red-50/50" : "border-[#E5E2E1]",
                         isOpen && "bg-primary/5 border-primary/20 rounded-b-none",

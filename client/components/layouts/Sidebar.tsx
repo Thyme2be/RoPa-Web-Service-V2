@@ -6,10 +6,8 @@ import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/ui/LogoutButton";
 
 const menuItems = [
-    { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", href: "/data-owner/dashboard" },
-    { id: "ropa", label: "รายการ RoPA", icon: "list_alt", href: "/data-owner/ropa" },
-    { id: "docs", label: "เอกสาร", icon: "description", href: "/data-owner/documents" },
-    { id: "advice", label: "ข้อเสนอแนะ", icon: "forum", href: "/data-owner/advice" },
+    { id: "dashboard", label: "แดชบอร์ด", icon: "grid_view", href: "/data-owner/dashboard" },
+    { id: "management", label: "จัดการเอกสาร", icon: "list_alt", href: "/data-owner/management" },
 ];
 
 export default function Sidebar() {
@@ -30,7 +28,7 @@ export default function Sidebar() {
                             href={item.href}
                             className={`relative w-full h-12 flex items-center px-4 py-3 transition-all duration-300 group ${isActive
                                 ? "bg-white/60 rounded-lg shadow-sm"
-                                : " text-secondary hover:bg-white/30 rounded-lg"
+                                : " text-[#5F5E5E] hover:bg-white/30 rounded-lg"
                                 }`}
                         >
                             {isActive && (
@@ -39,13 +37,13 @@ export default function Sidebar() {
                             <span
                                 className={`material-symbols-outlined shrink-0 mr-3.5 transition-all duration-300 ${isActive
                                     ? "text-primary scale-110"
-                                    : "text-secondary group-hover:text-primary"
+                                    : "text-[#5F5E5E] group-hover:text-primary"
                                     }`}
                                 style={{ fontVariationSettings: `'FILL' ${isActive ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}
                             >
                                 {item.icon}
                             </span>
-                            <span className={`text-[16px] font-bold tracking-tight transition-colors ${isActive ? "text-primary" : "text-secondary group-hover:text-primary"
+                            <span className={`text-[16px] font-bold tracking-tight transition-colors ${isActive ? "text-primary" : "text-[#5F5E5E] group-hover:text-primary"
                                 }`}>
                                 {item.label}
                             </span>

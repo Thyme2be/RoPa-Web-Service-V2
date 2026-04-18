@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Select from "@/components/ui/Select";
+import ThaiDatePicker from "@/components/ui/ThaiDatePicker";
 
 export function SummaryCard({ label, value, accentColor, subtext, footer }: { label: string; value: string; accentColor: string; subtext?: string; footer?: React.ReactNode }) {
     const borderClass = accentColor === "red" ? "border-l-[#ED393C]" : 
@@ -37,17 +38,12 @@ export function AdvancedFilterBar({ initialTimeframe = "30" }: { initialTimefram
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-            <div className="space-y-1.5 pb-[2px]">
-                <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">วันที่รับข้อมูล</label>
-                <div className="relative">
-                    <input 
-                        type="date" 
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-full h-11 bg-[#F6F3F2] border border-transparent rounded-xl px-4 py-2 text-sm font-medium outline-none hover:bg-white hover:border-primary/20 transition-all text-[#6B7280]" 
-                    />
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] text-lg pointer-events-none">calendar_month</span>
-                </div>
+            <div className="space-y-1.5 pb-[2px] w-full">
+                <ThaiDatePicker 
+                    label="วันที่รับข้อมูล"
+                    value={date}
+                    onChange={setDate}
+                />
             </div>
 
             <Select 
@@ -159,6 +155,45 @@ export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSor
     );
 }
 
+// แยกระบบใหม่ของคุณออกมาเป็น DocumentListCard เพื่อไม่ให้กระทบโค้ดเดิมของเพื่อน
+export function DocumentListCard({ 
+    title, 
+    icon, 
+    iconColor = "#1B1C1C", 
+    children, 
+    showSort = false,
+    filled = false,
+    bodyClassName = "p-6 pt-2"
+}: { 
+    title: string; 
+    icon: string; 
+    iconColor?: string; 
+    children: React.ReactNode; 
+    showSort?: boolean;
+    filled?: boolean;
+    bodyClassName?: string;
+}) {
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-[#E5E2E1]/40">
+            <div className="p-5 flex items-center justify-between bg-[#E0D9D7] rounded-t-[11px]">
+                <div className="flex items-center gap-3">
+                    <span 
+                        className="material-symbols-outlined font-bold text-[22px]" 
+                        style={{ color: iconColor, fontVariationSettings: filled ? "'FILL' 1" : undefined }}
+                    >
+                        {icon}
+                    </span>
+                    <h2 className="text-[17px] font-headline font-black text-[#1B1C1C] tracking-tight">{title}</h2>
+                </div>
+                {showSort && <span className="material-symbols-outlined text-secondary text-lg cursor-pointer">sort</span>}
+            </div>
+            <div className={`${bodyClassName} overflow-x-auto`}>
+                {children}
+            </div>
+        </div>
+    );
+}
+
 
 export function Pagination({ current, total, onChange }: { current: number; total: number; onChange?: (page: number) => void }) {
     if (total <= 1) return null;
@@ -196,3 +231,206 @@ export function Pagination({ current, total, onChange }: { current: number; tota
     );
 }
 
+export function DocumentFilterBar({ 
+    statusOptions,
+    statusValue = "all",
+    onStatusChange,
+    dateValue = "7days",
+    onDateChange,
+    customDate = "",
+    onCustomDateChange,
+    onClear 
+}: { 
+    statusOptions?: { label: string, value: string }[],
+    statusValue?: string,
+    onStatusChange?: (val: string) => void,
+    dateValue?: string,
+    onDateChange?: (val: string) => void,
+    customDate?: string,
+    onCustomDateChange?: (val: string) => void,
+    onClear?: () => void 
+}) {
+    return (
+        <div className="bg-[#EAE4E3] rounded-xl p-5 flex flex-wrap md:flex-nowrap items-end gap-6 border border-[#E5E2E1] overflow-visible">
+            <div className="w-full md:w-[300px] shrink-0">
+                <Select
+                    label="สถานะ"
+                    labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
+                    name="statusFilter"
+                    value={statusValue || "all"}
+                    options={statusOptions || [
+                        { label: "ทั้งหมด", value: "all" },
+                        { label: "รอส่วนของ Data Owner", value: "wait_owner" },
+                        { label: "รอส่วนของ Data Processor", value: "wait_processor" },
+                        { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "done_owner" },
+                        { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "done_processor" }
+                    ]}
+                    onChange={(e) => { onStatusChange?.(e.target.value) }}
+                />
+            </div>
+            <div className="flex items-end gap-4 w-[516px] shrink-0 overflow-visible">
+                <div className="w-[300px] shrink-0">
+                    <Select
+                        label="ช่วงวันที่"
+                        labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
+                        name="dateFilter"
+                        value={dateValue || "7days"}
+                        options={[
+                            { label: "ภายใน 7 วัน", value: "7days" },
+                            { label: "ภายใน 30 วัน", value: "30days" },
+                            { label: "เกินกำหนด", value: "overdue" },
+                            { label: "กำหนดเอง", value: "custom" }
+                        ]}
+                        onChange={(e) => { onDateChange?.(e.target.value) }}
+                    />
+                </div>
+                <div className="w-[200px] shrink-0">
+                    {dateValue === 'custom' && (
+                        <div className="animate-in fade-in zoom-in-95 duration-200">
+                            <ThaiDatePicker 
+                                label="เลือกวัน"
+                                labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
+                                value={customDate || ""}
+                                onChange={(val) => onCustomDateChange?.(val)}
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+            <button 
+                onClick={onClear}
+                className="h-[46px] px-8 bg-[#5F5E5E] text-white rounded-lg flex items-center gap-2 font-bold hover:bg-[#4F4E4E] transition-colors md:ml-auto shrink-0 whitespace-nowrap"
+            >
+                <span className="material-symbols-rounded text-[20px]">filter_list</span>
+                ล้างตัวกรอง
+            </button>
+        </div>
+    );
+}
+
+export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = "", buttonClassName = "" }: { icon: string, tooltipText: React.ReactNode, onClick?: () => void, className?: string, buttonClassName?: string }) {
+    return (
+        <div className={`group/tooltip relative flex items-center justify-center ${className}`}>
+            <button onClick={onClick} className={`w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#CCCCCC]/40 transition-colors cursor-pointer ${buttonClassName}`}>
+                <span className="material-symbols-rounded text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? {fontVariationSettings: "'FILL' 1"} : {}}>
+                    {icon}
+                </span>
+            </button>
+            <div className="absolute bottom-full mb-2 right-0 w-max opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[60]">
+                <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] text-center pointer-events-none">
+                    {tooltipText}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function DocumentPagination({ current, totalPages, totalItems, itemsPerPage, onChange }: { current: number, totalPages: number, totalItems: number, itemsPerPage: number, onChange?: (p: number) => void }) {
+    if (totalPages <= 1) return null;
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+    
+    const startItem = (current - 1) * itemsPerPage + 1;
+    const endItem = Math.min(current * itemsPerPage, totalItems);
+
+    return (
+        <div className="flex justify-between items-center py-4 px-6 text-sm font-medium text-[#5F5E5E]">
+            <span>แสดง {startItem} ถึง {endItem} จากทั้งหมด {totalItems} รายการ</span>
+            <div className="flex gap-2 items-center text-xs">
+                <button 
+                    onClick={() => onChange?.(current - 1)}
+                    disabled={current === 1}
+                    className="w-8 h-8 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100 rounded text-[#1B1C1C]"
+                >
+                    <span className="material-symbols-rounded text-[18px]">chevron_left</span>
+                </button>
+                {pages.map(p => (
+                    <button 
+                        key={p}
+                        onClick={() => onChange?.(p)}
+                        className={`w-8 h-8 flex items-center justify-center rounded font-bold ${p === current ? "bg-[#ED393C] text-white" : "hover:bg-gray-100 text-[#1B1C1C]"}`}
+                    >
+                        {p}
+                    </button>
+                ))}
+                <button 
+                    onClick={() => onChange?.(current + 1)}
+                    disabled={current === totalPages}
+                    className="w-8 h-8 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100 rounded text-[#1B1C1C]"
+                >
+                    <span className="material-symbols-rounded text-[18px]">chevron_right</span>
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// Reusable Table Components for Data Owner
+export function DocumentTable({ children }: { children: React.ReactNode }) {
+    return (
+        <table className="w-full text-center border-collapse mt-0 relative z-0">
+            {children}
+        </table>
+    );
+}
+
+export function DocumentTableHead({ children }: { children: React.ReactNode }) {
+    return (
+        <thead>
+            <tr className="bg-[#F6F3F2] border-b border-[#E5E2E1]/40">
+                {children}
+            </tr>
+        </thead>
+    );
+}
+
+export function DocumentTableHeader({ children, width, className = "" }: { children: React.ReactNode, width?: string, className?: string }) {
+    return (
+        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${className}`}>
+            {children}
+        </th>
+    );
+}
+
+export function DocumentTableHeaderWithTooltip({ title, tooltipText, width, className = "" }: { title: React.ReactNode, tooltipText: React.ReactNode, width?: string, className?: string }) {
+    return (
+        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${className}`}>
+            <div className="flex items-center justify-center gap-1 group relative cursor-help">
+                {title}
+                <span className="material-symbols-rounded text-[16px] text-[#5C403D]">info</span>
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-max opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[60]">
+                    <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] space-y-1 text-left leading-relaxed">
+                        {tooltipText}
+                    </div>
+                </div>
+            </div>
+        </th>
+    );
+}
+
+export function DocumentTableBody({ children }: { children: React.ReactNode }) {
+    return (
+        <tbody className="divide-y divide-[#E5E2E1] border-b border-[#E5E2E1]/40">
+            {children}
+        </tbody>
+    );
+}
+
+export function DocumentTableRow({ children, className = "" }: { children: React.ReactNode, className?: string }) {
+    return (
+        <tr className={`hover:bg-[#F9FAFB] transition-colors group ${className}`}>
+            {children}
+        </tr>
+    );
+}
+
+export function DocumentTableCell({ children, className = "", align = "center" }: { children: React.ReactNode, className?: string, align?: "left" | "center" | "right" }) {
+    let justifyClass = "";
+    if (align === "left") justifyClass = "text-left text-[#5C403D]";
+    else if (align === "center") justifyClass = "text-center text-[#5C403D]";
+    
+    return (
+        <td className={`py-5 px-4 first:pl-6 last:pr-6 text-[13.5px] font-medium ${justifyClass} ${className}`}>
+            {children}
+        </td>
+    );
+}

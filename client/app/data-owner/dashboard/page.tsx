@@ -3,71 +3,166 @@
 import React from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { StatsCard, FilterBar } from "@/components/dashboard/DashboardComponents";
-import { DashboardChart } from "@/components/dashboard/DashboardChart";
-import { useRopa } from "@/context/RopaContext";
-import Link from "next/link";
+import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
+import RiskDonutChart from "@/components/dashboard/RiskDonutChart";
+import Select from "@/components/ui/Select";
+import { globalMockDashboardData } from "@/lib/mockDashboardData";
+
 
 export default function DashboardPage() {
-    const { stats } = useRopa();
+    const [timeFilter, setTimeFilter] = React.useState("monthly");
+
+    const timeOptions = [
+        { label: "สัปดาห์นี้", value: "weekly" },
+        { label: "เดือนนี้", value: "monthly" },
+        { label: "6 เดือน", value: "6months" },
+        { label: "1 ปี", value: "yearly" },
+        { label: "ทั้งหมด", value: "all" },
+    ];
+
+    const currentData = globalMockDashboardData[timeFilter] || globalMockDashboardData["monthly"];
+
+    const riskChartData = [
+        { label: "ความเสี่ยงต่ำ (1)", value: currentData.risk.low, color: "#B4F534" },
+        { label: "ความเสี่ยงปานกลาง (2)", value: currentData.risk.medium, color: "#F9A506" },
+        { label: "ความเสี่ยงสูง (3)", value: currentData.risk.high, color: "#FB8827" },
+    ];
 
     return (
         <div className="flex min-h-screen bg-[#FCF9F8]">
             <Sidebar />
 
-            <main className="flex-1 ml-[var(--sidebar-width)] flex flex-col bg-surface-container-low">
-                <TopBar pageTitle="แดชบอร์ดสำหรับการรับผิดชอบข้อมูล" hideSearch={true} />
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
+                <TopBar hideSearch={true} minimal={true} />
 
-                <div className="p-10 space-y-10">
+                <div className="p-10 space-y-8">
                     {/* Welcome Header */}
-                    <div className="space-y-1">
-                        <h1 className="text-[28px] font-headline font-black text-[#1B1C1C] tracking-tight">
-                            แดชบอร์ดสรุปข้อมูล
-                        </h1>
-                        <p className="text-[#5C403D] text-[15px] font-medium opacity-80">
-                            ภาพรวมการปฏิบัติตามข้อกำหนดและความคืบหน้าขององค์กร
-                        </p>
+                    <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                            <h1 className="text-4xl font-black text-[#1B1C1C] tracking-tight">
+                                แดชบอร์ดสรุปข้อมูล
+                            </h1>
+                            <p className="text-[#5C403D] text-base font-medium opacity-80">
+                                ภาพรวมการปฏิบัติตามข้อกำหนดและความคืบหน้าของผู้รับผิดชอบข้อมูล
+                            </p>
+                        </div>
+
+                        <div className="w-64">
+                            <Select
+                                label="ช่วงเวลา"
+                                name="timeFilter"
+                                value={timeFilter}
+                                options={timeOptions}
+                                onChange={(e) => setTimeFilter(e.target.value)}
+                                rounding="xl"
+                            />
+                        </div>
+                    </div>
+                    {/* First Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <DashboardSummaryCard
+                            icon="inventory_2"
+                            label="จำนวนเอกสารทั้งหมด"
+                            value={currentData.totalDocs}
+                            subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
+                            accentColor="neutral"
+                        />
+                        <DashboardSummaryCard
+                            icon="edit_document"
+                            label="เอกสารที่ต้องแก้ไขหลังจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
+                            accentColor="danger"
+                            splitValues={[
+                                { label: "ผู้รับผิดชอบข้อมูล", value: currentData.docsToEdit.owner },
+                                { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: currentData.docsToEdit.processor }
+                            ]}
+                        />
                     </div>
 
-                    {/* Filter Bar */}
-                    <FilterBar />
-
-                    {/* Dynamic Summary Cards — all clickable */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <Link href="/data-owner/ropa/list">
-                            <StatsCard
-                                icon="inventory_2"
-                                label="จำนวนเอกสารทั้งหมด"
-                                value={stats.total.toString()}
-                                subLabel="รายการทั้งหมดในระบบ"
-                            />
-                        </Link>
-                        <Link href="/data-owner/ropa/list">
-                            <StatsCard
+                    {/* Second Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-1">
+                            <RiskDonutChart data={riskChartData} total={currentData.risk.total} />
+                        </div>
+                        <div className="lg:col-span-2 space-y-6 flex flex-col h-full">
+                            <DashboardSummaryCard
                                 icon="hourglass_empty"
-                                label="รายการที่รอตรวจสอบ"
-                                value={stats.submitted.toString()}
-                                subLabel="รอผู้ตรวจสอบทำการตรวจสอบ"
-                                accentColor="blue"
+                                label="เอกสารรอเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
+                                accentColor="info"
+                                splitValues={[
+                                    { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: currentData.pendingDpo.store },
+                                    { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: currentData.pendingDpo.destroy }
+                                ]}
                             />
-                        </Link>
-                        <Link href="/data-owner/ropa/list">
-                            <StatsCard
-                                icon="priority_high"
-                                label="ต้องดำเนินการ / ฉบับร่าง"
-                                value={(stats.rejected + stats.draft).toString()}
-                                subLabel="ต้องแก้ไข หรือกำลังร่าง"
-                                accentColor="red"
+                            <DashboardSummaryCard
+                                icon="hourglass_empty"
+                                label="เอกสารที่รอดำเนินการ"
+                                accentColor="info"
+                                splitValues={[
+                                    { label: "ผู้รับผิดชอบข้อมูล", value: currentData.pendingDocs.owner },
+                                    { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: currentData.pendingDocs.processor }
+                                ]}
                             />
-                        </Link>
+                        </div>
                     </div>
 
-                    {/* Charts & Trends */}
+                    {/* Third Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <DashboardSummaryCard
+                            icon="check_circle"
+                            label="เอกสารที่ได้รับการอนุมัติ"
+                            value={currentData.approved}
+                            subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
+                            accentColor="success"
+                        />
+                        <DashboardSummaryCard
+                            icon="visibility_off"
+                            label="เอกสารประเภทข้อมูลอ่อนไหว"
+                            value={currentData.sensitive}
+                            subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
+                            accentColor="accent"
+                        />
+                        <DashboardSummaryCard
+                            icon="priority_high"
+                            label="เอกสารที่ล่าช้า"
+                            value={currentData.delayed}
+                            subLabel="เอกสารที่ครบกำหนดทำลายและเกินกำหนดทำลาย"
+                            accentColor="warning"
+                        />
+                    </div>
+
+                    {/* Fourth Row */}
                     <div className="grid grid-cols-1 gap-6">
-                        <DashboardChart />
+                        <DashboardSummaryCard
+                            icon="content_paste_search"
+                            label="เอกสารที่ต้องเช็ครายปี"
+                            accentColor="info"
+                            splitValues={[
+                                { label: "เอกสารที่ตรวจสอบแล้วโดยเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", value: currentData.annualCheck.reviewed },
+                                { label: "เอกสารที่ยังไม่ได้ตรวจสอบ", value: currentData.annualCheck.notReviewed }
+                            ]}
+                        />
+                    </div>
+
+                    {/* Fifth Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <DashboardSummaryCard
+                            icon="event_busy"
+                            label="เอกสารที่ครบกำหนดทำลาย"
+                            value={currentData.dueDestroy}
+                            subLabel="เอกสารทั้งหมด"
+                            accentColor="warning"
+                        />
+                        <DashboardSummaryCard
+                            icon="event_note"
+                            label="เอกสารที่ถูกทำลายแล้ว"
+                            value={currentData.destroyed}
+                            subLabel="เอกสารทั้งหมด"
+                            accentColor="muted"
+                        />
                     </div>
                 </div>
             </main>
         </div>
     );
 }
+

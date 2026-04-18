@@ -77,7 +77,7 @@ export default function RopaListPage() {
         <div className="flex min-h-screen bg-[#FCF9F8]">
             <Sidebar />
 
-            <main className="flex-1 ml-[var(--sidebar-width)] flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
                 <TopBar pageTitle="รายการ RoPA ที่บันทึกไว้" hideSearch={true} />
 
                 <div className="p-10 space-y-10">
@@ -95,11 +95,11 @@ export default function RopaListPage() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[18%] uppercase">รหัสเอกสาร</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[32%] uppercase">ชื่อรายการ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">วันที่รับข้อมูล</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] w-[18%] uppercase">รหัสเอกสาร</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] w-[32%] uppercase">ชื่อรายการ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">วันที่รับข้อมูล</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">
@@ -107,13 +107,13 @@ export default function RopaListPage() {
                                     <ProcessingRow
                                         key={record.id}
                                         record={record}
-                                        onView={() => router.push(`/data-owner/ropa/form?id=${record.id}&mode=view`)}
-                                        onEdit={() => router.push(`/data-owner/ropa/form?id=${record.id}`)}
+                                        onView={() => router.push(`/data-owner/management/form?id=${record.id}&mode=view`)}
+                                        onEdit={() => router.push(`/data-owner/management/form?id=${record.id}`)}
                                     />
                                 ))}
                                 {paginatedProcessing.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="py-12 text-[#5F5E5E] text-[14px] font-medium">
+                                        <td colSpan={5} className="py-12 text-[#5F5E5E] text-sm font-medium">
                                             ไม่มีรายการที่ดำเนินการ
                                         </td>
                                     </tr>
@@ -132,10 +132,10 @@ export default function RopaListPage() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[18%] uppercase">รหัสฉบับร่าง</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] w-[42%] uppercase">ชื่อรายการ</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">บันทึกล่าสุด</th>
-                                    <th className="py-5 text-[12px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] w-[18%] uppercase">รหัสฉบับร่าง</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] w-[42%] uppercase">ชื่อรายการ</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">บันทึกล่าสุด</th>
+                                    <th className="py-5 text-xs font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">
@@ -143,13 +143,13 @@ export default function RopaListPage() {
                                     <DraftRow
                                         key={record.id}
                                         record={record}
-                                        onEdit={() => router.push(`/data-owner/ropa/form?id=${record.id}`)}
+                                        onEdit={() => router.push(`/data-owner/management/form?id=${record.id}`)}
                                         onDelete={() => handleDelete(record.id)}
                                     />
                                 ))}
                                 {paginatedDrafts.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="py-12 text-[#5F5E5E] text-[14px] font-medium">
+                                        <td colSpan={4} className="py-12 text-[#5F5E5E] text-sm font-medium">
                                             ไม่มีฉบับร่าง
                                         </td>
                                     </tr>
@@ -170,24 +170,24 @@ export default function RopaListPage() {
                 <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-[420px] rounded-[32px] shadow-2xl p-12 flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300">
                         <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-                            <span className="material-symbols-rounded text-[#ED393C] text-[36px]">delete</span>
+                            <span className="material-symbols-rounded text-[#ED393C] text-4xl">delete</span>
                         </div>
                         <div className="space-y-2">
-                            <h3 className="text-[22px] font-headline font-black text-[#1B1C1C]">ลบฉบับร่าง?</h3>
-                            <p className="text-[15px] font-medium text-[#5F5E5E]">
+                            <h3 className="text-2xl font-headline font-black text-[#1B1C1C]">ลบฉบับร่าง?</h3>
+                            <p className="text-base font-medium text-[#5F5E5E]">
                                 ข้อมูลที่บันทึกไว้จะถูกลบออกอย่างถาวร และไม่สามารถกู้คืนได้
                             </p>
                         </div>
                         <div className="flex gap-3 w-full">
                             <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="flex-1 h-[48px] rounded-xl font-bold text-[15px] text-[#5C403D] border-2 border-[#E5E2E1] hover:bg-[#F6F3F2] transition-all"
+                                className="flex-1 h-[48px] rounded-xl font-bold text-base text-[#5C403D] border-2 border-[#E5E2E1] hover:bg-[#F6F3F2] transition-all"
                             >
                                 ยกเลิก
                             </button>
                             <button
                                 onClick={confirmDelete}
-                                className="flex-1 h-[48px] rounded-xl font-black text-[15px] text-white bg-[#ED393C] hover:brightness-110 transition-all shadow-lg shadow-red-900/20"
+                                className="flex-1 h-[48px] rounded-xl font-black text-base text-white bg-[#ED393C] hover:brightness-110 transition-all shadow-lg shadow-red-900/20"
                             >
                                 ลบ
                             </button>
@@ -213,9 +213,9 @@ function ProcessingRow({ record, onView, onEdit }: { record: OwnerRecord; onView
     const label = statusLabel(record.status);
     return (
         <tr className="hover:bg-[#F9FAFB] transition-colors group">
-            <td className="py-7 text-[13px] font-medium text-secondary">{record.id}</td>
-            <td className="py-7 text-[14.5px] font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
-            <td className="py-7 text-[13px] font-medium text-secondary">{record.dateCreated || "-"}</td>
+            <td className="py-7 text-sm font-medium text-secondary">{record.id}</td>
+            <td className="py-7 text-base font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
+            <td className="py-7 text-sm font-medium text-secondary">{record.dateCreated || "-"}</td>
             <td className="py-7">
                 <div className="flex justify-center">
                     <StatusBadge status={label} />
@@ -225,7 +225,7 @@ function ProcessingRow({ record, onView, onEdit }: { record: OwnerRecord; onView
                 <div className="flex items-center justify-center gap-6">
                     <button
                         onClick={onView}
-                        className="bg-[#E5E7EB]/50 text-[#5F5E5E] px-6 py-2.5 rounded-xl text-[14px] font-bold hover:bg-[#E5E7EB] transition-all"
+                        className="bg-[#E5E7EB]/50 text-[#5F5E5E] px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-[#E5E7EB] transition-all"
                     >
                         ดูเอกสาร
                     </button>
@@ -243,9 +243,9 @@ function ProcessingRow({ record, onView, onEdit }: { record: OwnerRecord; onView
 function DraftRow({ record, onEdit, onDelete }: { record: OwnerRecord; onEdit: () => void; onDelete: () => void }) {
     return (
         <tr className="hover:bg-[#F9FAFB] transition-colors group">
-            <td className="py-7 text-[13px] font-medium text-secondary">{record.id}</td>
-            <td className="py-7 text-[14.5px] font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
-            <td className="py-7 text-[13px] font-medium text-secondary">{record.updatedDate || record.dateCreated || "-"}</td>
+            <td className="py-7 text-sm font-medium text-secondary">{record.id}</td>
+            <td className="py-7 text-base font-bold text-[#1B1C1C] tracking-tight leading-snug">{record.documentName}</td>
+            <td className="py-7 text-sm font-medium text-secondary">{record.updatedDate || record.dateCreated || "-"}</td>
             <td className="py-7">
                 <div className="flex items-center justify-center gap-6">
                     <ActionButton icon="edit" label="แก้ไข" color="red" onClick={onEdit} />
@@ -255,3 +255,5 @@ function DraftRow({ record, onEdit, onDelete }: { record: OwnerRecord; onEdit: (
         </tr>
     );
 }
+
+
