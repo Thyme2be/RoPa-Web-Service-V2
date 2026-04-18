@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { mockOwnerRecords } from "@/lib/ropaMockRecords";
 
 export default function DPOTopBar() {
     const pathname = usePathname();
@@ -40,7 +41,7 @@ export default function DPOTopBar() {
                 const token = localStorage.getItem("token");
                 if (!token) return;
 
-                const response = await fetch("http://localhost:8000/users/me", {
+                const response = await fetch("https://ropa-web-service-v2.onrender.com/users/me", {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
@@ -61,18 +62,11 @@ export default function DPOTopBar() {
     // Check if we are on a table list page (not the menu or detail pages)
     const isTableListPage = pathname.startsWith("/dpo/tables/") && !pathname.match(/\/dpo\/tables\/[^\/]+\/[^\/]+/);
     
-    // Mock data lookup for display names (similar to Auditor layout)
-    const mockDocs = [
-        { id: "RP-2026-03", name: "ข้อมูลลูกค้า" },
-        { id: "RP-2026-02", name: "การกำกับดูแลข้อมูลธุรกรรม" },
-        { id: "RP-2026-01", name: "การจัดการข้อมูลโครงข่าย" }
-    ];
-
     // Check if we are on any DPO detail page
     const detailPaths = ["in-progress", "destruction", "auditor-submission"];
     const isDetailPage = detailPaths.some(p => pathname.includes(`/dpo/tables/${p}/`) && pathname.split('/').length > 4);
     const docId = isDetailPage ? pathname.split('/').pop() : "";
-    const docName = isDetailPage ? (mockDocs.find(d => d.id === docId)?.name || "รายละเอียดเอกสาร") : "";
+    const docName = isDetailPage ? (mockOwnerRecords.find(d => d.id === docId)?.documentName || "รายละเอียดเอกสาร") : "";
 
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">

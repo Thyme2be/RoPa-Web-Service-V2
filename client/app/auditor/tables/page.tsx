@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/RopaListComponents";
@@ -55,6 +55,29 @@ function AuditorTableContent() {
         }
     ];
 
+    const [completedAudits, setCompletedAudits] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("auditor_completed_ids");
+            if (saved) {
+                try {
+                    setCompletedAudits(JSON.parse(saved));
+                } catch (e) {
+                    console.error("Failed to load completed audits", e);
+                }
+            }
+        }
+    }, []);
+
+    // Apply status overrides based on local simulation
+    const docsWithStatus = mockDocsBase.map(doc => {
+        if (completedAudits.includes(doc.id)) {
+            return { ...doc, status: "ตรวจสอบเสร็จสิ้น", statusType: "success" };
+        }
+        return doc;
+    });
+
     const getStatusColor = (type: string) => {
         switch (type) {
             case "success": return "bg-[#228B15] text-white"; // Green
@@ -65,7 +88,7 @@ function AuditorTableContent() {
     };
 
     // Filtering logic
-    const filteredDocs = mockDocsBase.filter(doc => {
+    const filteredDocs = docsWithStatus.filter(doc => {
         const matchesSearch = globalSearchQuery === "" ||
             doc.id.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
             doc.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||

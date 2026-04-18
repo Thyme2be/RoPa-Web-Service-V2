@@ -1,26 +1,419 @@
 "use client";
 
-import React from "react";
-import { useParams, useRouter } from "next/navigation";
+import GeneralInfo from "@/components/formSections/GeneralInfo";
+import StoredInfo from "@/components/formSections/StoredInfo";
+import RetentionInfo from "@/components/formSections/RetentionInfo";
+import LegalInfo from "@/components/formSections/LegalInfo";
+import SecurityMeasures from "@/components/formSections/SecurityMeasures";
+import RightsChannel from "@/components/formSections/RightsChannel";
+import DpoRiskAssessment from "@/components/ropa/DpoRiskAssessment";
+import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
+import Input from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
+import { OwnerRecord } from "@/types/dataOwner";
+import { ProcessorRecord } from "@/types/dataProcessor";
+import { RopaStatus } from "@/types/enums";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useRopa } from "@/context/RopaContext";
+import { mockOwnerRecords, mockProcessorRecords } from "@/lib/ropaMockRecords";
 
-export default function AuditorDetailPage() {
-    const params = useParams();
-    const router = useRouter();
-    const docId = params?.id;
+/** Tabs Component for Auditor document review */
+function AuditorFormTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
+    const tabs = [
+        { id: "owner", label: "ส่วนของผู้รับผิดชอบข้อมูล" },
+        { id: "processor", label: "ส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล" },
+        { id: "risk", label: "การประเมินความเสี่ยงของเอกสาร" },
+    ];
 
     return (
-        <div className="flex flex-col h-full -m-8">
-            <div className="flex-1 p-8 space-y-6">
-                <div className="w-full bg-white rounded-[32px] border border-[#E5E2E1]/40 shadow-sm p-12 min-h-[600px] flex flex-col items-center justify-center text-center">
-                    <div className="w-20 h-20 bg-[#F6F3F2] rounded-full flex items-center justify-center mb-6">
-                        <span className="material-symbols-outlined text-[40px] text-gray-400">description</span>
-                    </div>
-                    <h3 className="text-[20px] font-black text-[#5C403D] mb-2 text-center">กำลังพัฒนาส่วนเนื้อหา</h3>
-                    <p className="text-secondary opacity-60 font-medium max-w-md mx-auto">
-                        หน้านี้จะใช้สำหรับแสดงรายละเอียดและแบบฟอร์มการตรวจสอบข้อมูลของเอกสาร {docId}
-                    </p>
+        <div className="flex items-center gap-2 w-full overflow-x-auto no-scrollbar bg-[#F6F6F6] p-2 rounded-xl">
+            {tabs.map((tab) => (
+                <button
+                    key={tab.id}
+                    onClick={() => onTabChange(tab.id)}
+                    className={cn(
+                        "h-11 px-6 rounded-lg font-bold text-[14px] transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-1 cursor-pointer",
+                        activeTab === tab.id
+                            ? "bg-[#ED393C] text-white shadow-md"
+                            : "bg-white text-[#1B1C1C] border border-[#E5E2E1] hover:bg-gray-50"
+                    )}
+                >
+                    {tab.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+/** 
+ * Local version of ActivityDetails to allow custom numbering (Part 3) 
+ */
+function LocalActivityDetails({ form, handleChange, errors, disabled, variant = "owner" }: any) {
+    const isProcessor = variant === "processor";
+    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
+    const markerColor = "#ED393C";
+    const lightBg = isProcessor ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
+    const borderLColor = isProcessor ? "border-l-[#00666E]" : "border-l-[#ED393C]";
+
+    const sectionTitle = isProcessor ? "ส่วนที่ 2 : รายละเอียดกิจกรรม" : "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์";
+
+    return (
+        <div className={cn(
+            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            borderLColor
+        )}>
+            <div className="flex items-center gap-4 px-8 py-6">
+                <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
+                    <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
+                        accessibility_new
+                    </span>
                 </div>
+                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                    {sectionTitle}
+                </h2>
+            </div>
+
+            <div className="px-8 pb-8 space-y-6">
+                {!isProcessor ? (
+                    <>
+                        <div className="grid grid-cols-1">
+                            <Input
+                                label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
+                                required
+                                name="dataSubjectName"
+                                value={form?.dataSubjectName || ""}
+                                placeholder="กำลังโหลด..."
+                                onChange={handleChange}
+                                error={errors?.dataSubjectName}
+                                disabled={disabled}
+                                focusColor={primaryColor}
+                                requiredColor={markerColor}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <Input
+                                label="กิจกรรมประมวลผล"
+                                required
+                                name="processingActivity"
+                                value={form?.processingActivity || ""}
+                                placeholder="กำลังโหลด..."
+                                onChange={handleChange}
+                                error={errors?.processingActivity}
+                                disabled={disabled}
+                                focusColor={primaryColor}
+                                requiredColor={markerColor}
+                            />
+                            <Input
+                                label="วัตถุประสงค์การประมวลผล"
+                                required
+                                name="purpose"
+                                value={form?.purpose || ""}
+                                placeholder="กำลังโหลด..."
+                                onChange={handleChange}
+                                error={errors?.purpose}
+                                disabled={disabled}
+                                focusColor={primaryColor}
+                                requiredColor={markerColor}
+                            />
+                        </div>
+                    </>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <Input
+                            label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
+                            required
+                            name="processorName"
+                            value={form?.processorName || ""}
+                            placeholder="กำลังโหลด..."
+                            onChange={handleChange}
+                            error={errors?.processorName}
+                            disabled={disabled}
+                            focusColor={primaryColor}
+                            requiredColor={markerColor}
+                        />
+                        <Input
+                            label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
+                            required
+                            name="controllerAddress"
+                            value={form?.controllerAddress || ""}
+                            placeholder="กำลังโหลด..."
+                            onChange={handleChange}
+                            error={errors?.controllerAddress}
+                            disabled={disabled}
+                            focusColor={primaryColor}
+                            requiredColor={markerColor}
+                        />
+                        <Input
+                            label="กิจกรรมประมวลผล"
+                            required
+                            name="processingActivity"
+                            value={form?.processingActivity || ""}
+                            placeholder="กำลังโหลด..."
+                            onChange={handleChange}
+                            error={errors?.processingActivity}
+                            disabled={disabled}
+                            focusColor={primaryColor}
+                            requiredColor={markerColor}
+                        />
+                        <Input
+                            label="วัตถุประสงค์ของการประมวลผล"
+                            required
+                            name="purpose"
+                            value={form?.purpose || ""}
+                            placeholder="กำลังโหลด..."
+                            onChange={handleChange}
+                            error={errors?.purpose}
+                            disabled={disabled}
+                            focusColor={primaryColor}
+                            requiredColor={markerColor}
+                        />
+                    </div>
+                )}
             </div>
         </div>
+    );
+}
+
+function AuditorDetailContent() {
+    const router = useRouter();
+    const params = useParams();
+    const recordId = params?.id as string;
+
+    const [activeTab, setActiveTab] = useState("owner");
+    const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
+    const { getById, getProcessorById } = useRopa();
+
+    const [form, setForm] = useState<Partial<OwnerRecord>>({
+        documentName: "กำลังโหลด...",
+        status: RopaStatus.Submitted,
+        processingStatus: { doStatus: "done", dpStatus: "done" },
+    });
+
+    const [processorForm, setProcessorForm] = useState<Partial<ProcessorRecord>>({
+        status: RopaStatus.Draft,
+    });
+
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+    // Load record from centralized context, then merge with detailed mock data
+    useEffect(() => {
+        if (recordId) {
+            const existing = getById(recordId);
+            if (existing) {
+                const mockMatch = mockOwnerRecords.find(m => m.id === recordId);
+                const merged = mockMatch ? { ...existing, ...mockMatch } : existing;
+                setForm(merged);
+            }
+
+            const procData = getProcessorById(recordId);
+            const mockProcMatch = mockProcessorRecords.find(m => m.id === recordId);
+            const mergedProc = mockProcMatch ? { ...(procData || {}), ...mockProcMatch } : procData;
+            if (mergedProc) {
+                setProcessorForm(mergedProc as any);
+            }
+        }
+    }, [recordId, getById, getProcessorById]);
+
+    const tabs = ["owner", "processor", "risk"];
+
+    const handleNextTab = () => {
+        const currentIndex = tabs.indexOf(activeTab);
+        if (currentIndex < tabs.length - 1) {
+            setActiveTab(tabs[currentIndex + 1]);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handlePrevTab = () => {
+        const currentIndex = tabs.indexOf(activeTab);
+        if (currentIndex > 0) {
+            setActiveTab(tabs[currentIndex - 1]);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            router.push("/auditor/tables");
+        }
+    };
+
+    const handleCancel = () => {
+        router.push("/auditor/tables");
+    };
+
+    const isLastTab = activeTab === tabs[tabs.length - 1];
+    const emptyHandler = () => { };
+
+    return (
+        <div className="flex-1 space-y-6 animate-in fade-in duration-700">
+            <div className="space-y-6">
+                <div className="flex items-center justify-between gap-6 px-1">
+                    <div className="flex-1">
+                        <AuditorFormTabs
+                            activeTab={activeTab}
+                            onTabChange={setActiveTab}
+                        />
+                    </div>
+                </div>
+
+                {/* Tab: DO (Data Owner) */}
+                {activeTab === "owner" && (
+                    <div className="space-y-12 pb-32">
+                        {[
+                            { title: "ข้อมูลทั่วไป", component: GeneralInfo },
+                            { title: "ช่องทางใช้สิทธิ", component: RightsChannel },
+                            { title: "กิจกรรมประมวลผล", component: LocalActivityDetails },
+                            { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo },
+                            { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo },
+                            { title: "ฐานทางกฎหมาย", component: LegalInfo },
+                            { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
+                        ].map((sec, idx) => (
+                            <div key={idx}>
+                                <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Tab: DP (Data Processor) */}
+                {activeTab === "processor" && (
+                    <div className="space-y-12 pb-32">
+                        {[
+                            { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo },
+                            { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails },
+                            { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo },
+                            { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo },
+                            { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo },
+                            { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
+                        ].map((sec, idx) => (
+                            <div key={idx}>
+                                <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Tab: Risk */}
+                {activeTab === "risk" && (
+                    <div className="mt-4 pb-32 space-y-8">
+                        <DpoRiskAssessment
+                            key={recordId}
+                            doStatus="done"
+                            dpStatus="done"
+                            existingRisk={form.riskAssessment}
+                            activeView={riskDocView}
+                            onViewDoSection={() => setRiskDocView(prev => prev === "owner" ? "none" : "owner")}
+                            onViewDpSection={() => setRiskDocView(prev => prev === "processor" ? "none" : "processor")}
+                            onSubmit={emptyHandler}
+                            onCancel={() => setActiveTab("owner")}
+                            readOnly={true}
+                            showFeedback={false}
+                            showViewSections={false}
+                        />
+
+                        {riskDocView === "owner" && (
+                            <div className="animate-in slide-in-from-top-4 duration-500 space-y-8">
+                                <hr className="border-[#E5E2E1] my-8" />
+                                <h3 className="text-xl font-black text-[#1B1C1C]">ข้อมูลส่วนของผู้รับผิดชอบข้อมูล</h3>
+                                <div className="space-y-12">
+                                    {[
+                                        { title: "ข้อมูลทั่วไป", component: GeneralInfo },
+                                        { title: "ช่องทางใช้สิทธิ", component: RightsChannel },
+                                        { title: "กิจกรรมประมวลผล", component: LocalActivityDetails },
+                                        { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo },
+                                        { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo },
+                                        { title: "ฐานทางกฎหมาย", component: LegalInfo },
+                                        { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
+                                    ].map((sec, idx) => (
+                                        <div key={idx}>
+                                            <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {riskDocView === "processor" && (
+                            <div className="animate-in slide-in-from-top-4 duration-500 space-y-8">
+                                <hr className="border-[#E5E2E1] my-8" />
+                                <h3 className="text-xl font-black text-[#1B1C1C]">ข้อมูลส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล</h3>
+                                <div className="space-y-12">
+                                    {[
+                                        { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo },
+                                        { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails },
+                                        { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo },
+                                        { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo },
+                                        { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo },
+                                        { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
+                                    ].map((sec, idx) => (
+                                        <div key={idx}>
+                                            <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Action Bar (Footer) */}
+            <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] border-t border-[#E5E2E1] p-5 px-10 flex items-center justify-between z-40">
+                <button
+                    onClick={handleCancel}
+                    className="px-10 h-[52px] rounded-2xl font-bold text-[#5C403D] border border-[#E5E2E1] hover:bg-gray-50 transition-all cursor-pointer shadow-md"
+                >
+                    ยกเลิก
+                </button>
+
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={handlePrevTab}
+                        className="px-10 h-[52px] rounded-2xl font-bold text-[#5C403D] border border-[#E5E2E1] hover:bg-gray-50 transition-all cursor-pointer shadow-md"
+                    >
+                        ย้อนกลับ
+                    </button>
+
+                    {isLastTab ? (
+                        <button
+                            onClick={() => setIsConfirmModalOpen(true)}
+                            className="bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-black text-base shadow-2xl shadow-red-900/40 hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+                        >
+                            ยืนยันการตรวจสอบ
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleNextTab}
+                            className="bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-black text-base shadow-2xl shadow-red-900/40 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                        >
+                            ถัดไป
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <SaveSuccessModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={() => {
+                    // Simulate persistence without modifying RopaContext
+                    const completedIds = JSON.parse(localStorage.getItem("auditor_completed_ids") || "[]");
+                    if (!completedIds.includes(recordId)) {
+                        localStorage.setItem("auditor_completed_ids", JSON.stringify([...completedIds, recordId]));
+                    }
+                    router.push("/auditor/tables");
+                }}
+                title="ยืนยันการตรวจสอบ"
+                subtitle="ยืนยันว่าได้ดำเนินการตรวจสอบครบถ้วนเรียบร้อยแล้ว"
+                buttonText="ยืนยันการตรวจสอบ"
+            />
+        </div>
+    );
+}
+
+export default function AuditorTableDetailPage() {
+    return (
+        <Suspense fallback={<div className="p-8 font-bold text-secondary">กำลังโหลดข้อมูล...</div>}>
+            <AuditorDetailContent />
+        </Suspense>
     );
 }

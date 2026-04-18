@@ -16,14 +16,13 @@ function DestructionTableContent() {
 
     const ITEMS_PER_PAGE = 5;
 
-    // Expanded Mock data for Destruction
     const mockDocsBase = [
         { id: "RP-2026-06", name: "การบริหารจัดการข้อมูลการบริการ", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-04-01", displayReceivedDate: "01/04/2569", reviewDate: "-", status: "รอตรวจสอบทำลาย", statusType: "warning" },
         { id: "RP-2026-05", name: "การจัดเก็บข้อมูลผู้ใช้งานระบบ", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-03-31", displayReceivedDate: "31/03/2569", reviewDate: "01/04/2569", status: "ไม่อนุมัติการทำลาย", statusType: "edit" },
         { id: "RP-2026-04", name: "การดูแลข้อมูลธุรกรรมทางการเงิน", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-03-29", displayReceivedDate: "29/03/2569", reviewDate: "01/04/2569", status: "อนุมัติการทำลาย", statusType: "success" },
         { id: "RP-2026-07", name: "ข้อมูลการสำรวจตลาด", owner: "นายวิชาญ ดวงดี", receivedDate: "2026-04-05", displayReceivedDate: "05/04/2569", reviewDate: "-", status: "รอตรวจสอบทำลาย", statusType: "warning" },
-        { id: "RP-2026-08", name: "ข้อมูลประวัติการเข้าชมเว็บไซต์", owner: "นางสาวปิยะนาถ มั่นคง", receivedDate: "2026-04-08", displayReceivedDate: "08/04/2569", reviewDate: "-", status: "รอตรวจสอบทำลาย", statusType: "warning" },
-        { id: "RP-2026-09", name: "บันทึกการคุยกับลูกค้า", owner: "นายสมชาย ใจดี", receivedDate: "2026-04-10", displayReceivedDate: "10/04/2569", reviewDate: "-", status: "รอตรวจสอบทำลาย", statusType: "warning" }
+        { id: "RP-2026-08", name: "การจัดการคุกกี้", owner: "นางสาวปิยะนาถ มั่นคง", receivedDate: "2026-04-08", displayReceivedDate: "08/04/2569", reviewDate: "-", status: "รอตรวจสอบทำลาย", statusType: "warning" },
+        { id: "RP-2026-09", name: "ล็อกระบบเข้าถึงข้อมูล", owner: "นายสมชาย ใจดี", receivedDate: "2026-04-10", displayReceivedDate: "10/04/2569", reviewDate: "-", status: "รอตรวจสอบทำลาย", statusType: "warning" }
     ];
 
     const getStatusColor = (type: string) => {
