@@ -9,11 +9,7 @@ export default function AdminTopBar() {
     const searchParams = useSearchParams();
 
     const [searchValue, setSearchValue] = useState(searchParams.get("search") || "");
-    const [user, setUser] = useState<{ first_name: string; last_name: string; role: string | null } | null>({
-        first_name: "พรรษชล",
-        last_name: "บุญมาก",
-        role: "Admin"
-    });
+    const [user, setUser] = useState<{ first_name: string; last_name: string; role: string | null } | null>(null);
 
     // Update local state when URL search param changes
     useEffect(() => {
@@ -39,11 +35,14 @@ export default function AdminTopBar() {
 
     // Role mapping to Thai
     const mapRoleToThai = (role: string | null) => {
-        switch (role) {
-            case "Admin": return "ผู้ดูแลระบบ";
-            case "Data Owner": return "ผู้รับผิดชอบข้อมูล";
-            case "Data processor": return "ผู้ประมวลผลข้อมูลส่วนบุคคล";
-            case "Auditor": return "ผู้ตรวจสอบ";
+        if (!role) return "สิทธิ์ทั่วไป";
+        const r = role.toUpperCase();
+        switch (r) {
+            case "ADMIN": return "ผู้ดูแลระบบ";
+            case "OWNER": return "ผู้รับผิดชอบข้อมูล";
+            case "PROCESSOR": return "ผู้ประมวลผลข้อมูลส่วนบุคคล";
+            case "DPO": return "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล";
+            case "AUDITOR": return "ผู้ตรวจสอบ";
             default: return "สิทธิ์ทั่วไป";
         }
     };
@@ -59,7 +58,7 @@ export default function AdminTopBar() {
                     return;
                 }
 
-                const apiUrl = "http://localhost:8000/users/me";
+                const apiUrl = "http://localhost:8000/auth/me";
                 console.log("[AdminTopBar] Fetching profile from:", apiUrl);
 
                 const response = await fetch(apiUrl, {

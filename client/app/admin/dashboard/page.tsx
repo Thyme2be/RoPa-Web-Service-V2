@@ -154,38 +154,9 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
         setLoading(true);
 
-        const mockData = {
-            document_status_chart: { draft: 50, pending: 100, completed: 300, reviewing: 10 },
-            user_stats: {
-                user_overview: { total: 460, roles: { OWNER: 150, PROCESSOR: 100, DPO: 80, AUDITOR: 70, ADMIN: 50, EXECUTIVE: 10 } },
-                role_breakdowns: {
-                    owner_breakdown: { by_department: [{ department: "IT", count: 40 }, { department: "HR", count: 30 }] },
-                    processor_breakdown: { by_company: [{ company: "บริษัท A", count: 60 }, { company: "บริษัท B", count: 40 }] },
-                    dpo_breakdown: { by_department: [{ department: "Legal", count: 50 }, { department: "Compliance", count: 30 }] },
-                    auditor_breakdown: {
-                        internal: { by_department: [{ department: "Audit", count: 20 }] },
-                        external: { by_company: [{ company: "Consult A", count: 50 }] }
-                    }
-                }
-            },
-            role_stats: {
-                data_owner_docs: { title: "เอกสารของผู้รับผิดชอบข้อมูล", completed: 30, incomplete: 20 },
-                processor_docs: { title: "เอกสารของผู้ประมวลผล", completed: 25, incomplete: 25 },
-                dpo_docs: { title: "เอกสารที่ตรวจโดย DPO", completed: 40, incomplete: 10 },
-                auditor_docs: { title: "เอกสารที่ตรวจโดย Auditor", completed: 35, incomplete: 15 },
-            },
-            revision_stats: {
-                owner_revisions: { title: "แก้ไขโดย Owner", completed: 10, incomplete: 5 },
-                processor_revisions: { title: "แก้ไขโดย Processor", completed: 8, incomplete: 2 },
-                destroyed_docs: { title: "เอกสารที่ถูกทำลาย", completed: 5, incomplete: 0 },
-                due_for_destruction: { title: "ครบกำหนดทำลาย", completed: 0, incomplete: 3 },
-            }
-        };
-
         const token = localStorage.getItem("token");
         if (!token) {
-            console.warn("No token found, using mock data for preview...");
-            setData(mockData);
+            console.warn("No token found. Please login.");
             setLoading(false);
             return;
         }
@@ -195,10 +166,12 @@ export default function DashboardPage() {
 
             // Fetch Documents Dashboard
             const docRes = await fetch(`${API_BASE_URL}/dashboard?period=${timeRange}`, { headers });
+            if (!docRes.ok) throw new Error("Failed to fetch document statistics");
             const docJson = await docRes.json();
 
             // Fetch Users Dashboard
             const userRes = await fetch(`${API_BASE_URL}/dashboard/users?period=${timeRange}`, { headers });
+            if (!userRes.ok) throw new Error("Failed to fetch user statistics");
             const userJson = await userRes.json();
 
             setData({
@@ -213,8 +186,8 @@ export default function DashboardPage() {
                 user_stats: userJson
             });
         } catch (error) {
-            console.error("Dashboard fetch error, using mock data fallback:", error);
-            setData(mockData);
+            console.error("Dashboard fetch error:", error);
+            setData(null);
         } finally {
             setLoading(false);
         }

@@ -18,6 +18,7 @@ function UsersPageContent() {
     const [userToDelete, setUserToDelete] = useState<any>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [selectedUserDbId, setSelectedUserDbId] = useState<number | null>(null);
     const initialCreateFormData = {
         username: "",
         prefix: "นางสาว",
@@ -126,11 +127,14 @@ function UsersPageContent() {
             const transformedUsers = data.items.map((u: any) => ({
                 id: u.user_code || `user-${u.id}`,
                 db_id: u.id,
+                username: u.username,
                 name: `${u.title || ""} ${u.first_name} ${u.last_name || ""}`.trim(),
                 email: u.email,
                 role: enumToRole[u.role] || u.role,
                 department: u.department || "ไม่ระบุ",
-                status: enumToStatus[u.status] || u.status
+                status: enumToStatus[u.status] || u.status,
+                company_name: u.company_name,
+                auditor_type: u.auditor_type
             }));
 
             setUsersData({
@@ -160,6 +164,7 @@ function UsersPageContent() {
 
     const handleOpenCreateModal = () => {
         setCreateFormData(initialCreateFormData);
+        setSelectedUserDbId(null);
         setIsEditMode(false);
         setIsCreateModalOpen(true);
     };
@@ -170,30 +175,91 @@ function UsersPageContent() {
     const handleCreateUser = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         setIsCreating(true);
-        setTimeout(() => {
+
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+            const roleEnum = roleToEnum[createFormData.role] || "NONE";
+            const statusEnum = statusToEnum[createFormData.status] || "ACTIVE";
+            
+            const payload = {
+                username: createFormData.username,
+                title: createFormData.prefix,
+                first_name: createFormData.first_name,
+                last_name: createFormData.last_name,
+                email: createFormData.email,
+                password: createFormData.password,
+                role: roleEnum,
+                department: createFormData.department,
+                company_name: createFormData.company,
+                auditor_type: roleEnum === "AUDITOR" ? (createFormData.company_type === "ภายในองค์กร" ? "INTERNAL" : "EXTERNAL") : null,
+                status: statusEnum
+            };
+
+            const method = isEditMode ? "PUT" : "POST";
+            const url = isEditMode 
+                ? `${API_BASE_URL}/admin/users/${selectedUserDbId}`
+                : `${API_BASE_URL}/admin/users`;
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.detail || "Failed to save user");
+            }
+
             setIsCreateModalOpen(false);
             setCreateFormData(initialCreateFormData);
             fetchUsers();
+        } catch (error: any) {
+            console.error("Error saving user:", error);
+            alert(error.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        } finally {
             setIsCreating(false);
             setIsEditMode(false);
-        }, 500);
+        }
     };
 
     const handleOpenEditModal = (user: any) => {
-        const [firstName, lastName] = user.name.split(" ");
+        // Extract names carefully
+        const nameParts = user.name.split(" ");
+        let firstName = "";
+        let lastName = "";
+        let prefix = "นางสาว";
+
+        if (nameParts.length > 0) {
+            if (["นาย", "นาง", "นางสาว"].includes(nameParts[0])) {
+                prefix = nameParts[0];
+                firstName = nameParts[1] || "";
+                lastName = nameParts.slice(2).join(" ");
+            } else {
+                firstName = nameParts[0];
+                lastName = nameParts.slice(1).join(" ");
+            }
+        }
+
         setCreateFormData({
-            username: user.id, // Fallback สำหรับ mockup
-            prefix: user.name.startsWith("นางสาว") ? "นางสาว" : user.name.startsWith("นาย") ? "นาย" : "นาง",
-            first_name: firstName.replace(/นางสาว|นาย|นาง/, "").trim(),
-            last_name: lastName || "",
+            username: user.username || user.email.split("@")[0], // If username missing, fallback to email prefix
+            prefix: prefix,
+            first_name: firstName,
+            last_name: lastName,
             email: user.email,
-            password: "password123",
+            password: "", // Don't show password, keep empty if not changing
             role: user.role,
-            company: "บริษัท A",
-            company_type: "ภายในองค์กร",
-            department: user.department,
+            company: user.company_name || "",
+            company_type: user.auditor_type === "EXTERNAL" ? "ภายนอกองค์กร" : "ภายในองค์กร",
+            department: user.department || "",
             status: user.status
         });
+        setSelectedUserDbId(user.db_id);
         setIsEditMode(true);
         setIsCreateModalOpen(true);
     };
@@ -201,11 +267,28 @@ function UsersPageContent() {
     const handleDeleteUser = async () => {
         if (!userToDelete) return;
         setIsDeleting(true);
-        setTimeout(() => {
+
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/users/${userToDelete.db_id}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error("Failed to deactivate user");
+
             setIsDeleteModalOpen(false);
             fetchUsers();
+        } catch (error) {
+            console.error("Error deactivating user:", error);
+            alert("เกิดข้อผิดพลาดในการปิดการใช้งานผู้ใช้");
+        } finally {
             setIsDeleting(false);
-        }, 500);
+        }
     };
 
     const userFields: FormField[] = [
@@ -332,7 +415,7 @@ function UsersPageContent() {
                                                 </button>
                                                 {user.role !== "ผู้ประมวลผลข้อมูลส่วนบุคคล" && user.role !== "ผู้ตรวจสอบ" && user.role !== "Data Processor" && user.role !== "Auditor" && (
                                                     <Link
-                                                        href={`/admin/tables/users/${user.id}/dashboard`}
+                                                        href={`/admin/tables/users/${user.db_id}/dashboard`}
                                                         title="ดูแดชบอร์ด"
                                                         className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >
