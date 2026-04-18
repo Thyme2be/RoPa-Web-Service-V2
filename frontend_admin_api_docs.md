@@ -130,7 +130,63 @@
       "created_at": "2026-04-17T09:00:00Z"
     }
   ]
-}
-```
+
+---
+
+## 3. 📊 ระบบรายงานและแดชบอร์ด (Dashboard APIs)
+
+ใช้สำหรับสรุปภาพรวมข้อมูล สถิติผู้ใช้ และการติดตามงาน
+
+### 3.1 ภาพรวมองค์กร (Organisation Dashboard)
+*   **Endpoint**: `GET /dashboard`
+*   **Query Parameters**: 
+    *   `period` (String) - `7_days`, `30_days`, `overdue`, `all`, `custom`
+    *   `custom_date` (String, YYYY-MM-DD) - ใช้เมื่อเลือก period เป็น `custom`
+*   **Response**: คืนค่าสถิติเอกสารแยกตามสถานะและการทำงานของแต่ละ Role (DO, DP, DPO, Auditor)
+
+### 3.2 สถิติผู้ใช้งานรายบทบาท (User Stats Dashboard)
+ใช้สำหรับวาดกราฟวงกลม (Center Donut) และตารางสรุปสถิติจำนวนคน
+*   **Endpoint**: `GET /dashboard/users`
+*   **Query Parameters**: เหมือน 3.1
+*   **Response Payload**:
+    ```json
+    {
+      "selected_period": "30_days",
+      "user_overview": { "total": 100, "roles": { "ADMIN": 5, "DPO": 5, ... } },
+      "role_breakdowns": {
+        "owner_breakdown": { "by_department": [...] },
+        "processor_breakdown": { "by_company": [...] },
+        "auditor_breakdown": { "internal": { "by_department": [...] }, "external": { "by_company": [...] } }
+      }
+    }
+    ```
+
+### 3.3 แดชบอร์ดรายบุคคล (Per-User Role Dashboard)
+ใช้สำหรับ Admin เพื่อดูความคืบหน้างาน "ในมุมมองของ User คนนั้นๆ"
+*   **Endpoint**: `GET /admin/users/{id}/dashboard`
+*   **Response Payload**:
+    ```json
+    {
+      "role_dashboard": {
+        // ข้อมูลจะเปลี่ยนไปตามบทบาทของ User คนนั้น เช่น
+        // ถ้าเป็น DPO จะเห็น risk_overview, pending_dpo_review
+        // ถ้าเป็น Auditor จะเห็น pending_audits, overdue_audits
+      },
+      "statistics": {
+        "documents_created": { "IN_PROGRESS": 5, "COMPLETED": 10 },
+        "processor_assignments": 3,
+        "auditor_assignments": 0,
+        "owned_assignments": 2
+      }
+    }
+    ```
+
+### 3.4 แดชบอร์ดสรุปรายบทบาท (Role-Specific Dedicated)
+สำหรับกรณีที่ต้องการดึงเฉพาะสถิติของบทบาทนั้นๆ (รวมถึง Admin ดูเอง)
+*   `GET /dashboard/owner` - สถิติฝั่ง Data Owner
+*   `GET /dashboard/processor` - สถิติฝั่ง Processor
+*   `GET /dashboard/auditor` - สถิติฝั่ง Auditor
+*   `GET /dashboard/executive` - ภาพรวมเชิงบริหาร (Executive View)
+*   `GET /dashboard/dpo` - สถิติฝั่ง DPO
 
 
