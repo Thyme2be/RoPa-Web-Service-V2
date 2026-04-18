@@ -37,7 +37,11 @@ from app.schemas.dashboard import (
     PaginatedDpoAuditorAssignmentTableResponse,
     DpoAuditorAssignmentTableItem,
     PaginatedOwnerDpoReviewedDocumentResponse,
-    OwnerDpoReviewedDocumentTableItem
+    OwnerDpoReviewedDocumentTableItem,
+    OwnerDashboardResponse,
+    ProcessorDashboardResponse,
+    AuditorDashboardResponse,
+    ExecutiveDashboardResponse
 )
 from app.schemas.dpo_comment import DpoCommentBulkRequest, DpoCommentRead
 
@@ -157,90 +161,175 @@ def org_dashboard(
             "due_for_destruction": {"title": "เอกสารทั้งหมดที่ครบกำหนดทำลาย", "completed": 0, "incomplete": del_map.get('DELETE_PENDING', 0)}
         }
     )
+    
+# --- Metric Helpers ---
 
-@router.get("/dashboard/dpo", response_model=DpoDashboardResponse, summary="DPO: Dashboard", tags=["Dashboard (DPO)"])
-def dpo_dashboard(
-    db: Session = Depends(get_db),
-    current_user: UserRead = Depends(require_roles(Role.DPO)),
-):
-    # 1. Total Reviewed
-    total_assigned = db.query(ReviewDpoAssignmentModel).filter(ReviewDpoAssignmentModel.dpo_id == current_user.id).count()
+def _get_owner_metrics_internal(db: Session, user_id: int):
+    total = db.query(RopaDocumentModel).filter(RopaDocumentModel.created_by == user_id).count()
+    drafts = db.query(RopaDocumentModel).filter(
+        RopaDocumentModel.created_by == user_id, 
+        RopaDocumentModel.status.in_(['DRAFT', 'IN_PROGRESS'])
+    ).count()
+    in_review = db.query(RopaDocumentModel).filter(
+        RopaDocumentModel.created_by == user_id, 
+        RopaDocumentModel.status == 'UNDER_REVIEW'
+    ).count()
+    approved = db.query(RopaDocumentModel).filter(
+        RopaDocumentModel.created_by == user_id, 
+        RopaDocumentModel.status == 'COMPLETED'
+    ).count()
+    revisions = db.query(ReviewAssignmentModel).filter(
+        ReviewAssignmentModel.user_id == user_id,
+        ReviewAssignmentModel.role == 'OWNER',
+        ReviewAssignmentModel.status == 'FIX_IN_PROGRESS'
+    ).count()
+    return OwnerDashboardResponse(
+        total_documents=total,
+        draft_documents=drafts,
+        in_review_documents=in_review,
+        approved_documents=approved,
+        revision_needed=revisions
+    )
 
-    # 2. Revision Needed
+def _get_processor_metrics_internal(db: Session, user_id: int):
+    total = db.query(ProcessorAssignmentModel).filter(ProcessorAssignmentModel.processor_id == user_id).count()
+    pending = db.query(ProcessorAssignmentModel).filter(
+        ProcessorAssignmentModel.processor_id == user_id,
+        ProcessorAssignmentModel.status == 'IN_PROGRESS'
+    ).count()
+    completed = db.query(ProcessorAssignmentModel).filter(
+        ProcessorAssignmentModel.processor_id == user_id,
+        ProcessorAssignmentModel.status == 'SUBMITTED'
+    ).count()
+    revisions = db.query(ReviewAssignmentModel).filter(
+        ReviewAssignmentModel.user_id == user_id,
+        ReviewAssignmentModel.role == 'PROCESSOR',
+        ReviewAssignmentModel.status == 'FIX_IN_PROGRESS'
+    ).count()
+    return ProcessorDashboardResponse(
+        total_assigned=total,
+        pending_submissions=pending,
+        completed_submissions=completed,
+        revision_needed=revisions
+    )
+
+def _get_auditor_metrics_internal(db: Session, user_id: int):
+    now = datetime.now(timezone.utc)
+    total = db.query(AuditorAssignmentModel).filter(AuditorAssignmentModel.auditor_id == user_id).count()
+    pending = db.query(AuditorAssignmentModel).filter(
+        AuditorAssignmentModel.auditor_id == user_id,
+        AuditorAssignmentModel.status == 'IN_REVIEW'
+    ).count()
+    completed = db.query(AuditorAssignmentModel).filter(
+        AuditorAssignmentModel.auditor_id == user_id,
+        AuditorAssignmentModel.status == 'VERIFIED'
+    ).count()
+    overdue = db.query(AuditorAssignmentModel).filter(
+        AuditorAssignmentModel.auditor_id == user_id,
+        AuditorAssignmentModel.status != 'VERIFIED',
+        AuditorAssignmentModel.due_date < now
+    ).count()
+    return AuditorDashboardResponse(
+        total_assigned=total,
+        pending_audits=pending,
+        completed_audits=completed,
+        overdue_audits=overdue
+    )
+
+def _get_dpo_metrics_internal(db: Session, user_id: int):
+    now = datetime.now(timezone.utc)
+    total_assigned = db.query(ReviewDpoAssignmentModel).filter(ReviewDpoAssignmentModel.dpo_id == user_id).count()
     rev_needed = db.query(ReviewFeedbackModel.target_type, func.count(ReviewFeedbackModel.id)).\
         join(DocumentReviewCycleModel, DocumentReviewCycleModel.id == ReviewFeedbackModel.review_cycle_id).\
         join(ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id).\
         filter(
-            ReviewDpoAssignmentModel.dpo_id == current_user.id,
+            ReviewDpoAssignmentModel.dpo_id == user_id,
             DocumentReviewCycleModel.status == 'CHANGES_REQUESTED',
             ReviewFeedbackModel.status == 'OPEN'
         ).group_by(ReviewFeedbackModel.target_type).all()
-    
     rev_map = {str(getattr(r[0], 'value', r[0])): r[1] for r in rev_needed}
-    owner_rev_count = rev_map.get('OWNER_SECTION', 0)
-    proc_rev_count = rev_map.get('PROCESSOR_SECTION', 0)
-
-    # 3. Risk Overview
     risks = db.query(RopaRiskAssessmentModel.risk_level, func.count(RopaRiskAssessmentModel.id)).\
         join(RopaDocumentModel, RopaDocumentModel.id == RopaRiskAssessmentModel.document_id).\
         join(DocumentReviewCycleModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id).\
         join(ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id).\
-        filter(ReviewDpoAssignmentModel.dpo_id == current_user.id).\
+        filter(ReviewDpoAssignmentModel.dpo_id == user_id).\
         group_by(RopaRiskAssessmentModel.risk_level).all()
-        
     risk_map = {str(getattr(r[0], 'value', r[0])): r[1] for r in risks}
     low_risk = risk_map.get('LOW', 0)
     med_risk = risk_map.get('MEDIUM', 0)
     high_risk = risk_map.get('HIGH', 0)
-    total_risk = low_risk + med_risk + high_risk
-
-    # 4. Pending DPO Review
     for_archiving = db.query(ReviewDpoAssignmentModel).\
         join(DocumentReviewCycleModel, DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id).\
-        filter(
-            ReviewDpoAssignmentModel.dpo_id == current_user.id,
-            DocumentReviewCycleModel.status == 'IN_REVIEW'
-        ).count()
-        
+        filter(ReviewDpoAssignmentModel.dpo_id == user_id, DocumentReviewCycleModel.status == 'IN_REVIEW').count()
     for_destruction = db.query(DocumentDeletionRequestModel).filter(
-        DocumentDeletionRequestModel.dpo_id == current_user.id,
-        DocumentDeletionRequestModel.status == 'PENDING'
-    ).count()
-
-    # 5. Auditor Review Status
+        DocumentDeletionRequestModel.dpo_id == user_id, DocumentDeletionRequestModel.status == 'PENDING').count()
     auditor_tasks = db.query(AuditorAssignmentModel.status, func.count(AuditorAssignmentModel.id)).\
-        filter(AuditorAssignmentModel.assigned_by == current_user.id).\
-        group_by(AuditorAssignmentModel.status).all()
-        
+        filter(AuditorAssignmentModel.assigned_by == user_id).group_by(AuditorAssignmentModel.status).all()
     aud_status_map = {str(getattr(r[0], 'value', r[0])): r[1] for r in auditor_tasks}
-    aud_pending = aud_status_map.get('IN_REVIEW', 0)
-    aud_completed = aud_status_map.get('VERIFIED', 0)
-
-    # 6. Approved Documents
     approved_total = db.query(ReviewDpoAssignmentModel).\
         join(DocumentReviewCycleModel, DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id).\
-        filter(
-            ReviewDpoAssignmentModel.dpo_id == current_user.id,
-            DocumentReviewCycleModel.status == 'APPROVED'
-        ).count()
-
-    # 7. Auditor Delayed
-    now = datetime.now(timezone.utc)
+        filter(ReviewDpoAssignmentModel.dpo_id == user_id, DocumentReviewCycleModel.status == 'APPROVED').count()
     aud_delayed = db.query(AuditorAssignmentModel).filter(
-        AuditorAssignmentModel.assigned_by == current_user.id,
-        AuditorAssignmentModel.status != 'VERIFIED',
-        AuditorAssignmentModel.due_date < now
-    ).count()
-
+        AuditorAssignmentModel.assigned_by == user_id, AuditorAssignmentModel.status != 'VERIFIED', AuditorAssignmentModel.due_date < now).count()
     return DpoDashboardResponse(
         total_reviewed={"count": total_assigned},
-        revision_needed={"owner_count": owner_rev_count, "processor_count": proc_rev_count},
-        risk_overview={"total": total_risk, "low": low_risk, "medium": med_risk, "high": high_risk},
+        revision_needed={"owner_count": rev_map.get('OWNER_SECTION', 0), "processor_count": rev_map.get('PROCESSOR_SECTION', 0)},
+        risk_overview={"total": low_risk + med_risk + high_risk, "low": low_risk, "medium": med_risk, "high": high_risk},
         pending_dpo_review={"for_archiving": for_archiving, "for_destruction": for_destruction},
-        auditor_review_status={"pending": aud_pending, "completed": aud_completed},
+        auditor_review_status={"pending": aud_status_map.get('IN_REVIEW', 0), "completed": aud_status_map.get('VERIFIED', 0)},
         approved_documents={"total": approved_total},
         auditor_delayed={"count": aud_delayed}
     )
+
+def _get_executive_metrics_internal(db: Session):
+    total = db.query(RopaDocumentModel).count()
+    status_counts = db.query(RopaDocumentModel.status, func.count(RopaDocumentModel.id)).group_by(RopaDocumentModel.status).all()
+    docs_by_status = {str(getattr(row.status, 'value', row.status)): row.count for row in status_counts}
+    overview = DocumentOverview(
+        total=total,
+        statuses={
+            "draft": docs_by_status.get('IN_PROGRESS', 0) + docs_by_status.get('DRAFT', 0),
+            "pending": docs_by_status.get('PENDING', 0),
+            "reviewing": docs_by_status.get('UNDER_REVIEW', 0),
+            "completed": docs_by_status.get('COMPLETED', 0)
+        }
+    )
+    risks = db.query(RopaRiskAssessmentModel.risk_level, func.count(RopaRiskAssessmentModel.id)).group_by(RopaRiskAssessmentModel.risk_level).all()
+    risk_map = {str(getattr(r[0], 'value', r[0])): r[1] for r in risks}
+    risk_overview = RiskOverview(
+        total=sum(risk_map.values()),
+        low=risk_map.get('LOW', 0),
+        medium=risk_map.get('MEDIUM', 0),
+        high=risk_map.get('HIGH', 0)
+    )
+    comp_score = (docs_by_status.get('COMPLETED', 0) / total * 100) if total > 0 else 0
+    return ExecutiveDashboardResponse(
+        document_overview=overview,
+        risk_overview=risk_overview,
+        compliance_score=round(comp_score, 2)
+    )
+
+# --- Endpoints ---
+
+@router.get("/dashboard/owner", response_model=OwnerDashboardResponse, summary="Owner: Dashboard", tags=["Dashboard (Owner)"])
+def owner_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.OWNER))):
+    return _get_owner_metrics_internal(db, current_user.id)
+
+@router.get("/dashboard/processor", response_model=ProcessorDashboardResponse, summary="Processor: Dashboard", tags=["Dashboard (Processor)"])
+def processor_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.PROCESSOR))):
+    return _get_processor_metrics_internal(db, current_user.id)
+
+@router.get("/dashboard/auditor", response_model=AuditorDashboardResponse, summary="Auditor: Dashboard", tags=["Dashboard (Auditor)"])
+def auditor_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.AUDITOR))):
+    return _get_auditor_metrics_internal(db, current_user.id)
+
+@router.get("/dashboard/executive", response_model=ExecutiveDashboardResponse, summary="Executive: Dashboard", tags=["Dashboard (Executive)"])
+def executive_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.EXECUTIVE))):
+    return _get_executive_metrics_internal(db)
+
+@router.get("/dashboard/dpo", response_model=DpoDashboardResponse, summary="DPO: Dashboard", tags=["Dashboard (DPO)"])
+def dpo_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.DPO))):
+    return _get_dpo_metrics_internal(db, current_user.id)
 
 @router.get("/{id}/dashboard", summary="Admin: Per-User Dashboard", tags=["Dashboard (Admin)"])
 def user_dashboard(
@@ -275,23 +364,29 @@ def user_dashboard(
         ProcessorAssignmentModel.assigned_by == target_user.id
     ).scalar()
 
+    # Determine role-specific metrics
+    role_metrics = None
+    role_str = str(getattr(target_user.role, 'value', target_user.role))
+    
+    if role_str == 'DPO':
+        role_metrics = _get_dpo_metrics_internal(db, target_user.id)
+    elif role_str == 'AUDITOR':
+        role_metrics = _get_auditor_metrics_internal(db, target_user.id)
+    elif role_str == 'PROCESSOR':
+        role_metrics = _get_processor_metrics_internal(db, target_user.id)
+    elif role_str == 'OWNER':
+        role_metrics = _get_owner_metrics_internal(db, target_user.id)
+    elif role_str == 'EXECUTIVE':
+        role_metrics = _get_executive_metrics_internal(db)
+
     return {
-        "user": {
-            "id": str(target_user.id),
-            "email": target_user.email,
-            "first_name": target_user.first_name,
-            "last_name": target_user.last_name,
-            "username": target_user.username,
-            "role": target_user.role,
-            "status": target_user.status,
-        },
+        "role_dashboard": role_metrics,
         "statistics": {
             "documents_created": {str(getattr(r.status, 'value', r.status)): r.count for r in created_docs},
             "processor_assignments": processor_assignments,
             "auditor_assignments": auditor_assignments,
             "owned_assignments": owned_assignments,
-        },
-        "accessed_by": current_user.email,
+        }
     }
 
 

@@ -31,6 +31,7 @@ def get_me(current_user: UserRead = Depends(get_current_user)):
     Returns only first_name, last_name, and role.
     """
     return {
+        "title": current_user.title,
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
         "role": current_user.role
