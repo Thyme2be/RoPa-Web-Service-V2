@@ -518,7 +518,7 @@ def get_received_feedbacks(
         .order_by(ReviewFeedbackModel.created_at.desc())
         .all()
     )
-    return feedbacks
+    return [FeedbackRead.model_validate(f) for f in feedbacks]
 
 
 
