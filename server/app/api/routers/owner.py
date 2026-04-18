@@ -276,10 +276,6 @@ def _owner_status_badge(
     owner_section: Optional[RopaOwnerSectionModel],
     review_assignment: Optional[ReviewAssignmentModel],
 ) -> OwnerStatusBadge:
-    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_IN_PROGRESS:
-        return OwnerStatusBadge(label="รอแก้ไขจาก Data Owner", code="NEEDS_FIX")
-    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_SUBMITTED:
-        return OwnerStatusBadge(label="ส่งการแก้ไขแล้ว", code="FIX_SENT")
     if owner_section and owner_section.status == RopaSectionEnum.SUBMITTED:
         return OwnerStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
     return OwnerStatusBadge(label="รอส่วนของ Data Owner", code="WAITING_DO")
@@ -289,10 +285,6 @@ def _processor_status_badge(
     processor_section: Optional[RopaProcessorSectionModel],
     review_assignment: Optional[ReviewAssignmentModel],
 ) -> ProcessorStatusBadge:
-    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_IN_PROGRESS:
-        return ProcessorStatusBadge(label="รอแก้ไขจาก Data Processor", code="NEEDS_FIX")
-    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_SUBMITTED:
-        return ProcessorStatusBadge(label="ส่งการแก้ไขแล้ว", code="FIX_SENT")
     if processor_section and processor_section.status == RopaSectionEnum.SUBMITTED:
         return ProcessorStatusBadge(label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE")
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
@@ -400,32 +392,32 @@ def get_owner_dashboard(
     total = base_q.count()
 
     # ── Card 2: ต้องแก้ไข (แยก DO / DP) ──────────────────────────────────
-    # needs_fix_do = DPO ส่ง review ให้ DO แก้ (ReviewAssignment role=OWNER, FIX_IN_PROGRESS)
+    # needs_fix_do = มี OPEN feedback ส่งมาถึง DO ใน review cycle (DPO ส่งให้แก้)
     needs_fix_do = (
-        db.query(ReviewAssignmentModel)
-        .join(DocumentReviewCycleModel, ReviewAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id)
-        .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+        db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+        .join(ReviewFeedbackModel, ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id)
+        .join(RopaDocumentModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id)
         .filter(
             RopaDocumentModel.created_by == uid,
-            ReviewAssignmentModel.status == "FIX_IN_PROGRESS",
-            ReviewAssignmentModel.user_id == uid,
-            ReviewAssignmentModel.role == "OWNER",
+            ReviewFeedbackModel.to_user_id == uid,
+            ReviewFeedbackModel.status == "OPEN",
         )
-        .count()
+        .scalar() or 0
     )
 
     # needs_fix_dp = DP ต้องแก้ไข ไม่ว่าจะมาจาก DO หรือ DPO
-    #   - จาก DPO review cycle: ReviewAssignment role=PROCESSOR, FIX_IN_PROGRESS
-    #   - จาก DO feedback: ReviewFeedback status=OPEN ที่ส่งหา DP
+    #   - จาก DPO/DO ผ่าน review cycle: OPEN feedback ส่งถึง processor_id
+    #   - จาก DO feedback ตรง: OPEN feedback target = processor_section
     dp_fix_from_dpo = set(
         row[0] for row in (
             db.query(DocumentReviewCycleModel.document_id)
-            .join(ReviewAssignmentModel, ReviewAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id)
-            .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+            .join(ReviewFeedbackModel, ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id)
+            .join(ProcessorAssignmentModel, ProcessorAssignmentModel.document_id == DocumentReviewCycleModel.document_id)
+            .join(RopaDocumentModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id)
             .filter(
                 RopaDocumentModel.created_by == uid,
-                ReviewAssignmentModel.role == "PROCESSOR",
-                ReviewAssignmentModel.status == "FIX_IN_PROGRESS",
+                ReviewFeedbackModel.to_user_id == ProcessorAssignmentModel.processor_id,
+                ReviewFeedbackModel.status == "OPEN",
             )
             .all()
         )
@@ -501,9 +493,9 @@ def get_owner_dashboard(
         .scalar() or 0
     )
 
-    # ── Card 8: ล่าช้า = IN_PROGRESS ที่เลย due_date แล้วแต่ DP ยังไม่ submit ──
+    # ── Card 8: DP ส่งช้า = IN_PROGRESS ที่เลย due_date แล้วแต่ DP ยังไม่ submit ──
     # due_date คือวันกำหนดส่งที่ DO ตั้งตอนสร้างเอกสาร
-    overdue_destruction = (
+    overdue_dp = (
         db.query(func.count(ProcessorAssignmentModel.id))
         .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
         .filter(
@@ -604,7 +596,7 @@ def get_owner_dashboard(
         pending_dp_count=pending_dp,
         completed_count=completed,
         sensitive_document_count=sensitive,
-        overdue_destruction_count=overdue_destruction,
+        overdue_dp_count=overdue_dp,
         annual_reviewed_count=annual_reviewed,
         annual_not_reviewed_count=annual_not_reviewed,
         destruction_due_count=destruction_due,
@@ -710,6 +702,102 @@ def get_active_table(
 
 
 # =============================================================================
+# Helper: คำนวณ ui_status สำหรับ ตาราง 2
+# =============================================================================
+
+def _table2_ui_status(
+    doc: RopaDocumentModel,
+    cycle: Optional[DocumentReviewCycleModel],
+    uid: int,
+    db: Session,
+):
+    """
+    5 สถานะของ ตาราง 2 (DO ↔ DPO):
+      WAITING_REVIEW  = รอตรวจสอบ  (cycle.status=IN_REVIEW ไม่มี feedback OPEN)
+      WAITING_DO_FIX  = รอ DO แก้ไข (มี feedback OPEN ถึง DO)
+      WAITING_DP_FIX  = รอ DP แก้ไข (มี feedback OPEN ถึง DP)
+      DO_DONE         = DO ดำเนินการเสร็จสิ้น (ReviewAssignment role=OWNER, status=FIX_SUBMITTED)
+      DP_DONE         = DP ดำเนินการเสร็จสิ้น (ReviewAssignment role=PROCESSOR, status=FIX_SUBMITTED)
+    """
+    if not cycle:
+        return "WAITING_REVIEW", "รอตรวจสอบ"
+
+    # หา owner section และ processor section
+    owner_section = (
+        db.query(RopaOwnerSectionModel)
+        .filter(RopaOwnerSectionModel.document_id == doc.id)
+        .first()
+    )
+    processor_section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(RopaProcessorSectionModel.document_id == doc.id)
+        .first()
+    )
+
+    # feedback OPEN ถึง DO
+    do_open_feedback = (
+        db.query(ReviewFeedbackModel)
+        .filter(
+            ReviewFeedbackModel.review_cycle_id == cycle.id,
+            ReviewFeedbackModel.to_user_id == uid,
+            ReviewFeedbackModel.status == "OPEN",
+        )
+        .first()
+    )
+
+    # feedback OPEN ถึง DP
+    dp_open_feedback = None
+    if processor_section:
+        proc_assignment = (
+            db.query(ProcessorAssignmentModel)
+            .filter(ProcessorAssignmentModel.document_id == doc.id)
+            .first()
+        )
+        if proc_assignment:
+            dp_open_feedback = (
+                db.query(ReviewFeedbackModel)
+                .filter(
+                    ReviewFeedbackModel.review_cycle_id == cycle.id,
+                    ReviewFeedbackModel.to_user_id == proc_assignment.processor_id,
+                    ReviewFeedbackModel.status == "OPEN",
+                )
+                .first()
+            )
+
+    if do_open_feedback:
+        return "WAITING_DO_FIX", "รอ DO แก้ไข"
+    if dp_open_feedback:
+        return "WAITING_DP_FIX", "รอ DP แก้ไข"
+
+    # ReviewAssignment ของ DO ในรอบนี้
+    owner_review_assignment = (
+        db.query(ReviewAssignmentModel)
+        .filter(
+            ReviewAssignmentModel.review_cycle_id == cycle.id,
+            ReviewAssignmentModel.user_id == uid,
+            ReviewAssignmentModel.role == "OWNER",
+        )
+        .first()
+    )
+    if owner_review_assignment and owner_review_assignment.status == "FIX_SUBMITTED":
+        return "DO_DONE", "DO ดำเนินการเสร็จสิ้น"
+
+    # ReviewAssignment ของ DP ในรอบนี้
+    proc_review_assignment = (
+        db.query(ReviewAssignmentModel)
+        .filter(
+            ReviewAssignmentModel.review_cycle_id == cycle.id,
+            ReviewAssignmentModel.role == "PROCESSOR",
+        )
+        .first()
+    )
+    if proc_review_assignment and proc_review_assignment.status == "FIX_SUBMITTED":
+        return "DP_DONE", "DP ดำเนินการเสร็จสิ้น"
+
+    return "WAITING_REVIEW", "รอตรวจสอบ"
+
+
+# =============================================================================
 # GET /owner/tables/sent-to-dpo — ตาราง 2: ส่ง DPO แล้ว
 # =============================================================================
 
@@ -743,19 +831,8 @@ def get_sent_to_dpo_table(
             .first()
         )
 
-        owner_assignment = None
         dpo_user = None
         if cycle:
-            owner_assignment = (
-                db.query(ReviewAssignmentModel)
-                .filter(
-                    ReviewAssignmentModel.review_cycle_id == cycle.id,
-                    ReviewAssignmentModel.user_id == uid,
-                    ReviewAssignmentModel.role == "OWNER",
-                )
-                .first()
-            )
-            # หา DPO จาก review_dpo_assignments
             dpo_assignment = (
                 db.query(ReviewDpoAssignmentModel)
                 .filter(ReviewDpoAssignmentModel.review_cycle_id == cycle.id)
@@ -766,13 +843,16 @@ def get_sent_to_dpo_table(
             elif cycle.reviewed_by:
                 dpo_user = db.query(UserModel).filter(UserModel.id == cycle.reviewed_by).first()
 
+        # คำนวณ ui_status 5 ค่า
+        ui_status, ui_status_label = _table2_ui_status(doc, cycle, uid, db)
+
         result.append(SentToDpoTableItem(
             document_id=doc.id,
             document_number=doc.document_number,
             title=doc.title,
             dpo_name=_user_full_name(dpo_user),
-            review_status=cycle.status if cycle else ReviewStatusEnum.IN_REVIEW,
-            review_assignment_status=owner_assignment.status if owner_assignment else None,
+            ui_status=ui_status,
+            ui_status_label=ui_status_label,
             sent_at=cycle.requested_at if cycle else None,
             reviewed_at=cycle.reviewed_at if cycle else None,
             due_date=doc.due_date,
@@ -802,6 +882,7 @@ def get_approved_table(
         .filter(
             RopaDocumentModel.created_by == uid,
             RopaDocumentModel.status == "COMPLETED",
+            RopaDocumentModel.next_review_due_at <= now,
             or_(
                 RopaDocumentModel.deletion_status == None,
                 RopaDocumentModel.deletion_status != "DELETED",
@@ -847,9 +928,8 @@ def get_approved_table(
             elif ru == "YEARS":
                 destruction_date = doc.last_approved_at + timedelta(days=rv * 365)
 
-        annual_review_overdue = bool(
-            doc.next_review_due_at and doc.next_review_due_at <= now
-        )
+        annual_review_status = "NOT_REVIEWED"
+        annual_review_status_label = "ยังไม่ตรวจสอบ"
 
         result.append(ApprovedTableItem(
             document_id=doc.id,
@@ -860,7 +940,8 @@ def get_approved_table(
             last_approved_at=doc.last_approved_at,
             next_review_due_at=doc.next_review_due_at,
             destruction_date=destruction_date,
-            annual_review_overdue=annual_review_overdue,
+            annual_review_status=annual_review_status,
+            annual_review_status_label=annual_review_status_label,
         ))
 
     return result
@@ -944,7 +1025,15 @@ def get_owner_section(
         .first()
     )
     if not section:
-        raise HTTPException(status_code=404, detail="ไม่พบ Owner Section สำหรับเอกสารนี้")
+        # กรณี DO ลบฉบับร่างไปแล้ว → สร้าง section เปล่าใหม่เพื่อให้กรอกใหม่ได้
+        section = RopaOwnerSectionModel(
+            document_id=document_id,
+            owner_id=current_user.id,
+            status="DRAFT",
+        )
+        db.add(section)
+        db.commit()
+        db.refresh(section)
 
     return _load_owner_section_full(section, db)
 
@@ -1612,3 +1701,42 @@ def create_deletion_request(
     db.commit()
     db.refresh(req)
     return req
+
+
+# =============================================================================
+# DELETE /owner/documents/{document_id}/section/draft — ลบข้อมูลฉบับร่าง (ตารางฉบับร่าง)
+# =============================================================================
+
+@router.delete(
+    "/documents/{document_id}/section/draft",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="ลบข้อมูลฉบับร่าง Owner Section (เอกสารยังอยู่ใน ตาราง 1)",
+)
+def delete_owner_section_draft(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    ลบเฉพาะข้อมูล owner_section ที่กรอกไว้ (พร้อม sub-tables ทั้งหมด)
+    เอกสารยังคงอยู่ใน ตาราง 1 สามารถกดรูปตากรอกใหม่ได้ตั้งแต่ต้น
+    เงื่อนไข: owner_section.status = DRAFT เท่านั้น
+    """
+    check_document_access(document_id, current_user, db)
+
+    owner_section = (
+        db.query(RopaOwnerSectionModel)
+        .filter(RopaOwnerSectionModel.document_id == document_id)
+        .first()
+    )
+    if not owner_section:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลฉบับร่าง")
+
+    if owner_section.status != "DRAFT":
+        raise HTTPException(
+            status_code=400,
+            detail="ลบได้เฉพาะ owner section ที่ยังเป็น DRAFT เท่านั้น"
+        )
+
+    db.delete(owner_section)
+    db.commit()
