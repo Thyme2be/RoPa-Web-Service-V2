@@ -64,10 +64,15 @@ function DonutSVG({
                     strokeWidth={strokeWidth}
                 />
                 {data.map((item, index) => {
-                    const percentage = (item.value / computedTotal) * 100;
+                    if (computedTotal === 0) return null;
+                    const percentage = computedTotal > 0 ? (item.value / computedTotal) * 100 : 0;
                     const dashArray = `${(percentage / 100) * circumference} ${circumference}`;
                     const offset = accumulatedOffset;
                     accumulatedOffset += (percentage / 100) * circumference;
+                    
+                    // Safety check to prevent NaN in attributes
+                    const safeOffset = isNaN(offset) ? 0 : offset;
+
                     return (
                         <circle
                             key={index}
@@ -78,7 +83,7 @@ function DonutSVG({
                             stroke={item.color}
                             strokeWidth={strokeWidth}
                             strokeDasharray={dashArray}
-                            strokeDashoffset={-offset}
+                            strokeDashoffset={(-safeOffset).toString()}
                             strokeLinecap="butt"
                             className="transition-all duration-500 ease-in-out"
                         />

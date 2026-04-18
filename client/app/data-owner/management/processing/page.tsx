@@ -122,7 +122,7 @@ export default function ManagementProcessingPage() {
     };
 
     const handleRequestDelete = (id: string) => {
-        requestDelete(id);
+        requestDelete(id, "ยื่นคำร้องขอทำลายเอกสารจากหน้าตารางรายการ");
         setDeleteConfirm({ open: false, id: "" });
     };
 
@@ -171,7 +171,7 @@ export default function ManagementProcessingPage() {
                     <ListCard title="เอกสารที่ดำเนินการ" icon="check_circle" iconColor="#0D9488" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[25%] text-left pl-6">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[25%] text-center">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[20%]">ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[12%]">ชื่อบริษัท</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[13%]">วันที่กำหนดส่ง</DocumentTableHeader>
@@ -249,7 +249,7 @@ export default function ManagementProcessingPage() {
                     <ListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[50%] text-left pl-6">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[50%] text-center">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">บันทึกล่าสุด</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>

@@ -26,7 +26,8 @@ function DataProcessorFormContent() {
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
 
-    const { getById, submitDpSection, getProcessorById, saveProcessorRecord } = useRopa();
+    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord } = useRopa();
+    const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
@@ -57,26 +58,22 @@ function DataProcessorFormContent() {
 
     // Load existing record
     useEffect(() => {
-        if (recordId) {
-            // Priority 1: Current Processor session record (linked by shared ID)
-            const existingProc = getProcessorById(recordId);
-            if (existingProc) {
-                setForm(prev => ({ ...prev, ...existingProc }));
-                return;
+        let isMounted = true;
+        
+        const loadFullRecord = async () => {
+            if (recordId) {
+                setIsLoadingFull(true);
+                const fullRecord = await fetchFullProcessorRecord(recordId);
+                if (fullRecord && isMounted) {
+                    setForm(prev => ({ ...prev, ...fullRecord }));
+                }
+                setIsLoadingFull(false);
             }
+        };
 
-            // Priority 2: Initialize from DO record (Source of Truth)
-            const existingOwner = getById(recordId);
-            if (existingOwner) {
-                setForm(prev => ({ 
-                    ...prev, 
-                    documentName: existingOwner.documentName,
-                    processorName: existingOwner.processorCompany || existingOwner.assignedProcessor?.name || "",
-                    id: recordId 
-                }));
-            }
-        }
-    }, [recordId, getById, getProcessorById]);
+        loadFullRecord();
+        return () => { isMounted = false; };
+    }, [recordId]);
 
     const handleChange = (e: any) => {
         const { name, value, type } = e.target;
@@ -203,37 +200,42 @@ function DataProcessorFormContent() {
                     isProcessor={true}
                 />
 
-                <div className="flex-1 overflow-y-auto pt-8 pb-36 space-y-6 animate-in fade-in duration-1000">
-                    <div className="px-10 flex items-center justify-between gap-4">
-                        <div className="flex-1 overflow-visible">
-                            <Stepper variant="processor" completedSteps={completedSteps} />
+                {isLoadingFull ? (
+                    <div className="flex-1 flex items-center justify-center pt-20">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลดข้อมูลเอกสาร...</p>
                         </div>
-                        
-                        <button
-                            onClick={() => setIsLocked(!isLocked)}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
-                                isLocked 
-                                    ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none" 
-                                    : "text-[#5C403D] border-none hover:bg-black/5"
-                            )}
-                        >
-                            <span className="material-symbols-outlined text-[20px]">
-                                {isLocked ? "edit" : "done_all"}
-                            </span>
-                            {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
-                        </button>
                     </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto pt-8 pb-36 space-y-6 animate-in fade-in duration-1000">
+                        <div className="px-10 flex justify-end">
+                            <button
+                                onClick={() => setIsLocked(!isLocked)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
+                                    isLocked 
+                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none" 
+                                        : "text-[#5C403D] border-none hover:bg-black/5"
+                                )}
+                            >
+                                <span className="material-symbols-outlined text-[20px]">
+                                    {isLocked ? "edit" : "done_all"}
+                                </span>
+                                {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
+                            </button>
+                        </div>
 
-                    <div className="px-10 space-y-8">
-                        <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                        <div className="px-10 space-y-8">
+                            <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Footer Action Bar (Fixed Red as per request) */}
                 <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">

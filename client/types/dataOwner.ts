@@ -135,6 +135,17 @@ export type OwnerRecord = {
   updatedDate?: string;
   lastUpdated?: string;
   department?: string;
+  deletionReason?: string;
+  deletionStatus?: "DELETE_PENDING" | "DELETED" | null;
+  deletionRequest?: {
+      id: string;
+      status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+      ownerReason: string;
+      dpoDecision?: string;
+      dpoReason?: string;
+      requestedAt: string;
+      decidedAt?: string;
+  };
 };
 
 // Alias for compatibility if needed

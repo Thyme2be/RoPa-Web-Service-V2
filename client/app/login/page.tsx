@@ -3,9 +3,12 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -17,32 +20,32 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
-      const formData = new URLSearchParams();
-      formData.append("username", username);
-      formData.append("password", password);
-
-      const response = await fetch("http://localhost:8000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData.toString(),
+      const response = await api.post("/auth/login", {
+        username_or_email: username,
+        password: password,
       });
 
-      if (!response.ok) {
-        throw new Error("เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน");
+      const data = response.data;
+
+      if (data.access_token && data.refresh_token) {
+        // Use the centralized login function to handle tokens and cookies
+        await login(data.access_token, data.refresh_token);
+        // AuthContext handles the redirection based on user role
+      } else {
+        throw new Error("ไม่พบ Token หลังเข้าสู่ระบบ");
       }
-
-      const data = await response.json();
-
-      if (data.access_token || data.token) {
-        localStorage.setItem("token", data.access_token || data.token);
-      }
-
-      router.push("/");
     } catch (err: any) {
-      setError(err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      console.error("Login Error:", err);
+      let message = "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน";
+
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        message = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(", ") : message);
+      } else if (err.message) {
+        message = err.message;
+      }
+
+      setError(message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setIsLoading(false);
     }

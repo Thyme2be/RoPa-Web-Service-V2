@@ -25,7 +25,9 @@ export enum DataType {
 
 export enum CollectionMethod {
   SoftFile = "soft_file",
-  HardCopy = "hard_copy"
+  HardCopy = "hard_copy",
+  OnlineForm = "online_form",
+  Other = "other"
 }
 
 export enum RetentionUnit {
@@ -35,6 +37,10 @@ export enum RetentionUnit {
 }
 
 export enum UserRole {
-  DataOwner = "data_owner",
-  DataProcessor = "data_processor"
+  OWNER = "OWNER",
+  PROCESSOR = "PROCESSOR",
+  EXECUTIVE = "EXECUTIVE",
+  ADMIN = "ADMIN",
+  DPO = "DPO",
+  AUDITOR = "AUDITOR"
 }

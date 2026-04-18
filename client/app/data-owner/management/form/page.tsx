@@ -35,7 +35,18 @@ function ManagementFormContent() {
     const viewMode = searchParams.get("mode") === "view";
 
     const [activeTab, setActiveTab] = useState("owner");
-    const { saveRecord, getById, getProcessorById, submitDoSection, sendToDpo, saveRiskAssessment } = useRopa();
+    const { 
+        saveRecord, 
+        getById, 
+        getProcessorById, 
+        submitDoSection, 
+        sendToDpo, 
+        saveRiskAssessment, 
+        fetchFullOwnerRecord,
+        fetchFullProcessorRecord,
+        requestDelete
+    } = useRopa();
+    const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
@@ -123,23 +134,39 @@ function ManagementFormContent() {
 
     // Load existing record if id is provided
     useEffect(() => {
-        if (recordId) {
-            const existing = getById(recordId);
-            if (existing) {
-                setForm((prev: Partial<OwnerRecord>) => ({ ...prev, ...existing }));
+        let isMounted = true;
+        
+        const loadFullRecord = async () => {
+            if (recordId) {
+                setIsLoadingFull(true);
+                const fullRecord = await fetchFullOwnerRecord(recordId);
+                if (fullRecord && isMounted) {
+                    setForm(prev => ({ ...prev, ...fullRecord }));
+                }
+                
+                // Also fetch processor data for the other tab if available
+                const procRecord = await fetchFullProcessorRecord(recordId);
+                if (procRecord && isMounted) {
+                    setDpForm(prev => ({ ...prev, ...procRecord }));
+                }
+                setIsLoadingFull(false);
                 return;
             }
-        }
-        // Fallback to draft
-        const savedDraft = localStorage.getItem("ropa_owner_draft");
-        if (savedDraft && savedDraft.trim() !== "" && !recordId) {
-            try {
-                const parsed = JSON.parse(savedDraft);
-                setForm((prev: Partial<OwnerRecord>) => ({ ...prev, ...parsed }));
-            } catch (e) {
-                console.error("Failed to parse draft from localStorage", e);
+
+            // Fallback to draft for new records
+            const savedDraft = localStorage.getItem("ropa_owner_draft");
+            if (savedDraft && savedDraft.trim() !== "" && !recordId) {
+                try {
+                    const parsed = JSON.parse(savedDraft);
+                    setForm((prev: Partial<OwnerRecord>) => ({ ...prev, ...parsed }));
+                } catch (e) {
+                    console.error("Failed to parse draft from localStorage", e);
+                }
             }
-        }
+        };
+
+        loadFullRecord();
+        return () => { isMounted = false; };
     }, [recordId]);
 
     const [dpForm, setDpForm] = useState<Partial<ProcessorRecord>>({
@@ -151,14 +178,7 @@ function ManagementFormContent() {
         dataType: [DataType.General], securityMeasures: {},
     });
 
-    useEffect(() => {
-        if (recordId) {
-            const existingProc = getProcessorById(recordId);
-            if (existingProc) {
-                setDpForm((prev: any) => ({ ...prev, ...existingProc }));
-            }
-        }
-    }, [recordId, getProcessorById]);
+    // Processor form is already loaded in the initial full record fetch above
 
     const validateField = (name: string, value: any) => {
         let error = "";
@@ -323,8 +343,8 @@ function ManagementFormContent() {
     };
 
     /** บันทึกฉบับร่าง → save Draft + กลับ processing */
-    const handleDraft = () => {
-        const saved = saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
+    const handleDraft = async () => {
+        const saved = await saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
         localStorage.setItem("ropa_owner_draft", JSON.stringify({ ...form, id: saved.id }));
         setErrors({}); // Clear errors on draft
         setIsDraftSuccessOpen(true);
@@ -342,9 +362,11 @@ function ManagementFormContent() {
     };
 
     /** ยืนยันบันทึก → submitDoSection → modal สำเร็จ */
-    const handleFinalConfirm = () => {
-        const saved = saveRecord({ ...form, status: RopaStatus.Processing } as OwnerRecord);
-        submitDoSection(saved.id);
+    const handleFinalConfirm = async () => {
+        const saved = await saveRecord({ ...form, status: RopaStatus.Processing } as OwnerRecord);
+        if (saved.id) {
+            await submitDoSection(saved.id);
+        }
         localStorage.removeItem("ropa_owner_draft");
         setIsSuccessModalOpen(true);
     };
@@ -356,13 +378,16 @@ function ManagementFormContent() {
     };
 
     /** Risk Assessment submitted */
-    const handleRiskSubmit = (probability: number, impact: number) => {
+    const handleRiskSubmit = async (likelihood: number, impact: number) => {
         if (recordId) {
-            saveRiskAssessment(recordId, { probability, impact });
-            sendToDpo(recordId);
+            try {
+                await saveRiskAssessment(recordId, { likelihood, impact });
+                await sendToDpo(recordId);
+                router.push("/data-owner/management/processing");
+            } catch (error) {
+                console.error("Failed to submit risk assessment:", error);
+            }
         }
-        alert("ส่งการประเมินความเสี่ยงและส่งต่อให้ DPO เรียบร้อยแล้ว");
-        router.push("/data-owner/management/processing");
     };
 
     // ─── Render ────────────────────────────────────────────────────────────────
@@ -382,7 +407,15 @@ function ManagementFormContent() {
                     formMode={true}
                 />
 
-                <div className="flex-1 overflow-y-auto pt-6 pb-36 space-y-6 animate-in fade-in duration-1000">
+                {isLoadingFull ? (
+                    <div className="flex-1 flex items-center justify-center pt-20">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลดข้อมูลเอกสาร...</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto pt-6 pb-36 space-y-6 animate-in fade-in duration-1000">
 
                     <div className="flex items-center justify-between gap-4 px-10">
                         <div className="flex-1">
@@ -497,14 +530,97 @@ function ManagementFormContent() {
 
                         {/* ─── Tab: ยื่นคำร้องขอทำลาย ──────────────────────────── */}
                         {activeTab === "destruction" && (
-                            <div className="bg-white rounded-[32px] p-20 flex flex-col items-center justify-center text-center opacity-50 border border-[#E5E2E1] border-dashed mt-8">
-                                <span className="material-symbols-outlined text-[64px] mb-4 text-[#5C403D]">construction</span>
-                                <h3 className="text-2xl font-black text-[#5C403D]">กำลังพัฒนาส่วนนี้</h3>
-                                <p className="text-[#5F5E5E] font-bold mt-2">ยื่นคำร้องขอทำลายเอกสาร</p>
+                            <div className="bg-white rounded-[32px] p-12 border border-[#E5E2E1] mt-8 animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="max-w-3xl mx-auto space-y-8">
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="bg-red-50 p-6 rounded-3xl mb-6">
+                                            <span className="material-symbols-outlined text-[48px] text-[#B90A1E]">delete_forever</span>
+                                        </div>
+                                        <h3 className="text-2xl font-black text-[#1B1C1C]">ยื่นคำร้องขอทำลายเอกสาร</h3>
+                                        <p className="text-[#5F5E5E] font-bold mt-2">
+                                            กรุณากรอกเหตุผลที่ต้องการทำลายเอกสาร RoPA ฉบับนี้ <br />
+                                            เพื่อให้ผู้ดูแลระบบ (DPO) พิจารณาอนุมัติ
+                                        </p>
+                                    </div>
+
+                                    <div className="bg-[#F6F3F2] p-8 rounded-[24px] space-y-4">
+                                        <label className="block text-base font-black text-[#1B1C1C]">เหตุผลการขอทำลาย</label>
+                                        <textarea
+                                            value={form.deletionReason || ""}
+                                            onChange={(e) => setForm(prev => ({ ...prev, deletionReason: e.target.value }))}
+                                            rows={6}
+                                            className="w-full bg-white border border-[#E5E2E1] rounded-2xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-base font-bold"
+                                            placeholder="ระบุเหตุผล เช่น สิ้นสุดระยะเวลาเก็บรักษาตามกฎหมาย, กิจกรรมไม่มีการดำเนินการแล้ว..."
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-4 justify-center">
+                                        <button
+                                            onClick={() => setActiveTab("owner")}
+                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95"
+                                        >
+                                            ยกเลิก
+                                        </button>
+                                        <button
+                                            disabled={!form.deletionReason || form.deletionRequest?.status === "PENDING" || viewMode}
+                                            onClick={async () => {
+                                                if (recordId && form.deletionReason) {
+                                                    await requestDelete(recordId, form.deletionReason);
+                                                    setIsSuccessModalOpen(true);
+                                                }
+                                            }}
+                                            className="bg-logout-gradient text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                                        >
+                                            {form.deletionRequest?.status === "PENDING" ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
+                                        </button>
+                                    </div>
+
+                                    {/* ─── Deletion Request Status Section (Screenshots) ────────────────── */}
+                                    {form.deletionRequest && (
+                                        <div className="pt-8 border-t border-[#E5E2E1] space-y-6">
+                                            <h4 className="text-lg font-black text-[#1B1C1C]">ตรวจสอบสถานะคำร้องปัจจุบัน</h4>
+                                            
+                                            <div className="flex flex-col items-start gap-4">
+                                                {form.deletionRequest.status === "APPROVED" && (
+                                                    <span className="bg-[#108548] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        อนุมัติคำร้อง
+                                                    </span>
+                                                )}
+                                                {form.deletionRequest.status === "REJECTED" && (
+                                                    <span className="bg-[#B90A1E] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        ไม่อนุมัติคำร้อง
+                                                    </span>
+                                                )}
+                                                {form.deletionRequest.status === "PENDING" && (
+                                                    <span className="bg-[#EAB308] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        รอการตรวจสอบ
+                                                    </span>
+                                                )}
+
+                                                <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl">
+                                                    <p className="text-[#1B1C1C] font-bold text-lg">
+                                                        {form.deletionRequest.status === "APPROVED" 
+                                                            ? "ครบกำหนดเวลาในการทำลาย" 
+                                                            : form.deletionRequest.status === "REJECTED"
+                                                                ? "ยังไม่ครบกำหนดเวลาในการทำลาย"
+                                                                : "คำร้องของคุณอยู่ในระหว่างการพิจารณาโดย DPO"
+                                                        }
+                                                    </p>
+                                                    {form.deletionRequest.dpoReason && (
+                                                        <p className="text-[#5F5E5E] font-medium mt-2">
+                                                            เหตุผล: {form.deletionRequest.dpoReason}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
+                )}
 
                 {/* ─── Bottom Action Bar ────────────────────────────────────── */}
                 {activeTab === "owner" && !viewMode && (
