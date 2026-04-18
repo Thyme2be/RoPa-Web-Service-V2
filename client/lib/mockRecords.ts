@@ -283,3 +283,67 @@ export const mockOwnerRecords: OwnerRecord[] = [
         securityMeasures: { organizational: "Vendor Code of Conduct" }
     }
 ];
+
+export const mockProcessorRecords: any[] = [
+    {
+        id: "RP-2026-04",
+        ropaId: "RP-2026-04",
+        documentName: "ระบบบริหารจัดการเงินเดือนพนักงาน",
+        processorName: "บริษัท PayCheck Thailand",
+        status: RopaStatus.ReviewPending,
+        controllerName: "บริษัท เน็ตเบย์ จำกัด (มหาชน)",
+        controllerAddress: "123 อาคารเน็ตเบย์ กรุงเทพฯ",
+        title: "นาย", firstName: "ธนาวุฒิ", lastName: "ศรีสุข",
+        address: "99 ถนนรัชดาภิเษก กรุงเทพฯ",
+        email: "thanawut.s@paycheck.co.th",
+        phoneNumber: "02-111-2222",
+        processingActivity: "การคำนวณและจ่ายเงินเดือนพนักงาน",
+        purpose: "เพื่อดำเนินการจ่ายเงินส่ง และนำส่งภาษีตามกฎหมายแรงงาน",
+        dataCategories: ["employee"],
+        storedDataTypes: ["ชื่อ - นามสกุล", "เลขประจำตัวประชาชน", "เลขบัญชีธนาคาร"],
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Cloud Server (Internal DB)"],
+            duration: 10,
+            unit: RetentionUnit.Year,
+            accessControl: "เจ้าหน้าที่ Payroll และฝ่ายบัญชีตรวจสอบ",
+            deletionMethod: "การทำลายข้อมูลในฐานข้อมูล (Permanent Delete)"
+        },
+        legalBasis: "ฐานการปฏิบัติตามสัญญา (Contract)",
+        exemptionDisclosure: "การนำส่งข้อมูลให้ธนาคารและกรมสรรพากร",
+        securityMeasures: {
+            organizational: "นโยบายการเข้าถึงข้อมูลรายบุคคล",
+            technical: "SSL Encryption, Database Encryption",
+            accessControl: "Multi-factor Authentication (MFA)"
+        }
+    },
+    {
+        id: "RP-2026-03",
+        ropaId: "RP-2026-03",
+        documentName: "ข้อมูลลูกค้าเพื่อการตลาด",
+        processorName: "บริษัท NetBay Marketing",
+        status: RopaStatus.Processing,
+        controllerName: "บริษัท เน็ตเบย์ จำกัด (มหาชน)",
+        controllerAddress: "123 อาคารเน็ตเบย์ กรุงเทพฯ",
+        title: "นางสาว", firstName: "พรรณราย", lastName: "แก้วมณี",
+        address: "456 ถนนสุขุมวิท กรุงเทพฯ",
+        email: "pannarai.k@marketing-pro.co.th",
+        processingActivity: "การส่งจดหมายข่าวและสิทธิประโยชน์",
+        purpose: "เพื่อการทำการตลาดออนไลน์และวิเคราะห์ข้อมูลความสนใจ",
+        dataCategories: ["customer"],
+        storedDataTypes: ["ชื่อ", "อีเมล", "เบอร์โทรศัพท์"],
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["CRM Database"],
+            duration: 5,
+            unit: RetentionUnit.Year,
+            accessControl: "ฝ่ายการตลาดเท่านั้น",
+            deletionMethod: "ลบออกจากรายชื่อผู้ติดต่อในระบบ CRM"
+        },
+        legalBasis: "ฐานความยินยอม (Consent)",
+        exemptionDisclosure: "ไม่มี",
+        securityMeasures: {
+            technical: "Firewall, Cloud Access Control"
+        }
+    }
+];

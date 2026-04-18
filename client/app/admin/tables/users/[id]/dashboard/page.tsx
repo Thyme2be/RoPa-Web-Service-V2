@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import AdminDashboardView from "@/components/dashboard/AdminDashboardView";
 import DpoDashboardView from "@/components/dashboard/DpoDashboardView";
+import ExecutiveDashboardView from "@/components/dashboard/ExecutiveDashboardView";
+import DataOwnerDashboardView from "@/components/dashboard/DataOwnerDashboardView";
 
 interface UserDashboardData {
     user: {
@@ -30,7 +32,7 @@ export default function UserRoleDashboardPage() {
     const userId = params.id as string;
     const [data, setData] = useState<UserDashboardData | null>(null);
     const [adminData, setAdminData] = useState<any>(null); // For Admin-viewing-Admin
-    const [timeRange, setTimeRange] = useState<"7_days" | "30_days" | "all">("30_days");
+    const [timeRange, setTimeRange] = useState<"7_days" | "30_days" | "all" | "weekly" | "monthly" | "6months" | "yearly">("30_days");
     const [activeTab, setActiveTab] = useState<"documents" | "users">("documents");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,14 @@ export default function UserRoleDashboardPage() {
 
                 const json = await response.json();
                 setData(json);
+
+                // Initialize a safe default timeRange based on role
+                const normalizedRole = json.user.role.toUpperCase();
+                if (normalizedRole === "EXECUTIVE" || normalizedRole === "OWNER") {
+                    setTimeRange("monthly");
+                } else {
+                    setTimeRange("30_days");
+                }
 
                 // If user is Admin, we might want to fetch Org stats to show the Admin dashboard style
                 if (json.user.role.toUpperCase() === "ADMIN") {
@@ -178,6 +188,14 @@ export default function UserRoleDashboardPage() {
             return <DpoDashboardView stats={dpoStats} />;
         }
 
+        if (roleNormalized === "OWNER") {
+            return <DataOwnerDashboardView userId={userId} />;
+        }
+
+        if (roleNormalized === "EXECUTIVE") {
+            return <ExecutiveDashboardView />;
+        }
+
         // Default basic view for other roles
         return (
             <div className="space-y-8 animate-in fade-in duration-500">
@@ -254,9 +272,27 @@ export default function UserRoleDashboardPage() {
                                 onChange={(e) => setTimeRange(e.target.value as any)}
                                 className="h-9 px-4 pr-10 appearance-none bg-white border border-neutral-200 rounded-md text-sm font-medium text-neutral-700 focus:outline-none focus:ring-1 focus:ring-primary shadow-sm hover:bg-neutral-50 cursor-pointer min-w-[200px]"
                             >
-                                <option value="7_days">7 วันล่าสุด</option>
-                                <option value="30_days">30 วันล่าสุด</option>
-                                <option value="all">ทั้งหมด</option>
+                                {roleNormalized === "EXECUTIVE" ? (
+                                    <>
+                                        <option value="weekly">สัปดาห์นี้</option>
+                                        <option value="monthly">เดือนนี้</option>
+                                        <option value="yearly">ปีนี้</option>
+                                    </>
+                                ) : roleNormalized === "OWNER" ? (
+                                    <>
+                                        <option value="weekly">สัปดาห์นี้</option>
+                                        <option value="monthly">เดือนนี้</option>
+                                        <option value="6months">6 เดือน</option>
+                                        <option value="yearly">1 ปี</option>
+                                        <option value="all">ทั้งหมด</option>
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value="7_days">7 วันล่าสุด</option>
+                                        <option value="30_days">30 วันล่าสุด</option>
+                                        <option value="all">ทั้งหมด</option>
+                                    </>
+                                )}
                             </select>
                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-sm">
                                 expand_more
