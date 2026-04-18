@@ -373,13 +373,13 @@ export function DocumentTableRow({ children, className = "" }: { children: React
     );
 }
 
-export function DocumentTableCell({ children, className = "", align = "center" }: { children: React.ReactNode, className?: string, align?: "left" | "center" | "right" }) {
+export function DocumentTableCell({ children, className = "", align = "center", colSpan }: { children: React.ReactNode, className?: string, align?: "left" | "center" | "right", colSpan?: number }) {
     let justifyClass = "";
     if (align === "left") justifyClass = "text-left text-[#5C403D]";
     else if (align === "center") justifyClass = "text-center text-[#5C403D]";
     
     return (
-        <td className={`py-5 px-4 first:pl-6 last:pr-6 text-[13.5px] font-medium ${justifyClass} ${className}`}>
+        <td colSpan={colSpan} className={`py-5 px-4 first:pl-6 last:pr-6 text-[13.5px] font-medium ${justifyClass} ${className}`}>
             {children}
         </td>
     );

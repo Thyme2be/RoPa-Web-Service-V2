@@ -13,6 +13,7 @@ interface MultiSelectProps {
     description?: React.ReactNode;
     error?: string;
     disabled?: boolean;
+    variant?: "owner" | "processor";
 }
 
 export default function MultiSelect({
@@ -25,7 +26,13 @@ export default function MultiSelect({
     description,
     error,
     disabled,
+    variant = "owner",
 }: MultiSelectProps) {
+    const isProcessor = variant === "processor";
+    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
+    const tagBg = isProcessor ? "bg-[#00666E]/5" : "bg-[#FFF1F1]";
+    const tagBorder = isProcessor ? "border-[#00666E]/20" : "border-[#FFD9D9]";
+    const tagHover = isProcessor ? "hover:bg-[#00666E]/10" : "hover:bg-red-50";
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
@@ -69,7 +76,7 @@ export default function MultiSelect({
                 "text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight",
                 disabled && "opacity-60"
             )}>
-                {label} {required && <span className="text-primary">*</span>}
+                {label} {required && <span style={{ color: "#ED393C" }}>*</span>}
             </label>
 
             {description && (
@@ -82,7 +89,12 @@ export default function MultiSelect({
                 {selectedValues.map((val) => (
                     <div
                         key={val}
-                        className="flex items-center justify-between px-4 py-1.5 bg-[#FFF1F1] border border-[#FFD9D9] text-[#1B1C1C] rounded-full text-xs font-bold transition-all hover:bg-red-50"
+                        className={cn(
+                            "flex items-center justify-between px-4 py-1.5 text-[#1B1C1C] rounded-full text-xs font-bold transition-all border",
+                            tagBg,
+                            tagBorder,
+                            tagHover
+                        )}
                     >
                         <span className="truncate mr-2 font-black">{val}</span>
                         <button
@@ -126,24 +138,33 @@ export default function MultiSelect({
                             }
                         }}
                     />
-                    <span className={cn(
-                        "material-symbols-outlined text-gray-400 transition-transform duration-300",
-                        isOpen && "rotate-180 text-primary"
-                    )}>
+                    <span className="material-symbols-outlined text-gray-400 transition-transform duration-300"
+                        style={{ color: isOpen ? primaryColor : undefined }}>
                         expand_more
                     </span>
                 </div>
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className="absolute z-50 w-full bg-white border border-primary rounded-b-2xl shadow-xl animate-in fade-in duration-200 overflow-hidden top-full mt-[-1px]">
+                    <div 
+                        className="absolute z-50 w-full bg-white border rounded-b-2xl shadow-xl animate-in fade-in duration-200 overflow-hidden top-full mt-[-1px]"
+                        style={{ borderColor: primaryColor }}
+                    >
                         {filteredOptions.length > 0 ? (
                             <div className="max-h-60 overflow-y-auto">
                                 {filteredOptions.map((opt) => (
                                     <div
                                         key={opt}
                                         onClick={() => toggleOption(opt)}
-                                        className="px-4 py-3 text-sm font-medium text-black hover:bg-primary/5 hover:text-primary cursor-pointer transition-all border-l-4 border-l-transparent"
+                                        className="px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent"
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = `${primaryColor}0D`;
+                                            e.currentTarget.style.color = primaryColor;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.color = 'black';
+                                        }}
                                     >
                                         {opt}
                                     </div>

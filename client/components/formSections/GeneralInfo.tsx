@@ -1,9 +1,15 @@
 "use client";
 import React from "react";
+import { cn } from "@/lib/utils";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 
-export default function GeneralInfo({ form, handleChange, errors, disabled }: any) {
+export default function GeneralInfo({ form, handleChange, errors, disabled, variant = "owner" }: any) {
+    const isProcessor = variant === "processor";
+    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
+    const lightBg = isProcessor ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
+    const borderLColor = isProcessor ? "border-l-[#00666E]" : "border-l-[#ED393C]";
+
     const titleOptions = [
         { label: "คำนำหน้า", value: "" },
         { label: "นาย", value: "นาย" },
@@ -11,12 +17,17 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
         { label: "นางสาว", value: "นางสาว" },
     ];
 
+    const markerColor = "#ED393C";
+
     return (
-        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#ED393C] overflow-hidden">
+        <div className={cn(
+            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            borderLColor
+        )}>
             {/* Header: Icon and Section Title to match image */}
             <div className="flex items-center gap-4 px-8 py-6">
-                <div className="bg-[#ED393C]/10 p-2.5 rounded-xl flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#ED393C] text-2xl font-bold">
+                <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
+                    <span className="material-symbols-outlined text-red-brand text-2xl font-bold" style={{ color: primaryColor }}>
                         person_edit
                     </span>
                 </div>
@@ -32,7 +43,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                         {/* Unified Name-Surname Field */}
                         <div className="space-y-2">
                             <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
-                                ชื่อ-นามสกุล <span className="text-[#ED393C] font-bold">*</span>
+                                ชื่อ-นามสกุล <span className="font-bold" style={{ color: markerColor }}>*</span>
                             </label>
                             <div className="flex items-center gap-4">
                                 <div className="w-[130px] shrink-0">
@@ -45,6 +56,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                                         error={errors?.title}
                                         rounding="xl"
                                         placeholder="คำนำหน้า"
+                                        primaryColor={primaryColor}
                                     />
                                 </div>
                                 <div className="flex-1">
@@ -56,6 +68,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                                         error={errors?.firstName}
                                         disabled={disabled}
                                         containerClassName="space-y-0"
+                                        focusColor={primaryColor}
                                     />
                                 </div>
                                 <div className="flex-1">
@@ -67,6 +80,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                                         error={errors?.lastName}
                                         disabled={disabled}
                                         containerClassName="space-y-0"
+                                        focusColor={primaryColor}
                                     />
                                 </div>
                             </div>
@@ -82,6 +96,8 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                             onChange={handleChange}
                             error={errors?.email}
                             disabled={disabled}
+                            requiredColor={markerColor}
+                            focusColor={primaryColor}
                         />
                     </div>
 
@@ -97,6 +113,8 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                             onChange={handleChange}
                             error={errors?.address}
                             disabled={disabled}
+                            requiredColor={markerColor}
+                            focusColor={primaryColor}
                         />
 
                         {/* Phone Field */}
@@ -109,6 +127,8 @@ export default function GeneralInfo({ form, handleChange, errors, disabled }: an
                             onChange={handleChange}
                             error={errors?.phoneNumber}
                             disabled={disabled}
+                            requiredColor={markerColor}
+                            focusColor={primaryColor}
                         />
                     </div>
                 </div>

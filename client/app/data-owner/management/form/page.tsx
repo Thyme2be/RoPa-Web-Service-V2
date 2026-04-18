@@ -13,6 +13,7 @@ import RightsChannel from "@/components/formSections/RightsChannel";
 import FeedbackModal from "@/components/ropa/FeedbackModal";
 import RiskAssessment from "@/components/ropa/RiskAssessment";
 import FormTabs from "@/components/ropa/FormTabs";
+import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
@@ -57,7 +58,7 @@ function ManagementFormContent() {
         rightsEmail: "",
         rightsPhone: "",
         status: RopaStatus.Draft,
-        id: crypto.randomUUID(),
+        id: "", // Let context handle ID generation if new
         dataSource: { direct: false, indirect: false },
         minorConsent: { under10: false, age10to20: false, none: false },
         internationalTransfer: { isTransfer: false },
@@ -85,7 +86,7 @@ function ManagementFormContent() {
         if (recordId) {
             const existing = getById(recordId);
             if (existing) {
-                setForm(prev => ({ ...prev, ...existing }));
+                setForm((prev: Partial<OwnerRecord>) => ({ ...prev, ...existing }));
                 return;
             }
         }
@@ -94,7 +95,7 @@ function ManagementFormContent() {
         if (savedDraft && savedDraft.trim() !== "" && !recordId) {
             try {
                 const parsed = JSON.parse(savedDraft);
-                setForm(prev => ({ ...prev, ...parsed }));
+                setForm((prev: Partial<OwnerRecord>) => ({ ...prev, ...parsed }));
             } catch (e) {
                 console.error("Failed to parse draft from localStorage", e);
             }
@@ -267,6 +268,7 @@ function ManagementFormContent() {
     const handleDraft = () => {
         const saved = saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
         localStorage.setItem("ropa_owner_draft", JSON.stringify({ ...form, id: saved.id }));
+        setErrors({}); // Clear errors on draft
         setIsDraftSuccessOpen(true);
     };
 
@@ -298,7 +300,7 @@ function ManagementFormContent() {
     /** Risk Assessment submitted */
     const handleRiskSubmit = (probability: number, impact: number) => {
         if (recordId) {
-            saveRiskAssessment(recordId, probability, impact);
+            saveRiskAssessment(recordId, { probability, impact });
         }
         alert("ส่งการประเมินความเสี่ยงเรียบร้อยแล้ว");
     };
@@ -454,7 +456,7 @@ function ManagementFormContent() {
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={handleDraft}
-                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    className="bg-white border-2 border-[#ED393C] text-[#ED393C] font-bold text-base h-[52px] px-10 rounded-full hover:bg-[#ED393C]/5 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                                 >
                                     บันทึกฉบับร่าง
                                 </button>
@@ -495,8 +497,8 @@ function ManagementFormContent() {
             {isDraftSuccessOpen && (
                 <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-[500px] rounded-[48px] shadow-2xl p-14 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
-                        <div className="bg-primary/5 p-4 rounded-2xl mb-6">
-                            <span className="material-symbols-outlined text-primary text-[40px]">save</span>
+                        <div className="bg-[#ED393C]/10 p-4 rounded-2xl mb-6">
+                            <span className="material-symbols-outlined text-[#ED393C] text-[40px]">save</span>
                         </div>
                         <h2 className="text-3xl font-black text-[#1B1C1C] tracking-tight mb-2">บันทึกฉบับร่างแล้ว</h2>
                         <p className="text-base font-bold text-[#5F5E5E] mb-8">
@@ -512,28 +514,12 @@ function ManagementFormContent() {
                 </div>
             )}
 
-            {/* ─── Submit Success Modal ─────────────────────────────────────── */}
-            {isSuccessModalOpen && (
-                <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-[560px] rounded-[48px] shadow-2xl p-16 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
-                        <div className="space-y-5 w-full">
-                            <h2 className="text-4xl font-headline font-black text-[#1B1C1C] tracking-tight leading-tight">
-                                บันทึกรายการ RoPA เสร็จสิ้น
-                            </h2>
-                            <p className="text-lg font-bold text-[#5F5E5E] leading-relaxed max-w-[420px] mx-auto pb-4">
-                                ส่วนของผู้รับผิดชอบข้อมูลเสร็จสมบูรณ์แล้ว<br />
-                                รอผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการ
-                            </p>
-                            <button
-                                onClick={() => router.push("/data-owner/management/processing")}
-                                className="bg-logout-gradient leading-none text-white w-full h-[56px] rounded-2xl font-black text-lg shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
-                            >
-                                กลับสู่หน้าเอกสารที่ดำเนินการ
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* ─── Success Modal ─────────────────────────────────────── */}
+            <SaveSuccessModal
+                isOpen={isSuccessModalOpen}
+                onClose={() => setIsSuccessModalOpen(false)}
+                onConfirm={() => router.push("/data-owner/management/processing")}
+            />
         </div>
     );
 }

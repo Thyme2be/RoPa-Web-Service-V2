@@ -42,6 +42,10 @@ export type OwnerRecord = {
   purpose: string;
   personalData: string;
 
+  // DP specific fields
+  processorName?: string;
+  controllerName?: string;
+
   // 5–6
   dataCategories: string[];
   dataType: DataType | DataType[];  // Support both single and multi-select
@@ -53,6 +57,8 @@ export type OwnerRecord = {
   dataSource: {
     direct: boolean;
     indirect: boolean;
+    fromControllerDirect?: boolean; // DP specific
+    fromOther?: boolean;           // DP specific
   };
 
   // 9–10
@@ -72,6 +78,7 @@ export type OwnerRecord = {
     transferMethod?: string;
     protectionStandard?: string;
     exception?: string;
+    isInGroup?: boolean; // DP specific
   };
 
   // 12 retention
@@ -81,6 +88,7 @@ export type OwnerRecord = {
     duration: number;
     unit: RetentionUnit;
     accessControl: string;
+    accessCondition?: string; // DP specific
     deletionMethod: string;
   };
 
@@ -125,4 +133,8 @@ export type OwnerRecord = {
   // Timestamps (backend-ready)
   submittedDate?: string;
   updatedDate?: string;
+  lastUpdated?: string;
 };
+
+// Alias for compatibility if needed
+export type RopaRecord = OwnerRecord;

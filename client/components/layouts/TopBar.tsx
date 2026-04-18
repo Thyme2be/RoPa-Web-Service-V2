@@ -150,10 +150,10 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                             <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
                             <div className="flex flex-col items-end">
                                 <span className="text-[15px] font-black text-[#1B1C1C]">
-                                    พรรษชล บุญมาก
+                                    {isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก"}
                                 </span>
                                 <span className="text-[12px] text-neutral-400 font-bold whitespace-nowrap">
-                                    ผู้รับผิดชอบข้อมูล
+                                    {isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล"}
                                 </span>
                             </div>
                         </div>
@@ -163,10 +163,10 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                     {!formMode && (
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-bold text-neutral-900">
-                                พรรษชล บุญมาก
+                                {isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก"}
                             </span>
                             <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                                {isProcessor ? "ผู้ประมวลผลข้อมูล" : "ผู้รับผิดชอบข้อมูล"}
+                                {isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล"}
                             </span>
                         </div>
                     )}

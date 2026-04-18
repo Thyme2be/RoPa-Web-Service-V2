@@ -16,6 +16,8 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     disabled?: boolean;
     bgColor?: string;
     labelClassName?: string;
+    focusColor?: string;
+    primaryColor?: string;
     onChange?: (e: { target: { name: string; value: string } }) => void;
 };
 
@@ -32,6 +34,8 @@ export default function Select({
     rounding = "2xl",
     bgColor,
     labelClassName,
+    focusColor,
+    primaryColor = "#ED393C",
     ...props
 }: Props) {
     const [isOpen, setIsOpen] = useState(false);
@@ -62,7 +66,7 @@ export default function Select({
         <div className={cn("space-y-2 w-full", containerClassName)} ref={containerRef}>
             {label && (
                 <label className={cn("text-[13px] font-extrabold text-[#5C403D] block tracking-tight", labelClassName)}>
-                    {label} {required && <span className="text-primary font-bold">*</span>}
+                    {label} {required && <span className="font-bold" style={{ color: primaryColor }}>*</span>}
                 </label>
             )}
 
@@ -71,13 +75,17 @@ export default function Select({
                 <div
                     onClick={() => !props.disabled && setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between w-full h-11 px-4 py-2 border-none cursor-pointer transition-all hover:bg-[#E5BDBA]/10",
+                        "flex items-center justify-between w-full h-11 px-4 py-2 border-none cursor-pointer transition-all",
                         bgColor === "white" ? "bg-white" : "bg-[#F6F3F2]",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
                         error ? "ring-2 ring-red-500/20 bg-red-50/50" : "",
-                        isOpen && "bg-primary/5 rounded-b-none",
+                        isOpen && "rounded-b-none",
                         props.disabled && "opacity-100 cursor-not-allowed bg-[#F6F3F2] pointer-events-none"
                     )}
+                    style={{
+                        backgroundColor: isOpen ? `${primaryColor}0D` : undefined,
+                        ...(focusColor && isOpen ? { ringColor: `${focusColor}33` } : {})
+                    }}
                 >
                     <span className={cn(
                         "text-sm font-bold transition-colors",
@@ -86,29 +94,45 @@ export default function Select({
                     )}>
                         {selectedOption ? selectedOption.label : placeholder || "เลือกรายการ..."}
                     </span>
-                    <span className={cn(
-                        "material-symbols-outlined text-gray-400 transition-transform duration-300",
-                        isOpen && "rotate-180 text-primary"
-                    )}>
+                    <span className="material-symbols-outlined text-gray-400 transition-transform duration-300"
+                        style={{ color: isOpen ? primaryColor : undefined }}>
                         expand_more
                     </span>
                 </div>
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className={cn(
-                        "absolute z-50 w-full bg-white border border-primary/20 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]",
-                        rounding === "2xl" ? "rounded-b-2xl" : rounding === "xl" ? "rounded-b-xl" : "rounded-b-lg"
-                    )}>
+                    <div 
+                        className={cn(
+                            "absolute z-50 w-full bg-white border border-opacity-20 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]",
+                            rounding === "2xl" ? "rounded-b-2xl" : rounding === "xl" ? "rounded-b-xl" : "rounded-b-lg"
+                        )}
+                        style={{ borderColor: primaryColor }}
+                    >
                         <div className="max-h-60 overflow-y-auto py-2">
                             {options.map((opt) => (
                                 <div
                                     key={opt.value}
                                     onClick={() => handleSelect(opt.value)}
                                     className={cn(
-                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent hover:bg-primary/5 hover:text-primary",
-                                        opt.value === value && "bg-primary/5 text-primary border-l-primary border-y border-y-primary/10"
+                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent",
+                                        opt.value === value && "border-y border-y-opacity-10"
                                     )}
+                                    style={{
+                                        borderLeftColor: opt.value === value ? primaryColor : "transparent",
+                                        backgroundColor: opt.value === value ? `${primaryColor}0D` : undefined,
+                                        color: opt.value === value ? primaryColor : undefined
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = `${primaryColor}0D`;
+                                        e.currentTarget.style.color = primaryColor;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (opt.value !== value) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.color = 'black';
+                                        }
+                                    }}
                                 >
                                     {opt.label}
                                 </div>

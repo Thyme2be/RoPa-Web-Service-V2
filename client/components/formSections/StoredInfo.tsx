@@ -4,18 +4,29 @@ import MultiSelect from "@/components/ui/MultiSelect";
 import Checkbox from "@/components/ui/Checkbox";
 import { cn } from "@/lib/utils";
 
-export default function StoredInfo({ form, handleChange, errors, disabled }: any) {
+export default function StoredInfo({ form, handleChange, errors, disabled, variant = "owner" }: any) {
+    const isProcessor = variant === "processor";
+    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
+    const lightBg = isProcessor ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
+    const borderLColor = isProcessor ? "border-l-[#00666E]" : "border-l-[#ED393C]";
+    const sectionTitle = isProcessor ? "ส่วนที่ 3 : ข้อมูลที่จัดเก็บ" : "ส่วนที่ 4 : ข้อมูลส่วนบุคคลที่จัดเก็บ";
+
+    const markerColor = "#ED393C";
+
     return (
-        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#ED393C] overflow-hidden">
+        <div className={cn(
+            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            borderLColor
+        )}>
             {/* Header: Category Icon */}
             <div className="flex items-center gap-4 px-8 py-6">
-                <div className="bg-[#ED393C]/10 p-2.5 rounded-xl flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#ED393C] text-2xl font-bold">
+                <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
+                    <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
                         category
                     </span>
                 </div>
                 <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
-                    ส่วนที่ 4 : ข้อมูลส่วนบุคคลที่จัดเก็บ
+                    {sectionTitle}
                 </h2>
             </div>
 
@@ -28,7 +39,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled }: any
                             required
                             placeholder="ข้อมูลส่วนบุคคลที่จัดเก็บ"
                             description={
-                                <p className="text-[11px] font-bold text-[#ED393C] tracking-tight">
+                                <p className="text-[11px] font-bold tracking-tight" style={{ color: markerColor }}>
                                     (สามารถระบุได้มากกว่า 1)
                                 </p>
                             }
@@ -46,13 +57,14 @@ export default function StoredInfo({ form, handleChange, errors, disabled }: any
                             }}
                             error={errors?.storedDataTypes}
                             disabled={disabled}
+                            variant={variant}
                         />
                     </div>
 
                     {/* Column 2: Data Category */}
                     <div className="space-y-4">
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
-                            หมวดหมู่ของข้อมูล <span className="text-[#ED393C] font-bold">*</span>
+                            หมวดหมู่ของข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
                         <div className={cn(
                             "space-y-4 p-6 rounded-xl bg-[#F6F3F2]",
@@ -73,6 +85,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled }: any
                                             handleChange({ target: { name: "dataCategories", value: newVals } });
                                         }}
                                         disabled={disabled}
+                                        themeColor={primaryColor}
                                     />
                                 );
                             })}
@@ -82,7 +95,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled }: any
                     {/* Column 3: Data Type */}
                     <div className="space-y-4">
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
-                            ประเภทของข้อมูล <span className="text-[#ED393C] font-bold">*</span>
+                            ประเภทของข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
                         <div className={cn(
                             "space-y-4 p-6 rounded-xl bg-[#F6F3F2]",
@@ -97,6 +110,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled }: any
                                     handleChange({ target: { name: "dataType", value: newVals } });
                                 }}
                                 disabled={disabled}
+                                themeColor={primaryColor}
                             />
                             <Checkbox
                                 label="ข้อมูลอ่อนไหว"
@@ -107,6 +121,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled }: any
                                     handleChange({ target: { name: "dataType", value: newVals } });
                                 }}
                                 disabled={disabled}
+                                themeColor={primaryColor}
                             />
                         </div>
                     </div>
