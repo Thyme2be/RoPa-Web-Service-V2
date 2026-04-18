@@ -295,7 +295,7 @@ class RiskAssessmentRead(BaseModel):
 class DeletionRequestCreate(BaseModel):
     """
     Payload ยื่นคำร้องขอทำลายเอกสาร
-    - หน้า: "ยื่นคำร้องขอทำลาย" (เข้าถึงได้จากปุ่ม ✈️❌ หรือ ลบ ในทุกตาราง)
+    - หน้า: "ยื่นคำร้องขอทำลาย" (เข้าถึงได้จากปุ่ม ส่ง/ลบ ในทุกตาราง)
     - ต้องระบุเหตุผลในการขอทำลาย
     """
     owner_reason: str
@@ -321,6 +321,30 @@ class DeletionRequestRead(BaseModel):
 class SendToDpoPayload(BaseModel):
     """Payload สำหรับ DO ส่งเอกสารให้ DPO review (ทั้ง send-to-dpo และ annual-review)"""
     dpo_id: int
+
+
+class MessageResponse(BaseModel):
+    """Response สำหรับ endpoint ที่ส่งกลับแค่ข้อความ"""
+    message: str
+
+
+class SendToDpoResponse(BaseModel):
+    """Response สำหรับ send-to-dpo"""
+    message: str
+    document_number: str
+    review_cycle_id: str
+
+
+class AnnualReviewResponse(BaseModel):
+    """Response สำหรับ annual-review"""
+    message: str
+    review_cycle_id: str
+
+
+class DoSuggestionResponse(BaseModel):
+    """Response สำหรับ update do_suggestion"""
+    message: str
+    do_suggestion: Optional[str]
 
 
 class DoSuggestionUpdate(BaseModel):

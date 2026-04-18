@@ -87,8 +87,10 @@ from app.schemas.owner import (
     DeletionRequestRead,
     DocumentCreateOwner,
     DoSuggestionUpdate,
+    DoSuggestionResponse,
     FeedbackBatch,
     FeedbackRead,
+    MessageResponse,
     OwnerDashboardResponse,
     OwnerSectionFullRead,
     OwnerSectionSave,
@@ -97,6 +99,8 @@ from app.schemas.owner import (
     RiskAssessmentRead,
     RiskAssessmentSubmit,
     SendToDpoPayload,
+    SendToDpoResponse,
+    AnnualReviewResponse,
     SentToDpoTableItem,
     PersonalDataItemOut,
     DataCategoryOut,
@@ -106,6 +110,8 @@ from app.schemas.owner import (
     StorageTypeOut,
     StorageMethodOut,
 )
+from app.schemas.processor import ProcessorSectionFullRead
+from app.api.routers.processor import _load_processor_section_full
 from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/owner", tags=["Data Owner"])
@@ -1043,11 +1049,12 @@ def submit_owner_section(
 
 
 # =============================================================================
-# POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO review (ตาราง 1 ✈️)
+# POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO review (ตาราง 1)
 # =============================================================================
 
 @router.post(
     "/documents/{document_id}/send-to-dpo",
+    response_model=SendToDpoResponse,
     summary="ส่งเอกสารให้ DPO review (ตาราง 1)",
 )
 def send_to_dpo(
@@ -1160,11 +1167,12 @@ def send_to_dpo(
 
 
 # =============================================================================
-# POST /owner/documents/{document_id}/send-back-to-dpo — ส่งการแก้ไขคืน DPO (ตาราง 2 ✈️)
+# POST /owner/documents/{document_id}/send-back-to-dpo — ส่งการแก้ไขคืน DPO (ตาราง 2)
 # =============================================================================
 
 @router.post(
     "/documents/{document_id}/send-back-to-dpo",
+    response_model=MessageResponse,
     summary="DO ส่งการแก้ไขคืนให้ DPO (ตาราง 2)",
 )
 def send_back_to_dpo(
@@ -1174,7 +1182,7 @@ def send_back_to_dpo(
 ):
     """
     หลังจาก DPO ส่ง CHANGES_REQUESTED มาและ DO แก้ไขแล้ว
-    กด ✈️ ในตาราง 2 เพื่อแจ้ง DPO ว่าแก้ไขเสร็จแล้ว
+    กดปุ่มส่งในตาราง 2 เพื่อแจ้ง DPO ว่าแก้ไขเสร็จแล้ว
     → เปลี่ยน review_assignment.status = FIX_SUBMITTED
     """
     check_document_access(document_id, current_user, db)
@@ -1215,11 +1223,12 @@ def send_back_to_dpo(
 
 
 # =============================================================================
-# POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี (ตาราง 3 ✈️)
+# POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี (ตาราง 3)
 # =============================================================================
 
 @router.post(
     "/documents/{document_id}/annual-review",
+    response_model=AnnualReviewResponse,
     summary="DO ส่งเอกสารตรวจสอบรายปี (ตาราง 3)",
 )
 def request_annual_review(
@@ -1230,7 +1239,7 @@ def request_annual_review(
 ):
     """
     หน้า: ตาราง 3 เอกสาร COMPLETED ที่ถึงกำหนดทบทวนประจำปี
-    กด ✈️ เพื่อส่งเข้า review cycle ใหม่
+    กดปุ่มส่งเพื่อส่งเข้า review cycle ใหม่
     → เปลี่ยน doc.status = UNDER_REVIEW และสร้าง DocumentReviewCycleModel ใหม่
     """
     check_document_access(document_id, current_user, db)
@@ -1265,6 +1274,20 @@ def request_annual_review(
         status="FIX_IN_PROGRESS",
     ))
 
+    # เพิ่ม ReviewAssignment สำหรับ PROCESSOR ด้วย (เหมือน send-to-dpo)
+    proc_assignment = (
+        db.query(ProcessorAssignmentModel)
+        .filter(ProcessorAssignmentModel.document_id == document_id)
+        .first()
+    )
+    if proc_assignment:
+        db.add(ReviewAssignmentModel(
+            review_cycle_id=cycle.id,
+            user_id=proc_assignment.processor_id,
+            role="PROCESSOR",
+            status="FIX_IN_PROGRESS",
+        ))
+
     db.add(ReviewDpoAssignmentModel(
         review_cycle_id=cycle.id,
         dpo_id=payload.dpo_id,
@@ -1286,6 +1309,7 @@ def request_annual_review(
 
 @router.get(
     "/documents/{document_id}/processor-section",
+    response_model=ProcessorSectionFullRead,
     summary="ดู Processor Section (Data Owner — read-only)",
 )
 def get_processor_section_for_owner(
@@ -1299,9 +1323,6 @@ def get_processor_section_for_owner(
     - ไม่สามารถแก้ไขเนื้อหา DP ได้
     """
     check_document_access(document_id, current_user, db)
-
-    from app.schemas.processor import ProcessorSectionFullRead
-    from app.api.routers.processor import _load_processor_section_full
 
     section = (
         db.query(RopaProcessorSectionModel)
@@ -1320,6 +1341,7 @@ def get_processor_section_for_owner(
 
 @router.patch(
     "/documents/{document_id}/processor-section/suggestion",
+    response_model=DoSuggestionResponse,
     summary="DO เขียน/แก้ไข คำแนะนำสำหรับ DP (do_suggestion)",
 )
 def update_do_suggestion(
@@ -1469,7 +1491,7 @@ def upsert_risk_assessment(
     Tab 3 – ปุ่ม "ยืนยันการประเมิน"
     - บันทึก likelihood × impact → risk_score → risk_level
     - กดแล้วกลับไปหน้าตาราง 1 (frontend จัดการ)
-    - ยังไม่ส่ง DPO → ต้องกลับไปกด ✈️ ในตาราง 1
+    - ยังไม่ส่ง DPO → ต้องกลับไปกดปุ่มส่งในตาราง 1
     """
     check_document_access(document_id, current_user, db)
 
@@ -1557,7 +1579,7 @@ def create_deletion_request(
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     """
-    เข้าถึงได้จาก ✈️❌ ในตารางใดก็ได้
+    เข้าถึงได้จากปุ่มส่ง/ลบ ในตารางใดก็ได้
     สร้าง DocumentDeletionRequestModel และเปลี่ยน doc.deletion_status = DELETE_PENDING
     """
     check_document_access(document_id, current_user, db)
