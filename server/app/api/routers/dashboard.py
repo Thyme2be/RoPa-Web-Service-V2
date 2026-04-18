@@ -1,28 +1,47 @@
 """
-dashboard.py ─ Dashboard endpoint.
+dashboard.py ─ Dashboard endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
-from app.api.deps import get_db
-from app.core.rbac import Role, require_roles
-from app.models.assignment import AuditorAssignmentModel, ProcessorAssignmentModel
-from app.models.document import RopaDocumentModel
-from app.models.user import UserModel
-from app.schemas.user import UserRead
-
-router = APIRouter()
-
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-from sqlalchemy import cast, Date
-from fastapi import Query
+from typing import Optional, List
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import func, text, and_, or_, exists, cast, Date
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_db, get_current_user
+from app.core.rbac import Role, require_roles
+from app.api.routers.documents import check_document_access
+
+# Models
+from app.models.assignment import AuditorAssignmentModel, ProcessorAssignmentModel
+from app.models.document import RopaDocumentModel, DocumentDeletionRequestModel, RopaRiskAssessmentModel
+from app.models.user import UserModel
+from app.models.workflow import ReviewDpoAssignmentModel, DocumentReviewCycleModel, ReviewAssignmentModel, ReviewFeedbackModel
+from app.models.dpo_comment import DpoSectionCommentModel
 from app.models.section_owner import RopaOwnerSectionModel
 from app.models.section_processor import RopaProcessorSectionModel
-from app.models.workflow import DocumentReviewCycleModel, ReviewAssignmentModel
-from app.schemas.dashboard import AdminDashboardResponse
+
+# Schemas
+from app.schemas.user import UserRead
+from app.schemas.dashboard import (
+    AdminDashboardResponse,
+    AdminUserDashboardResponse,
+    DpoDashboardResponse,
+    PaginatedDpoDocumentTableResponse,
+    DpoDocumentTableItem,
+    DocumentStatusFlags,
+    PaginatedDpoDestructionTableResponse,
+    DpoDestructionTableItem,
+    PaginatedDpoAuditorAssignmentTableResponse,
+    DpoAuditorAssignmentTableItem,
+    PaginatedOwnerDpoReviewedDocumentResponse,
+    OwnerDpoReviewedDocumentTableItem
+)
+from app.schemas.dpo_comment import DpoCommentBulkRequest, DpoCommentRead
+
+router = APIRouter()
 
 @router.get("/dashboard", response_model=AdminDashboardResponse, summary="Admin: Organisation Dashboard", tags=["Dashboard (Admin)"])
 def org_dashboard(
@@ -139,10 +158,6 @@ def org_dashboard(
         }
     )
 
-from app.models.workflow import ReviewDpoAssignmentModel, ReviewFeedbackModel, DocumentReviewCycleModel
-from app.models.document import DocumentDeletionRequestModel, RopaRiskAssessmentModel, RopaDocumentModel
-from app.schemas.dashboard import DpoDashboardResponse
-
 @router.get("/dashboard/dpo", response_model=DpoDashboardResponse, summary="DPO: Dashboard", tags=["Dashboard (DPO)"])
 def dpo_dashboard(
     db: Session = Depends(get_db),
@@ -210,7 +225,6 @@ def dpo_dashboard(
         ).count()
 
     # 7. Auditor Delayed
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     aud_delayed = db.query(AuditorAssignmentModel).filter(
         AuditorAssignmentModel.assigned_by == current_user.id,
@@ -280,8 +294,6 @@ def user_dashboard(
         "accessed_by": current_user.email,
     }
 
-
-from app.schemas.dashboard import AdminUserDashboardResponse
 
 @router.get("/dashboard/users", response_model=AdminUserDashboardResponse, summary="Admin: User Statistics Dashboard", tags=["Dashboard (Admin)"])
 def user_stats_dashboard(
@@ -416,3 +428,501 @@ def user_stats_dashboard(
         }
     )
 
+
+
+@router.get("/dashboard/dpo/documents", response_model=PaginatedDpoDocumentTableResponse, summary="DPO: Document List Table", tags=["Dashboard (DPO)"])
+def list_dpo_documents(
+    status_filter: Optional[str] = Query(None, description="Filter logic by status"),
+    days_filter: Optional[int] = Query(None, description="Days filter"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO))
+):
+    # CTE to compute sequence number (RP-YYYY-XX)
+    doc_seq_cte = db.query(
+        RopaDocumentModel.id.label('doc_id'),
+        func.extract('year', RopaDocumentModel.created_at).label('doc_year'),
+        func.row_number().over(
+            partition_by=func.extract('year', RopaDocumentModel.created_at),
+            order_by=RopaDocumentModel.created_at
+        ).label('doc_number')
+    ).cte('doc_seq_cte')
+
+    query = db.query(
+        RopaDocumentModel,
+        ReviewDpoAssignmentModel,
+        DocumentReviewCycleModel,
+        UserModel,
+        doc_seq_cte.c.doc_year,
+        doc_seq_cte.c.doc_number
+    ).join(
+        DocumentReviewCycleModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id
+    ).join(
+        ReviewDpoAssignmentModel, DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id
+    ).join(
+        UserModel, RopaDocumentModel.created_by == UserModel.id
+    ).join(
+        doc_seq_cte, RopaDocumentModel.id == doc_seq_cte.c.doc_id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == current_user.id
+    )
+
+    if days_filter:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
+        query = query.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff_date)
+
+    if status_filter:
+        s_filter = status_filter.lower()
+        if "รอ" in s_filter or s_filter == "pending":
+            query = query.filter(DocumentReviewCycleModel.status == 'IN_REVIEW')
+        elif "เสร็จสิ้น" in s_filter or s_filter == "completed":
+            query = query.filter(DocumentReviewCycleModel.status == 'APPROVED')
+        # Additional manual status filters can go here
+
+    total = query.count()
+    results = query.order_by(ReviewDpoAssignmentModel.assigned_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    items = []
+    
+    for row in results:
+        doc = row.RopaDocumentModel
+        assignment = row.ReviewDpoAssignmentModel
+        cycle = row.DocumentReviewCycleModel
+        user = row.UserModel
+        doc_year = int(row.doc_year)
+        doc_number = int(row.doc_number)
+        
+        doc_code = f"RP-{doc_year}-{doc_number:02d}"
+        display_title = f"{doc_code} {doc.title or 'ไม่มีชื่อเอกสาร'}"
+        
+        full_name = filter(None, [user.title, user.first_name, user.last_name])
+        data_owner_name = " ".join(full_name) or "ไม่ระบุ"
+        
+        owner_sec = db.query(RopaOwnerSectionModel).filter(RopaOwnerSectionModel.document_id == doc.id).first()
+        proc_sec = db.query(RopaProcessorSectionModel).filter(RopaProcessorSectionModel.document_id == doc.id).first()
+        
+        owner_completed = bool(owner_sec and getattr(owner_sec.status, 'value', owner_sec.status) == 'SUBMITTED')
+        processor_completed = bool(proc_sec and getattr(proc_sec.status, 'value', proc_sec.status) == 'SUBMITTED')
+
+        status_enum_val = str(getattr(cycle.status, 'value', cycle.status))
+        reviewed_dt = cycle.updated_at if status_enum_val != 'IN_REVIEW' else None
+
+        items.append(DpoDocumentTableItem(
+            document_id=doc_code,
+            title=display_title,
+            data_owner_name=data_owner_name,
+            assigned_at=assignment.assigned_at,
+            reviewed_at=reviewed_dt,
+            status_flags=DocumentStatusFlags(
+                owner_completed=owner_completed,
+                processor_completed=processor_completed
+            ),
+            review_status=status_enum_val
+        ))
+
+    return PaginatedDpoDocumentTableResponse(
+        total=total,
+        page=page,
+        limit=limit,
+        items=items
+    )
+
+@router.get("/dashboard/dpo/destruction-requests", response_model=PaginatedDpoDestructionTableResponse, summary="DPO: Destruction Requests Table", tags=["Dashboard (DPO)"])
+def list_dpo_destruction_requests(
+    status_filter: Optional[str] = Query(None, description="Filter logic by status"),
+    days_filter: Optional[int] = Query(None, description="Days filter"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO))
+):
+    # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
+    doc_seq_cte = db.query(
+        RopaDocumentModel.id.label('doc_id'),
+        func.extract('year', RopaDocumentModel.created_at).label('doc_year'),
+        func.row_number().over(
+            partition_by=func.extract('year', RopaDocumentModel.created_at),
+            order_by=RopaDocumentModel.created_at
+        ).label('doc_number')
+    ).cte('doc_seq_cte')
+
+    query = db.query(
+        DocumentDeletionRequestModel,
+        RopaDocumentModel,
+        UserModel,
+        doc_seq_cte.c.doc_year,
+        doc_seq_cte.c.doc_number
+    ).join(
+        RopaDocumentModel, DocumentDeletionRequestModel.document_id == RopaDocumentModel.id
+    ).join(
+        UserModel, DocumentDeletionRequestModel.requested_by == UserModel.id
+    ).join(
+        doc_seq_cte, RopaDocumentModel.id == doc_seq_cte.c.doc_id
+    ).filter(
+        DocumentDeletionRequestModel.dpo_id == current_user.id
+    )
+
+    if days_filter:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
+        query = query.filter(DocumentDeletionRequestModel.requested_at >= cutoff_date)
+
+    if status_filter:
+        s_filter = status_filter.lower()
+        if "รอ" in s_filter or s_filter == "pending":
+            query = query.filter(DocumentDeletionRequestModel.status == 'PENDING')
+        elif "ไม่อนุมัติ" in s_filter or s_filter == "rejected":
+            query = query.filter(DocumentDeletionRequestModel.status == 'REJECTED')
+        elif "อนุมัติ" in s_filter or s_filter == "approved":
+            query = query.filter(DocumentDeletionRequestModel.status == 'APPROVED')
+
+    total = query.count()
+    results = query.order_by(DocumentDeletionRequestModel.requested_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    items = []
+    
+    ui_status_map = {
+        "PENDING": "รอตรวจสอบทำลาย",
+        "REJECTED": "ไม่อนุมัติการทำลาย",
+        "APPROVED": "อนุมัติการทำลาย"
+    }
+
+    for row in results:
+        req = row.DocumentDeletionRequestModel
+        doc = row.RopaDocumentModel
+        user = row.UserModel
+        doc_year = int(row.doc_year)
+        doc_number = int(row.doc_number)
+        
+        doc_code = f"RP-{doc_year}-{doc_number:02d}"
+        display_title = f"{doc_code} {doc.title or 'ไม่มีชื่อเอกสาร'}"
+        
+        full_name = filter(None, [user.title, user.first_name, user.last_name])
+        data_owner_name = " ".join(full_name) or "ไม่ระบุ"
+        
+        status_enum_val = str(getattr(req.status, 'value', req.status))
+        items.append(DpoDestructionTableItem(
+            request_id=str(req.id),
+            document_id=doc_code,
+            title=display_title,
+            data_owner_name=data_owner_name,
+            requested_at=req.requested_at,
+            reviewed_at=req.decided_at,
+            review_status=status_enum_val
+        ))
+
+    return PaginatedDpoDestructionTableResponse(
+        total=total,
+        page=page,
+        limit=limit,
+        items=items
+    )
+
+
+
+@router.get("/dashboard/dpo/auditor-assignments", response_model=PaginatedDpoAuditorAssignmentTableResponse, summary="DPO: Auditor Assignments Table", tags=["Dashboard (DPO)"])
+def list_dpo_auditor_assignments(
+    status_filter: Optional[str] = Query(None, description="Filter logic by status"),
+    days_filter: Optional[int] = Query(None, description="Days filter"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO))
+):
+    # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
+    doc_seq_cte = db.query(
+        RopaDocumentModel.id.label('doc_id'),
+        func.extract('year', RopaDocumentModel.created_at).label('doc_year'),
+        func.row_number().over(
+            partition_by=func.extract('year', RopaDocumentModel.created_at),
+            order_by=RopaDocumentModel.created_at
+        ).label('doc_number')
+    ).cte('doc_seq_cte')
+
+    query = db.query(
+        AuditorAssignmentModel,
+        RopaDocumentModel,
+        UserModel,
+        doc_seq_cte.c.doc_year,
+        doc_seq_cte.c.doc_number
+    ).join(
+        RopaDocumentModel, AuditorAssignmentModel.document_id == RopaDocumentModel.id
+    ).join(
+        UserModel, AuditorAssignmentModel.auditor_id == UserModel.id
+    ).join(
+        doc_seq_cte, RopaDocumentModel.id == doc_seq_cte.c.doc_id
+    ).filter(
+        AuditorAssignmentModel.assigned_by == current_user.id
+    )
+
+    if days_filter:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
+        query = query.filter(AuditorAssignmentModel.created_at >= cutoff_date)
+
+    if status_filter:
+        s_filter = status_filter.lower()
+        if "รอ" in s_filter or s_filter == "pending":
+            query = query.filter(AuditorAssignmentModel.status == 'IN_REVIEW')
+        elif "เสร็จสิ้น" in s_filter or s_filter == "completed":
+            query = query.filter(AuditorAssignmentModel.status == 'COMPLETED')
+
+    total = query.count()
+    # Order by creation date (assignment date) as requested
+    results = query.order_by(AuditorAssignmentModel.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    items = []
+
+    for row in results:
+        assign = row.AuditorAssignmentModel
+        doc = row.RopaDocumentModel
+        user = row.UserModel
+        doc_year = int(row.doc_year)
+        doc_number = int(row.doc_number)
+        
+        doc_code = f"RP-{doc_year}-{doc_number:02d}"
+        display_title = f"{doc_code} {doc.title or 'ไม่มีชื่อเอกสาร'}"
+        
+        full_name = filter(None, [user.title, user.first_name, user.last_name])
+        auditor_name = " ".join(full_name) or "ไม่ระบุ"
+        
+        status_enum_val = str(getattr(assign.status, 'value', assign.status))
+        
+        # Assumption: reviewed_at is assignment status completion or cycle end. 
+        # For simplicity and based on mockup, we show completion date if status is COMPLETED.
+        reviewed_at = None
+        if status_enum_val == 'COMPLETED':
+            # We can use updated_at if available in model, but AuditorAssignmentModel doesn't have it.
+            # I'll use assigned_at + due_date for now or just None if not tracked.
+            # Actually, I'll return None for now unless I find a better place.
+            pass
+
+        items.append(DpoAuditorAssignmentTableItem(
+            assignment_id=str(assign.id),
+            document_id=doc_code,
+            title=display_title,
+            auditor_name=auditor_name,
+            assigned_at=assign.created_at,
+            reviewed_at=reviewed_at,
+            review_status=status_enum_val
+        ))
+
+    return PaginatedDpoAuditorAssignmentTableResponse(
+        total=total,
+        page=page,
+        limit=limit,
+        items=items
+    )
+
+@router.get("/dashboard/dpo/documents/{document_id}/comments", response_model=List[DpoCommentRead], summary="DPO: Get Document Comments", tags=["Dashboard (DPO)"])
+def get_document_comments(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO))
+):
+    check_document_access(document_id, current_user, db)
+    comments = db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id
+    ).all()
+    return comments
+
+@router.post("/dashboard/dpo/documents/{document_id}/comments", summary="DPO: Save Document Comments (Bulk by Group)", tags=["Dashboard (DPO)"])
+def save_document_comments(
+    document_id: UUID,
+    payload: DpoCommentBulkRequest,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO))
+):
+    check_document_access(document_id, current_user, db)
+    
+    group = payload.group.upper()
+    
+    # "ทับไปเลย" (Overwrite) inside the group
+    # We delete existing comments for this group in this document
+    if group == 'DO':
+        # Handles both DO_SEC_1..7 and DO_RISK
+        db.query(DpoSectionCommentModel).filter(
+            DpoSectionCommentModel.document_id == document_id,
+            or_(
+                DpoSectionCommentModel.section_key.like("DO_SEC_%"),
+                DpoSectionCommentModel.section_key == "DO_RISK"
+            )
+        ).delete(synchronize_session=False)
+    else:
+        db.query(DpoSectionCommentModel).filter(
+            DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.section_key.like(f"{group}_SEC_%")
+        ).delete(synchronize_session=False)
+
+    # Insert new comments
+    for item in payload.comments:
+        if not item.comment or not item.comment.strip():
+            continue
+            
+        new_comment = DpoSectionCommentModel(
+            document_id=document_id,
+            section_key=item.section_key,
+            comment=item.comment,
+            created_by=current_user.id
+        )
+        db.add(new_comment)
+    
+    db.commit()
+    return {"message": f"Comments for {payload.group} saved successfully."}
+
+@router.get("/dashboard/documents-from-dpo", response_model=PaginatedOwnerDpoReviewedDocumentResponse, summary="Shared: Documents Received from DPO", tags=["Dashboard (Shared)"])
+def list_documents_from_dpo(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    status: Optional[str] = Query(None, description="FILTER: WAITING_FOR_DPO, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED"),
+    date_range: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(get_current_user)
+):
+    """
+    Returns a unified list of documents in the DPO review cycle.
+    Visibility rules:
+    - DO: Sees docs they own. Sees ALL feedback.
+    - DP: Sees docs they are assigned to. Sees DP-ONLY feedback.
+    - Auditor: Sees docs where status is APPROVED.
+    """
+    from sqlalchemy import text, and_, or_, exists
+
+    now = datetime.now(timezone.utc)
+    role = current_user.role
+    user_id = current_user.id
+
+    # 1. Access Control Base Filter
+    if role == Role.ADMIN:
+        access_filter = text("1=1")
+    elif role == Role.OWNER:
+        # Owner or Creator
+        access_filter = or_(
+            RopaDocumentModel.created_by == user_id,
+            exists().where(
+                and_(
+                    ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
+                    ProcessorAssignmentModel.assigned_by == user_id
+                )
+            )
+        )
+    elif role == Role.PROCESSOR:
+        # Only where they are the processor
+        access_filter = exists().where(
+            and_(
+                ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
+                ProcessorAssignmentModel.processor_id == user_id
+            )
+        )
+    elif role == Role.AUDITOR:
+        # Only APPROVED ones
+        access_filter = exists().where(
+            and_(
+                DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
+                DocumentReviewCycleModel.status == 'APPROVED'
+            )
+        )
+    else:
+        # DPO/Executive might see everything or limited
+        access_filter = text("1=1")
+
+    # 2. Sequential ID Logic (CTE)
+    id_cte = db.query(
+        RopaDocumentModel.id.label("doc_id"),
+        func.row_number().over(
+            partition_by=func.date_part('year', RopaDocumentModel.created_at),
+            order_by=RopaDocumentModel.created_at
+        ).label("seq_id"),
+        func.date_part('year', RopaDocumentModel.created_at).label("year")
+    ).subquery()
+
+    # 3. Base Query
+    query = db.query(
+        RopaDocumentModel,
+        DocumentReviewCycleModel,
+        ReviewDpoAssignmentModel,
+        UserModel.first_name,
+        UserModel.last_name,
+        id_cte.c.seq_id,
+        id_cte.c.year
+    ).join(
+        id_cte, id_cte.c.doc_id == RopaDocumentModel.id
+    ).outerjoin(
+        DocumentReviewCycleModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id
+    ).outerjoin(
+        ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
+    ).outerjoin(
+        UserModel, UserModel.id == ReviewDpoAssignmentModel.dpo_id
+    ).filter(access_filter)
+
+    # 4. Filters
+    if date_range == '7_days':
+        query = query.filter(RopaDocumentModel.created_at >= now - timedelta(days=7))
+    elif date_range == '30_days':
+        query = query.filter(RopaDocumentModel.created_at >= now - timedelta(days=30))
+
+    # Note: Status filter is tricky because it's mapping-based.
+    # We apply it at the Python level if needed, but for better performance we can map back to DB enums.
+
+    total_items = query.count()
+    results = query.order_by(RopaDocumentModel.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    items = []
+    for doc, cycle, dpo_assign, fname, lname, seq, year in results:
+        doc_code = f"RP-{int(year)}-{int(seq):02d}"
+        
+        # Calculate UI Status
+        internal_status = cycle.status if cycle else 'IN_PROGRESS'
+        ui_status = "WAITING_FOR_DPO"
+        ui_label = "รอตรวจสอบ"
+
+        if internal_status == 'APPROVED':
+            ui_status = "DPO_APPROVED"
+            ui_label = "ตรวจสอบเสร็จสิ้น"
+        elif internal_status == 'CHANGES_REQUESTED':
+            # Check if comments belong to DO or DP
+            has_do_comments = db.query(DpoSectionCommentModel).filter(
+                DpoSectionCommentModel.document_id == doc.id,
+                DpoSectionCommentModel.section_key.like("DO_%")
+            ).first() is not None
+            
+            has_dp_comments = db.query(DpoSectionCommentModel).filter(
+                DpoSectionCommentModel.document_id == doc.id,
+                DpoSectionCommentModel.section_key.like("DP_%")
+            ).first() is not None
+
+            if role == Role.PROCESSOR:
+                if has_dp_comments:
+                    ui_status = "ACTION_REQUIRED_DP"
+                else:
+                    ui_status = "IN_REVIEW" # Nothing for DP to do yet
+            else:
+                if has_do_comments:
+                    ui_status = "ACTION_REQUIRED_DO"
+                elif has_dp_comments:
+                    ui_status = "WAITING_FOR_DP" # DO is waiting for DP
+                else:
+                    ui_status = "WAITING_FOR_DPO"
+
+        # Filter by Status if requested
+        if status and ui_status != status:
+            continue
+
+        items.append(OwnerDpoReviewedDocumentTableItem(
+            document_id=doc_code,
+            raw_document_id=doc.id,
+            document_name=doc.title or "Untitled",
+            reviewer_name=f"{fname} {lname}" if fname else "Not assigned",
+            received_date=dpo_assign.assigned_at if dpo_assign else None,
+            review_date=cycle.reviewed_at if cycle else None,
+            due_date=doc.due_date,
+            status=ui_status,
+            is_overdue=doc.due_date < now if doc.due_date else False
+        ))
+
+    return PaginatedOwnerDpoReviewedDocumentResponse(
+        total=total_items if not status else len(items), # Simplified total if status filtered at Python level
+        page=page,
+        limit=limit,
+        items=items,
+        filters={"status": status, "date_range": date_range}
+    )

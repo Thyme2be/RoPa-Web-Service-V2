@@ -16,6 +16,7 @@ class UserModel(Base):
     username = Column(String(100), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String, nullable=False)
+    title = Column(String(50), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
     department = Column(String(255), nullable=True)
