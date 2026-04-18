@@ -34,7 +34,12 @@ from app.schemas.owner import (
     StorageTypeOut,
     StorageMethodIn,
     StorageMethodOut,
+    ProcessorStatusBadge,
 )
+
+
+# ใช้ชื่อ alias เพื่อ backward-compat กับ router ที่ import ชื่อนี้อยู่
+OwnerStatusBadgeForDp = ProcessorStatusBadge
 
 
 # =============================================================================
@@ -175,31 +180,36 @@ class ProcessorSectionFullRead(BaseModel):
 # Processor Table Row (GET /processor/tables/assigned)
 # =============================================================================
 
-class ProcessorStatusBadge(BaseModel):
-    """badge แสดงสถานะในตารางของ DP"""
-    label: str
-    code: str
-
 class ProcessorAssignedTableItem(BaseModel):
     """
-    แถวในตารางเอกสารของ Data Processor
-    แสดง: เลขเอกสาร, ชื่อ, สถานะ Owner Section, สถานะ Processor Section,
-           วันกำหนดส่ง, icon actions (👁️ view, ✈️ ส่งให้ DO/DPO)
+    แถวในตาราง "เอกสารที่ดำเนินการ" ของ Data Processor
+    แสดงทุกเอกสารที่ถูก assign ไม่ว่า DRAFT หรือ SUBMITTED
+    แสดง: เลขเอกสาร, ชื่อผู้รับผิดชอบข้อมูล (DO name), วันที่ได้รับ,
+           วันกำหนดส่ง, badge สถานะ DP, actions (ดู, ส่งให้ DO)
     """
     document_id: UUID
     document_number: Optional[str]
     title: Optional[str]
-    processor_company: Optional[str]
-    # สถานะ section ของ DP เอง
+    do_name: Optional[str]              # ชื่อ DO ที่สร้างเอกสาร
     processor_section_id: Optional[UUID]
     processor_section_status: Optional[RopaSectionEnum]
-    # สถานะ assignment ของ DP
     assignment_status: AssignmentStatusEnum
     due_date: Optional[datetime]
-    # แสดงว่าเอกสารนี้ DO submit section แล้วหรือยัง (DP จะรู้ว่า DO เสร็จแล้ว)
-    owner_section_submitted: bool
-    # แสดงว่ามี feedback จาก DO/DPO ที่ยังไม่ได้แก้ไขหรือไม่
+    received_at: Optional[datetime]     # วันที่ได้รับ = created_at ของ assignment
+    status: ProcessorStatusBadge        # badge สถานะ DP เอง
     has_open_feedback: bool
     created_at: datetime
+
+class ProcessorDraftTableItem(BaseModel):
+    """
+    แถวในตาราง "ฉบับร่าง" ของ Data Processor
+    (เฉพาะเอกสารที่ processor_section.status = DRAFT — แสดงซ้ำจากตารางดำเนินการ)
+    แสดง: ชื่อเอกสาร, บันทึกล่าสุด, actions (แก้ไข, ลบ)
+    """
+    document_id: UUID
+    document_number: Optional[str]
+    title: Optional[str]
+    processor_section_id: Optional[UUID]
+    last_saved_at: Optional[datetime]   # updated_at ของ processor_section
 
 

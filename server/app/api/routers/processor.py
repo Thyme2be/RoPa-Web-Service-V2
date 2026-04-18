@@ -12,13 +12,13 @@ Routes:
   PATCH  /processor/documents/{id}/section         บันทึกฉบับร่าง (ไม่เปลี่ยน status)
   POST   /processor/documents/{id}/section/submit  บันทึก = เปลี่ยน status เป็น SUBMITTED
 
-  Feedback ที่ได้รับจาก DO (DP รับ ไม่ใช่ส่ง):
-  GET    /processor/documents/{id}/feedbacks                         ดู feedback ที่ DO ส่งมา
-  PATCH  /processor/documents/{id}/feedbacks/{fid}/resolve           ทำ feedback เสร็จแล้ว
+  Feedback ที่ได้รับจาก DO หรือ DPO (DP รับ ไม่ใช่ส่ง):
+  GET    /processor/documents/{id}/feedbacks       ดู feedback ที่ได้รับ (แสดง inline ในฟอร์ม)
+  หมายเหตุ: DP ไม่ต้อง resolve feedback เอง — แก้ไขฟอร์มแล้วกดบันทึกใหม่ได้เลย
 """
 
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,6 +30,8 @@ from app.core.rbac import Role, check_document_access, require_roles
 from app.models.assignment import ProcessorAssignmentModel
 from app.models.document import RopaDocumentModel
 from app.models.section_owner import RopaOwnerSectionModel
+from app.models.user import UserModel
+from app.models.workflow import ReviewAssignmentModel, DocumentReviewCycleModel, ReviewFeedbackModel
 from app.models.section_processor import (
     ProcessorCollectionMethodModel,
     ProcessorDataCategoryModel,
@@ -40,7 +42,6 @@ from app.models.section_processor import (
     ProcessorStorageTypeModel,
     RopaProcessorSectionModel,
 )
-from app.models.workflow import ReviewFeedbackModel
 from app.schemas.enums import RopaSectionEnum
 from app.schemas.owner import (
     DataCategoryOut,
@@ -54,12 +55,43 @@ from app.schemas.owner import (
 )
 from app.schemas.processor import (
     ProcessorAssignedTableItem,
+    ProcessorDraftTableItem,
     ProcessorSectionFullRead,
     ProcessorSectionSave,
+    ProcessorStatusBadge,
 )
 from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/processor", tags=["Data Processor"])
+
+
+# =============================================================================
+# Helper: Owner status badge (มุมมอง DP)
+# =============================================================================
+
+def _processor_status_badge(
+    proc_section: Optional[RopaProcessorSectionModel],
+    has_open_feedback: bool,
+) -> ProcessorStatusBadge:
+    """
+    badge สถานะ DP เอง — 3 ค่า:
+      NEEDS_FIX  = มี feedback จาก DO หรือ DPO ที่ยังไม่ได้แก้ไข (ตรวจก่อน)
+      DP_DONE    = กดบันทึกเสร็จแล้ว (SUBMITTED)
+      WAITING_DP = ยังกรอกไม่เสร็จ (DRAFT)
+    """
+    if has_open_feedback:
+        return ProcessorStatusBadge(label="รอแก้ไข", code="NEEDS_FIX")
+    if proc_section and proc_section.status == "SUBMITTED":
+        return ProcessorStatusBadge(label="DP ดำเนินการเสร็จสิ้น", code="DP_DONE")
+    return ProcessorStatusBadge(label="รอ DP", code="WAITING_DP")
+
+
+def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
+    if not user:
+        return None
+    parts = [user.first_name, user.last_name]
+    name = " ".join(p for p in parts if p)
+    return name or user.username or None
 
 
 # =============================================================================
@@ -181,19 +213,17 @@ def _replace_processor_sub_tables(
 
 @router.get(
     "/tables/assigned",
-    response_model=List[ProcessorAssignedTableItem],
-    summary="ตารางเอกสารที่ Data Processor ถูก assign",
+    summary="ตารางเอกสารของ Data Processor (แยก 2 กลุ่ม)",
 )
 def get_assigned_table(
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
 ):
     """
-    หน้า: ตารางเอกสารของ Data Processor
-    - แสดงเฉพาะเอกสารที่ DP คนนี้ถูก assign
-    - DP ไม่เห็นเอกสารของ DO หรือ DP คนอื่น
-    - แสดงว่า DO submit section แล้วหรือยัง (แค่ status flag ไม่ใช่เนื้อหา)
-    - แสดงว่ามี feedback จาก DO ที่ยังไม่ได้แก้ไขหรือไม่
+    หน้า: ตารางเอกสารของ Data Processor — แยก 2 กลุ่ม:
+      - เอกสารที่ดำเนินการ: processor_section.status = SUBMITTED
+      - ฉบับร่าง: processor_section.status = DRAFT
+    DP ไม่เห็นเอกสารของ DP คนอื่น และไม่เห็นเนื้อหา Owner Section
     """
     uid = current_user.id
 
@@ -210,7 +240,9 @@ def get_assigned_table(
         .all()
     )
 
-    result = []
+    active_items = []
+    draft_items = []
+
     for assignment in assignments:
         doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == assignment.document_id).first()
         if not doc:
@@ -225,19 +257,10 @@ def get_assigned_table(
             .first()
         )
 
-        # แค่ตรวจว่า Owner Section submit แล้วหรือยัง (ไม่ต้องโหลดเนื้อหา)
-        owner_submitted = (
-            db.query(RopaOwnerSectionModel)
-            .filter(
-                RopaOwnerSectionModel.document_id == doc.id,
-                RopaOwnerSectionModel.status == "SUBMITTED",
-            )
-            .first()
-            is not None
-        )
+        # หา DO name
+        do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
 
-        # feedback จาก DO ที่ส่งมาหา DP นี้ ที่ยังเปิดอยู่
-        # ใช้ target_id = proc_section.id เพราะ review_cycle_id อาจเป็น NULL
+        # feedback ที่ยังเปิดอยู่ (จาก DO หรือ DPO)
         has_open_feedback = False
         if proc_section:
             has_open_feedback = (
@@ -251,21 +274,36 @@ def get_assigned_table(
                 is not None
             )
 
-        result.append(ProcessorAssignedTableItem(
+        # ทุกเอกสารขึ้นในตารางดำเนินการ
+        active_items.append(ProcessorAssignedTableItem(
             document_id=doc.id,
             document_number=doc.document_number,
             title=doc.title,
-            processor_company=doc.processor_company,
+            do_name=_user_full_name(do_user),
             processor_section_id=proc_section.id if proc_section else None,
             processor_section_status=proc_section.status if proc_section else None,
             assignment_status=assignment.status,
             due_date=assignment.due_date,
-            owner_section_submitted=owner_submitted,
+            received_at=assignment.created_at,
+            status=_processor_status_badge(proc_section, has_open_feedback),
             has_open_feedback=has_open_feedback,
             created_at=doc.created_at,
         ))
 
-    return result
+        # DRAFT หรือ NEEDS_FIX ขึ้นในตารางฉบับร่างด้วย (แสดงซ้ำ)
+        if not proc_section or proc_section.status == "DRAFT" or has_open_feedback:
+            draft_items.append(ProcessorDraftTableItem(
+                document_id=doc.id,
+                document_number=doc.document_number,
+                title=doc.title,
+                processor_section_id=proc_section.id if proc_section else None,
+                last_saved_at=proc_section.updated_at if proc_section else None,
+            ))
+
+    return {
+        "active": active_items,
+        "drafts": draft_items,
+    }
 
 
 # =============================================================================
@@ -410,6 +448,13 @@ def submit_processor_section(
 
     section.status = "SUBMITTED"
 
+    # ปิด open feedbacks ทั้งหมดที่ DO ส่งมาให้ DP (เมื่อ DP submit = แก้ไขแล้ว)
+    db.query(ReviewFeedbackModel).filter(
+        ReviewFeedbackModel.to_user_id == current_user.id,
+        ReviewFeedbackModel.target_id == section.id,
+        ReviewFeedbackModel.status == "OPEN",
+    ).update({"status": "RESOLVED", "resolved_at": datetime.now(timezone.utc)})
+
     # เปลี่ยน assignment status = SUBMITTED ด้วย
     assignment = (
         db.query(ProcessorAssignmentModel)
@@ -473,41 +518,112 @@ def get_received_feedbacks(
     return feedbacks
 
 
+
+
 # =============================================================================
-# PATCH /processor/documents/{document_id}/feedbacks/{feedback_id}/resolve
+# DELETE /processor/documents/{document_id}/section/draft — ล้างข้อมูลฉบับร่าง
 # =============================================================================
 
-@router.patch(
-    "/documents/{document_id}/feedbacks/{feedback_id}/resolve",
-    response_model=FeedbackRead,
-    summary="DP ทำ feedback เสร็จแล้ว (RESOLVED)",
+@router.delete(
+    "/documents/{document_id}/section/draft",
+    summary="ล้างข้อมูลฉบับร่าง Processor Section (reset กลับเป็น DRAFT เปล่า)",
 )
-def resolve_feedback(
+def delete_processor_section_draft(
     document_id: UUID,
-    feedback_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
 ):
     """
-    DP แก้ไขตาม feedback จาก DO แล้ว กด "ทำเสร็จแล้ว"
-    เปลี่ยน feedback.status = RESOLVED
+    ปุ่มลบในตารางฉบับร่าง
+    ล้างข้อมูลทุก field ใน processor_section + ลบ sub-tables ทั้งหมด
+    เอกสารยังอยู่ใน list แต่ข้อมูลที่กรอกไว้หายหมด (เหมือนเริ่มใหม่)
+    เงื่อนไข: processor_section.status ต้องเป็น DRAFT เท่านั้น
     """
     check_document_access(document_id, current_user, db)
 
-    feedback = (
-        db.query(ReviewFeedbackModel)
+    section = (
+        db.query(RopaProcessorSectionModel)
         .filter(
-            ReviewFeedbackModel.id == feedback_id,
-            ReviewFeedbackModel.to_user_id == current_user.id,
+            RopaProcessorSectionModel.document_id == document_id,
+            RopaProcessorSectionModel.processor_id == current_user.id,
         )
         .first()
     )
-    if not feedback:
-        raise HTTPException(status_code=404, detail="ไม่พบ feedback หรือคุณไม่ใช่ผู้รับ feedback นี้")
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
+    if section.status != "DRAFT":
+        raise HTTPException(status_code=400, detail="ลบได้เฉพาะฉบับร่าง (DRAFT) เท่านั้น")
 
-    feedback.status = "RESOLVED"
-    feedback.resolved_at = datetime.now(timezone.utc)
+    # ล้าง sub-tables
+    db.query(ProcessorPersonalDataItemModel).filter_by(processor_section_id=section.id).delete()
+    db.query(ProcessorDataCategoryModel).filter_by(processor_section_id=section.id).delete()
+    db.query(ProcessorDataTypeModel).filter_by(processor_section_id=section.id).delete()
+    db.query(ProcessorCollectionMethodModel).filter_by(processor_section_id=section.id).delete()
+    db.query(ProcessorDataSourceModel).filter_by(processor_section_id=section.id).delete()
+    db.query(ProcessorStorageTypeModel).filter_by(processor_section_id=section.id).delete()
+    db.query(ProcessorStorageMethodModel).filter_by(processor_section_id=section.id).delete()
+
+    # ล้าง scalar fields ทั้งหมด
+    scalar_fields = [
+        "title_prefix", "first_name", "last_name", "address", "email", "phone",
+        "processor_name", "controller_address", "processing_activity", "purpose_of_processing",
+        "data_source_other", "retention_value", "retention_unit", "access_policy", "deletion_method",
+        "legal_basis", "has_cross_border_transfer", "transfer_country", "transfer_in_group",
+        "transfer_method", "transfer_protection_standard", "transfer_exception",
+        "org_measures", "access_control_measures", "technical_measures",
+        "responsibility_measures", "physical_measures", "audit_measures",
+    ]
+    for field in scalar_fields:
+        setattr(section, field, None)
 
     db.commit()
-    db.refresh(feedback)
-    return feedback
+    return {"message": "ล้างข้อมูลฉบับร่างสำเร็จ"}
+
+
+# =============================================================================
+# POST /processor/documents/{document_id}/send-to-do — DP ส่งเอกสารให้ DO
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/send-to-do",
+    summary="DP ส่งเอกสารให้ DO (หลัง submit แล้ว)",
+)
+def send_to_do(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    """
+    ปุ่มส่งในตารางเอกสารที่ดำเนินการ
+    เงื่อนไข: processor_section.status ต้องเป็น SUBMITTED แล้ว
+    เอกสารจะไปแสดงใน Tab 2 ของ DO (Processor Section read-only + คำแนะนำ)
+    → เปลี่ยน assignment.status = SUBMITTED (ถ้ายังไม่ได้เปลี่ยน)
+    """
+    check_document_access(document_id, current_user, db)
+
+    section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(
+            RopaProcessorSectionModel.document_id == document_id,
+            RopaProcessorSectionModel.processor_id == current_user.id,
+        )
+        .first()
+    )
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
+    if section.status != "SUBMITTED":
+        raise HTTPException(status_code=400, detail="ต้องบันทึกฟอร์มให้สมบูรณ์ก่อนส่ง (กด 'บันทึก' ในฟอร์มก่อน)")
+
+    assignment = (
+        db.query(ProcessorAssignmentModel)
+        .filter(
+            ProcessorAssignmentModel.document_id == document_id,
+            ProcessorAssignmentModel.processor_id == current_user.id,
+        )
+        .first()
+    )
+    if assignment and assignment.status != "SUBMITTED":
+        assignment.status = "SUBMITTED"
+
+    db.commit()
+    return {"message": "ส่งเอกสารให้ผู้รับผิดชอบข้อมูลสำเร็จ"}

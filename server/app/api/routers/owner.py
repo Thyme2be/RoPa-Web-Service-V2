@@ -1043,7 +1043,7 @@ def submit_owner_section(
 
 
 # =============================================================================
-# POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO review (ตาราง 1 ✈️)
+# POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO review (ตาราง 1)
 # =============================================================================
 
 @router.post(
@@ -1160,7 +1160,7 @@ def send_to_dpo(
 
 
 # =============================================================================
-# POST /owner/documents/{document_id}/send-back-to-dpo — ส่งการแก้ไขคืน DPO (ตาราง 2 ✈️)
+# POST /owner/documents/{document_id}/send-back-to-dpo — ส่งการแก้ไขคืน DPO (ตาราง 2)
 # =============================================================================
 
 @router.post(
@@ -1174,7 +1174,7 @@ def send_back_to_dpo(
 ):
     """
     หลังจาก DPO ส่ง CHANGES_REQUESTED มาและ DO แก้ไขแล้ว
-    กด ✈️ ในตาราง 2 เพื่อแจ้ง DPO ว่าแก้ไขเสร็จแล้ว
+    กดปุ่มส่งในตาราง 2 เพื่อแจ้ง DPO ว่าแก้ไขเสร็จแล้ว
     → เปลี่ยน review_assignment.status = FIX_SUBMITTED
     """
     check_document_access(document_id, current_user, db)
@@ -1215,7 +1215,7 @@ def send_back_to_dpo(
 
 
 # =============================================================================
-# POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี (ตาราง 3 ✈️)
+# POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี (ตาราง 3)
 # =============================================================================
 
 @router.post(
@@ -1230,7 +1230,7 @@ def request_annual_review(
 ):
     """
     หน้า: ตาราง 3 เอกสาร COMPLETED ที่ถึงกำหนดทบทวนประจำปี
-    กด ✈️ เพื่อส่งเข้า review cycle ใหม่
+    กดปุ่มส่งเพื่อส่งเข้า review cycle ใหม่
     → เปลี่ยน doc.status = UNDER_REVIEW และสร้าง DocumentReviewCycleModel ใหม่
     """
     check_document_access(document_id, current_user, db)
@@ -1264,6 +1264,20 @@ def request_annual_review(
         role="OWNER",
         status="FIX_IN_PROGRESS",
     ))
+
+    # เพิ่ม ReviewAssignment สำหรับ PROCESSOR ด้วย (เหมือน send-to-dpo)
+    proc_assignment = (
+        db.query(ProcessorAssignmentModel)
+        .filter(ProcessorAssignmentModel.document_id == document_id)
+        .first()
+    )
+    if proc_assignment:
+        db.add(ReviewAssignmentModel(
+            review_cycle_id=cycle.id,
+            user_id=proc_assignment.processor_id,
+            role="PROCESSOR",
+            status="FIX_IN_PROGRESS",
+        ))
 
     db.add(ReviewDpoAssignmentModel(
         review_cycle_id=cycle.id,
@@ -1469,7 +1483,7 @@ def upsert_risk_assessment(
     Tab 3 – ปุ่ม "ยืนยันการประเมิน"
     - บันทึก likelihood × impact → risk_score → risk_level
     - กดแล้วกลับไปหน้าตาราง 1 (frontend จัดการ)
-    - ยังไม่ส่ง DPO → ต้องกลับไปกด ✈️ ในตาราง 1
+    - ยังไม่ส่ง DPO → ต้องกลับไปกดปุ่มส่งในตาราง 1
     """
     check_document_access(document_id, current_user, db)
 
@@ -1557,7 +1571,7 @@ def create_deletion_request(
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     """
-    เข้าถึงได้จาก ✈️❌ ในตารางใดก็ได้
+    เข้าถึงได้จากปุ่มส่ง/ลบ ในตารางใดก็ได้
     สร้าง DocumentDeletionRequestModel และเปลี่ยน doc.deletion_status = DELETE_PENDING
     """
     check_document_access(document_id, current_user, db)
