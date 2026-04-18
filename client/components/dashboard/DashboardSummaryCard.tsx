@@ -55,7 +55,7 @@ export default function DashboardSummaryCard({
                     <span className="material-symbols-outlined text-2xl font-bold">{icon}</span>
                 </div>
                 <div className="text-right flex-1 ml-4">
-                    <p className="text-sm font-bold text-secondary tracking-tight">{label}</p>
+                    <p className="text-sm font-bold text-[#71717A] tracking-tight">{label}</p>
                 </div>
             </div>
 

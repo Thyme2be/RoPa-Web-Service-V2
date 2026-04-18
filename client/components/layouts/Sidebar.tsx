@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 export default function Sidebar() {
     const pathname = usePathname();
     const isProcessor = pathname.includes("/data-processor");
+    const isExecutive = pathname.includes("/executive");
 
     // Theme colors
     const primaryColor = isProcessor ? "#ED393C" : "#ED393C";
@@ -20,11 +21,11 @@ export default function Sidebar() {
         { id: "documents", label: "การจัดการเอกสาร", icon: "description", path: "/data-owner/documents" },
     ];
 
-    const processorMenu = [
-        { id: "processing", label: "ตารางเอกสาร", icon: "description", path: "/data-processor/management/processing" },
+    const executiveMenu = [
+        { id: "dashboard", label: "แดชบอร์ด", icon: "dashboard", path: "/executive/dashboard" },
     ];
 
-    const menuItems = isProcessor ? processorMenu : ownerMenu;
+    const menuItems = isExecutive ? executiveMenu : (isProcessor ? processorMenu : ownerMenu);
 
     return (
         <aside className="w-[var(--sidebar-width)] fixed left-0 top-0 bottom-0 bg-[#E0D9D7] z-50 flex flex-col shadow-sm border-r border-[#E5E2E1]">

@@ -3,7 +3,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle, showBack, backUrl, hideSearch, hasError, minimal, formMode }: any) {
+export default function TopBar({ documentName, handleChange, status, isProcessor, isExecutive, pageTitle, showBack, backUrl, hideSearch, hasError, minimal, formMode }: any) {
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
 
     const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
@@ -150,10 +150,10 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                             <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
                             <div className="flex flex-col items-end">
                                 <span className="text-[15px] font-black text-[#1B1C1C]">
-                                    {isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก"}
+                                    {isExecutive ? "ประวิตร เป่งเซ่ง" : (isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก")}
                                 </span>
                                 <span className="text-[12px] text-neutral-400 font-bold whitespace-nowrap">
-                                    {isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล"}
+                                    {isExecutive ? "ผู้บริหารระดับสูง" : (isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล")}
                                 </span>
                             </div>
                         </div>
@@ -163,10 +163,10 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                     {!formMode && (
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-bold text-neutral-900">
-                                {isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก"}
+                                {isExecutive ? "ประวิตร เป่งเซ่ง" : (isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก")}
                             </span>
                             <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                                {isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล"}
+                                {isExecutive ? "ผู้บริหารระดับสูง" : (isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล")}
                             </span>
                         </div>
                     )}
