@@ -37,7 +37,7 @@ from app.schemas.dashboard import (
     PaginatedDpoAuditorAssignmentTableResponse,
     DpoAuditorAssignmentTableItem,
     PaginatedOwnerDpoReviewedDocumentResponse,
-    OwnerDpoReviewedDocumentTableItem
+    OwnerDpoReviewedDocumentTableItem,
 )
 from app.schemas.dpo_comment import DpoCommentBulkRequest, DpoCommentRead
 
