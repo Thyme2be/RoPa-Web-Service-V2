@@ -1,0 +1,1592 @@
+"""
+owner.py ─ Data Owner API endpoints
+
+ครอบคลุมทุก route ที่ Data Owner ใช้งาน:
+
+  สร้างเอกสาร:
+    POST   /owner/documents                                   สร้างเอกสาร + sections + assign DP
+
+  Dashboard:
+    GET    /owner/dashboard                                   สรุปสถิติ + card ต่าง ๆ
+
+  ตาราง 4 ประเภท:
+    GET    /owner/tables/active                               ตาราง 1 – เอกสาร Active (IN_PROGRESS)
+    GET    /owner/tables/sent-to-dpo                         ตาราง 2 – ส่ง DPO แล้ว (UNDER_REVIEW)
+    GET    /owner/tables/approved                             ตาราง 3 – DPO อนุมัติแล้ว (COMPLETED)
+    GET    /owner/tables/destroyed                            ตาราง 4 – ถูกทำลายแล้ว (DELETED)
+
+  Owner Section (Tab 1):
+    GET    /owner/documents/{id}/section                      ดู/กรอก Owner Section (ครบทุก field)
+    PATCH  /owner/documents/{id}/section                      บันทึกฉบับร่าง (ไม่เปลี่ยน status)
+    POST   /owner/documents/{id}/section/submit               บันทึก = เปลี่ยน status เป็น SUBMITTED
+
+  ส่งเอกสาร:
+    POST   /owner/documents/{id}/send-to-dpo                  ส่งให้ DPO (ตาราง 1 )
+    POST   /owner/documents/{id}/send-back-to-dpo             ส่งการแก้ไขคืน DPO (ตาราง 2 )
+    POST   /owner/documents/{id}/annual-review                ส่งตรวจสอบรายปี (ตาราง 3 )
+
+  Processor Section (Tab 2 – DO ดู read-only + feedback):
+    GET    /owner/documents/{id}/processor-section            ดู Processor Section ของ DP
+    PATCH  /owner/documents/{id}/processor-section/suggestion แก้ไข do_suggestion
+    POST   /owner/documents/{id}/processor-section/feedback   ส่ง feedback batch ให้ DP
+
+  Risk Assessment (Tab 3):
+    GET    /owner/documents/{id}/risk                         ดู Risk Assessment
+    POST   /owner/documents/{id}/risk                         สร้าง/อัปเดต (ยืนยันการประเมิน)
+
+  Deletion Request (Tab 4):
+    GET    /owner/documents/{id}/deletion                     ดูสถานะคำร้องขอทำลาย
+    POST   /owner/documents/{id}/deletion                     ยื่นคำร้องขอทำลายเอกสาร
+"""
+
+from datetime import datetime, timezone, timedelta
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_db
+from app.core.rbac import Role, check_document_access, require_roles
+from app.models.assignment import ProcessorAssignmentModel
+from app.models.document import (
+    DocumentDeletionRequestModel,
+    RopaDocumentModel,
+    RopaRiskAssessmentModel,
+)
+from app.models.section_owner import (
+    OwnerCollectionMethodModel,
+    OwnerDataCategoryModel,
+    OwnerDataSourceModel,
+    OwnerDataTypeModel,
+    OwnerMinorConsentTypeModel,
+    OwnerPersonalDataItemModel,
+    OwnerStorageMethodModel,
+    OwnerStorageTypeModel,
+    RopaOwnerSectionModel,
+)
+from app.models.section_processor import RopaProcessorSectionModel
+from app.models.user import UserModel
+from app.models.workflow import (
+    DocumentReviewCycleModel,
+    ReviewAssignmentModel,
+    ReviewDpoAssignmentModel,
+    ReviewFeedbackModel,
+)
+from app.schemas.enums import (
+    ReviewAssignmentStatusEnum,
+    ReviewStatusEnum,
+    RopaSectionEnum,
+)
+from app.schemas.owner import (
+    ActiveTableItem,
+    ApprovedTableItem,
+    DestroyedTableItem,
+    DeletionRequestCreate,
+    DeletionRequestRead,
+    DocumentCreateOwner,
+    DoSuggestionUpdate,
+    FeedbackBatch,
+    FeedbackRead,
+    OwnerDashboardResponse,
+    OwnerSectionFullRead,
+    OwnerSectionSave,
+    OwnerStatusBadge,
+    ProcessorStatusBadge,
+    RiskAssessmentRead,
+    RiskAssessmentSubmit,
+    SendToDpoPayload,
+    SentToDpoTableItem,
+    PersonalDataItemOut,
+    DataCategoryOut,
+    DataTypeOut,
+    CollectionMethodOut,
+    DataSourceOut,
+    StorageTypeOut,
+    StorageMethodOut,
+)
+from app.schemas.user import UserRead
+
+router = APIRouter(prefix="/owner", tags=["Data Owner"])
+
+
+# =============================================================================
+# Helper: Generate Document Number
+# =============================================================================
+
+def _generate_document_number(db: Session, year: int, prefix: str = "DFT") -> str:
+    """
+    สร้างเลขเอกสารรูปแบบ DFT-YYYY-XX หรือ RP-YYYY-XX
+    - DFT-YYYY-XX = ฉบับร่าง (ยังอยู่ใน IN_PROGRESS)
+    - RP-YYYY-XX  = ฉบับจริง (ส่ง DPO แล้ว → UNDER_REVIEW ขึ้นไป)
+    นับจำนวนเอกสารทั้งหมดในปีนั้น + 1
+    """
+    count = (
+        db.query(func.count(RopaDocumentModel.id))
+        .filter(func.extract("year", RopaDocumentModel.created_at) == year)
+        .scalar()
+        or 0
+    )
+    return f"{prefix}-{year}-{count + 1:02d}"
+
+
+def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
+    """คืนชื่อเต็มของ user หรือ None ถ้าไม่มี"""
+    if not user:
+        return None
+    parts = [user.first_name, user.last_name]
+    name = " ".join(p for p in parts if p)
+    return name or user.username or None
+
+
+# =============================================================================
+# Helper: Load OwnerSectionFullRead with sub-tables
+# =============================================================================
+
+def _load_owner_section_full(section: RopaOwnerSectionModel, db: Session) -> OwnerSectionFullRead:
+    """
+    โหลด Owner Section พร้อม sub-tables ทั้งหมด
+    เพราะ SQLAlchemy ไม่ได้ define relationship ไว้ใน model จึงต้อง query แยก
+    """
+    sid = section.id
+
+    personal_data_items = db.query(OwnerPersonalDataItemModel).filter_by(owner_section_id=sid).all()
+    data_categories     = db.query(OwnerDataCategoryModel).filter_by(owner_section_id=sid).all()
+    data_types          = db.query(OwnerDataTypeModel).filter_by(owner_section_id=sid).all()
+    collection_methods  = db.query(OwnerCollectionMethodModel).filter_by(owner_section_id=sid).all()
+    data_sources        = db.query(OwnerDataSourceModel).filter_by(owner_section_id=sid).all()
+    storage_types       = db.query(OwnerStorageTypeModel).filter_by(owner_section_id=sid).all()
+    storage_methods     = db.query(OwnerStorageMethodModel).filter_by(owner_section_id=sid).all()
+
+    # minor_consent_types = list ของ string ตรงกับ 3 checkbox ใน UI
+    consent_type_rows = db.query(OwnerMinorConsentTypeModel).filter_by(owner_section_id=sid).all()
+    minor_consent_types_out = [ct.type for ct in consent_type_rows]
+
+    return OwnerSectionFullRead(
+        id=section.id,
+        document_id=section.document_id,
+        owner_id=section.owner_id,
+        status=section.status,
+        updated_at=section.updated_at,
+        title_prefix=section.title_prefix,
+        first_name=section.first_name,
+        last_name=section.last_name,
+        address=section.address,
+        email=section.email,
+        phone=section.phone,
+        contact_email=section.contact_email,
+        company_phone=section.company_phone,
+        data_owner_name=section.data_owner_name,
+        processing_activity=section.processing_activity,
+        purpose_of_processing=section.purpose_of_processing,
+        personal_data_items=[PersonalDataItemOut.model_validate(x) for x in personal_data_items],
+        data_categories=[DataCategoryOut.model_validate(x) for x in data_categories],
+        data_types=[DataTypeOut.model_validate(x) for x in data_types],
+        collection_methods=[CollectionMethodOut.model_validate(x) for x in collection_methods],
+        data_sources=[DataSourceOut.model_validate(x) for x in data_sources],
+        storage_types=[StorageTypeOut.model_validate(x) for x in storage_types],
+        storage_methods=[StorageMethodOut.model_validate(x) for x in storage_methods],
+        data_source_other=section.data_source_other,
+        retention_value=section.retention_value,
+        retention_unit=section.retention_unit,
+        access_control_policy=section.access_control_policy,
+        deletion_method=section.deletion_method,
+        legal_basis=section.legal_basis,
+        has_cross_border_transfer=section.has_cross_border_transfer,
+        transfer_country=section.transfer_country,
+        transfer_in_group=section.transfer_in_group,
+        transfer_method=section.transfer_method,
+        transfer_protection_standard=section.transfer_protection_standard,
+        transfer_exception=section.transfer_exception,
+        exemption_usage=section.exemption_usage,
+        refusal_handling=section.refusal_handling,
+        minor_consent_types=minor_consent_types_out,
+        org_measures=section.org_measures,
+        access_control_measures=section.access_control_measures,
+        technical_measures=section.technical_measures,
+        responsibility_measures=section.responsibility_measures,
+        physical_measures=section.physical_measures,
+        audit_measures=section.audit_measures,
+    )
+
+
+# =============================================================================
+# Helper: Save sub-tables (replace-all pattern)
+# =============================================================================
+
+def _replace_owner_sub_tables(section_id: UUID, payload: OwnerSectionSave, db: Session):
+    """
+    อัปเดต sub-tables โดยลบของเก่าทั้งหมด แล้ว insert ใหม่
+    เรียกเฉพาะ field ที่ payload ส่งมา (ไม่ใช่ None)
+    """
+    if payload.personal_data_items is not None:
+        db.query(OwnerPersonalDataItemModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.personal_data_items:
+            db.add(OwnerPersonalDataItemModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.data_categories is not None:
+        db.query(OwnerDataCategoryModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.data_categories:
+            db.add(OwnerDataCategoryModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.data_types is not None:
+        db.query(OwnerDataTypeModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.data_types:
+            db.add(OwnerDataTypeModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.collection_methods is not None:
+        db.query(OwnerCollectionMethodModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.collection_methods:
+            db.add(OwnerCollectionMethodModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.data_sources is not None:
+        db.query(OwnerDataSourceModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.data_sources:
+            db.add(OwnerDataSourceModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.storage_types is not None:
+        db.query(OwnerStorageTypeModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.storage_types:
+            db.add(OwnerStorageTypeModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.storage_methods is not None:
+        db.query(OwnerStorageMethodModel).filter_by(owner_section_id=section_id).delete()
+        for item in payload.storage_methods:
+            db.add(OwnerStorageMethodModel(owner_section_id=section_id, **item.model_dump()))
+
+    if payload.minor_consent_types is not None:
+        db.query(OwnerMinorConsentTypeModel).filter_by(owner_section_id=section_id).delete()
+        for t in payload.minor_consent_types:
+            db.add(OwnerMinorConsentTypeModel(owner_section_id=section_id, type=t))
+
+
+# =============================================================================
+# Helper: Owner/Processor status badge logic
+# =============================================================================
+
+def _owner_status_badge(
+    doc: RopaDocumentModel,
+    owner_section: Optional[RopaOwnerSectionModel],
+    review_assignment: Optional[ReviewAssignmentModel],
+) -> OwnerStatusBadge:
+    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_IN_PROGRESS:
+        return OwnerStatusBadge(label="รอแก้ไขจาก Data Owner", code="NEEDS_FIX")
+    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_SUBMITTED:
+        return OwnerStatusBadge(label="ส่งการแก้ไขแล้ว", code="FIX_SENT")
+    if owner_section and owner_section.status == RopaSectionEnum.SUBMITTED:
+        return OwnerStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
+    return OwnerStatusBadge(label="รอส่วนของ Data Owner", code="WAITING_DO")
+
+
+def _processor_status_badge(
+    processor_section: Optional[RopaProcessorSectionModel],
+    review_assignment: Optional[ReviewAssignmentModel],
+) -> ProcessorStatusBadge:
+    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_IN_PROGRESS:
+        return ProcessorStatusBadge(label="รอแก้ไขจาก Data Processor", code="NEEDS_FIX")
+    if review_assignment and review_assignment.status == ReviewAssignmentStatusEnum.FIX_SUBMITTED:
+        return ProcessorStatusBadge(label="ส่งการแก้ไขแล้ว", code="FIX_SENT")
+    if processor_section and processor_section.status == RopaSectionEnum.SUBMITTED:
+        return ProcessorStatusBadge(label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE")
+    return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
+
+
+# =============================================================================
+# POST /owner/documents — สร้างเอกสารใหม่
+# =============================================================================
+
+@router.post(
+    "/documents",
+    status_code=status.HTTP_201_CREATED,
+    summary="สร้างเอกสาร RoPa ใหม่ (Data Owner)",
+)
+def create_document(
+    payload: DocumentCreateOwner,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    หน้า: Modal "สร้างเอกสาร" → กดปุ่ม "สร้าง"
+
+    ขั้นตอน:
+    1. สร้าง ropa_documents พร้อม document_number = DFT-YYYY-XX
+    2. สร้าง ropa_owner_sections (เปล่า status=DRAFT)
+    3. สร้าง processor_assignments → ผูก DP ที่เลือกกับเอกสารนี้
+    4. สร้าง ropa_processor_sections (เปล่า status=DRAFT)
+    """
+    dp_user = db.query(UserModel).filter(UserModel.id == payload.assigned_processor_id).first()
+    if not dp_user or dp_user.role != "PROCESSOR":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="assigned_processor_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ PROCESSOR",
+        )
+
+    now = datetime.now(timezone.utc)
+    year = now.year
+
+    doc_number = _generate_document_number(db, year, "DFT")
+    doc = RopaDocumentModel(
+        document_number=doc_number,
+        title=payload.title,
+        description=payload.description,
+        created_by=current_user.id,
+        review_interval_days=payload.review_interval_days,
+        due_date=payload.due_date,
+        processor_company=payload.processor_company,
+    )
+    db.add(doc)
+    db.flush()
+
+    owner_section = RopaOwnerSectionModel(
+        document_id=doc.id,
+        owner_id=current_user.id,
+        status="DRAFT",
+    )
+    db.add(owner_section)
+
+    assignment = ProcessorAssignmentModel(
+        document_id=doc.id,
+        processor_id=payload.assigned_processor_id,
+        assigned_by=current_user.id,
+        due_date=payload.due_date,
+        status="IN_PROGRESS",
+    )
+    db.add(assignment)
+    db.flush()
+
+    processor_section = RopaProcessorSectionModel(
+        document_id=doc.id,
+        processor_id=payload.assigned_processor_id,
+        status="DRAFT",
+    )
+    db.add(processor_section)
+
+    db.commit()
+    db.refresh(doc)
+
+    return {
+        "document_id": str(doc.id),
+        "document_number": doc.document_number,
+        "message": "สร้างเอกสารสำเร็จ",
+    }
+
+
+# =============================================================================
+# GET /owner/dashboard — Dashboard ของ Data Owner
+# =============================================================================
+
+@router.get(
+    "/dashboard",
+    response_model=OwnerDashboardResponse,
+    summary="Dashboard สรุปสถิติ (Data Owner)",
+)
+def get_owner_dashboard(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    uid = current_user.id
+    now = datetime.now(timezone.utc)
+
+    base_q = db.query(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid)
+
+    # ── Card 1 ────────────────────────────────────────────────────────────
+    total = base_q.count()
+
+    # ── Card 2: ต้องแก้ไข (แยก DO / DP) ──────────────────────────────────
+    # needs_fix_do = DPO ส่ง review ให้ DO แก้ (ReviewAssignment role=OWNER, FIX_IN_PROGRESS)
+    needs_fix_do = (
+        db.query(ReviewAssignmentModel)
+        .join(DocumentReviewCycleModel, ReviewAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id)
+        .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            ReviewAssignmentModel.status == "FIX_IN_PROGRESS",
+            ReviewAssignmentModel.user_id == uid,
+            ReviewAssignmentModel.role == "OWNER",
+        )
+        .count()
+    )
+
+    # needs_fix_dp = DP ต้องแก้ไข ไม่ว่าจะมาจาก DO หรือ DPO
+    #   - จาก DPO review cycle: ReviewAssignment role=PROCESSOR, FIX_IN_PROGRESS
+    #   - จาก DO feedback: ReviewFeedback status=OPEN ที่ส่งหา DP
+    dp_fix_from_dpo = set(
+        row[0] for row in (
+            db.query(DocumentReviewCycleModel.document_id)
+            .join(ReviewAssignmentModel, ReviewAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id)
+            .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+            .filter(
+                RopaDocumentModel.created_by == uid,
+                ReviewAssignmentModel.role == "PROCESSOR",
+                ReviewAssignmentModel.status == "FIX_IN_PROGRESS",
+            )
+            .all()
+        )
+    )
+    dp_fix_from_do = set(
+        row[0] for row in (
+            db.query(RopaDocumentModel.id)
+            .join(RopaProcessorSectionModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
+            .join(ReviewFeedbackModel, ReviewFeedbackModel.target_id == RopaProcessorSectionModel.id)
+            .filter(
+                RopaDocumentModel.created_by == uid,
+                ReviewFeedbackModel.status == "OPEN",
+            )
+            .all()
+        )
+    )
+    needs_fix_dp = len(dp_fix_from_dpo | dp_fix_from_do)
+
+    # ── Card 3: ความเสี่ยง ────────────────────────────────────────────────
+    _risk_base = (
+        db.query(RopaRiskAssessmentModel)
+        .join(RopaDocumentModel, RopaRiskAssessmentModel.document_id == RopaDocumentModel.id)
+        .filter(RopaDocumentModel.created_by == uid)
+    )
+    risk_low    = _risk_base.filter(RopaRiskAssessmentModel.risk_level == "LOW").count()
+    risk_medium = _risk_base.filter(RopaRiskAssessmentModel.risk_level == "MEDIUM").count()
+    risk_high   = _risk_base.filter(RopaRiskAssessmentModel.risk_level == "HIGH").count()
+
+    # ── Card 4: รอ DPO ตรวจสอบ (แยก จัดเก็บ / ทำลาย) ────────────────────
+    # under_review_storage = UNDER_REVIEW ที่ยังไม่มี deletion request
+    under_review_storage = base_q.filter(
+        RopaDocumentModel.status == "UNDER_REVIEW",
+        RopaDocumentModel.deletion_status.is_(None),
+    ).count()
+    under_review_deletion = base_q.filter(
+        RopaDocumentModel.deletion_status == "DELETE_PENDING",
+    ).count()
+
+    # ── Card 5: รอดำเนินการ (แยก DO / DP ยังไม่ submit) ──────────────────
+    pending_do = (
+        db.query(func.count(RopaOwnerSectionModel.id))
+        .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "IN_PROGRESS",
+            RopaOwnerSectionModel.status == "DRAFT",
+        )
+        .scalar() or 0
+    )
+    pending_dp = (
+        db.query(func.count(RopaProcessorSectionModel.id))
+        .join(RopaDocumentModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "IN_PROGRESS",
+            RopaProcessorSectionModel.status == "DRAFT",
+        )
+        .scalar() or 0
+    )
+
+    # ── Card 6: อนุมัติแล้ว ───────────────────────────────────────────────
+    completed = base_q.filter(RopaDocumentModel.status == "COMPLETED").count()
+
+    # ── Card 7: ข้อมูลอ่อนไหว (เอกสารที่มี data_type อย่างน้อย 1 รายการที่ติ้ก is_sensitive=True) ──
+    sensitive = (
+        db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id)))
+        .join(OwnerDataTypeModel, OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id)
+        .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            OwnerDataTypeModel.is_sensitive == True,
+        )
+        .scalar() or 0
+    )
+
+    # ── Card 8: ล่าช้า = IN_PROGRESS ที่เลย due_date แล้วแต่ DP ยังไม่ submit ──
+    # due_date คือวันกำหนดส่งที่ DO ตั้งตอนสร้างเอกสาร
+    overdue_destruction = (
+        db.query(func.count(ProcessorAssignmentModel.id))
+        .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "IN_PROGRESS",
+            ProcessorAssignmentModel.due_date != None,
+            ProcessorAssignmentModel.due_date <= now,
+            ProcessorAssignmentModel.status != "SUBMITTED",
+        )
+        .scalar() or 0
+    )
+
+    # ── Card 10: ครบกำหนดทำลาย = COMPLETED ที่ retention หมดแล้ว ────────────
+    # อิงจากระยะเวลาเก็บรักษาที่กรอกในฟอร์ม:
+    #   - DO Section 5: retention_value + retention_unit (ropa_owner_sections)
+    #   - DP Section 4: retention_value + retention_unit (ropa_processor_sections)
+    # ถ้าฝั่งใดฝั่งหนึ่งครบกำหนดแล้ว = นับว่าถึงเวลาทำลาย
+    completed_docs = base_q.filter(
+        RopaDocumentModel.status == "COMPLETED",
+        RopaDocumentModel.last_approved_at != None,
+        or_(
+            RopaDocumentModel.deletion_status == None,
+            RopaDocumentModel.deletion_status != "DELETED",
+        ),
+    ).all()
+
+    def _calc_dest_date(approved_at, retention_value, retention_unit):
+        """คำนวณวันครบกำหนดทำลายจาก retention period"""
+        if not retention_value or not retention_unit:
+            return None
+        ru = retention_unit.upper()
+        if ru == "DAYS":
+            return approved_at + timedelta(days=retention_value)
+        elif ru == "MONTHS":
+            return approved_at + timedelta(days=retention_value * 30)
+        elif ru == "YEARS":
+            return approved_at + timedelta(days=retention_value * 365)
+        return None
+
+    destruction_due = 0
+    for doc in completed_docs:
+        owner_sec = (
+            db.query(RopaOwnerSectionModel)
+            .filter(RopaOwnerSectionModel.document_id == doc.id)
+            .first()
+        )
+        proc_sec = (
+            db.query(RopaProcessorSectionModel)
+            .filter(RopaProcessorSectionModel.document_id == doc.id)
+            .first()
+        )
+
+        dest_dates = []
+        if owner_sec:
+            d = _calc_dest_date(doc.last_approved_at, owner_sec.retention_value, owner_sec.retention_unit)
+            if d:
+                dest_dates.append(d)
+        if proc_sec:
+            d = _calc_dest_date(doc.last_approved_at, proc_sec.retention_value, proc_sec.retention_unit)
+            if d:
+                dest_dates.append(d)
+
+        # ถ้าฝั่งใดฝั่งหนึ่งครบกำหนดแล้ว = ถึงเวลาทำลาย
+        if dest_dates and min(dest_dates) <= now:
+            destruction_due += 1
+
+    # ── Card 9: เช็ครายปี (แยก ตรวจแล้ว / ยังไม่ตรวจ) ───────────────────
+    annual_not_reviewed = base_q.filter(
+        RopaDocumentModel.status == "COMPLETED",
+        RopaDocumentModel.next_review_due_at <= now,
+    ).count()
+    # ตรวจแล้ว = COMPLETED ที่มี review cycle อนุมัติมากกว่า 1 รอบ (รอบแรก = initial, รอบถัดไป = annual)
+    annual_reviewed = (
+        db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+        .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "COMPLETED",
+            DocumentReviewCycleModel.status == "APPROVED",
+            DocumentReviewCycleModel.cycle_number > 1,
+        )
+        .scalar() or 0
+    )
+
+    # ── Card 11: ถูกทำลายแล้ว ─────────────────────────────────────────────
+    deleted = base_q.filter(RopaDocumentModel.deletion_status == "DELETED").count()
+
+    return OwnerDashboardResponse(
+        total_documents=total,
+        needs_fix_do_count=needs_fix_do,
+        needs_fix_dp_count=needs_fix_dp,
+        risk_low_count=risk_low,
+        risk_medium_count=risk_medium,
+        risk_high_count=risk_high,
+        under_review_storage_count=under_review_storage,
+        under_review_deletion_count=under_review_deletion,
+        pending_do_count=pending_do,
+        pending_dp_count=pending_dp,
+        completed_count=completed,
+        sensitive_document_count=sensitive,
+        overdue_destruction_count=overdue_destruction,
+        annual_reviewed_count=annual_reviewed,
+        annual_not_reviewed_count=annual_not_reviewed,
+        destruction_due_count=destruction_due,
+        deleted_count=deleted,
+    )
+
+
+# =============================================================================
+# GET /owner/tables/active — ตาราง 1: เอกสาร Active
+# =============================================================================
+
+@router.get(
+    "/tables/active",
+    response_model=List[ActiveTableItem],
+    summary="ตาราง 1: เอกสาร Active (IN_PROGRESS)",
+)
+def get_active_table(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    uid = current_user.id
+
+    docs = (
+        db.query(RopaDocumentModel)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "IN_PROGRESS",
+            or_(
+                RopaDocumentModel.deletion_status == None,
+                RopaDocumentModel.deletion_status != "DELETED",
+            ),
+        )
+        .order_by(RopaDocumentModel.updated_at.desc())
+        .all()
+    )
+
+    result = []
+    for doc in docs:
+        owner_section = (
+            db.query(RopaOwnerSectionModel)
+            .filter(RopaOwnerSectionModel.document_id == doc.id)
+            .first()
+        )
+
+        # โหลด processor assignment (ต้องการ processor_id สำหรับ dp_name)
+        proc_assignment = (
+            db.query(ProcessorAssignmentModel)
+            .filter(ProcessorAssignmentModel.document_id == doc.id)
+            .first()
+        )
+
+        processor_section = (
+            db.query(RopaProcessorSectionModel)
+            .filter(RopaProcessorSectionModel.document_id == doc.id)
+            .first()
+        )
+
+        # ชื่อ DP
+        dp_user = None
+        if proc_assignment:
+            dp_user = db.query(UserModel).filter(UserModel.id == proc_assignment.processor_id).first()
+
+        owner_review_assignment = (
+            db.query(ReviewAssignmentModel)
+            .join(DocumentReviewCycleModel)
+            .filter(
+                DocumentReviewCycleModel.document_id == doc.id,
+                ReviewAssignmentModel.user_id == uid,
+                ReviewAssignmentModel.role == "OWNER",
+            )
+            .order_by(DocumentReviewCycleModel.requested_at.desc())
+            .first()
+        )
+
+        processor_review_assignment = (
+            db.query(ReviewAssignmentModel)
+            .join(DocumentReviewCycleModel)
+            .filter(
+                DocumentReviewCycleModel.document_id == doc.id,
+                ReviewAssignmentModel.role == "PROCESSOR",
+            )
+            .order_by(DocumentReviewCycleModel.requested_at.desc())
+            .first()
+        )
+
+        result.append(ActiveTableItem(
+            document_id=doc.id,
+            document_number=doc.document_number,
+            title=doc.title,
+            dp_name=_user_full_name(dp_user),
+            dp_company=doc.processor_company,
+            owner_status=_owner_status_badge(doc, owner_section, owner_review_assignment),
+            processor_status=_processor_status_badge(processor_section, processor_review_assignment),
+            due_date=doc.due_date,
+            created_at=doc.created_at,
+            owner_section_id=owner_section.id if owner_section else None,
+            owner_section_status=owner_section.status if owner_section else None,
+            processor_section_id=processor_section.id if processor_section else None,
+            processor_section_status=processor_section.status if processor_section else None,
+        ))
+
+    return result
+
+
+# =============================================================================
+# GET /owner/tables/sent-to-dpo — ตาราง 2: ส่ง DPO แล้ว
+# =============================================================================
+
+@router.get(
+    "/tables/sent-to-dpo",
+    response_model=List[SentToDpoTableItem],
+    summary="ตาราง 2: เอกสารที่ส่ง DPO แล้ว (UNDER_REVIEW)",
+)
+def get_sent_to_dpo_table(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    uid = current_user.id
+
+    docs = (
+        db.query(RopaDocumentModel)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "UNDER_REVIEW",
+        )
+        .order_by(RopaDocumentModel.updated_at.desc())
+        .all()
+    )
+
+    result = []
+    for doc in docs:
+        cycle = (
+            db.query(DocumentReviewCycleModel)
+            .filter(DocumentReviewCycleModel.document_id == doc.id)
+            .order_by(DocumentReviewCycleModel.requested_at.desc())
+            .first()
+        )
+
+        owner_assignment = None
+        dpo_user = None
+        if cycle:
+            owner_assignment = (
+                db.query(ReviewAssignmentModel)
+                .filter(
+                    ReviewAssignmentModel.review_cycle_id == cycle.id,
+                    ReviewAssignmentModel.user_id == uid,
+                    ReviewAssignmentModel.role == "OWNER",
+                )
+                .first()
+            )
+            # หา DPO จาก review_dpo_assignments
+            dpo_assignment = (
+                db.query(ReviewDpoAssignmentModel)
+                .filter(ReviewDpoAssignmentModel.review_cycle_id == cycle.id)
+                .first()
+            )
+            if dpo_assignment:
+                dpo_user = db.query(UserModel).filter(UserModel.id == dpo_assignment.dpo_id).first()
+            elif cycle.reviewed_by:
+                dpo_user = db.query(UserModel).filter(UserModel.id == cycle.reviewed_by).first()
+
+        result.append(SentToDpoTableItem(
+            document_id=doc.id,
+            document_number=doc.document_number,
+            title=doc.title,
+            dpo_name=_user_full_name(dpo_user),
+            review_status=cycle.status if cycle else ReviewStatusEnum.IN_REVIEW,
+            review_assignment_status=owner_assignment.status if owner_assignment else None,
+            sent_at=cycle.requested_at if cycle else None,
+            reviewed_at=cycle.reviewed_at if cycle else None,
+            due_date=doc.due_date,
+        ))
+
+    return result
+
+
+# =============================================================================
+# GET /owner/tables/approved — ตาราง 3: DPO อนุมัติแล้ว
+# =============================================================================
+
+@router.get(
+    "/tables/approved",
+    response_model=List[ApprovedTableItem],
+    summary="ตาราง 3: เอกสารที่ DPO อนุมัติแล้ว (COMPLETED)",
+)
+def get_approved_table(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    uid = current_user.id
+    now = datetime.now(timezone.utc)
+
+    docs = (
+        db.query(RopaDocumentModel)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "COMPLETED",
+            or_(
+                RopaDocumentModel.deletion_status == None,
+                RopaDocumentModel.deletion_status != "DELETED",
+            ),
+        )
+        .order_by(RopaDocumentModel.last_approved_at.desc())
+        .all()
+    )
+
+    result = []
+    for doc in docs:
+        # หา DO name (creator)
+        do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
+
+        # หา DPO จาก review cycle ล่าสุดที่ APPROVED
+        dpo_user = None
+        last_cycle = (
+            db.query(DocumentReviewCycleModel)
+            .filter(
+                DocumentReviewCycleModel.document_id == doc.id,
+                DocumentReviewCycleModel.status == "APPROVED",
+            )
+            .order_by(DocumentReviewCycleModel.reviewed_at.desc())
+            .first()
+        )
+        if last_cycle and last_cycle.reviewed_by:
+            dpo_user = db.query(UserModel).filter(UserModel.id == last_cycle.reviewed_by).first()
+
+        # คำนวณ destruction_date จาก owner section's retention
+        destruction_date = None
+        owner_section = (
+            db.query(RopaOwnerSectionModel)
+            .filter(RopaOwnerSectionModel.document_id == doc.id)
+            .first()
+        )
+        if owner_section and owner_section.retention_value and owner_section.retention_unit and doc.last_approved_at:
+            rv = owner_section.retention_value
+            ru = (owner_section.retention_unit or "").upper()
+            if ru == "DAYS":
+                destruction_date = doc.last_approved_at + timedelta(days=rv)
+            elif ru == "MONTHS":
+                destruction_date = doc.last_approved_at + timedelta(days=rv * 30)
+            elif ru == "YEARS":
+                destruction_date = doc.last_approved_at + timedelta(days=rv * 365)
+
+        annual_review_overdue = bool(
+            doc.next_review_due_at and doc.next_review_due_at <= now
+        )
+
+        result.append(ApprovedTableItem(
+            document_id=doc.id,
+            document_number=doc.document_number,
+            title=doc.title,
+            do_name=_user_full_name(do_user),
+            dpo_name=_user_full_name(dpo_user),
+            last_approved_at=doc.last_approved_at,
+            next_review_due_at=doc.next_review_due_at,
+            destruction_date=destruction_date,
+            annual_review_overdue=annual_review_overdue,
+        ))
+
+    return result
+
+
+# =============================================================================
+# GET /owner/tables/destroyed — ตาราง 4: เอกสารที่ถูกทำลาย
+# =============================================================================
+
+@router.get(
+    "/tables/destroyed",
+    response_model=List[DestroyedTableItem],
+    summary="ตาราง 4: เอกสารที่ถูกทำลายแล้ว (DELETED)",
+)
+def get_destroyed_table(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    uid = current_user.id
+
+    docs = (
+        db.query(RopaDocumentModel)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.deletion_status == "DELETED",
+        )
+        .order_by(RopaDocumentModel.deleted_at.desc())
+        .all()
+    )
+
+    result = []
+    for doc in docs:
+        do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
+
+        # หา DPO ที่อนุมัติการทำลาย
+        deletion_req = (
+            db.query(DocumentDeletionRequestModel)
+            .filter(
+                DocumentDeletionRequestModel.document_id == doc.id,
+                DocumentDeletionRequestModel.status == "APPROVED",
+            )
+            .order_by(DocumentDeletionRequestModel.decided_at.desc())
+            .first()
+        )
+        dpo_user = None
+        if deletion_req and deletion_req.dpo_id:
+            dpo_user = db.query(UserModel).filter(UserModel.id == deletion_req.dpo_id).first()
+
+        result.append(DestroyedTableItem(
+            document_id=doc.id,
+            document_number=doc.document_number,
+            title=doc.title,
+            do_name=_user_full_name(do_user),
+            dpo_name=_user_full_name(dpo_user),
+            deletion_approved_at=deletion_req.decided_at if deletion_req else doc.deleted_at,
+            deletion_reason=deletion_req.owner_reason if deletion_req else None,
+        ))
+
+    return result
+
+
+# =============================================================================
+# GET /owner/documents/{document_id}/section — ดู Owner Section
+# =============================================================================
+
+@router.get(
+    "/documents/{document_id}/section",
+    response_model=OwnerSectionFullRead,
+    summary="ดูหรือกรอก Owner Section (Data Owner)",
+)
+def get_owner_section(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    check_document_access(document_id, current_user, db)
+
+    section = (
+        db.query(RopaOwnerSectionModel)
+        .filter(RopaOwnerSectionModel.document_id == document_id)
+        .first()
+    )
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Owner Section สำหรับเอกสารนี้")
+
+    return _load_owner_section_full(section, db)
+
+
+# =============================================================================
+# PATCH /owner/documents/{document_id}/section — บันทึกฉบับร่าง
+# =============================================================================
+
+@router.patch(
+    "/documents/{document_id}/section",
+    response_model=OwnerSectionFullRead,
+    summary="บันทึกฉบับร่าง Owner Section (ไม่เปลี่ยน status)",
+)
+def save_owner_section_draft(
+    document_id: UUID,
+    payload: OwnerSectionSave,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    check_document_access(document_id, current_user, db)
+
+    section = (
+        db.query(RopaOwnerSectionModel)
+        .filter(RopaOwnerSectionModel.document_id == document_id)
+        .first()
+    )
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Owner Section")
+
+    scalar_fields = [
+        "title_prefix", "first_name", "last_name", "address", "email", "phone",
+        "contact_email", "company_phone",
+        "data_owner_name", "processing_activity", "purpose_of_processing",
+        "data_source_other", "retention_value", "retention_unit",
+        "access_control_policy", "deletion_method",
+        "legal_basis", "has_cross_border_transfer", "transfer_country",
+        "transfer_in_group", "transfer_method", "transfer_protection_standard",
+        "transfer_exception", "exemption_usage", "refusal_handling",
+        "org_measures", "access_control_measures", "technical_measures",
+        "responsibility_measures", "physical_measures", "audit_measures",
+    ]
+    for field in scalar_fields:
+        value = getattr(payload, field, None)
+        if value is not None:
+            setattr(section, field, value)
+
+    _replace_owner_sub_tables(section.id, payload, db)
+
+    db.commit()
+    db.refresh(section)
+    return _load_owner_section_full(section, db)
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/section/submit — บันทึก (SUBMITTED)
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/section/submit",
+    response_model=OwnerSectionFullRead,
+    summary="บันทึก Owner Section (เปลี่ยน status เป็น SUBMITTED)",
+)
+def submit_owner_section(
+    document_id: UUID,
+    payload: OwnerSectionSave,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    check_document_access(document_id, current_user, db)
+
+    section = (
+        db.query(RopaOwnerSectionModel)
+        .filter(RopaOwnerSectionModel.document_id == document_id)
+        .first()
+    )
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Owner Section")
+
+    scalar_fields = [
+        "title_prefix", "first_name", "last_name", "address", "email", "phone",
+        "contact_email", "company_phone",
+        "data_owner_name", "processing_activity", "purpose_of_processing",
+        "data_source_other", "retention_value", "retention_unit",
+        "access_control_policy", "deletion_method",
+        "legal_basis", "has_cross_border_transfer", "transfer_country",
+        "transfer_in_group", "transfer_method", "transfer_protection_standard",
+        "transfer_exception", "exemption_usage", "refusal_handling",
+        "org_measures", "access_control_measures", "technical_measures",
+        "responsibility_measures", "physical_measures", "audit_measures",
+    ]
+    for field in scalar_fields:
+        value = getattr(payload, field, None)
+        if value is not None:
+            setattr(section, field, value)
+
+    _replace_owner_sub_tables(section.id, payload, db)
+    section.status = "SUBMITTED"
+
+    db.commit()
+    db.refresh(section)
+    return _load_owner_section_full(section, db)
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO review (ตาราง 1 ✈️)
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/send-to-dpo",
+    summary="ส่งเอกสารให้ DPO review (ตาราง 1)",
+)
+def send_to_dpo(
+    document_id: UUID,
+    payload: SendToDpoPayload,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    เงื่อนไข:
+    - Owner Section ต้องมี status = SUBMITTED
+    - Processor Section ต้องมี status = SUBMITTED
+    - Risk Assessment ต้องถูกยืนยันแล้ว (likelihood + impact บันทึกแล้ว)
+    - เอกสารต้องอยู่ใน status = IN_PROGRESS
+    """
+    check_document_access(document_id, current_user, db)
+
+    dpo_user = db.query(UserModel).filter(UserModel.id == payload.dpo_id).first()
+    if not dpo_user or dpo_user.role != "DPO":
+        raise HTTPException(status_code=400, detail="dpo_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ DPO")
+
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+    if doc.status != "IN_PROGRESS":
+        raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ IN_PROGRESS")
+
+    owner_section = (
+        db.query(RopaOwnerSectionModel)
+        .filter(RopaOwnerSectionModel.document_id == document_id)
+        .first()
+    )
+    if not owner_section or owner_section.status != "SUBMITTED":
+        raise HTTPException(status_code=400, detail="Owner Section ยังไม่ได้บันทึกให้สมบูรณ์")
+
+    processor_section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(RopaProcessorSectionModel.document_id == document_id)
+        .first()
+    )
+    if not processor_section or processor_section.status != "SUBMITTED":
+        raise HTTPException(status_code=400, detail="Processor Section ยังไม่ได้บันทึกให้สมบูรณ์")
+
+    risk = (
+        db.query(RopaRiskAssessmentModel)
+        .filter(
+            RopaRiskAssessmentModel.document_id == document_id,
+            RopaRiskAssessmentModel.likelihood != None,
+            RopaRiskAssessmentModel.impact != None,
+        )
+        .first()
+    )
+    if not risk:
+        raise HTTPException(status_code=400, detail="ยังไม่ได้ยืนยันการประเมินความเสี่ยง")
+
+    # เปลี่ยน document_number จาก DFT → RP
+    if doc.document_number and doc.document_number.startswith("DFT-"):
+        doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
+
+    doc.status = "UNDER_REVIEW"
+
+    existing_cycles = (
+        db.query(func.count(DocumentReviewCycleModel.id))
+        .filter(DocumentReviewCycleModel.document_id == document_id)
+        .scalar() or 0
+    )
+
+    cycle = DocumentReviewCycleModel(
+        document_id=document_id,
+        cycle_number=existing_cycles + 1,
+        requested_by=current_user.id,
+        status="IN_REVIEW",
+    )
+    db.add(cycle)
+    db.flush()
+
+    db.add(ReviewAssignmentModel(
+        review_cycle_id=cycle.id,
+        user_id=current_user.id,
+        role="OWNER",
+        status="FIX_IN_PROGRESS",
+    ))
+
+    proc_assignment = (
+        db.query(ProcessorAssignmentModel)
+        .filter(ProcessorAssignmentModel.document_id == document_id)
+        .first()
+    )
+    if proc_assignment:
+        db.add(ReviewAssignmentModel(
+            review_cycle_id=cycle.id,
+            user_id=proc_assignment.processor_id,
+            role="PROCESSOR",
+            status="FIX_IN_PROGRESS",
+        ))
+
+    db.add(ReviewDpoAssignmentModel(
+        review_cycle_id=cycle.id,
+        dpo_id=payload.dpo_id,
+        assignment_method="MANUAL",
+    ))
+
+    db.commit()
+
+    return {
+        "message": "ส่งให้ DPO สำเร็จ",
+        "document_number": doc.document_number,
+        "review_cycle_id": str(cycle.id),
+    }
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/send-back-to-dpo — ส่งการแก้ไขคืน DPO (ตาราง 2 ✈️)
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/send-back-to-dpo",
+    summary="DO ส่งการแก้ไขคืนให้ DPO (ตาราง 2)",
+)
+def send_back_to_dpo(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    หลังจาก DPO ส่ง CHANGES_REQUESTED มาและ DO แก้ไขแล้ว
+    กด ✈️ ในตาราง 2 เพื่อแจ้ง DPO ว่าแก้ไขเสร็จแล้ว
+    → เปลี่ยน review_assignment.status = FIX_SUBMITTED
+    """
+    check_document_access(document_id, current_user, db)
+
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if not doc or doc.status != "UNDER_REVIEW":
+        raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ UNDER_REVIEW")
+
+    cycle = (
+        db.query(DocumentReviewCycleModel)
+        .filter(
+            DocumentReviewCycleModel.document_id == document_id,
+            DocumentReviewCycleModel.status == "IN_REVIEW",
+        )
+        .order_by(DocumentReviewCycleModel.requested_at.desc())
+        .first()
+    )
+    if not cycle:
+        raise HTTPException(status_code=400, detail="ไม่มี review cycle ที่ active อยู่")
+
+    assignment = (
+        db.query(ReviewAssignmentModel)
+        .filter(
+            ReviewAssignmentModel.review_cycle_id == cycle.id,
+            ReviewAssignmentModel.user_id == current_user.id,
+            ReviewAssignmentModel.role == "OWNER",
+            ReviewAssignmentModel.status == "FIX_IN_PROGRESS",
+        )
+        .first()
+    )
+    if not assignment:
+        raise HTTPException(status_code=400, detail="ไม่พบ review assignment ที่ต้องแก้ไข หรือแก้ไขไปแล้ว")
+
+    assignment.status = "FIX_SUBMITTED"
+    db.commit()
+
+    return {"message": "ส่งการแก้ไขคืนให้ DPO สำเร็จ"}
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี (ตาราง 3 ✈️)
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/annual-review",
+    summary="DO ส่งเอกสารตรวจสอบรายปี (ตาราง 3)",
+)
+def request_annual_review(
+    document_id: UUID,
+    payload: SendToDpoPayload,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    หน้า: ตาราง 3 เอกสาร COMPLETED ที่ถึงกำหนดทบทวนประจำปี
+    กด ✈️ เพื่อส่งเข้า review cycle ใหม่
+    → เปลี่ยน doc.status = UNDER_REVIEW และสร้าง DocumentReviewCycleModel ใหม่
+    """
+    check_document_access(document_id, current_user, db)
+
+    dpo_user = db.query(UserModel).filter(UserModel.id == payload.dpo_id).first()
+    if not dpo_user or dpo_user.role != "DPO":
+        raise HTTPException(status_code=400, detail="dpo_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ DPO")
+
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if not doc or doc.status != "COMPLETED":
+        raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ COMPLETED")
+
+    existing_cycles = (
+        db.query(func.count(DocumentReviewCycleModel.id))
+        .filter(DocumentReviewCycleModel.document_id == document_id)
+        .scalar() or 0
+    )
+
+    cycle = DocumentReviewCycleModel(
+        document_id=document_id,
+        cycle_number=existing_cycles + 1,
+        requested_by=current_user.id,
+        status="IN_REVIEW",
+    )
+    db.add(cycle)
+    db.flush()
+
+    db.add(ReviewAssignmentModel(
+        review_cycle_id=cycle.id,
+        user_id=current_user.id,
+        role="OWNER",
+        status="FIX_IN_PROGRESS",
+    ))
+
+    db.add(ReviewDpoAssignmentModel(
+        review_cycle_id=cycle.id,
+        dpo_id=payload.dpo_id,
+        assignment_method="MANUAL",
+    ))
+
+    doc.status = "UNDER_REVIEW"
+    db.commit()
+
+    return {
+        "message": "ส่งเอกสารตรวจสอบรายปีสำเร็จ",
+        "review_cycle_id": str(cycle.id),
+    }
+
+
+# =============================================================================
+# GET /owner/documents/{document_id}/processor-section — ดู Processor Section (Tab 2)
+# =============================================================================
+
+@router.get(
+    "/documents/{document_id}/processor-section",
+    summary="ดู Processor Section (Data Owner — read-only)",
+)
+def get_processor_section_for_owner(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    Tab 2 – DO ดู Processor Section ของ DP (read-only)
+    - แสดง do_suggestion ที่ DO เขียนไว้
+    - ไม่สามารถแก้ไขเนื้อหา DP ได้
+    """
+    check_document_access(document_id, current_user, db)
+
+    from app.schemas.processor import ProcessorSectionFullRead
+    from app.api.routers.processor import _load_processor_section_full
+
+    section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(RopaProcessorSectionModel.document_id == document_id)
+        .first()
+    )
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
+
+    return _load_processor_section_full(section, db)
+
+
+# =============================================================================
+# PATCH /owner/documents/{document_id}/processor-section/suggestion — แก้ไข do_suggestion
+# =============================================================================
+
+@router.patch(
+    "/documents/{document_id}/processor-section/suggestion",
+    summary="DO เขียน/แก้ไข คำแนะนำสำหรับ DP (do_suggestion)",
+)
+def update_do_suggestion(
+    document_id: UUID,
+    payload: DoSuggestionUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    Tab 2 – กล่องข้อความ "คำแนะนำ/คำสั่งถึง Data Processor"
+    DO สามารถแก้ไขได้ตลอดเวลา ไม่จำกัดสถานะเอกสาร
+    """
+    check_document_access(document_id, current_user, db)
+
+    proc_section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(RopaProcessorSectionModel.document_id == document_id)
+        .first()
+    )
+    if not proc_section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
+
+    proc_section.do_suggestion = payload.suggestion
+    db.commit()
+
+    return {"message": "บันทึกคำแนะนำสำเร็จ", "do_suggestion": proc_section.do_suggestion}
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/processor-section/feedback — ส่ง feedback batch ให้ DP
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/processor-section/feedback",
+    status_code=status.HTTP_201_CREATED,
+    response_model=List[FeedbackRead],
+    summary="DO ส่ง feedback batch ให้ DP (ปุ่ม 'ส่งคำร้องขอเปลี่ยนแปลง')",
+)
+def send_feedback_batch(
+    document_id: UUID,
+    payload: FeedbackBatch,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    Tab 2 – ปุ่ม "ส่งคำร้องขอเปลี่ยนแปลง" (ล่างขวา)
+    ส่ง feedback ทุกรายการที่ DO เขียนไว้ให้ DP พร้อมกันในครั้งเดียว
+
+    - review_cycle_id เป็น nullable → ส่ง feedback ได้แม้ยังไม่มี review cycle
+    - section_number ระบุ section ที่ต้องแก้ไข (1-6 สำหรับ DP)
+    """
+    check_document_access(document_id, current_user, db)
+
+    proc_assignment = (
+        db.query(ProcessorAssignmentModel)
+        .filter(ProcessorAssignmentModel.document_id == document_id)
+        .first()
+    )
+    if not proc_assignment:
+        raise HTTPException(status_code=400, detail="ไม่พบ Processor ที่ assign ในเอกสารนี้")
+
+    proc_section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(RopaProcessorSectionModel.document_id == document_id)
+        .first()
+    )
+    if not proc_section:
+        raise HTTPException(status_code=400, detail="ไม่พบ Processor Section")
+
+    # หา review cycle ที่ active (optional)
+    cycle = (
+        db.query(DocumentReviewCycleModel)
+        .filter(
+            DocumentReviewCycleModel.document_id == document_id,
+            DocumentReviewCycleModel.status == "IN_REVIEW",
+        )
+        .order_by(DocumentReviewCycleModel.requested_at.desc())
+        .first()
+    )
+
+    created = []
+    for item in payload.items:
+        feedback = ReviewFeedbackModel(
+            review_cycle_id=cycle.id if cycle else None,
+            section_number=item.section_number,
+            from_user_id=current_user.id,
+            to_user_id=proc_assignment.processor_id,
+            target_type="PROCESSOR_SECTION",
+            target_id=proc_section.id,
+            field_name=item.field_name,
+            comment=item.comment,
+            status="OPEN",
+        )
+        db.add(feedback)
+        created.append(feedback)
+
+    db.commit()
+    for f in created:
+        db.refresh(f)
+
+    return created
+
+
+# =============================================================================
+# GET /owner/documents/{document_id}/risk — ดู Risk Assessment (Tab 3)
+# =============================================================================
+
+@router.get(
+    "/documents/{document_id}/risk",
+    response_model=RiskAssessmentRead,
+    summary="ดู Risk Assessment ของเอกสาร",
+)
+def get_risk_assessment(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    check_document_access(document_id, current_user, db)
+
+    risk = (
+        db.query(RopaRiskAssessmentModel)
+        .filter(RopaRiskAssessmentModel.document_id == document_id)
+        .first()
+    )
+    if not risk:
+        raise HTTPException(status_code=404, detail="ยังไม่มี Risk Assessment สำหรับเอกสารนี้")
+
+    return risk
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/risk — ยืนยันการประเมินความเสี่ยง (Tab 3)
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/risk",
+    response_model=RiskAssessmentRead,
+    summary="สร้างหรืออัปเดต Risk Assessment (ยืนยันการประเมิน)",
+)
+def upsert_risk_assessment(
+    document_id: UUID,
+    payload: RiskAssessmentSubmit,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    Tab 3 – ปุ่ม "ยืนยันการประเมิน"
+    - บันทึก likelihood × impact → risk_score → risk_level
+    - กดแล้วกลับไปหน้าตาราง 1 (frontend จัดการ)
+    - ยังไม่ส่ง DPO → ต้องกลับไปกด ✈️ ในตาราง 1
+    """
+    check_document_access(document_id, current_user, db)
+
+    score = payload.likelihood * payload.impact
+    if score < 8:
+        level = "LOW"
+    elif score < 15:
+        level = "MEDIUM"
+    else:
+        level = "HIGH"
+
+    existing = (
+        db.query(RopaRiskAssessmentModel)
+        .filter(RopaRiskAssessmentModel.document_id == document_id)
+        .first()
+    )
+
+    if existing:
+        existing.likelihood = payload.likelihood
+        existing.impact = payload.impact
+        existing.risk_score = score
+        existing.risk_level = level
+        existing.assessed_by = current_user.id
+        existing.assessed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(existing)
+        return existing
+    else:
+        risk = RopaRiskAssessmentModel(
+            document_id=document_id,
+            assessed_by=current_user.id,
+            likelihood=payload.likelihood,
+            impact=payload.impact,
+            risk_score=score,
+            risk_level=level,
+        )
+        db.add(risk)
+        db.commit()
+        db.refresh(risk)
+        return risk
+
+
+# =============================================================================
+# GET /owner/documents/{document_id}/deletion — ดูสถานะคำร้องขอทำลาย (Tab 4)
+# =============================================================================
+
+@router.get(
+    "/documents/{document_id}/deletion",
+    response_model=DeletionRequestRead,
+    summary="ดูสถานะคำร้องขอทำลายเอกสาร",
+)
+def get_deletion_request(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    check_document_access(document_id, current_user, db)
+
+    req = (
+        db.query(DocumentDeletionRequestModel)
+        .filter(DocumentDeletionRequestModel.document_id == document_id)
+        .order_by(DocumentDeletionRequestModel.requested_at.desc())
+        .first()
+    )
+    if not req:
+        raise HTTPException(status_code=404, detail="ยังไม่มีคำร้องขอทำลายสำหรับเอกสารนี้")
+
+    return req
+
+
+# =============================================================================
+# POST /owner/documents/{document_id}/deletion — ยื่นคำร้องขอทำลาย
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/deletion",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DeletionRequestRead,
+    summary="ยื่นคำร้องขอทำลายเอกสาร",
+)
+def create_deletion_request(
+    document_id: UUID,
+    payload: DeletionRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    เข้าถึงได้จาก ✈️❌ ในตารางใดก็ได้
+    สร้าง DocumentDeletionRequestModel และเปลี่ยน doc.deletion_status = DELETE_PENDING
+    """
+    check_document_access(document_id, current_user, db)
+
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+
+    existing_pending = (
+        db.query(DocumentDeletionRequestModel)
+        .filter(
+            DocumentDeletionRequestModel.document_id == document_id,
+            DocumentDeletionRequestModel.status == "PENDING",
+        )
+        .first()
+    )
+    if existing_pending:
+        raise HTTPException(status_code=400, detail="มีคำร้องขอทำลายที่รอการอนุมัติอยู่แล้ว")
+
+    req = DocumentDeletionRequestModel(
+        document_id=document_id,
+        requested_by=current_user.id,
+        owner_reason=payload.owner_reason,
+        status="PENDING",
+    )
+    db.add(req)
+
+    doc.deletion_status = "DELETE_PENDING"
+
+    db.commit()
+    db.refresh(req)
+    return req

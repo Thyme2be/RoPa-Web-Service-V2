@@ -37,7 +37,6 @@ from app.models.section_owner import (
     OwnerDataSourceModel,
     OwnerStorageTypeModel,
     OwnerStorageMethodModel,
-    OwnerMinorConsentModel,
     OwnerMinorConsentTypeModel
 )
 from app.models.section_processor import (
@@ -77,7 +76,6 @@ __all__ = [
     "OwnerDataSourceModel",
     "OwnerStorageTypeModel",
     "OwnerStorageMethodModel",
-    "OwnerMinorConsentModel",
     "OwnerMinorConsentTypeModel",
     "RopaProcessorSectionModel",
     "ProcessorPersonalDataItemModel",
