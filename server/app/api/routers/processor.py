@@ -59,6 +59,8 @@ from app.schemas.processor import (
     ProcessorSectionFullRead,
     ProcessorSectionSave,
     ProcessorStatusBadge,
+    ProcessorAssignedTableResponse,
+    MessageResponse,
 )
 from app.schemas.user import UserRead
 
@@ -213,6 +215,7 @@ def _replace_processor_sub_tables(
 
 @router.get(
     "/tables/assigned",
+    response_model=ProcessorAssignedTableResponse,
     summary="ตารางเอกสารของ Data Processor (แยก 2 กลุ่ม)",
 )
 def get_assigned_table(
@@ -526,6 +529,7 @@ def get_received_feedbacks(
 
 @router.delete(
     "/documents/{document_id}/section/draft",
+    response_model=MessageResponse,
     summary="ล้างข้อมูลฉบับร่าง Processor Section (reset กลับเป็น DRAFT เปล่า)",
 )
 def delete_processor_section_draft(
@@ -586,6 +590,7 @@ def delete_processor_section_draft(
 
 @router.post(
     "/documents/{document_id}/send-to-do",
+    response_model=MessageResponse,
     summary="DP ส่งเอกสารให้ DO (หลัง submit แล้ว)",
 )
 def send_to_do(

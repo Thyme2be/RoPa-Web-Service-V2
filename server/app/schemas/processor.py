@@ -213,3 +213,14 @@ class ProcessorDraftTableItem(BaseModel):
     last_saved_at: Optional[datetime]   # updated_at ของ processor_section
 
 
+class ProcessorAssignedTableResponse(BaseModel):
+    """Response สำหรับ GET /processor/tables/assigned — แยก 2 กลุ่ม"""
+    active: List[ProcessorAssignedTableItem]
+    drafts: List[ProcessorDraftTableItem]
+
+
+class MessageResponse(BaseModel):
+    """Response สำหรับ endpoint ที่ส่งกลับแค่ข้อความ"""
+    message: str
+
+
