@@ -323,6 +323,30 @@ class SendToDpoPayload(BaseModel):
     dpo_id: int
 
 
+class MessageResponse(BaseModel):
+    """Response สำหรับ endpoint ที่ส่งกลับแค่ข้อความ"""
+    message: str
+
+
+class SendToDpoResponse(BaseModel):
+    """Response สำหรับ send-to-dpo"""
+    message: str
+    document_number: str
+    review_cycle_id: str
+
+
+class AnnualReviewResponse(BaseModel):
+    """Response สำหรับ annual-review"""
+    message: str
+    review_cycle_id: str
+
+
+class DoSuggestionResponse(BaseModel):
+    """Response สำหรับ update do_suggestion"""
+    message: str
+    do_suggestion: Optional[str]
+
+
 class DoSuggestionUpdate(BaseModel):
     """DO เขียน/แก้ไขคำแนะนำสำหรับ DP (กรอกได้ตลอดเวลา)"""
     suggestion: Optional[str] = None

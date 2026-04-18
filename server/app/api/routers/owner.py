@@ -87,8 +87,10 @@ from app.schemas.owner import (
     DeletionRequestRead,
     DocumentCreateOwner,
     DoSuggestionUpdate,
+    DoSuggestionResponse,
     FeedbackBatch,
     FeedbackRead,
+    MessageResponse,
     OwnerDashboardResponse,
     OwnerSectionFullRead,
     OwnerSectionSave,
@@ -97,6 +99,8 @@ from app.schemas.owner import (
     RiskAssessmentRead,
     RiskAssessmentSubmit,
     SendToDpoPayload,
+    SendToDpoResponse,
+    AnnualReviewResponse,
     SentToDpoTableItem,
     PersonalDataItemOut,
     DataCategoryOut,
@@ -106,6 +110,8 @@ from app.schemas.owner import (
     StorageTypeOut,
     StorageMethodOut,
 )
+from app.schemas.processor import ProcessorSectionFullRead
+from app.api.routers.processor import _load_processor_section_full
 from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/owner", tags=["Data Owner"])
@@ -1048,6 +1054,7 @@ def submit_owner_section(
 
 @router.post(
     "/documents/{document_id}/send-to-dpo",
+    response_model=SendToDpoResponse,
     summary="ส่งเอกสารให้ DPO review (ตาราง 1)",
 )
 def send_to_dpo(
@@ -1165,6 +1172,7 @@ def send_to_dpo(
 
 @router.post(
     "/documents/{document_id}/send-back-to-dpo",
+    response_model=MessageResponse,
     summary="DO ส่งการแก้ไขคืนให้ DPO (ตาราง 2)",
 )
 def send_back_to_dpo(
@@ -1220,6 +1228,7 @@ def send_back_to_dpo(
 
 @router.post(
     "/documents/{document_id}/annual-review",
+    response_model=AnnualReviewResponse,
     summary="DO ส่งเอกสารตรวจสอบรายปี (ตาราง 3)",
 )
 def request_annual_review(
@@ -1300,6 +1309,7 @@ def request_annual_review(
 
 @router.get(
     "/documents/{document_id}/processor-section",
+    response_model=ProcessorSectionFullRead,
     summary="ดู Processor Section (Data Owner — read-only)",
 )
 def get_processor_section_for_owner(
@@ -1313,9 +1323,6 @@ def get_processor_section_for_owner(
     - ไม่สามารถแก้ไขเนื้อหา DP ได้
     """
     check_document_access(document_id, current_user, db)
-
-    from app.schemas.processor import ProcessorSectionFullRead
-    from app.api.routers.processor import _load_processor_section_full
 
     section = (
         db.query(RopaProcessorSectionModel)
@@ -1334,6 +1341,7 @@ def get_processor_section_for_owner(
 
 @router.patch(
     "/documents/{document_id}/processor-section/suggestion",
+    response_model=DoSuggestionResponse,
     summary="DO เขียน/แก้ไข คำแนะนำสำหรับ DP (do_suggestion)",
 )
 def update_do_suggestion(
