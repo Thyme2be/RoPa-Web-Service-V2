@@ -58,7 +58,7 @@ export default function AdminTopBar() {
                     return;
                 }
 
-                const apiUrl = "http://localhost:8000/auth/me";
+                const apiUrl = "https://ropa-web-service-v2.onrender.com/auth/me";
                 console.log("[AdminTopBar] Fetching profile from:", apiUrl);
 
                 const response = await fetch(apiUrl, {

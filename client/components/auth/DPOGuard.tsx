@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function AdminGuard({ children }: { children: React.ReactNode }) {
+export default function DPOGuard({ children }: { children: React.ReactNode }) {
     const [status, setStatus] = useState<"loading" | "authorized" | "unauthorized">("loading");
     const router = useRouter();
 
@@ -11,7 +11,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
         // Temporarily disabled for UI viewing
         setStatus("authorized");
         /*
-        const checkAdmin = async () => {
+        const checkDPO = async () => {
             const token = localStorage.getItem("token");
             if (!token) {
                 setStatus("unauthorized");
@@ -27,24 +27,24 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
                 if (response.ok) {
                     const user = await response.json();
-                    console.log("[AdminGuard] User data received:", user);
-                    if (user.role?.toUpperCase() === "ADMIN") {
+                    console.log("[DPOGuard] User data received:", user);
+                    if (user.role?.toUpperCase() === "DPO") {
                         setStatus("authorized");
                     } else {
-                        console.warn("[AdminGuard] Unauthorized role:", user.role);
+                        console.warn("[DPOGuard] Unauthorized role:", user.role);
                         setStatus("unauthorized");
                     }
                 } else {
-                    console.error("[AdminGuard] API error:", response.status);
+                    console.error("[DPOGuard] API error:", response.status);
                     setStatus("unauthorized");
                 }
             } catch (error) {
-                console.error("[AdminGuard] Auth check failed:", error);
+                console.error("[DPOGuard] Auth check failed:", error);
                 setStatus("unauthorized");
             }
         };
 
-        checkAdmin();
+        // checkDPO();
         */
     }, []);
 
@@ -64,7 +64,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
                 color: '#000',
                 zIndex: 9999
             }}>
-                Unauthorized access: Admin permissions required.
+                Unauthorized access: DPO permissions required.
             </div>
         );
     }

@@ -24,7 +24,7 @@ function DocumentsPageContent() {
 
     const ITEMS_PER_PAGE = 5;
 
-    const API_BASE_URL = "http://localhost:8000";
+    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
 
     const fetchDocuments = async () => {
         try {

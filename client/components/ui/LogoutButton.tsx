@@ -7,7 +7,7 @@ export default function LogoutButton() {
     const router = useRouter();
 
     const [isLoading, setIsLoading] = React.useState(false);
-    const API_BASE_URL = "http://localhost:8000";
+    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
 
     const handleLogout = async () => {
         setIsLoading(true);
