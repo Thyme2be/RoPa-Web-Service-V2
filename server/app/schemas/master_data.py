@@ -10,22 +10,13 @@ class MasterDataRead(BaseModel):
     
     model_config = {"from_attributes": True}
 
-class RoleMasterDataRead(MasterDataRead):
-    code: str
-
 # Create Schemas
 class MasterDataCreate(BaseModel):
     name: str
 
-class RoleMasterDataCreate(MasterDataCreate):
-    code: str
-
 # Update Schemas
 class MasterDataUpdate(BaseModel):
     name: Optional[str] = None
-
-class RoleMasterDataUpdate(MasterDataUpdate):
-    code: Optional[str] = None
 
 # Paginated Responses
 class PaginatedDepartmentResponse(BaseModel):
@@ -44,4 +35,4 @@ class PaginatedRoleResponse(BaseModel):
     total: int
     page: int
     limit: int
-    items: list[RoleMasterDataRead]
+    items: list[MasterDataRead]
