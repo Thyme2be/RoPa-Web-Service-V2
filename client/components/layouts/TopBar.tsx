@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
+import { cn } from "@/lib/utils";
 
-export default function TopBar({ documentName, handleChange, status, isProcessor, pageTitle, showBack, backUrl, hideSearch, hasError, minimal, formMode }: any) {
+export default function TopBar({ documentName, handleChange, status, isProcessor, isExecutive, pageTitle, showBack, backUrl, hideSearch, hasError, minimal, formMode }: any) {
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
 
     const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
@@ -22,8 +23,8 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
 
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 border-b border-[#F6F3F2]">
-            <div className="flex items-center gap-4 group">
-                {!minimal && !formMode && (
+            <div className="flex items-center gap-4 group h-full">
+                {(!minimal && !formMode) || (formMode && showBack) ? (
                     <>
                         {showBack && (
                             <button
@@ -33,9 +34,10 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                                 <span className="material-symbols-outlined text-secondary text-[22px]">chevron_left</span>
                             </button>
                         )}
-                        {pageTitle ? (
+                        {!formMode && pageTitle && (
                             <h2 className="text-[17px] font-bold text-[#1B1C1C] tracking-tight">{pageTitle}</h2>
-                        ) : (
+                        )}
+                        {!formMode && !pageTitle && (
                             <>
                                 <div className={`flex items-center gap-1 bg-white border ${hasError ? 'border-[#ED393C] shadow-[0_0_0_3px_rgba(237,57,60,0.15)] ring-1 ring-[#ED393C]' : 'border-[#E5E2E1]'} rounded-lg px-3 py-1.5 shadow-sm transition-all ${!isProcessor && !hasError ? "hover:border-primary/30" : ""} ${isProcessor ? "opacity-80" : ""}`}>
                                     <input
@@ -59,16 +61,18 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                             </>
                         )}
                     </>
-                )}
+                ) : null}
                 {formMode && (
-                     <div className="flex items-center gap-2">
-                        {/* Placeholder or just empty space as per screenshot which shows nothing on left */}
-                     </div>
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-[20px] font-black text-[#1B1C1C] tracking-tight">
+                            {documentName || "ข้อมูลลูกค้า"}
+                        </h1>
+                    </div>
                 )}
             </div>
 
             {/* Notifications & Account */}
-            <div className="flex items-center gap-6 relative">
+            <div className="flex items-center gap-6 relative h-full">
                 {/* Search Bar - Hidden conditionally */}
                 {!hideSearch && !formMode && (
                     <div className="relative group hidden lg:block">
@@ -83,9 +87,9 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                     </div>
                 )}
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4 h-full">
                     {/* Notifications Bell */}
-                    {!minimal && (
+                    {!minimal && !formMode && (
                         <>
                             <button
                                 onClick={() => setIsNotifyOpen(!isNotifyOpen)}
@@ -94,10 +98,9 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                                 <span className="material-symbols-outlined">notifications</span>
                             </button>
 
-                            {/* Notification Popover - Pixel Perfect from screenshot */}
+                            {/* Notification Popover */}
                             {isNotifyOpen && (
                                 <div className="absolute top-14 right-24 w-[420px] bg-white rounded-3xl shadow-[0_10px_50px_rgba(0,0,0,0.1)] border border-[#F6F3F2] z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
-                                    {/* Header */}
                                     <div className="flex items-center justify-between px-8 py-6 border-b border-[#F6F3F2]">
                                         <h3 className="text-[20px] font-black text-[#1B1C1C]">การแจ้งเตือน</h3>
                                         <button
@@ -107,8 +110,6 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                                             <span className="material-symbols-outlined text-[24px] text-[#1B1C1C]">close</span>
                                         </button>
                                     </div>
-
-                                    {/* List */}
                                     <div className="divide-y divide-[#F6F3F2] max-h-[400px] overflow-y-auto">
                                         {notifications.map((n) => (
                                             <div key={n.id} className="px-8 py-6 hover:bg-[#FCF9F8] transition-colors group cursor-pointer">
@@ -128,8 +129,6 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* Footer */}
                                     <div className="p-6 flex justify-end bg-white">
                                         <button
                                             onClick={() => setIsNotifyOpen(false)}
@@ -146,15 +145,31 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                         </>
                     )}
 
-                    {/* User Profile */}
-                    <div className="flex flex-col items-end">
-                        <span className="text-xs font-bold text-neutral-900">
-                            พรรษชล บุญมาก
-                        </span>
-                        <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                            {isProcessor ? "ผู้ประมวลผลข้อมูล" : "ผู้รับผิดชอบข้อมูล"}
-                        </span>
-                    </div>
+                    {formMode && (
+                        <div className="flex items-center h-full gap-2">
+                            <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
+                            <div className="flex flex-col items-end">
+                                <span className="text-[15px] font-black text-[#1B1C1C]">
+                                    {isExecutive ? "ประวิตร เป่งเซ่ง" : (isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก")}
+                                </span>
+                                <span className="text-[12px] text-neutral-400 font-bold whitespace-nowrap">
+                                    {isExecutive ? "ผู้บริหารระดับสูง" : (isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล")}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* User Profile - Standard Mode */}
+                    {!formMode && (
+                        <div className="flex flex-col items-end">
+                            <span className="text-xs font-bold text-neutral-900">
+                                {isExecutive ? "ประวิตร เป่งเซ่ง" : (isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก")}
+                            </span>
+                            <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
+                                {isExecutive ? "ผู้บริหารระดับสูง" : (isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล")}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>

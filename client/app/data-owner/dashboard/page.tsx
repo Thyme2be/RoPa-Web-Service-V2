@@ -4,7 +4,7 @@ import React from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
-import RiskDonutChart from "@/components/dashboard/RiskDonutChart";
+import DonutChart from "@/components/ui/DonutChart";
 import Select from "@/components/ui/Select";
 import { globalMockDashboardData } from "@/lib/mockDashboardData";
 
@@ -55,6 +55,7 @@ export default function DashboardPage() {
                                 options={timeOptions}
                                 onChange={(e) => setTimeFilter(e.target.value)}
                                 rounding="xl"
+                                bgColor="white"
                             />
                         </div>
                     </div>
@@ -81,7 +82,12 @@ export default function DashboardPage() {
                     {/* Second Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-1">
-                            <RiskDonutChart data={riskChartData} total={currentData.risk.total} />
+                            <DonutChart
+                                variant="card"
+                                title="ความเสี่ยงของเอกสารทั้งหมด"
+                                data={riskChartData}
+                                total={currentData.risk.total}
+                            />
                         </div>
                         <div className="lg:col-span-2 space-y-6 flex flex-col h-full">
                             <DashboardSummaryCard

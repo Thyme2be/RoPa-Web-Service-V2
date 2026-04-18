@@ -1,5 +1,20 @@
 import { RopaStatus, DataType, CollectionMethod, RetentionUnit } from "./enums";
 
+export type ProcessingStatus = {
+  doStatus: "pending" | "done";
+  dpStatus: "pending" | "done";
+  doSubmittedDate?: string;
+  dpSubmittedDate?: string;
+};
+
+export type RiskAssessment = {
+  probability: number;  // 1-5
+  impact: number;       // 1-5
+  total: number;        // probability × impact
+  level: "ต่ำ" | "ปานกลาง" | "สูง";
+  submittedDate?: string;
+};
+
 export type OwnerRecord = {
   documentName: string;
   title: string;
@@ -7,11 +22,19 @@ export type OwnerRecord = {
   lastName: string;
   address: string;
   email: string;
-  phoneNumber: string; 
+  phoneNumber: string;
+  rightsEmail?: string;
+  rightsPhone?: string;
   status?: RopaStatus;
   dateCreated?: string;
-  
+
   id: string;
+
+  // Workflow tracking
+  processingStatus?: ProcessingStatus;
+  workflow?: "processing" | "sent_dpo" | "delete_pending" | "approved" | "destroyed";
+  processorCompany?: string;
+  dueDate?: string;
 
   // 1–4
   dataSubjectName: string;
@@ -19,17 +42,23 @@ export type OwnerRecord = {
   purpose: string;
   personalData: string;
 
+  // DP specific fields
+  processorName?: string;
+  controllerName?: string;
+
   // 5–6
-  dataCategories: string[]; // Keep as string[] if the user wants flexibility, but DataCategory enum is available
-  dataType: DataType;
-  storedDataTypes: string[]; // For specific data types (e.g., Name, Address)
-  storedDataTypesOther?: string; // New field for "Other" data types
+  dataCategories: string[];
+  dataType: DataType | DataType[];  // Support both single and multi-select
+  storedDataTypes: string[];
+  storedDataTypesOther?: string;
 
   // 7–8
-  collectionMethod: CollectionMethod; // acquisition_mode in form
+  collectionMethod: CollectionMethod;
   dataSource: {
     direct: boolean;
     indirect: boolean;
+    fromControllerDirect?: boolean; // DP specific
+    fromOther?: boolean;           // DP specific
   };
 
   // 9–10
@@ -49,15 +78,17 @@ export type OwnerRecord = {
     transferMethod?: string;
     protectionStandard?: string;
     exception?: string;
+    isInGroup?: boolean; // DP specific
   };
 
   // 12 retention
   retention: {
     storageType: CollectionMethod;
-    method: string[];
+    method: string | string[];
     duration: number;
-    unit: RetentionUnit; // Added for unit support
+    unit: RetentionUnit;
     accessControl: string;
+    accessCondition?: string; // DP specific
     deletionMethod: string;
   };
 
@@ -74,6 +105,9 @@ export type OwnerRecord = {
     responsibility?: string;
     audit?: string;
   };
+
+  // Risk Assessment
+  riskAssessment?: RiskAssessment;
 
   suggestions?: {
     id: string;
@@ -99,4 +133,8 @@ export type OwnerRecord = {
   // Timestamps (backend-ready)
   submittedDate?: string;
   updatedDate?: string;
+  lastUpdated?: string;
 };
+
+// Alias for compatibility if needed
+export type RopaRecord = OwnerRecord;

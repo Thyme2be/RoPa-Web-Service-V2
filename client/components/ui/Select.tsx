@@ -14,8 +14,10 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
     error?: string;
     rounding?: "lg" | "xl" | "2xl";
     disabled?: boolean;
-    bgColor?: "white" | "gray" | string;
+    bgColor?: string;
     labelClassName?: string;
+    focusColor?: string;
+    primaryColor?: string;
     onChange?: (e: { target: { name: string; value: string } }) => void;
 };
 
@@ -30,8 +32,10 @@ export default function Select({
     placeholder,
     error,
     rounding = "2xl",
-    bgColor = "gray",
+    bgColor,
     labelClassName,
+    focusColor,
+    primaryColor = "#ED393C",
     ...props
 }: Props) {
     const [isOpen, setIsOpen] = useState(false);
@@ -61,8 +65,8 @@ export default function Select({
     return (
         <div className={cn("space-y-2 w-full", containerClassName)} ref={containerRef}>
             {label && (
-                <label className={cn("text-lg font-extrabold text-black block tracking-tight", labelClassName)}>
-                    {label} {required && <span className="text-primary">*</span>}
+                <label className={cn("text-[13px] font-extrabold text-[#5C403D] block tracking-tight", labelClassName)}>
+                    {label} {required && <span className="font-bold" style={{ color: primaryColor }}>*</span>}
                 </label>
             )}
 
@@ -71,43 +75,67 @@ export default function Select({
                 <div
                     onClick={() => !props.disabled && setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between w-full h-11 px-4 py-2 border cursor-pointer transition-all hover:bg-white hover:border-primary/20",
-                        bgColor === "white" ? "bg-white" : bgColor === "gray" ? "bg-[#F6F3F2]" : "bg-[#FAFAFA]",
+                        "flex items-center justify-between w-full h-11 px-4 py-2 border-none cursor-pointer transition-all",
+                        bgColor === "white" ? "bg-white" : "bg-[#F6F3F2]",
                         rounding === "2xl" ? "rounded-2xl" : rounding === "xl" ? "rounded-xl" : "rounded-lg",
-                        error ? "border-red-500/50 bg-red-50/50" : "border-[#E5E2E1]",
-                        isOpen && "bg-primary/5 border-primary/20 rounded-b-none",
-                        props.disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
+                        error ? "ring-2 ring-red-500/20 bg-red-50/50" : "",
+                        isOpen && "rounded-b-none",
+                        props.disabled && "opacity-100 cursor-not-allowed bg-[#F6F3F2] pointer-events-none"
                     )}
+                    style={{
+                        backgroundColor: isOpen ? `${primaryColor}0D` : undefined,
+                        ...(focusColor && isOpen ? { ringColor: `${focusColor}33` } : {})
+                    }}
                 >
                     <span className={cn(
-                        "text-sm font-medium transition-colors",
-                        selectedOption ? "text-black" : "text-[#6B7280]"
+                        "text-sm font-bold transition-colors",
+                        selectedOption ? "text-[#1B1C1C]" : "text-[#6B7280]",
+                        props.disabled && "text-[#1B1C1C]"
                     )}>
                         {selectedOption ? selectedOption.label : placeholder || "เลือกรายการ..."}
                     </span>
                     <span className={cn(
                         "material-symbols-outlined text-gray-400 transition-transform duration-300",
-                        isOpen && "rotate-180 text-primary"
-                    )}>
+                        isOpen && "rotate-180"
+                    )}
+                        style={{ color: isOpen ? primaryColor : undefined }}>
                         expand_more
                     </span>
                 </div>
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className={cn(
-                        "absolute z-50 w-full bg-white border border-primary/20 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]",
-                        rounding === "2xl" ? "rounded-b-2xl" : rounding === "xl" ? "rounded-b-xl" : "rounded-b-lg"
-                    )}>
+                    <div 
+                        className={cn(
+                            "absolute z-50 w-full bg-white border border-opacity-20 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]",
+                            rounding === "2xl" ? "rounded-b-2xl" : rounding === "xl" ? "rounded-b-xl" : "rounded-b-lg"
+                        )}
+                        style={{ borderColor: primaryColor }}
+                    >
                         <div className="max-h-60 overflow-y-auto py-2">
                             {options.map((opt) => (
                                 <div
                                     key={opt.value}
                                     onClick={() => handleSelect(opt.value)}
                                     className={cn(
-                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent hover:bg-primary/5 hover:text-primary",
-                                        opt.value === value && "bg-primary/5 text-primary border-l-primary border-y border-y-primary/10"
+                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent",
+                                        opt.value === value && "border-y border-y-opacity-10"
                                     )}
+                                    style={{
+                                        borderLeftColor: opt.value === value ? primaryColor : "transparent",
+                                        backgroundColor: opt.value === value ? `${primaryColor}0D` : undefined,
+                                        color: opt.value === value ? primaryColor : undefined
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = `${primaryColor}0D`;
+                                        e.currentTarget.style.color = primaryColor;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (opt.value !== value) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.color = 'black';
+                                        }
+                                    }}
                                 >
                                     {opt.label}
                                 </div>
