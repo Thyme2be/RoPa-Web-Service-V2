@@ -49,7 +49,8 @@ class ReviewFeedbackModel(Base):
     __tablename__ = "review_feedbacks"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    review_cycle_id = Column(UUID(as_uuid=True), ForeignKey("document_review_cycles.id", ondelete="CASCADE"), nullable=False)
+    review_cycle_id = Column(UUID(as_uuid=True), ForeignKey("document_review_cycles.id", ondelete="CASCADE"), nullable=True)
+    section_number = Column(Integer, nullable=True)
     from_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     to_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     target_type = Column(feedback_target_enum, nullable=False)

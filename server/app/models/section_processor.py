@@ -42,15 +42,15 @@ class RopaProcessorSectionModel(Base):
     transfer_method = Column(Text, nullable=True)
     transfer_protection_standard = Column(Text, nullable=True)
     transfer_exception = Column(Text, nullable=True)
-    exemption_usage = Column(Text, nullable=True)
-    refusal_handling = Column(Text, nullable=True)
-
     org_measures = Column(Text, nullable=True)
     access_control_measures = Column(Text, nullable=True)
     technical_measures = Column(Text, nullable=True)
     responsibility_measures = Column(Text, nullable=True)
     physical_measures = Column(Text, nullable=True)
     audit_measures = Column(Text, nullable=True)
+
+    # คำแนะนำ/คำสั่งจาก Data Owner ถึง Data Processor เพื่อให้กรอกข้อมูลตามที่ต้องการ
+    do_suggestion = Column(Text, nullable=True)
 
     status = Column(ropa_section, default='DRAFT')
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -81,6 +81,7 @@ class ProcessorDataTypeModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     processor_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_processor_sections.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=True)
+    is_sensitive = Column(Boolean, nullable=False, default=False)
 
 class ProcessorCollectionMethodModel(Base):
     __tablename__ = "processor_collection_methods"

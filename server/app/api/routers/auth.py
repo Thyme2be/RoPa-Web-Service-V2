@@ -5,6 +5,7 @@ auth.py ─ Authentication endpoints.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -16,12 +17,24 @@ from app.core.security import (
     verify_password,
     get_password_hash,
 )
-from app.database import get_db
+from app.api.deps import get_db, get_current_user
 from app.models.user import UserModel, UserSessionModel
 from app.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, TokenResponse, RegisterRequest
 from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.get("/me", summary="Get Current User Info (Simplified)")
+def get_me(current_user: UserRead = Depends(get_current_user)):
+    """
+    Returns only first_name, last_name, and role.
+    """
+    return {
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "role": current_user.role
+    }
 
 
 def _authenticate_user(db: Session, identifier: str, password: str) -> UserModel | None:
@@ -39,8 +52,6 @@ def _store_refresh_token(db: Session, user_id, token: str) -> None:
     db.add(db_token)
     db.commit()
 
-
-from fastapi.security import OAuth2PasswordRequestForm
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
@@ -152,7 +163,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     user = UserModel(
         email=payload.email,
         username=payload.username,
-        first_name=f"{payload.title} {payload.first_name}".strip() if payload.title else payload.first_name,
+        title=payload.title,
+        first_name=payload.first_name,
         last_name=payload.last_name,
         department=payload.department,
         company_name=payload.company_name,

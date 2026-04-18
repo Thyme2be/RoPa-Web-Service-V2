@@ -26,6 +26,7 @@ from app.models.workflow import (
     ReviewFeedbackModel,
     ReviewDpoAssignmentModel
 )
+from app.models.dpo_comment import DpoSectionCommentModel
 
 # 5. Sections
 from app.models.section_owner import (
@@ -37,7 +38,6 @@ from app.models.section_owner import (
     OwnerDataSourceModel,
     OwnerStorageTypeModel,
     OwnerStorageMethodModel,
-    OwnerMinorConsentModel,
     OwnerMinorConsentTypeModel
 )
 from app.models.section_processor import (
@@ -77,7 +77,6 @@ __all__ = [
     "OwnerDataSourceModel",
     "OwnerStorageTypeModel",
     "OwnerStorageMethodModel",
-    "OwnerMinorConsentModel",
     "OwnerMinorConsentTypeModel",
     "RopaProcessorSectionModel",
     "ProcessorPersonalDataItemModel",
@@ -89,6 +88,7 @@ __all__ = [
     "ProcessorStorageMethodModel",
     "AuditLogModel",
     "DocumentVersionModel",
+    "DpoSectionCommentModel",
     "MstDepartmentModel",
     "MstCompanyModel",
     "MstRoleModel"
