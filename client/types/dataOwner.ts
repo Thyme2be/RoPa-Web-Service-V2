@@ -134,6 +134,7 @@ export type OwnerRecord = {
   submittedDate?: string;
   updatedDate?: string;
   lastUpdated?: string;
+  department?: string;
 };
 
 // Alias for compatibility if needed

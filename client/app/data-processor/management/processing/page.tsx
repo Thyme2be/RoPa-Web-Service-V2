@@ -166,6 +166,7 @@ export default function ManagementProcessingPage() {
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
                                                     <StatusBadge done={record.processingStatus?.doStatus === "done"} label={getDoLabel(record)} />
+                                                    <StatusBadge done={record.processingStatus?.dpStatus === "done"} label={getDpLabel(record)} />
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>

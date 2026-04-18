@@ -4,8 +4,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { OwnerRecord } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { ropaStore } from "@/lib/ropaStore";
-import { mockOwnerRecords } from "@/lib/mockRecords";
-import { RopaStatus } from "@/types/enums";
+import { mockOwnerRecords, mockProcessorRecords } from "@/lib/mockRecords";
+import { RopaStatus, DataType } from "@/types/enums";
 
 // SSR-Safe UUID Helper
 const generateId = () => {
@@ -41,6 +41,10 @@ interface RopaContextType {
         total: number;
         withProcessor: number;
     };
+
+    // Dashboard Statistics
+    getDashboardStats: () => any;
+    getExecutiveStats: (dept?: string) => any;
 }
 
 const RopaContext = createContext<RopaContextType | undefined>(undefined);
@@ -60,8 +64,13 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             setRecords(savedRecords);
         }
 
-        const savedProcessorRecords = ropaStore.getProcessorRecords();
-        setProcessorRecords(savedProcessorRecords);
+        let savedProcessorRecords = ropaStore.getProcessorRecords();
+        if (savedProcessorRecords.length === 0) {
+            setProcessorRecords(mockProcessorRecords);
+            ropaStore.saveProcessorRecords(mockProcessorRecords);
+        } else {
+            setProcessorRecords(savedProcessorRecords);
+        }
     }, []);
 
     const refresh = () => {
@@ -72,6 +81,65 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const stats = {
         total: records.length,
         withProcessor: records.filter(r => r.assignedProcessor).length
+    };
+
+    const getDashboardStats = () => {
+        const nonDrafts = records.filter(r => r.status !== RopaStatus.Draft);
+        const processing = records.filter(r => r.workflow === "processing");
+        const sentDpo = records.filter(r => r.workflow === "sent_dpo");
+        
+        const risk = {
+            low: nonDrafts.filter(r => r.riskAssessment?.level === "ต่ำ").length,
+            medium: nonDrafts.filter(r => r.riskAssessment?.level === "ปานกลาง").length,
+            high: nonDrafts.filter(r => r.riskAssessment?.level === "สูง").length,
+        };
+
+        return {
+            totalDocs: nonDrafts.length,
+            docsToEdit: {
+                owner: processing.filter(r => r.processingStatus?.doStatus !== "done").length,
+                processor: processing.filter(r => r.processingStatus?.dpStatus !== "done").length
+            },
+            risk: {
+                ...risk,
+                total: risk.low + risk.medium + risk.high
+            },
+            pendingDpo: {
+                store: sentDpo.filter(r => r.status === RopaStatus.ReviewPending).length,
+                destroy: sentDpo.filter(r => r.status === RopaStatus.DeletePending).length
+            },
+            pendingDocs: {
+                owner: processing.filter(r => r.processingStatus?.doStatus !== "done").length,
+                processor: processing.filter(r => r.processingStatus?.dpStatus !== "done").length
+            },
+            approved: records.filter(r => r.workflow === "approved").length,
+            sensitive: nonDrafts.filter(r => {
+                if (Array.isArray(r.dataType)) return r.dataType.includes(DataType.Sensitive);
+                return r.dataType === DataType.Sensitive;
+            }).length,
+            delayed: 0, // Placeholder
+            annualCheck: { reviewed: 0, notReviewed: nonDrafts.length },
+            dueDestroy: records.filter(r => r.workflow === "approved").length,
+            destroyed: records.filter(r => r.workflow === "destroyed").length
+        };
+    };
+
+    const getExecutiveStats = (dept?: string) => {
+        const filtered = dept ? records.filter(r => r.department === dept) : records;
+        const nonDrafts = filtered.filter(r => r.status !== RopaStatus.Draft);
+
+        return {
+            total: nonDrafts.length,
+            processing: filtered.filter(r => r.workflow === "processing").length,
+            sentDpo: filtered.filter(r => r.workflow === "sent_dpo").length,
+            approved: filtered.filter(r => r.workflow === "approved").length,
+            destroyed: filtered.filter(r => r.workflow === "destroyed").length,
+            risk: {
+                low: nonDrafts.filter(r => r.riskAssessment?.level === "ต่ำ").length,
+                medium: nonDrafts.filter(r => r.riskAssessment?.level === "ปานกลาง").length,
+                high: nonDrafts.filter(r => r.riskAssessment?.level === "สูง").length,
+            }
+        };
     };
 
     // ─── Data Owner Handlers ──────────────────────────────────────────────────
@@ -271,7 +339,9 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             deleteProcessorRecord,
             requestDelete,
             refresh,
-            stats
+            stats,
+            getDashboardStats,
+            getExecutiveStats
         }}>
             {children}
         </RopaContext.Provider>

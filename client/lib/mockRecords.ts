@@ -1,4 +1,5 @@
 import { OwnerRecord } from "@/types/dataOwner";
+import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus, DataType, CollectionMethod, RetentionUnit } from "@/types/enums";
 
 export const mockOwnerRecords: OwnerRecord[] = [
@@ -7,6 +8,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ข้อมูลลูกค้าเพื่อการตลาด",
         status: RopaStatus.Processing,
         workflow: "processing",
+        department: "แผนกการตลาด",
         processorCompany: "บริษัท NetBay Marketing",
         dueDate: "20/03/2569",
         dateCreated: "01/03/2569",
@@ -51,6 +53,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ข้อมูลธุรกรรมการซื้อขาย",
         status: RopaStatus.Processing,
         workflow: "processing",
+        department: "แผนกขาย",
         processorCompany: "บริษัท บัญชีดี จำกัด",
         dueDate: "18/03/2569",
         dateCreated: "01/03/2569",
@@ -93,6 +96,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "บันทึกการเข้าออกคลาวด์เซิร์ฟเวอร์",
         status: RopaStatus.Processing,
         workflow: "processing",
+        department: "แผนก IT",
         processorCompany: "บริษัท IT Security Pro",
         dueDate: "15/03/2569",
         dateCreated: "01/03/2569",
@@ -136,6 +140,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ระบบบริหารจัดการเงินเดือนพนักงาน",
         status: RopaStatus.ReviewPending,
         workflow: "sent_dpo",
+        department: "แผนก HR",
         processorCompany: "บริษัท PayCheck Thailand",
         dueDate: "01/04/2569",
         dateCreated: "01/03/2569",
@@ -168,6 +173,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "ข้อมูลลูกค้าในระบบ CRM",
         status: RopaStatus.Approved,
         workflow: "approved",
+        department: "แผนกขาย",
         processorCompany: "บริษัท Cloud-Solution Ltd.",
         dueDate: "25/03/2569",
         dateCreated: "01/01/2569",
@@ -200,6 +206,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         documentName: "บันทึกประวัติผู้มาติดต่อ",
         status: RopaStatus.DeletePending,
         workflow: "delete_pending",
+        department: "แผนก IT",
         processorCompany: "บริษัท Security-Plus นิติบุคคล",
         dueDate: "10/03/2569",
         dateCreated: "01/01/2568",
@@ -228,9 +235,39 @@ export const mockOwnerRecords: OwnerRecord[] = [
         securityMeasures: { physical: "Lock box, CCTV coverage" }
     },
     {
+        id: "RP-2026-07",
+        documentName: "ข้อมูลผู้สมัครงานที่ไม่ผ่านการคัดเลือก",
+        status: RopaStatus.Destroyed,
+        workflow: "destroyed",
+        department: "แผนก HR",
+        dateCreated: "01/01/2567",
+        updatedDate: "15/01/2569",
+        title: "นาย", firstName: "สมคิด", lastName: "มานะชีพ",
+        address: "กรุงเทพฯ", email: "somkid@hr.co.th", phoneNumber: "02-111-2222",
+        dataSubjectName: "ผู้สมัครงาน", processingActivity: "Recruitment", 
+        purpose: "เพื่อพิจารณาความเหมาะสมกับตำแหน่งงาน", personalData: "ประวัติการทำงาน, วุฒิการศึกษา",
+        dataCategories: ["employee"], dataType: DataType.General, 
+        storedDataTypes: ["ชื่อ - นามสกุล", "เบอร์โทรศัพท์", "อีเมล"],
+        collectionMethod: CollectionMethod.SoftFile, dataSource: { direct: true, indirect: false },
+        legalBasis: "ฐานความยินยอม", 
+        minorConsent: { under10: false, age10to20: false, none: true },
+        internationalTransfer: { isTransfer: false },
+        retention: { 
+            storageType: CollectionMethod.SoftFile, 
+            method: ["HR Shared Drive"], 
+            duration: 1, 
+            unit: RetentionUnit.Year, 
+            accessControl: "Recruiter", 
+            deletionMethod: "Delete from Server" 
+        },
+        exemptionDisclosure: "ไม่มี",
+        securityMeasures: { organizational: "Retention Policy" }
+    },
+    {
         id: "DFT-2026-02",
         documentName: "ข้อมูลการส่งออกพัสดุ",
         status: RopaStatus.Draft,
+        department: "แผนก IT",
         dateCreated: "10/03/2026",
         updatedDate: "16/03/2026",
         title: "นาย", firstName: "สืบพงศ์", lastName: "สายส่ง",
@@ -259,6 +296,7 @@ export const mockOwnerRecords: OwnerRecord[] = [
         id: "DFT-2026-01",
         documentName: "ฐานข้อมูลผู้รับเหมาช่วง",
         status: RopaStatus.Draft,
+        department: "แผนก HR",
         dateCreated: "12/03/2569",
         updatedDate: "15/03/2569",
         title: "นางสาว", firstName: "ใจดี", lastName: "มีวาสนา",
@@ -281,5 +319,55 @@ export const mockOwnerRecords: OwnerRecord[] = [
         },
         exemptionDisclosure: "ไม่มี",
         securityMeasures: { organizational: "Vendor Code of Conduct" }
+    }
+];
+
+export const mockProcessorRecords: RopaProcessorRecord[] = [
+    {
+        id: "RP-2026-03", // Same ID to link to the DO portion
+        documentName: "ข้อมูลลูกค้าเพื่อการตลาด",
+        title: "นาย",
+        firstName: "กิตติพงศ์",
+        lastName: "สุวรรณชัย",
+        address: "123 NetBay Company, Bangkok",
+        email: "kittipong@netbay.co.th",
+        phoneNumber: "081-111-2222",
+        status: RopaStatus.Processing,
+        lastUpdated: "12/03/2569",
+        updatedDate: "12/03/2569",
+
+        // Processor Specific Form
+        processorName: "บริษัท NetBay Marketing",
+        controllerName: "บริษัท เมนคอนโทรลเลอร์ จำกัด",
+        controllerAddress: "99/1 ถนนวิภาวดีรังสิต",
+        processingActivity: "การส่งข่าวสารประชาสัมพันธ์",
+        purpose: "เพื่อแจ้งสิทธิประโยชน์และโฆษณา",
+        personalData: "ชื่อ, อีเมล, เบอร์โทรศัพท์",
+        legalBasis: "ฐานความยินยอม (Consent)",
+
+        dataCategories: ["customer"],
+        dataType: DataType.General,
+        storedDataTypes: ["ชื่อ - นามสกุล", "อีเมล", "เบอร์โทรศัพท์"],
+
+        dataSource: { direct: true, indirect: false },
+        collectionMethod: CollectionMethod.SoftFile,
+        internationalTransfer: { isTransfer: false },
+        
+        retention: {
+            storageType: CollectionMethod.SoftFile,
+            method: ["Cloud Storage (AWS)"],
+            duration: 5,
+            unit: RetentionUnit.Year,
+            accessControl: "ฝ่ายการตลาดของ Processor",
+            deletionMethod: "ลบข้อมูลจากฐานข้อมูลของ NetBay",
+            accessCondition: "เพื่อประมวลผลทางการตลาดตามคำสั่ง DO เท่านั้น"
+        },
+        
+        securityMeasures: {
+            organizational: "นโยบายความมั่นคงปลอดภัยสารสนเทศของบริษัท Processor",
+            technical: "เข้ารหัส Database แบบ AES-256",
+            accessControl: "บังคับยืนยัน 2FA สำหรับฝั่ง Processor",
+            responsibility: "เซ็นสัญญารักษาความลับระหว่าง DO/DP"
+        }
     }
 ];

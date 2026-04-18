@@ -6,13 +6,17 @@ import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
+import { useRopa } from "@/context/RopaContext";
+
 export default function RopaApprovedPage() {
+    const { records } = useRopa();
     const [page, setPage] = useState(1);
-    const mockApproved = [
-        { id: "RP-2026-03", name: "RP-2026-03 ข้อมูลลูกค้า", doName: "นางสาวพรรษชล บุญมาก", dpoName: "นายกิตติพงศ์ ศรีวัฒนากุล", verifyDate: "20/03/2569", destroyDate: "25/03/2571", status: "ตรวจสอบเสร็จสิ้น", isDone: true },
-        { id: "RP-2026-02", name: "RP-2026-02 การกำกับดูแลข้อมูลธุรกรรม", doName: "นางสาวพรรษชล บุญมาก", dpoName: "นายกิตติพงศ์ ศรีวัฒนากุล", verifyDate: "18/03/2569", destroyDate: "18/03/2571", status: "ยังไม่ได้ตรวจสอบ", isDone: false },
-        { id: "RP-2026-01", name: "RP-2026-01 การจัดการข้อมูลโดรงข่าย", doName: "นางสาวพรรษชล บุญมาก", dpoName: "นายกิตติพงศ์ ศรีวัฒนากุล", verifyDate: "15/03/2569", destroyDate: "15/03/2571", status: "ตรวจสอบเสร็จสิ้น", isDone: true },
-    ];
+    
+    // Filter approved records
+    const approvedRecords = records.filter(r => r.workflow === "approved");
+
+    const ITEMS_PER_PAGE = 5;
+    const paginatedRecords = approvedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#FCF9F8]">
@@ -53,34 +57,40 @@ export default function RopaApprovedPage() {
                                 <DocumentTableHeader width="w-[10%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
-                                {mockApproved.map((record) => (
-                                    <DocumentTableRow key={record.id}>
-                                        <DocumentTableCell align="left">{record.name}</DocumentTableCell>
-                                        <DocumentTableCell>{record.doName}</DocumentTableCell>
-                                        <DocumentTableCell>{record.dpoName}</DocumentTableCell>
-                                        <DocumentTableCell align="left">{record.verifyDate}</DocumentTableCell>
-                                        <DocumentTableCell align="left">{record.destroyDate}</DocumentTableCell>
-                                        <DocumentTableCell>
-                                            <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white ${record.isDone ? 'bg-[#2C8C00]' : 'bg-[#ED393C]'}`}>
-                                                {record.status}
-                                            </span>
-                                        </DocumentTableCell>
-                                        <DocumentTableCell>
-                                            <div className="flex items-center justify-center gap-3">
-                                                <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                                <ActionIconWithTooltip icon="send" tooltipText="ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                                <ActionIconWithTooltip icon="cancel_schedule_send" tooltipText="ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
-                                            </div>
+                                {paginatedRecords.length === 0 ? (
+                                    <DocumentTableRow>
+                                        <DocumentTableCell colSpan={7} align="center">
+                                            <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารที่ได้รับการอนุมัติ</span>
                                         </DocumentTableCell>
                                     </DocumentTableRow>
-                                ))}
+                                ) : (
+                                    paginatedRecords.map((record) => (
+                                        <DocumentTableRow key={record.id}>
+                                            <DocumentTableCell align="left">{record.id} {record.documentName}</DocumentTableCell>
+                                            <DocumentTableCell>{record.title}{record.firstName} {record.lastName}</DocumentTableCell>
+                                            <DocumentTableCell>นายกิตติพงศ์ ศรีวัฒนากุล</DocumentTableCell>
+                                            <DocumentTableCell align="left">{record.updatedDate || "—"}</DocumentTableCell>
+                                            <DocumentTableCell align="left">25/03/2571</DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <span className="px-3 py-1 rounded-[4px] text-[10px] font-bold text-white bg-[#2C8C00]">
+                                                    ตรวจสอบเสร็จสิ้น
+                                                </span>
+                                            </DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
+                                                </div>
+                                            </DocumentTableCell>
+                                        </DocumentTableRow>
+                                    ))
+                                )}
                             </DocumentTableBody>
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={4} 
-                            totalItems={10} 
-                            itemsPerPage={3} 
+                            totalPages={Math.max(1, Math.ceil(approvedRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={approvedRecords.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
                     </ListCard>
