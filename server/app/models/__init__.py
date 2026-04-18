@@ -26,6 +26,7 @@ from app.models.workflow import (
     ReviewFeedbackModel,
     ReviewDpoAssignmentModel
 )
+from app.models.dpo_comment import DpoSectionCommentModel
 
 # 5. Sections
 from app.models.section_owner import (
@@ -87,6 +88,7 @@ __all__ = [
     "ProcessorStorageMethodModel",
     "AuditLogModel",
     "DocumentVersionModel",
+    "DpoSectionCommentModel",
     "MstDepartmentModel",
     "MstCompanyModel",
     "MstRoleModel"
