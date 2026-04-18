@@ -831,6 +831,16 @@ def save_document_comments(
     
     group = payload.group.upper()
     
+    # Determine if the submission results in Approval or Changes Requested
+    # Logic: If all comments are empty, whitespace-only, or strictly "ผ่าน" -> APPROVED
+    # Otherwise -> CHANGES_REQUESTED
+    is_approved = True
+    for item in payload.comments:
+        c_text = (item.comment or "").strip()
+        if c_text and c_text != "ผ่าน":
+            is_approved = False
+            break
+    
     # "ทับไปเลย" (Overwrite) inside the group
     # We delete existing comments for this group in this document
     if group == 'DO':
@@ -861,8 +871,26 @@ def save_document_comments(
         )
         db.add(new_comment)
     
+    # Update Cycle Status and Date
+    cycle = db.query(DocumentReviewCycleModel).filter(
+        DocumentReviewCycleModel.document_id == document_id,
+        DocumentReviewCycleModel.status == 'IN_REVIEW'
+    ).order_by(DocumentReviewCycleModel.requested_at.desc()).first()
+
+    if cycle:
+        cycle.status = 'APPROVED' if is_approved else 'CHANGES_REQUESTED'
+        cycle.reviewed_at = datetime.now(timezone.utc)
+        cycle.reviewed_by = current_user.id
+        db.add(cycle)
+    
     db.commit()
-    return {"message": f"Comments for {payload.group} saved successfully."}
+    
+    determined_status = "APPROVED" if is_approved else "NOT_APPROVED (CHANGES_REQUESTED)"
+    return {
+        "message": f"Comments for {payload.group} saved successfully.",
+        "determined_status": determined_status,
+        "reviewed_at": cycle.reviewed_at if cycle else None
+    }
 
 @router.get("/dashboard/documents-from-dpo", response_model=PaginatedOwnerDpoReviewedDocumentResponse, summary="Shared: Documents Received from DPO", tags=["Dashboard (Shared)"])
 def list_documents_from_dpo(
