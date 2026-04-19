@@ -166,6 +166,7 @@ CREATE TABLE auditor_assignments (
   assigned_by int NOT NULL REFERENCES users(id),
   auditor_type auditor_type_enum,
   department varchar,
+  preferred_title varchar,
   preferred_first_name varchar,
   preferred_last_name varchar,
   due_date timestamp NOT NULL,

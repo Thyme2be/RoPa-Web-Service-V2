@@ -785,22 +785,22 @@ def list_dpo_documents(
     current_user: UserRead = Depends(require_roles(Role.DPO))
 ):
     # CTE to compute sequence number (RP-YYYY-XX)
-    doc_seq_cte = db.query(
+    doc_seq_subquery = db.query(
         RopaDocumentModel.id.label('doc_id'),
         func.extract('year', RopaDocumentModel.created_at).label('doc_year'),
         func.row_number().over(
             partition_by=func.extract('year', RopaDocumentModel.created_at),
             order_by=RopaDocumentModel.created_at
         ).label('doc_number')
-    ).cte('doc_seq_cte')
+    ).subquery()
 
     query = db.query(
         RopaDocumentModel,
         ReviewDpoAssignmentModel,
         DocumentReviewCycleModel,
         UserModel,
-        doc_seq_cte.c.doc_year,
-        doc_seq_cte.c.doc_number
+        doc_seq_subquery.c.doc_year,
+        doc_seq_subquery.c.doc_number
     ).select_from(RopaDocumentModel).join(
         DocumentReviewCycleModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id
     ).join(
@@ -808,7 +808,7 @@ def list_dpo_documents(
     ).join(
         UserModel, RopaDocumentModel.created_by == UserModel.id
     ).join(
-        doc_seq_cte, RopaDocumentModel.id == doc_seq_cte.c.doc_id
+        doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id
     ).filter(
         ReviewDpoAssignmentModel.dpo_id == current_user.id
     )
@@ -892,27 +892,27 @@ def list_dpo_destruction_requests(
     current_user: UserRead = Depends(require_roles(Role.DPO))
 ):
     # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
-    doc_seq_cte = db.query(
+    doc_seq_subquery = db.query(
         RopaDocumentModel.id.label('doc_id'),
         func.extract('year', RopaDocumentModel.created_at).label('doc_year'),
         func.row_number().over(
             partition_by=func.extract('year', RopaDocumentModel.created_at),
             order_by=RopaDocumentModel.created_at
         ).label('doc_number')
-    ).cte('doc_seq_cte')
+    ).subquery()
 
     query = db.query(
         DocumentDeletionRequestModel,
         RopaDocumentModel,
         UserModel,
-        doc_seq_cte.c.doc_year,
-        doc_seq_cte.c.doc_number
+        doc_seq_subquery.c.doc_year,
+        doc_seq_subquery.c.doc_number
     ).join(
         RopaDocumentModel, DocumentDeletionRequestModel.document_id == RopaDocumentModel.id
     ).join(
         UserModel, DocumentDeletionRequestModel.requested_by == UserModel.id
     ).join(
-        doc_seq_cte, RopaDocumentModel.id == doc_seq_cte.c.doc_id
+        doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id
     ).filter(
         DocumentDeletionRequestModel.dpo_id == current_user.id
     )
@@ -984,27 +984,27 @@ def list_dpo_auditor_assignments(
     current_user: UserRead = Depends(require_roles(Role.DPO))
 ):
     # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
-    doc_seq_cte = db.query(
+    doc_seq_subquery = db.query(
         RopaDocumentModel.id.label('doc_id'),
         func.extract('year', RopaDocumentModel.created_at).label('doc_year'),
         func.row_number().over(
             partition_by=func.extract('year', RopaDocumentModel.created_at),
             order_by=RopaDocumentModel.created_at
         ).label('doc_number')
-    ).cte('doc_seq_cte')
+    ).subquery()
 
     query = db.query(
         AuditorAssignmentModel,
         RopaDocumentModel,
         UserModel,
-        doc_seq_cte.c.doc_year,
-        doc_seq_cte.c.doc_number
+        doc_seq_subquery.c.doc_year,
+        doc_seq_subquery.c.doc_number
     ).join(
         RopaDocumentModel, AuditorAssignmentModel.document_id == RopaDocumentModel.id
     ).join(
         UserModel, AuditorAssignmentModel.auditor_id == UserModel.id
     ).join(
-        doc_seq_cte, RopaDocumentModel.id == doc_seq_cte.c.doc_id
+        doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id
     ).filter(
         AuditorAssignmentModel.assigned_by == current_user.id
     )
@@ -1018,7 +1018,7 @@ def list_dpo_auditor_assignments(
         if "รอ" in s_filter or s_filter == "pending":
             query = query.filter(AuditorAssignmentModel.status == 'IN_REVIEW')
         elif "เสร็จสิ้น" in s_filter or s_filter == "completed":
-            query = query.filter(AuditorAssignmentModel.status == 'COMPLETED')
+            query = query.filter(AuditorAssignmentModel.status == 'VERIFIED')
 
     total = query.count()
     # Order by creation date (assignment date) as requested
