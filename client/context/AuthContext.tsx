@@ -80,11 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         } catch (error) {
             console.error("Failed to load user:", error);
+            // Final cleanup on failure
             localStorage.removeItem("token");
             localStorage.removeItem("refreshToken");
+            localStorage.removeItem("userRole");
+
             document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
             setToken(null);
             setRefreshToken(null);
             setUser(null);
@@ -114,9 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } finally {
             localStorage.removeItem("token");
             localStorage.removeItem("refreshToken");
+            localStorage.removeItem("userRole");
+
             document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
             document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
             setToken(null);
             setRefreshToken(null);
             setUser(null);
