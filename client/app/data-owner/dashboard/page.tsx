@@ -9,11 +9,8 @@ import Select from "@/components/ui/Select";
 import { globalMockDashboardData } from "@/lib/mockDashboardData";
 
 
-import { useRopa } from "@/context/RopaContext";
-
 export default function DashboardPage() {
-    const { getDashboardStats } = useRopa();
-    const [timeFilter, setTimeFilter] = React.useState("all");
+    const [timeFilter, setTimeFilter] = React.useState("monthly");
 
     const timeOptions = [
         { label: "สัปดาห์นี้", value: "weekly" },
@@ -23,7 +20,7 @@ export default function DashboardPage() {
         { label: "ทั้งหมด", value: "all" },
     ];
 
-    const currentData = getDashboardStats();
+    const currentData = globalMockDashboardData[timeFilter] || globalMockDashboardData["monthly"];
 
     const riskChartData = [
         { label: "ความเสี่ยงต่ำ (1)", value: currentData.risk.low, color: "#B4F534" },

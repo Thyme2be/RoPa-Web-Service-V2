@@ -10,6 +10,7 @@ interface SaveSuccessModalProps {
     title?: string;
     subtitle?: string;
     buttonText?: string;
+    isLoading?: boolean;
 }
 
 export default function SaveSuccessModal({
@@ -18,7 +19,8 @@ export default function SaveSuccessModal({
     onConfirm,
     title = "บันทึกรายการ RoPA เสร็จสิ้น",
     subtitle = "สามารถดูเอกสารได้ที่ตารางแสดงเอกสารที่ดำเนินการ",
-    buttonText = "ยืนยันการบันทึก"
+    buttonText = "ยืนยันการบันทึก",
+    isLoading = false
 }: SaveSuccessModalProps) {
     if (!isOpen) return null;
 
@@ -51,7 +53,11 @@ export default function SaveSuccessModal({
 
                 <button
                     onClick={onConfirm}
-                    className="bg-logout-gradient leading-none text-white px-12 py-5 rounded-2xl font-black text-lg shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all w-fit min-w-[200px]"
+                    disabled={isLoading}
+                    className={cn(
+                        "bg-logout-gradient leading-none text-white px-12 py-5 rounded-2xl font-black text-lg shadow-xl shadow-red-900/20 transition-all w-fit min-w-[200px]",
+                        isLoading ? "opacity-70 cursor-not-allowed" : "hover:brightness-110 active:scale-95 cursor-pointer"
+                    )}
                 >
                     {buttonText}
                 </button>

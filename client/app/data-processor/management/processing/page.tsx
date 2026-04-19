@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import { useRouter } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { RopaStatus, SectionStatus } from "@/types/enums";
@@ -128,7 +128,7 @@ export default function ManagementProcessingPage() {
                         onClear={handleClearFilters}
                     />
 
-                    <ListCard title="เอกสารที่ได้รับมอบหมาย" icon="assignment" iconColor="#00666E" bodyClassName="p-0">
+                    <DocumentListCard title="เอกสารที่ได้รับมอบหมาย" icon="assignment" iconColor="#00666E" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[25%] text-center">ชื่อเอกสาร</DocumentTableHeader>
@@ -198,9 +198,9 @@ export default function ManagementProcessingPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage}
                         />
-                    </ListCard>
+                    </DocumentListCard>
 
-                    <ListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
+                    <DocumentListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[50%] text-center">ชื่อเอกสาร</DocumentTableHeader>
@@ -252,7 +252,7 @@ export default function ManagementProcessingPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setDraftPage}
                         />
-                    </ListCard>
+                    </DocumentListCard>
                 </div>
             </main>
 

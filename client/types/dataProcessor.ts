@@ -17,7 +17,7 @@ export interface RopaProcessorRecord {
   id: string;
   document_id: string;
   processor_id: number;
-  status: SectionStatus;
+  status: RopaStatus | SectionStatus;
   updated_at: string;
 
   // Personal Info

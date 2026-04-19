@@ -26,6 +26,9 @@ export default function TopBar({
     // Standardized role display based on real user data
     const userRole = user?.role === "EXECUTIVE" ? "ผู้บริหารระดับสูง" : 
                     user?.role === "PROCESSOR" ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : 
+                    user?.role === "AUDITOR" ? "ผู้ตรวจสอบ" :
+                    user?.role === "DPO" ? "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" :
+                    user?.role === "ADMIN" ? "ผู้ดูแลระบบ" :
                     "ผู้รับผิดชอบข้อมูล";
     const userName = user ? (user.first_name ? `${user.first_name} ${user.last_name || ""}` : user.username) : "Unknown User";
 

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
 import { useRopa } from "@/context/RopaContext";
@@ -35,7 +35,7 @@ export default function RopaDestroyedPage() {
                         statusOptions={[{ label: "ถูกทำลายเสร็จสิ้น", value: "destroyed" }]} 
                     />
 
-                    <ListCard title="เอกสารที่ถูกทำลาย" icon="delete_outline" iconColor="#ED393C" bodyClassName="p-0">
+                    <DocumentListCard title="เอกสารที่ถูกทำลาย" icon="delete_outline" iconColor="#ED393C" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[30%]">ชื่อเอกสาร</DocumentTableHeader>
@@ -85,7 +85,7 @@ export default function RopaDestroyedPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
-                    </ListCard>
+                    </DocumentListCard>
                 </div>
             </main>
         </div>

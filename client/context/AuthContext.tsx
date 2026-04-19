@@ -10,9 +10,13 @@ interface User {
     email: string;
     username: string;
     role: UserRole;
+    title?: string;
     first_name?: string;
     last_name?: string;
     department?: string;
+    company_name?: string;
+    auditor_type?: string;
+    status?: string;
 }
 
 interface AuthContextType {
@@ -65,7 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 } else if (userData.role === "PROCESSOR") {
                     router.push("/data-processor/management/processing");
                 } else if (userData.role === "ADMIN") {
-                    router.push("/admin/documents");
+                    router.push("/admin/dashboard");
+                } else if (userData.role === "AUDITOR") {
+                    router.push("/auditor/tables");
+                } else if (userData.role === "DPO") {
+                    router.push("/dpo/dashboard");
                 } else {
                     router.push("/data-owner/management");
                 }
