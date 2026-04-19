@@ -31,6 +31,7 @@ from app.models.assignment import ProcessorAssignmentModel
 from app.models.document import RopaDocumentModel
 from app.models.section_owner import RopaOwnerSectionModel
 from app.models.user import UserModel
+from app.models.dpo_comment import DpoSectionCommentModel
 from app.models.workflow import ReviewAssignmentModel, DocumentReviewCycleModel, ReviewFeedbackModel
 from app.models.section_processor import (
     ProcessorCollectionMethodModel,
@@ -60,6 +61,8 @@ from app.schemas.processor import (
     ProcessorSectionSave,
     ProcessorStatusBadge,
     ProcessorAssignedTableResponse,
+    ProcessorFeedbackResponse,
+    DpoCommentForDpRead,
     MessageResponse,
 )
 from app.schemas.user import UserRead
@@ -262,7 +265,7 @@ def get_assigned_table(
         # feedback ที่ยังเปิดอยู่ (จาก DO หรือ DPO)
         has_open_feedback = False
         if proc_section:
-            has_open_feedback = (
+            has_open_do_feedback = (
                 db.query(ReviewFeedbackModel)
                 .filter(
                     ReviewFeedbackModel.to_user_id == uid,
@@ -272,6 +275,16 @@ def get_assigned_table(
                 .first()
                 is not None
             )
+            has_open_dpo_comment = (
+                db.query(DpoSectionCommentModel)
+                .filter(
+                    DpoSectionCommentModel.document_id == doc.id,
+                    DpoSectionCommentModel.section_key.like("DP_SEC_%"),
+                )
+                .first()
+                is not None
+            )
+            has_open_feedback = has_open_do_feedback or has_open_dpo_comment
 
         # ทุกเอกสารขึ้นในตารางดำเนินการ
         active_items.append(ProcessorAssignedTableItem(
@@ -477,8 +490,8 @@ def submit_processor_section(
 
 @router.get(
     "/documents/{document_id}/feedbacks",
-    response_model=List[FeedbackRead],
-    summary="DP ดู feedback ที่ DO ส่งมาให้แก้ไข",
+    response_model=ProcessorFeedbackResponse,
+    summary="DP ดู feedback ที่ได้รับจาก DO และ DPO",
 )
 def get_received_feedbacks(
     document_id: UUID,
@@ -486,13 +499,12 @@ def get_received_feedbacks(
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
 ):
     """
-    หน้า: DP ดู feedback ที่ DO ส่งมาสำหรับเอกสารนี้
-    DO เป็นฝ่ายส่ง feedback มาหา DP (ไม่ใช่ทางกลับกัน)
-    DP แค่รับ feedback และแก้ไขตาม
+    หน้า: DP ดู feedback ที่ได้รับ 2 แหล่ง:
+      - from_do  : feedback จาก DO (ReviewFeedbackModel)
+      - from_dpo : comment จาก DPO (DpoSectionCommentModel, section_key = DP_SEC_*)
     """
     check_document_access(document_id, current_user, db)
 
-    # หา processor_section ของเอกสารนี้ เพื่อ scope feedbacks ด้วย target_id
     proc_section = (
         db.query(RopaProcessorSectionModel)
         .filter(
@@ -501,20 +513,34 @@ def get_received_feedbacks(
         )
         .first()
     )
-    if not proc_section:
-        return []
 
-    # ใช้ outerjoin เพราะ review_cycle_id อาจเป็น NULL (DO ส่ง feedback ก่อนมี review cycle)
-    feedbacks = (
-        db.query(ReviewFeedbackModel)
-        .filter(
-            ReviewFeedbackModel.to_user_id == current_user.id,
-            ReviewFeedbackModel.target_id == proc_section.id,
+    # feedback จาก DO
+    from_do = []
+    if proc_section:
+        feedbacks = (
+            db.query(ReviewFeedbackModel)
+            .filter(
+                ReviewFeedbackModel.to_user_id == current_user.id,
+                ReviewFeedbackModel.target_id == proc_section.id,
+            )
+            .order_by(ReviewFeedbackModel.created_at.desc())
+            .all()
         )
-        .order_by(ReviewFeedbackModel.created_at.desc())
+        from_do = [FeedbackRead.model_validate(f) for f in feedbacks]
+
+    # comment จาก DPO (DP_SEC_*)
+    dpo_comments = (
+        db.query(DpoSectionCommentModel)
+        .filter(
+            DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.section_key.like("DP_SEC_%"),
+        )
+        .order_by(DpoSectionCommentModel.created_at.desc())
         .all()
     )
-    return [FeedbackRead.model_validate(f) for f in feedbacks]
+    from_dpo = [DpoCommentForDpRead.model_validate(c) for c in dpo_comments]
+
+    return ProcessorFeedbackResponse(from_do=from_do, from_dpo=from_dpo)
 
 
 
