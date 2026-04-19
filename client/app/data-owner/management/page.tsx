@@ -26,7 +26,7 @@ export default function RopaSelectionPage() {
                             <h1 className="text-3xl font-black text-[#1B1C1C] tracking-tight">
                                 ตารางเอกสาร
                             </h1>
-                            <p className="text-[#5F5E5E] text-base font-medium">
+                            <p className="text-[#5C403D] text-base font-medium">
                                 ตารางแสดงรายละเอียดเอกสารและสถานะการดำเนินการปัจจุบัน
                             </p>
                         </div>

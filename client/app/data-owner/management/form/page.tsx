@@ -33,6 +33,7 @@ function ManagementFormContent() {
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
     const viewMode = searchParams.get("mode") === "view";
+    const isNewEdit = searchParams.get("mode") === "edit";
 
     const [activeTab, setActiveTab] = useState("owner");
     const {
@@ -48,7 +49,7 @@ function ManagementFormContent() {
     } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
-    const [isLocked, setIsLocked] = useState(true);
+    const [isLocked, setIsLocked] = useState(!isNewEdit);
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
@@ -407,7 +408,7 @@ function ManagementFormContent() {
                                     dpComplete={dpStatus === "done"}
                                 />
                             </div>
-                            {activeTab === "owner" && (
+                            {activeTab === "owner" && !isNewEdit && (
                                 <button
                                     onClick={() => setIsLocked(!isLocked)}
                                     className={cn(

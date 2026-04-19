@@ -8,8 +8,9 @@ import CreateDocumentModal from "@/components/ropa/CreateDocumentModal";
 import { useRouter } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { RopaStatus, SectionStatus } from "@/types/enums";
-import { OwnerRecord } from "@/types/dataOwner";
+import { OwnerRecord, ActiveTableItem } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
+import { ropaService } from "@/services/ropaService";
 
 // ─── Confirm Modal ─────────────────────────────────────────────────────────────
 function ConfirmModal({
@@ -52,7 +53,7 @@ function StatusBadge({ done, label }: { done: boolean; label: string }) {
     return (
         <span className={cn(
             "px-2.5 py-1 rounded-[6px] text-[10px] font-bold whitespace-nowrap min-w-[140px] text-center shadow-sm",
-            done 
+            done
                 ? "bg-[#107C41] text-white" // Vibrant Green matching the image
                 : "bg-[#FFC107] text-[#5C403D]" // Solid Yellow matching the image
         )}>
@@ -83,10 +84,22 @@ export default function ManagementProcessingPage() {
         setCustomDate("");
     };
 
-    const handleCreateDocument = (data: { name: string; company: string; dueDate: string }) => {
+    const handleCreateDocument = async (data: { name: string; company: string; dueDate: string }) => {
         setIsCreateModalOpen(false);
-        // Navigate with query params — form page will create the record
-        router.push(`/data-owner/management/form?name=${encodeURIComponent(data.name)}&company=${encodeURIComponent(data.company)}&dueDate=${encodeURIComponent(data.dueDate)}`);
+        try {
+            const result = await ropaService.createDocument({
+                title: data.name,
+                processor_company: data.company,
+                due_date: data.dueDate
+            });
+
+            if (result.document_id) {
+                router.push(`/data-owner/management/form?id=${result.document_id}&mode=edit`);
+            }
+        } catch (error) {
+            console.error("Failed to create document:", error);
+            alert("เกิดข้อผิดพลาดในการสร้างเอกสาร กรุณาลองใหม่อีกครั้ง");
+        }
     };
 
     // ─── Filter processing records ─────────────────────────────────────────────
@@ -98,11 +111,36 @@ export default function ManagementProcessingPage() {
         let matchStatus = true;
         const do_code = record.owner_status?.code;
         const dp_code = record.processor_status?.code;
-        if (statusFilter === "wait_owner") matchStatus = do_code !== "DO_DONE";
-        if (statusFilter === "wait_processor") matchStatus = dp_code !== "DP_DONE";
-        if (statusFilter === "done_owner") matchStatus = do_code === "DO_DONE";
-        if (statusFilter === "done_processor") matchStatus = dp_code === "DP_DONE";
-        return matchStatus;
+
+        if (statusFilter !== "all") {
+            switch (statusFilter) {
+                case "wait_owner": matchStatus = do_code !== "DO_DONE"; break;
+                case "wait_processor": matchStatus = dp_code !== "DP_DONE"; break;
+                case "done_owner": matchStatus = do_code === "DO_DONE"; break;
+                case "done_processor": matchStatus = dp_code === "DP_DONE"; break;
+                case "wait_all": matchStatus = do_code !== "DO_DONE" && dp_code !== "DP_DONE"; break;
+                case "done_all": matchStatus = do_code === "DO_DONE" && dp_code === "DP_DONE"; break;
+                default: matchStatus = true;
+            }
+        }
+
+        // Date Filter
+        let matchDate = true;
+        if (dateFilter !== "all" && record.created_at) {
+            const rowDate = new Date(record.created_at);
+            const now = new Date();
+            if (dateFilter === "7days") {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= sevenDaysAgo;
+            } else if (dateFilter === "30days") {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= thirtyDaysAgo;
+            } else if (dateFilter === "custom" && customDate) {
+                matchDate = rowDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
+            }
+        }
+
+        return matchStatus && matchDate;
     });
 
     // ─── Action Handlers ────────────────────────────────────────────────────────
@@ -116,11 +154,11 @@ export default function ManagementProcessingPage() {
         setDeleteConfirm({ open: false, id: "" });
     };
 
-    const getDoLabel = (r: OwnerRecord) =>
-        r.processing_status?.do_status === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
+    const getDoLabel = (r: ActiveTableItem) =>
+        r.owner_status?.code === "DO_DONE" ? "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น" : "รอส่วนของผู้รับผิดชอบข้อมูล";
 
-    const getDpLabel = (r: OwnerRecord) =>
-        r.processing_status?.dp_status === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
+    const getDpLabel = (r: ActiveTableItem) =>
+        r.processor_status?.code === "DP_DONE" ? "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น" : "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล";
 
     const ITEMS_PER_PAGE = 5;
     const paginatedProcessing = filteredProcessing.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -161,12 +199,13 @@ export default function ManagementProcessingPage() {
                     <ListCard title="เอกสารที่ดำเนินการ" icon="check_circle" iconColor="#0D9488" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[25%] text-center">ชื่อเอกสาร</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[20%]">ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[12%]">ชื่อบริษัท</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[13%]">วันที่กำหนดส่ง</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อบริษัท</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">วันที่กำหนดส่ง</DocumentTableHeader>
                                 <DocumentTableHeaderWithTooltip
-                                    width="w-[18%]"
+                                    width="w-[28%]"
+                                    className="whitespace-nowrap !text-[12px]"
                                     title="สถานะ"
                                     tooltipText={
                                         <div className="space-y-1">
@@ -175,7 +214,7 @@ export default function ManagementProcessingPage() {
                                         </div>
                                     }
                                 />
-                                <DocumentTableHeader width="w-[12%]">การดำเนินการ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedProcessing.length === 0 ? (
@@ -191,17 +230,17 @@ export default function ManagementProcessingPage() {
                                                 <div className="font-medium text-[#1B1C1C]">{record.title}</div>
                                                 <div className="text-xs text-gray-400">ID: {record.document_number}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>
+                                            <DocumentTableCell align="left">
                                                 <div className="text-[#1B1C1C]">{record.dp_name || "—"}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.dp_company || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">
+                                            <DocumentTableCell align="left" className="text-[#1B1C1C]">{record.dp_company || "—"}</DocumentTableCell>
+                                            <DocumentTableCell align="left" className="text-[#1B1C1C]">
                                                 {record.due_date ? new Date(record.due_date).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
-                                                    <StatusBadge done={record.owner_status?.code === "DO_DONE"} label={record.owner_status?.label} />
-                                                    <StatusBadge done={record.processor_status?.code === "DP_DONE"} label={record.processor_status?.label} />
+                                                    <StatusBadge done={record.owner_status?.code === "DO_DONE"} label={getDoLabel(record)} />
+                                                    <StatusBadge done={record.processor_status?.code === "DP_DONE"} label={getDpLabel(record)} />
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>

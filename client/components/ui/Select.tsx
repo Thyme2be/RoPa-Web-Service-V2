@@ -92,7 +92,7 @@ export default function Select({
                     }}
                 >
                     <span className={cn(
-                        "text-sm font-bold transition-colors",
+                        "text-sm font-bold transition-colors truncate whitespace-nowrap overflow-hidden pr-2",
                         selectedOption ? "text-[#1B1C1C]" : "text-[#6B7280]",
                         props.disabled && "text-[#1B1C1C]"
                     )}>
@@ -119,7 +119,7 @@ export default function Select({
                                     key={opt.value}
                                     onClick={() => handleSelect(opt.value)}
                                     className={cn(
-                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent",
+                                        "px-4 py-3 text-sm font-medium text-black cursor-pointer transition-all border-l-4 border-l-transparent truncate whitespace-nowrap overflow-hidden",
                                         opt.value === value && "border-y border-y-opacity-10"
                                     )}
                                     style={{

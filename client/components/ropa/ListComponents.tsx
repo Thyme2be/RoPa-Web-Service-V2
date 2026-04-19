@@ -5,9 +5,9 @@ import Select from "@/components/ui/Select";
 import ThaiDatePicker from "@/components/ui/ThaiDatePicker";
 
 export function SummaryCard({ label, value, accentColor, subtext, footer }: { label: string; value: string; accentColor: string; subtext?: string; footer?: React.ReactNode }) {
-    const borderClass = accentColor === "red" ? "border-l-[#ED393C]" : 
-                       accentColor === "teal" ? "border-l-[#0D9488]" : 
-                       "border-l-neutral-400";
+    const borderClass = accentColor === "red" ? "border-l-[#ED393C]" :
+        accentColor === "teal" ? "border-l-[#0D9488]" :
+            "border-l-neutral-400";
 
     return (
         <div className={`bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 border-l-[4px] ${borderClass} flex flex-col justify-between min-h-[135px]`}>
@@ -39,14 +39,14 @@ export function AdvancedFilterBar({ initialTimeframe = "30" }: { initialTimefram
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-[#E5E2E1]/40 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div className="space-y-1.5 pb-[2px] w-full">
-                <ThaiDatePicker 
+                <ThaiDatePicker
                     label="วันที่รับข้อมูล"
                     value={date}
                     onChange={setDate}
                 />
             </div>
 
-            <Select 
+            <Select
                 label="ช่วงเวลา"
                 rounding="xl"
                 value={timeframe}
@@ -60,7 +60,7 @@ export function AdvancedFilterBar({ initialTimeframe = "30" }: { initialTimefram
             />
 
             <div className="flex h-11">
-                <button 
+                <button
                     onClick={handleClear}
                     className="w-full h-full bg-[#6B7280] text-white rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#4B5563] transition-colors shadow-sm active:scale-95"
                 >
@@ -88,7 +88,7 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
     };
 
     return (
-        <span className={`${styles[status] || styles["ฉบับร่าง"]} px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center min-w-[100px] shadow-sm`}>
+        <span className={`${styles[status] || styles["ฉบับร่าง"]} px-4 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[100px] shadow-sm whitespace-nowrap`}>
             {status}
         </span>
     );
@@ -102,8 +102,8 @@ export function ActionButton({ icon, label, color = "black", onClick, disabled }
     };
 
     return (
-        <button 
-            onClick={onClick} 
+        <button
+            onClick={onClick}
             disabled={disabled}
             className={`flex items-center gap-2 font-black text-[14px] transition-all ${colorClasses[color]} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
         >
@@ -113,18 +113,18 @@ export function ActionButton({ icon, label, color = "black", onClick, disabled }
     );
 }
 
-export function ListCard({ 
-    title, 
-    icon, 
-    iconColor = "#1B1C1C", 
-    children, 
+export function ListCard({
+    title,
+    icon,
+    iconColor = "#1B1C1C",
+    children,
     showSort = false,
     bodyClassName = "p-6 pt-2"
-}: { 
-    title: string; 
-    icon: string; 
-    iconColor?: string; 
-    children: React.ReactNode; 
+}: {
+    title: string;
+    icon: string;
+    iconColor?: string;
+    children: React.ReactNode;
     showSort?: boolean;
     bodyClassName?: string;
 }) {
@@ -181,7 +181,7 @@ export function Pagination({ current, total, onChange }: { current: number; tota
     );
 }
 
-export function DocumentFilterBar({ 
+export function DocumentFilterBar({
     statusOptions,
     statusValue = "all",
     onStatusChange,
@@ -189,8 +189,8 @@ export function DocumentFilterBar({
     onDateChange,
     customDate = "",
     onCustomDateChange,
-    onClear 
-}: { 
+    onClear
+}: {
     statusOptions?: { label: string, value: string }[],
     statusValue?: string,
     onStatusChange?: (val: string) => void,
@@ -198,11 +198,11 @@ export function DocumentFilterBar({
     onDateChange?: (val: string) => void,
     customDate?: string,
     onCustomDateChange?: (val: string) => void,
-    onClear?: () => void 
+    onClear?: () => void
 }) {
     return (
         <div className="bg-[#EAE4E3] rounded-xl p-5 flex flex-wrap md:flex-nowrap items-end gap-6 border border-[#E5E2E1] overflow-visible">
-            <div className="w-full md:w-[300px] shrink-0">
+            <div className="w-full md:w-[340px] shrink-0">
                 <Select
                     label="สถานะ"
                     labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
@@ -210,10 +210,12 @@ export function DocumentFilterBar({
                     value={statusValue || "all"}
                     options={statusOptions || [
                         { label: "ทั้งหมด", value: "all" },
-                        { label: "รอส่วนของ Data Owner", value: "wait_owner" },
-                        { label: "รอส่วนของ Data Processor", value: "wait_processor" },
-                        { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "done_owner" },
-                        { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "done_processor" }
+                        { label: "รอดำเนินการ", value: "wait_all" },
+                        { label: "เสร็จสิ้นทั้งหมด", value: "done_all" },
+                        { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
+                        { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
+                        { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
+                        { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" }
                     ]}
                     onChange={(e) => onStatusChange?.(e.target.value)}
                 />
@@ -237,7 +239,7 @@ export function DocumentFilterBar({
                 <div className="w-[200px] shrink-0">
                     {dateValue === 'custom' && (
                         <div className="animate-in fade-in zoom-in-95 duration-200">
-                            <ThaiDatePicker 
+                            <ThaiDatePicker
                                 label="เลือกวัน"
                                 labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
                                 value={customDate || ""}
@@ -247,7 +249,7 @@ export function DocumentFilterBar({
                     )}
                 </div>
             </div>
-            <button 
+            <button
                 onClick={onClear}
                 className="h-[46px] px-8 bg-[#5F5E5E] text-white rounded-lg flex items-center gap-2 font-bold hover:bg-[#4F4E4E] transition-colors md:ml-auto shrink-0 whitespace-nowrap"
             >
@@ -262,7 +264,7 @@ export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = 
     return (
         <div className={`group/tooltip relative flex items-center justify-center ${className}`}>
             <button onClick={onClick} className={`w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#CCCCCC]/40 transition-colors cursor-pointer ${buttonClassName}`}>
-                <span className="material-symbols-rounded text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? {fontVariationSettings: "'FILL' 1"} : {}}>
+                <span className="material-symbols-rounded text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? { fontVariationSettings: "'FILL' 1" } : {}}>
                     {icon}
                 </span>
             </button>
@@ -278,7 +280,7 @@ export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = 
 export function DocumentPagination({ current, totalPages, totalItems, itemsPerPage, onChange }: { current: number, totalPages: number, totalItems: number, itemsPerPage: number, onChange?: (p: number) => void }) {
     if (totalPages <= 1) return null;
     const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-    
+
     const startItem = (current - 1) * itemsPerPage + 1;
     const endItem = Math.min(current * itemsPerPage, totalItems);
 
@@ -286,7 +288,7 @@ export function DocumentPagination({ current, totalPages, totalItems, itemsPerPa
         <div className="flex justify-between items-center py-4 px-6 text-sm font-medium text-[#5F5E5E]">
             <span>แสดง {startItem} ถึง {endItem} จากทั้งหมด {totalItems} รายการ</span>
             <div className="flex gap-2 items-center text-xs">
-                <button 
+                <button
                     onClick={() => onChange?.(current - 1)}
                     disabled={current === 1}
                     className="w-8 h-8 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100 rounded text-[#1B1C1C]"
@@ -294,7 +296,7 @@ export function DocumentPagination({ current, totalPages, totalItems, itemsPerPa
                     <span className="material-symbols-rounded text-[18px]">chevron_left</span>
                 </button>
                 {pages.map(p => (
-                    <button 
+                    <button
                         key={p}
                         onClick={() => onChange?.(p)}
                         className={`w-8 h-8 flex items-center justify-center rounded font-bold ${p === current ? "bg-[#ED393C] text-white" : "hover:bg-gray-100 text-[#1B1C1C]"}`}
@@ -302,7 +304,7 @@ export function DocumentPagination({ current, totalPages, totalItems, itemsPerPa
                         {p}
                     </button>
                 ))}
-                <button 
+                <button
                     onClick={() => onChange?.(current + 1)}
                     disabled={current === totalPages}
                     className="w-8 h-8 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100 rounded text-[#1B1C1C]"
@@ -377,7 +379,7 @@ export function DocumentTableCell({ children, className = "", align = "center", 
     let justifyClass = "";
     if (align === "left") justifyClass = "text-left text-[#5C403D]";
     else if (align === "center") justifyClass = "text-center text-[#5C403D]";
-    
+
     return (
         <td colSpan={colSpan} className={`py-5 px-4 first:pl-6 last:pr-6 text-[13.5px] font-medium ${justifyClass} ${className}`}>
             {children}

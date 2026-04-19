@@ -12,10 +12,69 @@ import { useRopa } from "@/context/RopaContext";
 export default function RopaSubmittedPage() {
     const { sentRecords } = useRopa();
     const router = useRouter();
-    const [page, setPage] = useState(1);
     
+    const [page, setPage] = useState(1);
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [customDate, setCustomDate] = useState("");
+
+    const handleClearFilters = () => {
+        setStatusFilter("all");
+        setDateFilter("all");
+        setCustomDate("");
+        setPage(1);
+    };
+
+    // ─── Filter Logic ────────────────────────────────────────────────────────
+    const filteredRecords = sentRecords.filter(record => {
+        // Status Filter
+        let matchStatus = true;
+        if (statusFilter !== "all") {
+            switch (statusFilter) {
+                case "wait_all": matchStatus = record.ui_status === "WAITING_REVIEW"; break;
+                case "wait_owner": matchStatus = record.ui_status === "WAITING_DO_FIX"; break;
+                case "wait_processor": matchStatus = record.ui_status === "WAITING_DP_FIX"; break;
+                case "done_all": matchStatus = record.ui_status === "COMPLETED"; break;
+                case "done_owner": matchStatus = record.ui_status === "DO_DONE"; break;
+                case "done_processor": matchStatus = record.ui_status === "DP_DONE"; break;
+                default: matchStatus = false;
+            }
+        }
+
+        // Date Filter
+        let matchDate = true;
+        if (dateFilter !== "all" && record.sent_at) {
+            const rowDate = new Date(record.sent_at);
+            const now = new Date();
+            if (dateFilter === "7days") {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= sevenDaysAgo;
+            } else if (dateFilter === "30days") {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= thirtyDaysAgo;
+            } else if (dateFilter === "custom" && customDate) {
+                matchDate = rowDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
+            }
+        } else if (dateFilter !== "all" && !record.sent_at) {
+            matchDate = false;
+        }
+
+        return matchStatus && matchDate;
+    });
+
     const ITEMS_PER_PAGE = 5;
-    const paginatedRecords = sentRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case "WAITING_REVIEW": return "bg-[#6B7280] text-white"; // Gray
+            case "WAITING_DO_FIX": return "bg-[#FFC107] text-[#1B1C1C]"; // Yellow
+            case "WAITING_DP_FIX": return "bg-[#FFC107] text-[#1B1C1C]"; // Yellow
+            case "DO_DONE": return "bg-[#107C41] text-white"; // Green
+            case "DP_DONE": return "bg-[#107C41] text-white"; // Green
+            default: return "bg-[#E5E7EB] text-[#6B7280]";
+        }
+    };
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -32,18 +91,34 @@ export default function RopaSubmittedPage() {
                     </div>
 
                     <DocumentFilterBar 
-                        statusOptions={[{ label: "รอส่วนของ Data Owner", value: "wait_owner" }]} 
+                        statusValue={statusFilter}
+                        onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
+                        statusOptions={[
+                            { label: "ทั้งหมด", value: "all" },
+                            { label: "รอดำเนินการ(รอทั้งหมด)", value: "wait_all" },
+                            { label: "เสร็จสิ้นทั้งหมด(เสร็จสิ้นทั้งหมด)", value: "done_all" },
+                            { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
+                            { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
+                            { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
+                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" }
+                        ]}
+                        dateValue={dateFilter}
+                        onDateChange={(val) => { setDateFilter(val); setPage(1); }}
+                        customDate={customDate}
+                        onCustomDateChange={(val) => { setCustomDate(val); setPage(1); }}
+                        onClear={handleClearFilters}
                     />
 
                     <ListCard title="เอกสารที่ส่งให้กับเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" icon="assignment" iconColor="#FF9800" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[25%]">ชื่อเอกสาร</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[20%]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[15%]">วันที่ส่งข้อมูล</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[15%]">วันที่ตรวจสอบ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[18%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[27%]" className="whitespace-nowrap !text-[12px]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันที่ส่งข้อมูล</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันที่ตรวจสอบ</DocumentTableHeader>
                                 <DocumentTableHeaderWithTooltip 
                                     width="w-[15%]" 
+                                    className="whitespace-nowrap !text-[12px]"
                                     title="สถานะ" 
                                     tooltipText={
                                         <>
@@ -52,7 +127,7 @@ export default function RopaSubmittedPage() {
                                         </>
                                     } 
                                 />
-                                <DocumentTableHeader width="w-[10%]">การดำเนินการ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedRecords.length === 0 ? (
@@ -77,7 +152,7 @@ export default function RopaSubmittedPage() {
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1">
-                                                    <span className="px-3 py-1 rounded-[4px] text-[10px] font-bold bg-[#FFC107] text-[#1B1C1C]">
+                                                    <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold min-w-[150px] text-center whitespace-nowrap ${getStatusColor(record.ui_status)}`}>
                                                         {record.ui_status_label}
                                                     </span>
                                                 </div>
@@ -99,8 +174,8 @@ export default function RopaSubmittedPage() {
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={Math.max(1, Math.ceil(sentRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={sentRecords.length}
+                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={filteredRecords.length}
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />

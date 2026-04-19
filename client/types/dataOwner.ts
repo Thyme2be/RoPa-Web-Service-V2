@@ -1,4 +1,19 @@
-import { RopaStatus, DataType, CollectionMethod, RetentionUnit, SectionStatus } from "./enums";
+import { RopaStatus, DataType, CollectionMethod, RetentionUnit, SectionStatus, UserRole } from "./enums";
+
+export interface UserRead {
+    id: number;
+    title?: string;
+    first_name?: string;
+    last_name?: string;
+    email: string;
+    username?: string;
+    role: UserRole;
+    department?: string;
+    company_name?: string;
+    status: string;
+    created_at: string;
+    is_active: boolean;
+}
 
 export interface OwnerDashboardData {
   total_documents: number;

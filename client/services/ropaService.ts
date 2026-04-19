@@ -7,6 +7,7 @@ import {
   DestroyedTableItem 
 } from "@/types/dataOwner";
 import { ExecutiveDashboardResponse } from "@/types/executive";
+import { UserRead } from "@/types/dataOwner";
 
 export const ropaService = {
     // ─── Executive ───────────────────────────────────────────────────────────
@@ -76,10 +77,10 @@ export const ropaService = {
 
     createDocument: async (data: { 
         title: string; 
-        assigned_processor_id: number; 
-        due_date: string; 
-        processor_company: string; 
-        description?: string 
+        due_date?: string; 
+        processor_company?: string; 
+        description?: string;
+        assigned_processor_id?: number;
     }) => {
         const response = await api.post("/owner/documents", data);
         return response.data;

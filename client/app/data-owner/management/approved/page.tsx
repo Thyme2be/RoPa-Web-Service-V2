@@ -12,10 +12,51 @@ import { useRopa } from "@/context/RopaContext";
 export default function RopaApprovedPage() {
     const { approvedRecords: contextApprovedRecords } = useRopa();
     const router = useRouter();
+
     const [page, setPage] = useState(1);
-    
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [customDate, setCustomDate] = useState("");
+
+    const handleClearFilters = () => {
+        setStatusFilter("all");
+        setDateFilter("all");
+        setCustomDate("");
+        setPage(1);
+    };
+
+    const filteredRecords = contextApprovedRecords.filter(record => {
+        // Status Filter
+        let matchStatus = true;
+        if (statusFilter !== "all") {
+            // In Approved table, everything is already finished
+            const isDoneFilter = ["done", "done_all", "done_owner", "done_processor"].includes(statusFilter);
+            matchStatus = isDoneFilter;
+        }
+
+        // Date Filter
+        let matchDate = true;
+        if (dateFilter !== "all" && record.last_approved_at) {
+            const approvedDate = new Date(record.last_approved_at);
+            const now = new Date();
+            if (dateFilter === "7days") {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = approvedDate >= sevenDaysAgo;
+            } else if (dateFilter === "30days") {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = approvedDate >= thirtyDaysAgo;
+            } else if (dateFilter === "custom" && customDate) {
+                matchDate = approvedDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
+            }
+        } else if (dateFilter !== "all" && !record.last_approved_at) {
+            matchDate = false; // If filtering by date but no date available, hide it
+        }
+
+        return matchStatus && matchDate;
+    });
+
     const ITEMS_PER_PAGE = 5;
-    const paginatedRecords = contextApprovedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -31,29 +72,46 @@ export default function RopaApprovedPage() {
                         </h1>
                     </div>
 
-                    <DocumentFilterBar 
-                        statusOptions={[{ label: "ตรวจสอบเสร็จสิ้น", value: "done" }]} 
+                    <DocumentFilterBar
+                        statusValue={statusFilter}
+                        onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
+                        statusOptions={[
+                            { label: "ทั้งหมด", value: "all" },
+                            { label: "รอดำเนินการ", value: "pending" },
+                            { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
+                            { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
+                            { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
+                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" },
+                            { label: "ตรวจสอบเสร็จสิ้น", value: "done" }
+                        ]}
+                        dateValue={dateFilter}
+                        onDateChange={(val) => { setDateFilter(val); setPage(1); }}
+                        customDate={customDate}
+                        onCustomDateChange={(val) => { setCustomDate(val); setPage(1); }}
+                        onClear={handleClearFilters}
                     />
 
                     <ListCard title="เอกสารที่อนุมัติ" icon="task_alt" iconColor="#0D9488" bodyClassName="p-0">
 
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[20%]">ชื่อเอกสาร</DocumentTableHeader>
-                                <DocumentTableHeaderWithTooltip 
-                                    width="w-[14%]" 
-                                    title="ชื่อ DO" 
+                                <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeaderWithTooltip
+                                    width="w-[14%]"
+                                    className="whitespace-nowrap !text-[12px]"
+                                    title="ชื่อ DO"
                                     tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Owner</span> หมายถึง ผู้รับผิดชอบข้อมูล</p>}
                                 />
-                                <DocumentTableHeaderWithTooltip 
-                                    width="w-[16%]" 
-                                    title="ชื่อ DPO" 
-                                    tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Protection Officer</span> หมายถึง<br/>เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</p>}
+                                <DocumentTableHeaderWithTooltip
+                                    width="w-[16%]"
+                                    className="whitespace-nowrap !text-[12px]"
+                                    title="ชื่อ DPO"
+                                    tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Protection Officer</span> หมายถึง<br />เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</p>}
                                 />
-                                <DocumentTableHeader width="w-[12%]">วันที่อนุมัติ</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[14%]">วันครบกำหนดทำลาย</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[14%]">ตรวจสอบรายปี</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[10%]">การดำเนินการ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">วันที่อนุมัติ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">วันครบกำหนดทำลาย</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">ตรวจสอบรายปี</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedRecords.length === 0 ? (
@@ -69,8 +127,8 @@ export default function RopaApprovedPage() {
                                                 <div className="font-medium text-[#1B1C1C]">{record.title}</div>
                                                 <div className="text-xs text-gray-400">ID: {record.document_number}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.do_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell>{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
                                             <DocumentTableCell align="left">
                                                 {record.last_approved_at ? new Date(record.last_approved_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
@@ -78,15 +136,15 @@ export default function RopaApprovedPage() {
                                                 {record.destruction_date ? new Date(record.destruction_date).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : "bg-[#FF9800]"}`}>
+                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white whitespace-nowrap ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : "bg-[#FF9800]"}`}>
                                                     {record.annual_review_status_label}
                                                 </span>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip 
-                                                        icon="visibility" 
-                                                        tooltipText="ดูเอกสาร" 
+                                                    <ActionIconWithTooltip
+                                                        icon="visibility"
+                                                        tooltipText="ดูเอกสาร"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                                         onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
                                                     />
@@ -97,12 +155,12 @@ export default function RopaApprovedPage() {
                                 )}
                             </DocumentTableBody>
                         </DocumentTable>
-                        <DocumentPagination 
-                            current={page} 
-                            totalPages={Math.max(1, Math.ceil(contextApprovedRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={contextApprovedRecords.length}
+                        <DocumentPagination
+                            current={page}
+                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={filteredRecords.length}
                             itemsPerPage={ITEMS_PER_PAGE}
-                            onChange={setPage} 
+                            onChange={setPage}
                         />
                     </ListCard>
                 </div>
