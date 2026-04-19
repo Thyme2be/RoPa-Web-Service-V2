@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
@@ -10,13 +11,11 @@ import { useRopa } from "@/context/RopaContext";
 
 export default function RopaDestroyedPage() {
     const { destroyedRecords: contextDestroyedRecords } = useRopa();
+    const router = useRouter();
     const [page, setPage] = useState(1);
     
     const ITEMS_PER_PAGE = 5;
     const paginatedRecords = contextDestroyedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
-    const ITEMS_PER_PAGE = 5;
-    const paginatedRecords = destroyedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">

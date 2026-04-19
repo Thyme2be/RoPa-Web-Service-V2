@@ -7,7 +7,7 @@ import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, Documen
 import CreateDocumentModal from "@/components/ropa/CreateDocumentModal";
 import { useRouter } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
-import { RopaStatus } from "@/types/enums";
+import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
 
@@ -91,8 +91,8 @@ export default function ManagementProcessingPage() {
 
     // ─── Filter processing records ─────────────────────────────────────────────
     // Records in "processing" table are from activeRecords state
-    const processingRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.SUBMITTED || r.owner_section_status === "SUBMITTED");
-    const draftRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.DRAFT || r.owner_section_status === "DRAFT");
+    const processingRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.SUBMITTED);
+    const draftRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.DRAFT);
 
     const filteredProcessing = processingRecords.filter(record => {
         let matchStatus = true;

@@ -14,7 +14,7 @@ import { RopaStatus } from "@/types/enums";
 import { OwnerRecord } from "@/types/dataOwner";
 
 export default function RopaReviewPage() {
-    const { records, updateStatus, getByStatus, stats } = useRopa();
+    const { activeRecords: contextActive, sentRecords, sendToDpo } = useRopa();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedDoc, setSelectedDoc] = useState<Partial<OwnerRecord> | null>(null);
     const [auditorName, setAuditorName] = useState("");
@@ -22,8 +22,18 @@ export default function RopaReviewPage() {
     const [reviewPage, setReviewPage] = useState(1);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
-    const activeRecords = getByStatus(RopaStatus.Active);
-    const submittedRecords = getByStatus(RopaStatus.Submitted);
+    const activeRecords = contextActive.map(r => ({
+        id: r.document_id,
+        document_name: r.title,
+        dateCreated: r.created_at ? new Date(r.created_at).toLocaleDateString("th-TH") : "-"
+    }));
+    const submittedRecords = sentRecords.map(r => ({
+        id: r.document_id,
+        document_name: r.title,
+        submittedDate: r.sent_at ? new Date(r.sent_at).toLocaleDateString("th-TH") : "-",
+        updatedDate: r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString("th-TH") : "-",
+        dateCreated: r.sent_at ? new Date(r.sent_at).toLocaleDateString("th-TH") : "-"
+    }));
     const itemsPerPage = 3;
     const paginatedModalRecords = activeRecords.slice((modalPage - 1) * itemsPerPage, modalPage * itemsPerPage);
     const totalModalPages = Math.ceil(activeRecords.length / itemsPerPage);
@@ -39,10 +49,17 @@ export default function RopaReviewPage() {
         setIsModalOpen(false);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (selectedDoc?.id) {
-            updateStatus(selectedDoc.id, RopaStatus.Submitted);
-            setIsSuccessModalOpen(true);
+            try {
+                await sendToDpo(selectedDoc.id);
+                setIsSuccessModalOpen(true);
+                setSelectedDoc(null);
+                setAuditorName("");
+            } catch (error) {
+                console.error("Failed to submit:", error);
+                alert("เกิดข้อผิดพลาดในการส่งข้อมูล");
+            }
         }
     };
 
@@ -78,7 +95,7 @@ export default function RopaReviewPage() {
                                     <ReviewRow
                                         key={r.id}
                                         id={r.id}
-                                        title={r.documentName}
+                                        title={r.document_name}
                                         date={r.submittedDate || r.updatedDate || r.dateCreated || "-"}
                                         status="กำลังตรวจสอบ"
                                     />
@@ -107,7 +124,7 @@ export default function RopaReviewPage() {
                                 <div className="flex-1 max-w-2xl relative">
                                     <input
                                         type="text"
-                                        value={auditorName || (selectedDoc ? `${selectedDoc.id} - ${selectedDoc.documentName}` : "")}
+                                        value={auditorName || (selectedDoc ? `${selectedDoc.id} - ${selectedDoc.document_name}` : "")}
                                         onChange={(e) => setAuditorName(e.target.value)}
                                         placeholder="โปรดระบุชื่อ - นามสกุล ของผู้ตรวจสอบ"
                                         className="w-full h-16 bg-[#F6F3F2] rounded-xl px-7 text-base font-bold text-[#1B1C1C] outline-none border border-transparent focus:bg-white focus:border-[#ED393C]/20 focus:ring-4 focus:ring-[#ED393C]/5 transition-all"
@@ -182,7 +199,7 @@ export default function RopaReviewPage() {
                                             {paginatedModalRecords.map((doc) => (
                                                 <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors group">
                                                     <td className="py-6 text-sm font-medium text-secondary">{doc.id}</td>
-                                                    <td className="py-6 text-base font-bold text-[#1B1C1C] text-left px-4 group-hover:text-[#ED393C] transition-colors">{doc.documentName}</td>
+                                                    <td className="py-6 text-base font-bold text-[#1B1C1C] text-left px-4 group-hover:text-[#ED393C] transition-colors">{doc.document_name}</td>
                                                     <td className="py-6 text-sm font-medium text-secondary">{doc.dateCreated}</td>
                                                     <td className="py-6">
                                                         <button
