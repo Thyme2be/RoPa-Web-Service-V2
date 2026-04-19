@@ -116,7 +116,7 @@
 *   **Update** (`PUT /admin/roles/{id}`): `{ "name": "เปลี่ยนชื่อแปลไทย" }`
 *   **Delete** (`DELETE /admin/roles/{id}`)  
 
-**หน้าตา Response ตัวอย่างของฝั่ง Master Data ทั้ง 3 ตัว:**
+**หน้าตา Response ตัวอย่างของฝั่ง Master Data ทั้ง 3**:
 ```json
 {
   "total": 1,
@@ -130,6 +130,8 @@
       "created_at": "2026-04-17T09:00:00Z"
     }
   ]
+}
+```
 
 ---
 
@@ -137,14 +139,45 @@
 
 ใช้สำหรับสรุปภาพรวมข้อมูล สถิติผู้ใช้ และการติดตามงาน
 
-### 3.1 ภาพรวมองค์กร (Organisation Dashboard)
-*   **Endpoint**: `GET /dashboard`
+### 3.1 ดูรายการเอกสารทั้งหมด (Admin Document List)
+**Endpoint**: `GET /admin/documents`
+**หน้าที่**: ดึงรายชื่อกิจกรรมการประมวลผลข้อมูล (RoPa) ทั้งหมดในระบบ พร้อมข้อมูลผู้รับผิดชอบและแผนก
+
+**Query Parameters**:
+- `search` (Optional): ค้นหาจากชื่อกิจกรรมหรือรหัสเอกสาร
+- `status` (Optional): กรองตามสถานะ (`DRAFT`, `IN_PROGRESS`, `UNDER_REVIEW`, `COMPLETED`)
+- `page` (Default: 1): เลขหน้า
+- `limit` (Default: 10): รายการต่อหน้า
+
+**Response Payload**:
+```json
+{
+  "total": 50,
+  "page": 1,
+  "limit": 10,
+  "items": [
+    {
+      "id": "78768007-991f-49f9-aa84-af13253b2661",
+      "document_number": "RP-2024-001",
+      "title": "กิจกรรมการจัดการข้อมูลพนักงาน",
+      "owner_name": "สมชาย ใจดี",
+      "department": "ฝ่ายบุคคล",
+      "dpo_name": "วิศรุต DPO",
+      "updated_at": "2026-04-19T10:00:00Z",
+      "status": "IN_PROGRESS"
+    }
+  ]
+}
+```
+
+### 3.2 แดชบอร์ดภาพรวมองค์กร (Organisation Dashboard)
+**Endpoint**: `GET /dashboard?period=7d`
 *   **Query Parameters**: 
     *   `period` (String) - `7_days`, `30_days`, `overdue`, `all`, `custom`
     *   `custom_date` (String, YYYY-MM-DD) - ใช้เมื่อเลือก period เป็น `custom`
 *   **Response**: คืนค่าสถิติเอกสารแยกตามสถานะและการทำงานของแต่ละ Role (DO, DP, DPO, Auditor)
 
-### 3.2 สถิติผู้ใช้งานรายบทบาท (User Stats Dashboard)
+### 3.3 สถิติผู้ใช้งานรายบทบาท (User Stats Dashboard)
 ใช้สำหรับวาดกราฟวงกลม (Center Donut) และตารางสรุปสถิติจำนวนคน
 *   **Endpoint**: `GET /dashboard/users`
 *   **Query Parameters**: เหมือน 3.1
@@ -167,16 +200,22 @@
 *   **Response Payload**:
     ```json
     {
+      "user": {
+        "id": 3,
+        "email": "user@mail.com",
+        "first_name": "สมชาย",
+        "last_name": "มั่นคง",
+        "role": "DPO",
+        "status": "ACTIVE"
+      },
       "role_dashboard": {
         // ข้อมูลจะเปลี่ยนไปตามบทบาทของ User คนนั้น เช่น
         // ถ้าเป็น DPO จะเห็น risk_overview, pending_dpo_review
         // ถ้าเป็น Auditor จะเห็น pending_audits, overdue_audits
       },
       "statistics": {
-        "documents_created": { "IN_PROGRESS": 5, "COMPLETED": 10 },
-        "processor_assignments": 3,
-        "auditor_assignments": 0,
-        "owned_assignments": 2
+        "owned_documents": 5,
+        "last_activity": "2026-04-18T15:30:00Z"
       }
     }
     ```

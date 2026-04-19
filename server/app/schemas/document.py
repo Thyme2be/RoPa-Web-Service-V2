@@ -99,9 +99,9 @@ class DpoAssignRequest(BaseModel):
     dpo_id: int
 
 class AuditorAssignRequest(BaseModel):
-    auditor_id: int
+    title: str
+    first_name: str
+    last_name: str
     auditor_type: AuditorTypeEnum
     department: str
-    preferred_first_name: str
-    preferred_last_name: str
     due_date: datetime

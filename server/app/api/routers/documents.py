@@ -173,14 +173,28 @@ def assign_auditor(
     if not dpo_assignment:
         raise HTTPException(status_code=403, detail="You are not assigned as the DPO for this document.")
 
+    # Find the Auditor in the users table by Title, First Name, and Last Name (Case-insensitive)
+    auditor_user = db.query(UserModel).filter(
+        UserModel.title.ilike(payload.title),
+        UserModel.first_name.ilike(payload.first_name),
+        UserModel.last_name.ilike(payload.last_name)
+    ).first()
+
+    if not auditor_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ไม่พบผู้ตรวจสอบรายนี้ ({payload.title} {payload.first_name} {payload.last_name}) ในระบบ กรุณาตรวจสอบการสะกดชื่อหรือลงทะเบียนผู้ใช้ก่อน"
+        )
+
     auditor_assignment = AuditorAssignmentModel(
         document_id=document_id,
-        auditor_id=payload.auditor_id,
+        auditor_id=auditor_user.id,
         assigned_by=current_user.id,
         auditor_type=payload.auditor_type,
         department=payload.department,
-        preferred_first_name=payload.preferred_first_name,
-        preferred_last_name=payload.preferred_last_name,
+        preferred_title=payload.title,
+        preferred_first_name=payload.first_name,
+        preferred_last_name=payload.last_name,
         due_date=payload.due_date
     )
     db.add(auditor_assignment)

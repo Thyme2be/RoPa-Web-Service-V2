@@ -68,7 +68,10 @@ class RoleBreakdowns(BaseModel):
     admin_breakdown: SimpleRoleBreakdown
     executive_breakdown: SimpleRoleBreakdown
 
+from app.schemas.user import UserRead
+
 class AdminUserDashboardResponse(BaseModel):
+    user: Optional[UserRead] = None  # Re-added for frontend sync
     selected_period: str
     user_overview: UserRoleOverview
     role_breakdowns: RoleBreakdowns
