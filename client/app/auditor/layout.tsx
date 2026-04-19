@@ -11,7 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 export default function AuditorLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
 
     // Mock data lookup for display names
     const mockDocs = [
@@ -117,8 +117,15 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
                             <div className="flex items-center gap-2">
                                 <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-xs font-bold text-neutral-900">ปริญญา วัฒนานุกุล</span>
-                                    <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">ผู้ตรวจสอบ</span>
+                                    <span className="text-xs font-bold text-neutral-900">
+                                        {user ? (user.first_name ? `${user.first_name} ${user.last_name || ""}` : user.username) : "กำลังโหลด..."}
+                                    </span>
+                                    <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
+                                        {user?.role === "AUDITOR" ? "ผู้ตรวจสอบ" : 
+                                         user?.role === "DPO" ? "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" :
+                                         user?.role === "ADMIN" ? "ผู้ดูแลระบบ" :
+                                         user?.role || "ผู้ใช้งาน"}
+                                    </span>
                                 </div>
                             </div>
                         </div>

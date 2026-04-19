@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import func, text, and_, or_, exists, cast, Date, extract
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import get_db, get_current_user
 from app.core.rbac import Role, require_roles
@@ -99,7 +99,7 @@ def _get_org_metrics_internal(db: Session, period: str, custom_date: Optional[st
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid custom_date format. Use YYYY-MM-DD")
 
-    base_query = db.query(RopaDocumentModel.id).filter(*base_filters)
+    base_query = db.query(RopaDocumentModel.id).filter(*base_filters).correlate(None)
 
     # 1. Document Overview
     total_docs = base_query.count()
@@ -530,6 +530,7 @@ def _get_executive_metrics_internal(db: Session):
                 RopaRiskAssessmentModel.risk_level,
                 func.count(RopaRiskAssessmentModel.id).label("cnt"),
             )
+            .select_from(RopaDocumentModel)
             .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
             .join(UserModel, UserModel.id == RopaOwnerSectionModel.owner_id)
             .join(RopaRiskAssessmentModel, RopaRiskAssessmentModel.document_id == RopaDocumentModel.id)
@@ -567,6 +568,7 @@ def _get_executive_metrics_internal(db: Session):
                 UserModel.department,
                 func.count(func.distinct(RopaDocumentModel.id)).label("cnt"),
             )
+            .select_from(RopaDocumentModel)
             .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
             .join(UserModel, UserModel.id == RopaOwnerSectionModel.owner_id)
             .join(OwnerDataTypeModel, OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id)
@@ -799,7 +801,7 @@ def list_dpo_documents(
         UserModel,
         doc_seq_cte.c.doc_year,
         doc_seq_cte.c.doc_number
-    ).join(
+    ).select_from(RopaDocumentModel).join(
         DocumentReviewCycleModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id
     ).join(
         ReviewDpoAssignmentModel, DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id
@@ -1201,29 +1203,24 @@ def list_documents_from_dpo(
         # Owner or Creator
         access_filter = or_(
             RopaDocumentModel.created_by == user_id,
-            exists().where(
-                and_(
-                    ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
-                    ProcessorAssignmentModel.assigned_by == user_id
-                )
-            )
+            db.query(ProcessorAssignmentModel.id).filter(
+                ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
+                ProcessorAssignmentModel.assigned_by == user_id
+            ).exists()
         )
     elif role == Role.PROCESSOR:
         # Only where they are the processor
-        access_filter = exists().where(
-            and_(
-                ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
-                ProcessorAssignmentModel.processor_id == user_id
-            )
-        )
+        access_filter = db.query(ProcessorAssignmentModel.id).filter(
+            ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
+            ProcessorAssignmentModel.processor_id == user_id
+        ).exists()
     elif role == Role.AUDITOR:
         # Only APPROVED ones
-        access_filter = exists().where(
-            and_(
-                DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
-                DocumentReviewCycleModel.status == 'APPROVED'
-            )
-        )
+        DRC = aliased(DocumentReviewCycleModel)
+        access_filter = db.query(DRC.id).filter(
+            DRC.document_id == RopaDocumentModel.id,
+            DRC.status == 'APPROVED'
+        ).exists()
     else:
         # DPO/Executive might see everything or limited
         access_filter = text("1=1")
@@ -1247,7 +1244,7 @@ def list_documents_from_dpo(
         UserModel.last_name,
         id_cte.c.seq_id,
         id_cte.c.year
-    ).join(
+    ).select_from(RopaDocumentModel).join(
         id_cte, id_cte.c.doc_id == RopaDocumentModel.id
     ).outerjoin(
         DocumentReviewCycleModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id
