@@ -6,7 +6,7 @@ import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import { useRouter } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
-import { RopaStatus } from "@/types/enums";
+import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
 
@@ -78,14 +78,14 @@ export default function ManagementProcessingPage() {
         setCustomDate("");
     };
 
-    const assignedRecords = records.filter(r => r.assignedProcessor);
-    const draftRecords = processorRecords.filter(r => r.status === RopaStatus.Draft);
+    const assignedRecords = records.filter(r => r.assigned_processor);
+    const draftRecords = processorRecords.filter(r => r.status === SectionStatus.DRAFT);
 
     const filteredAssigned = assignedRecords.filter(record => {
         let matchStatus = true;
-        const dpStatus = record.processingStatus?.dpStatus;
-        if (statusFilter === "wait_processor") matchStatus = dpStatus !== "done";
-        if (statusFilter === "done_processor") matchStatus = dpStatus === "done";
+        const dp_status = record.processing_status?.dp_status;
+        if (statusFilter === "wait_processor") matchStatus = dp_status !== "done";
+        if (statusFilter === "done_processor") matchStatus = dp_status === "done";
         return matchStatus;
     });
 
@@ -95,10 +95,10 @@ export default function ManagementProcessingPage() {
     };
 
     const getDoLabel = (r: OwnerRecord) =>
-        r.processingStatus?.doStatus === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
+        r.processing_status?.do_status === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
 
     const getDpLabel = (r: OwnerRecord) =>
-        r.processingStatus?.dpStatus === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
+        r.processing_status?.dp_status === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
 
     const ITEMS_PER_PAGE = 3;
     const paginatedProcessing = filteredAssigned.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -158,15 +158,15 @@ export default function ManagementProcessingPage() {
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.documentName}
+                                                {record.id} {record.document_name}
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.title}{record.firstName} {record.lastName}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.assignedProcessor?.assignedDate || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.dueDate || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>{record.title_prefix}{record.first_name} {record.last_name}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.assigned_processor?.assigned_date || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.due_date || "—"}</DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
-                                                    <StatusBadge done={record.processingStatus?.doStatus === "done"} label={getDoLabel(record)} />
-                                                    <StatusBadge done={record.processingStatus?.dpStatus === "done"} label={getDpLabel(record)} />
+                                                    <StatusBadge done={record.processing_status?.do_status === "done"} label={getDoLabel(record)} />
+                                                    <StatusBadge done={record.processing_status?.dp_status === "done"} label={getDpLabel(record)} />
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
@@ -217,10 +217,10 @@ export default function ManagementProcessingPage() {
                                     paginatedDrafts.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.documentName}
+                                                {record.id} {record.document_name}
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5F5E5E] font-medium">
-                                                {record.lastUpdated || "—"}
+                                                {record.updated_at || "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-4">
@@ -228,7 +228,7 @@ export default function ManagementProcessingPage() {
                                                         icon="edit"
                                                         tooltipText="แก้ไขฉบับร่าง"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#00666E]"
-                                                        onClick={() => router.push(`/data-processor/management/form?id=${record.ropaId}`)}
+                                                        onClick={() => router.push(`/data-processor/management/form?id=${record.document_id}`)}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="delete"

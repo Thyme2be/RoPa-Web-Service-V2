@@ -48,12 +48,12 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                             <div className="flex items-center gap-4">
                                 <div className="w-[130px] shrink-0">
                                     <Select
-                                        name="title"
-                                        value={form?.title || ""}
+                                        name="title_prefix"
+                                        value={form?.title_prefix || ""}
                                         options={titleOptions}
                                         onChange={handleChange}
                                         disabled={disabled}
-                                        error={errors?.title}
+                                        error={errors?.title_prefix}
                                         rounding="xl"
                                         placeholder="คำนำหน้า"
                                         primaryColor={primaryColor}
@@ -61,11 +61,11 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                                 </div>
                                 <div className="flex-1">
                                     <Input
-                                        name="firstName"
-                                        value={form?.firstName || ""}
+                                        name="first_name"
+                                        value={form?.first_name || ""}
                                         placeholder="ระบุชื่อจริง"
                                         onChange={handleChange}
-                                        error={errors?.firstName}
+                                        error={errors?.first_name}
                                         disabled={disabled}
                                         containerClassName="space-y-0"
                                         focusColor={primaryColor}
@@ -73,11 +73,11 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                                 </div>
                                 <div className="flex-1">
                                     <Input
-                                        name="lastName"
-                                        value={form?.lastName || ""}
+                                        name="last_name"
+                                        value={form?.last_name || ""}
                                         placeholder="ระบุนามสกุล"
                                         onChange={handleChange}
-                                        error={errors?.lastName}
+                                        error={errors?.last_name}
                                         disabled={disabled}
                                         containerClassName="space-y-0"
                                         focusColor={primaryColor}
@@ -121,11 +121,11 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                         <Input
                             label="เบอร์โทรศัพท์"
                             required
-                            name="phoneNumber"
-                            value={form?.phoneNumber || ""}
+                            name="phone"
+                            value={form?.phone || ""}
                             placeholder="02-XXX-XXXX"
                             onChange={handleChange}
-                            error={errors?.phoneNumber}
+                            error={errors?.phone}
                             disabled={disabled}
                             requiredColor={markerColor}
                             focusColor={primaryColor}

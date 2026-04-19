@@ -12,7 +12,7 @@ import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
-import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
+import { SectionStatus } from "@/types/enums";
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
@@ -33,25 +33,31 @@ function DataProcessorFormContent() {
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
 
     const [form, setForm] = useState<Partial<ProcessorRecord>>({
-        processorName: "",
-        controllerName: "",
-        controllerAddress: "",
-        status: RopaStatus.Draft,
-        dataSource: { direct: false, indirect: false },
-        internationalTransfer: { isTransfer: false },
-        dataCategories: [],
-        storedDataTypes: [],
-        retention: {
-            storageType: CollectionMethod.SoftFile,
-            method: [],
-            duration: 0,
-            unit: RetentionUnit.Year,
-            accessCondition: "",
-            accessControl: "",
-            deletionMethod: ""
-        },
-        dataType: [DataType.General],
-        securityMeasures: {},
+        processor_name: "",
+        controller_name: "",
+        controller_address: "",
+        status: SectionStatus.DRAFT,
+        collection_methods: [],
+        data_sources: [],
+        data_source_other: "",
+        has_cross_border_transfer: false,
+        data_categories: [],
+        personal_data_items: [],
+        data_types: [],
+        storage_types: [],
+        storage_methods: [],
+        retention_value: 0,
+        retention_unit: "YEARS",
+        access_condition: "",
+        deletion_method: "",
+        legal_basis: "",
+        exemption_usage: "",
+        org_measures: "",
+        technical_measures: "",
+        physical_measures: "",
+        access_control_measures: "",
+        responsibility_measures: "",
+        audit_measures: ""
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,7 +65,7 @@ function DataProcessorFormContent() {
     // Load existing record
     useEffect(() => {
         let isMounted = true;
-        
+
         const loadFullRecord = async () => {
             if (recordId) {
                 setIsLoadingFull(true);
@@ -102,6 +108,8 @@ function DataProcessorFormContent() {
             }
 
             if (keys.length === 1) return { ...prev, [name]: val };
+            // Note: In the new flattened structure, keys.length should mostly be 1.
+            // Keeping nested support for backward compat if any component still uses it temporarily
             if (keys.length === 2) {
                 const [p, c] = keys;
                 return { ...prev, [p]: { ...prev[p], [c]: val } };
@@ -112,59 +120,56 @@ function DataProcessorFormContent() {
 
     const completedSteps = useMemo(() => {
         const completed = [];
-        // Step 1: General (DP needs controllerName/processorName for processor)
-        if (form.controllerName && form.processorName && form.title && form.firstName && form.lastName) completed.push(1);
+        // Step 1: General
+        if (form.controller_name && form.processor_name && form.title_prefix && form.first_name && form.last_name) completed.push(1);
         // Step 2: Activity
-        if (form.processorName && form.controllerAddress && form.processingActivity && form.purpose) completed.push(2);
+        if (form.processor_name && form.controller_address && form.processing_activity && form.purpose_of_processing) completed.push(2);
         // Step 3: Stored Info
-        if (form.dataCategories && form.dataCategories.length > 0 && form.storedDataTypes && form.storedDataTypes.length > 0) completed.push(3);
+        if (form.data_categories && form.data_categories.length > 0 && form.personal_data_items && form.personal_data_items.length > 0) completed.push(3);
         // Step 4: Retention
-        if (form.collectionMethod && form.retention?.duration && form.retention?.accessControl) completed.push(4);
+        if (form.collection_methods && form.collection_methods.length > 0 && form.retention_value && form.access_condition) completed.push(4);
         // Step 5: Legal
-        if (form.legalBasis && form.exemptionDisclosure) completed.push(5);
+        if (form.legal_basis && form.exemption_usage) completed.push(5);
         // Step 6: Security
-        const sm = form.securityMeasures;
-        if (sm?.organizational && sm?.accessControl && sm?.technical) completed.push(6);
+        if (form.org_measures && form.access_control_measures && form.technical_measures) completed.push(6);
         return completed;
     }, [form]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
-        
+
         // Step 1: General
-        if (!form.controllerName) newErrors.controllerName = "กรุณาระบุชื่อผู้ควบคุมข้อมูล";
-        if (!form.processorName) newErrors.processorName = "กรุณาระบุชื่อผู้ประมวลผลข้อมูล";
-        if (!form.title) newErrors.title = "กรุณาระบุคำนำหน้า";
-        if (!form.firstName) newErrors.firstName = "กรุณาระบุชื่อ";
-        if (!form.lastName) newErrors.lastName = "กรุณาระบุนามสกุล";
+        if (!form.controller_name) newErrors.controller_name = "กรุณาระบุชื่อผู้ควบคุมข้อมูล";
+        if (!form.processor_name) newErrors.processor_name = "กรุณาระบุชื่อผู้ประมวลผลข้อมูล";
+        if (!form.title_prefix) newErrors.title_prefix = "กรุณาระบุคำนำหน้า";
+        if (!form.first_name) newErrors.first_name = "กรุณาระบุชื่อ";
+        if (!form.last_name) newErrors.last_name = "กรุณาระบุนามสกุล";
 
         // Step 2: Activity
-        if (!form.controllerAddress) newErrors.controllerAddress = "กรุณาระบุที่อยู่ผู้ควบคุมข้อมูล";
-        if (!form.processingActivity) newErrors.processingActivity = "กรุณาระบุกิจกรรมการประมวลผล";
-        if (!form.purpose) newErrors.purpose = "กรุณาระบุวัตถุประสงค์";
+        if (!form.controller_address) newErrors.controller_address = "กรุณาระบุที่อยู่ผู้ควบคุมข้อมูล";
+        if (!form.processing_activity) newErrors.processing_activity = "กรุณาระบุกิจกรรมการประมวลผล";
+        if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณาระบุวัตถุประสงค์";
 
         // Step 3: Stored Info
-        if (!form.dataCategories || form.dataCategories.length === 0) newErrors.dataCategories = "กรุณาเลือกหมวดหมู่ข้อมูล";
-        if (!form.storedDataTypes || form.storedDataTypes.length === 0) newErrors.storedDataTypes = "กรุณาประเภทข้อมูล";
+        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ข้อมูล";
+        if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาประเภทข้อมูล";
 
         // Step 4: Retention
-        if (!form.retention?.duration) newErrors["retention.duration"] = "กรุณาระบุระยะเวลา";
-        if (!form.retention?.accessControl) newErrors["retention.accessControl"] = "กรุณาระบุการควบคุมการเข้าถึง";
+        if (!form.retention_value) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.access_condition) newErrors.access_condition = "กรุณาระบุการควบคุมการเข้าถึง";
 
         // Step 5: Legal
-        if (!form.legalBasis) newErrors.legalBasis = "กรุณาระบุฐานการประมวลผล";
-        if (!form.exemptionDisclosure) newErrors.exemptionDisclosure = "กรุณาระบุข้อยกเว้น";
+        if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานการประมวลผล";
+        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุข้อยกเว้น";
 
         // Step 6: Security
-        const sm = form.securityMeasures;
-        if (!sm?.organizational) newErrors["securityMeasures.organizational"] = "กรุณาระบุมาตรการด้านบริหารจัดการ";
-        if (!sm?.accessControl) newErrors["securityMeasures.accessControl"] = "กรุณาระบุการควบคุมการเข้าถึง";
-        if (!sm?.technical) newErrors["securityMeasures.technical"] = "กรุณาระบุมาตรการด้านเทคนิค";
+        if (!form.org_measures) newErrors.org_measures = "กรุณาระบุมาตรการด้านบริหารจัดการ";
+        if (!form.access_control_measures) newErrors.access_control_measures = "กรุณาระบุการควบคุมการเข้าถึง";
+        if (!form.technical_measures) newErrors.technical_measures = "กรุณาระบุมาตรการด้านเทคนิค";
 
         setErrors(newErrors);
-        
+
         if (Object.keys(newErrors).length > 0) {
-            // Scroll to top or first error could be added here
             return false;
         }
         return true;
@@ -177,8 +182,8 @@ function DataProcessorFormContent() {
 
     const handleFinalConfirm = () => {
         if (!validateForm()) return;
-        
-        saveProcessorRecord({ ...form, status: RopaStatus.Processing } as ProcessorRecord);
+
+        saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
         if (recordId) {
             submitDpSection(recordId);
         }
@@ -191,7 +196,7 @@ function DataProcessorFormContent() {
 
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low overflow-x-hidden">
                 <TopBar
-                    documentName={form.documentName}
+                    documentName={form.document_name}
                     pageTitle="ข้อมูลลูกค้า"
                     handleChange={handleChange}
                     status={form.status}
@@ -214,8 +219,8 @@ function DataProcessorFormContent() {
                                 onClick={() => setIsLocked(!isLocked)}
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
-                                    isLocked 
-                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none" 
+                                    isLocked
+                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
                                         : "text-[#5C403D] border-none hover:bg-black/5"
                                 )}
                             >

@@ -11,12 +11,12 @@ export default function SecurityMeasures({ form, handleChange, errors, disabled,
     const sectionTitle = isProcessor ? "ส่วนที่ 6 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs)" : "ส่วนที่ 7 : มาตรการรักษาความมั่นคงปลอดภัย (TOMs)";
 
     const measures = [
-        { id: "securityMeasures.organizational", label: "มาตรการเชิงองค์กร", icon: "corporate_fare", placeholder: "ระบุมาตรการเชิงองค์กร" },
-        { id: "securityMeasures.accessControl", label: "การควบคุมการเข้าถึงข้อมูล", icon: "lock", placeholder: "ระบุการควบคุมการเข้าถึงข้อมูล" },
-        { id: "securityMeasures.technical", label: "มาตรการเชิงเทคนิค", icon: "shield", placeholder: "ระบุมาตรการเชิงเทคนิค" },
-        { id: "securityMeasures.responsibility", label: "การกำหนดหน้าที่ความรับผิดชอบของผู้ใช้งาน", icon: "assignment_ind", placeholder: "ระบุการกำหนดหน้าที่ความรับผิดชอบของผู้ใช้งาน" },
-        { id: "securityMeasures.physical", label: "มาตรการทางกายภาพ", icon: "security", placeholder: "ระบุมาตรการทางกายภาพ" },
-        { id: "securityMeasures.audit", label: "มาตรการการตรวจสอบย้อนหลัง", icon: "assignment_turned_in", placeholder: "ระบุมาตรการการตรวจสอบย้อนหลัง" },
+        { id: "org_measures", label: "มาตรการเชิงองค์กร", icon: "corporate_fare", placeholder: "ระบุมาตรการเชิงองค์กร" },
+        { id: "access_control_measures", label: "การควบคุมการเข้าถึงข้อมูล", icon: "lock", placeholder: "ระบุการควบคุมการเข้าถึงข้อมูล" },
+        { id: "technical_measures", label: "มาตรการเชิงเทคนิค", icon: "shield", placeholder: "ระบุมาตรการเชิงเทคนิค" },
+        { id: "responsibility_measures", label: "การกำหนดหน้าที่ความรับผิดชอบของผู้ใช้งาน", icon: "assignment_ind", placeholder: "ระบุการกำหนดหน้าที่ความรับผิดชอบของผู้ใช้งาน" },
+        { id: "physical_measures", label: "มาตรการทางกายภาพ", icon: "security", placeholder: "ระบุมาตรการทางกายภาพ" },
+        { id: "audit_measures", label: "มาตรการการตรวจสอบย้อนหลัง", icon: "assignment_turned_in", placeholder: "ระบุมาตรการการตรวจสอบย้อนหลัง" },
     ];
 
     return (
@@ -39,10 +39,7 @@ export default function SecurityMeasures({ form, handleChange, errors, disabled,
             <div className="px-8 pb-10 space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                     {measures.map((m) => {
-                        const keys = m.id.split(".");
-                        const value = keys.length === 2 
-                            ? form?.[keys[0]]?.[keys[1]] 
-                            : form?.[m.id];
+                        const value = (form as any)?.[m.id];
 
                         return (
                             <div key={m.id} className="flex flex-col space-y-4">

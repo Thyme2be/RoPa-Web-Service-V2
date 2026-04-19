@@ -94,10 +94,10 @@ export default function ManagementProcessingPage() {
     const processingRecords = records.filter(r =>
         r.workflow === "processing" ||
         r.status === RopaStatus.Processing ||
-        r.status === RopaStatus.DoPending ||
-        r.status === RopaStatus.ReviewPending ||
-        r.status === RopaStatus.Approved ||
-        r.status === RopaStatus.DeletePending ||
+        r.status === RopaStatus.IN_PROGRESS ||
+        r.status === RopaStatus.UNDER_REVIEW ||
+        r.status === RopaStatus.COMPLETED ||
+        r.status === RopaStatus.DELETED ||
         (!r.workflow && r.status !== RopaStatus.Draft)
     );
 
@@ -106,12 +106,12 @@ export default function ManagementProcessingPage() {
 
     const filteredProcessing = processingRecords.filter(record => {
         let matchStatus = true;
-        const doStatus = record.processingStatus?.doStatus;
-        const dpStatus = record.processingStatus?.dpStatus;
-        if (statusFilter === "wait_owner") matchStatus = doStatus !== "done";
-        if (statusFilter === "wait_processor") matchStatus = dpStatus !== "done";
-        if (statusFilter === "done_owner") matchStatus = doStatus === "done";
-        if (statusFilter === "done_processor") matchStatus = dpStatus === "done";
+        const do_status = record.processing_status?.do_status;
+        const dp_status = record.processing_status?.dp_status;
+        if (statusFilter === "wait_owner") matchStatus = do_status !== "done";
+        if (statusFilter === "wait_processor") matchStatus = dp_status !== "done";
+        if (statusFilter === "done_owner") matchStatus = do_status === "done";
+        if (statusFilter === "done_processor") matchStatus = dp_status === "done";
         return matchStatus;
     });
 
@@ -127,10 +127,10 @@ export default function ManagementProcessingPage() {
     };
 
     const getDoLabel = (r: OwnerRecord) =>
-        r.processingStatus?.doStatus === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
+        r.processing_status?.do_status === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
 
     const getDpLabel = (r: OwnerRecord) =>
-        r.processingStatus?.dpStatus === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
+        r.processing_status?.dp_status === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
 
     const ITEMS_PER_PAGE = 5;
     const paginatedProcessing = filteredProcessing.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -198,15 +198,15 @@ export default function ManagementProcessingPage() {
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.documentName}
+                                                {record.id} {record.document_name}
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.assignedProcessor?.name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.processorCompany || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.dueDate || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>{record.assigned_processor?.name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.processor_company || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.due_date || "—"}</DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
-                                                    <StatusBadge done={record.processingStatus?.doStatus === "done"} label={getDoLabel(record)} />
-                                                    <StatusBadge done={record.processingStatus?.dpStatus === "done"} label={getDpLabel(record)} />
+                                                    <StatusBadge done={record.processing_status?.do_status === "done"} label={getDoLabel(record)} />
+                                                    <StatusBadge done={record.processing_status?.dp_status === "done"} label={getDpLabel(record)} />
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
@@ -264,10 +264,10 @@ export default function ManagementProcessingPage() {
                                     paginatedDrafts.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.documentName}
+                                                {record.id} {record.document_name}
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5F5E5E] font-medium">
-                                                {record.lastUpdated || record.updatedDate || "—"}
+                                                {record.updated_date || "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-4">

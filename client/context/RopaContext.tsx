@@ -1,19 +1,21 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { OwnerRecord } from "@/types/dataOwner";
+import { OwnerRecord, OwnerDashboardData, ActiveTableItem, StatusBadge } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
+import { ExecutiveDashboardResponse, RiskByDepartment } from "@/types/executive";
 import { ropaService } from "@/services/ropaService";
 import { api } from "@/lib/api";
-import { RopaStatus, CollectionMethod, RetentionUnit } from "@/types/enums";
+import { RopaStatus, CollectionMethod, RetentionUnit, SectionStatus } from "@/types/enums";
 import { useAuth } from "./AuthContext";
 
 interface RopaContextType {
     records: OwnerRecord[];
     processorRecords: RopaProcessorRecord[];
-    executiveDashboardData: any | null;
-    ownerDashboardData: any | null;
-    
+    executiveDashboardData: ExecutiveDashboardResponse | null;
+    ownerDashboardData: OwnerDashboardData | null;
+
+
     // Data Owner Actions
     saveRecord: (record: Partial<OwnerRecord>) => Promise<OwnerRecord>;
     getById: (id: string) => OwnerRecord | undefined;
@@ -35,7 +37,7 @@ interface RopaContextType {
     // Data Fetching
     refresh: () => Promise<void>;
     fetchExecutiveData: (period?: string, department?: string) => Promise<void>;
-    
+
     isLoading: boolean;
     stats: {
         total: number;
@@ -61,31 +63,30 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         if (!isAuthenticated || !user) return;
         setIsLoading(true);
         try {
-            // Fetch based on role
             if (user.role === "OWNER") {
                 try {
-                const activeDocs = await ropaService.getOwnerActiveTable();
-                
-                // Normalize backend format to frontend OwnerRecord
-                const normalized = activeDocs.map((item: any) => ({
-                    id: item.document_id,
-                    documentName: item.title, // Page prefix it with ID anyway
-                    title: item.title,
-                    processorCompany: item.dp_company,
-                    dueDate: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
-                    assignedProcessor: item.dp_name ? {
-                        name: item.dp_name,
-                        assignedDate: item.created_at,
-                        documentTitle: item.title
-                    } : undefined,
-                    processingStatus: {
-                        doStatus: item.owner_status.code === "DO_DONE" ? "done" : "pending",
-                        dpStatus: item.processor_status.code === "DP_DONE" ? "done" : "pending"
-                    },
-                    status: RopaStatus.Processing,
-                    workflow: "processing"
-                }));
-                setRecords(normalized);
+                    const activeDocs = await ropaService.getOwnerActiveTable();
+
+                    // Normalize backend format to frontend OwnerRecord
+                    const normalized = activeDocs.map((item: ActiveTableItem) => ({
+                        id: item.document_id,
+                        document_name: item.title,
+                        title_prefix: item.title,
+                        processor_company: item.dp_company,
+                        due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
+                        assigned_processor: item.dp_name ? {
+                            name: item.dp_name,
+                            assigned_date: item.created_at,
+                            document_title: item.title
+                        } : undefined,
+                        processing_status: {
+                            do_status: item.owner_status.code === "DO_DONE" ? "done" : "pending",
+                            dp_status: item.processor_status.code === "DP_DONE" ? "done" : "pending"
+                        },
+                        status: RopaStatus.IN_PROGRESS,
+                        workflow: "processing"
+                    }));
+                    setRecords(normalized as OwnerRecord[]);
 
                     const ownerStats = await ropaService.getOwnerDashboard();
                     setOwnerDashboardData(ownerStats);
@@ -96,33 +97,32 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
             if (user.role === "PROCESSOR") {
                 try {
-                const assignedDocs = await ropaService.getProcessorAssignedTable();
-                
-                // Normalize for processor records
-                const normalized = assignedDocs.map((item: any) => ({
-                    id: item.document_id, // Page uses record.id
-                    ropaId: item.document_id,
-                    documentName: item.title,
-                    title: item.owner_title || "คุณ",
-                    firstName: item.owner_first_name || item.owner_name || "—",
-                    lastName: item.owner_last_name || "",
-                    dueDate: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
-                    assignedProcessor: {
-                        assignedDate: item.assigned_at ? new Date(item.assigned_at).toLocaleDateString("th-TH") : "—"
-                    },
-                    processingStatus: {
-                        doStatus: item.owner_status.code === "DO_DONE" ? "done" : "pending",
-                        dpStatus: item.processor_status.code === "DP_DONE" ? "done" : "pending"
-                    },
-                    status: item.processor_status.code === "DP_DONE" ? RopaStatus.Processing : RopaStatus.Draft
-                }));
-                setProcessorRecords(normalized as any);
-                setRecords(normalized as any); // Some processor pages might still use 'records'
+                    const assignedDocs = await ropaService.getProcessorAssignedTable();
+
+                    const normalized = assignedDocs.map((item: any) => ({
+                        id: item.document_id,
+                        ropa_id: item.document_id,
+                        document_name: item.title,
+                        title_prefix: item.owner_title || "คุณ",
+                        first_name: item.owner_first_name || item.owner_name || "—",
+                        last_name: item.owner_last_name || "",
+                        due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
+                        assigned_processor: {
+                            assigned_date: item.assigned_at ? new Date(item.assigned_at).toLocaleDateString("th-TH") : "—"
+                        },
+                        processing_status: {
+                            do_status: item.owner_status.code === "DO_DONE" ? "done" : "pending",
+                            dp_status: item.processor_status.code === "DP_DONE" ? "done" : "pending"
+                        },
+                        status: item.processor_status.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS
+                    }));
+                    setProcessorRecords(normalized as any);
+                    setRecords(normalized as any);
                 } catch (err) {
                     console.error("Processor data fetch failed:", err);
                 }
             }
-            
+
             if (user.role === "EXECUTIVE") {
                 try {
                     const execData = await ropaService.getExecutiveDashboard();
@@ -131,6 +131,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                     console.error("Executive data fetch failed:", err);
                 }
             }
+
         } catch (error) {
             console.error("Failed to refresh Ropa data:", error);
         } finally {
@@ -158,7 +159,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const stats = {
         total: records.length,
-        withProcessor: records.filter(r => r.assignedProcessor).length
+        withProcessor: records.filter(r => r.assigned_processor).length
     };
 
     // Compatibility layer for existing components
@@ -180,30 +181,30 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         const d = ownerDashboardData;
         return {
             totalDocs: d.total_documents,
-            docsToEdit: { 
-                owner: d.needs_fix_do_count, 
-                processor: d.needs_fix_dp_count 
+            docsToEdit: {
+                owner: d.needs_fix_do_count,
+                processor: d.needs_fix_dp_count
             },
-            risk: { 
-                low: d.risk_low_count, 
-                medium: d.risk_medium_count, 
+            risk: {
+                low: d.risk_low_count,
+                medium: d.risk_medium_count,
                 high: d.risk_high_count,
                 total: d.risk_low_count + d.risk_medium_count + d.risk_high_count
             },
-            pendingDpo: { 
-                store: d.under_review_storage_count, 
-                destroy: d.under_review_deletion_count 
+            pendingDpo: {
+                store: d.under_review_storage_count,
+                destroy: d.under_review_deletion_count
             },
-            pendingDocs: { 
-                owner: d.pending_do_count, 
-                processor: d.pending_dp_count 
+            pendingDocs: {
+                owner: d.pending_do_count,
+                processor: d.pending_dp_count
             },
             approved: d.completed_count,
             sensitive: d.sensitive_document_count,
-            delayed: d.overdue_destruction_count,
-            annualCheck: { 
-                reviewed: d.annual_reviewed_count, 
-                notReviewed: d.annual_not_reviewed_count 
+            delayed: d.overdue_dp_count,
+            annualCheck: {
+                reviewed: d.annual_reviewed_count,
+                notReviewed: d.annual_not_reviewed_count
             },
             dueDestroy: d.destruction_due_count,
             destroyed: d.deleted_count
@@ -212,25 +213,37 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const getExecutiveStats = (dept?: string) => {
         if (!executiveDashboardData) return {
-            total: 0, processing: 0, sentDpo: 0, approved: 0, destroyed: 0,
+            total: 0, draft: 0, pending: 0, underReview: 0, approved: 0,
             risk: { low: 0, medium: 0, high: 0 }
         };
 
-        // If specific department is requested, we might need to find it in the list
-        // Note: The new backend API returns lists for risk_by_department and sensitive_docs_by_department
+        const d = executiveDashboardData;
+
+        // Sum up risks if not filtered by department
+        let low = 0, medium = 0, high = 0;
+        if (dept) {
+            const risk = d.risk_by_department.find((r: RiskByDepartment) => r.department === dept);
+            low = risk?.low || 0;
+            medium = risk?.medium || 0;
+            high = risk?.high || 0;
+        } else {
+            d.risk_by_department.forEach((r: RiskByDepartment) => {
+                low += r.low;
+                medium += r.medium;
+                high += r.high;
+            });
+        }
+
         return {
-            total: executiveDashboardData.ropa_status_overview.total,
-            processing: executiveDashboardData.ropa_status_overview.under_review,
-            sentDpo: executiveDashboardData.ropa_status_overview.pending,
-            approved: executiveDashboardData.ropa_status_overview.completed,
-            destroyed: 0, 
-            risk: {
-                low: executiveDashboardData.ropa_status_overview.draft, // Placeholder mapping
-                medium: 0,
-                high: 0
-            }
+            total: d.ropa_status_overview.total,
+            draft: d.ropa_status_overview.draft,
+            pending: d.ropa_status_overview.pending,
+            underReview: d.ropa_status_overview.under_review,
+            approved: d.ropa_status_overview.completed,
+            risk: { low, medium, high }
         };
     };
+
 
     // ─── Data Owner Handlers ──────────────────────────────────────────────────
     const fetchFullOwnerRecord = async (id: string): Promise<OwnerRecord | null> => {
@@ -240,59 +253,46 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             // Normalization mapping
             const normalized: OwnerRecord = {
                 id: data.document_id,
-                documentName: data.title_prefix || "", // Backend doesn't have document_name in section but we can map
-                title: data.title_prefix || "",
-                firstName: data.first_name || "",
-                lastName: data.last_name || "",
+                document_name: data.title_prefix || "",
+                title_prefix: data.title_prefix || "",
+                first_name: data.first_name || "",
+                last_name: data.last_name || "",
                 address: data.address || "",
                 email: data.email || "",
-                phoneNumber: data.phone || "",
-                rightsEmail: data.contact_email || "",
-                rightsPhone: data.company_phone || "",
-                dataSubjectName: data.data_owner_name || "",
-                processingActivity: data.processing_activity || "",
-                purpose: data.purpose_of_processing || "",
-                personalData: data.personal_data_items?.map((i: any) => i.type).join(", ") || "",
-                dataCategories: data.data_categories?.map((i: any) => i.category) || [],
-                dataType: data.data_types?.map((i: any) => i.type) || [],
-                storedDataTypes: data.personal_data_items?.map((i: any) => i.type) || [],
-                storedDataTypesOther: data.personal_data_items?.find((i: any) => i.other_description)?.other_description || "",
-                collectionMethod: (data.collection_methods?.[0]?.method as any) || CollectionMethod.OnlineForm,
-                dataSource: {
-                    direct: data.data_sources?.some((i: any) => i.source === "DIRECT") || false,
-                    indirect: data.data_sources?.some((i: any) => i.source === "INDIRECT") || false,
-                },
-                legalBasis: data.legal_basis || "",
-                minorConsent: {
-                    under10: data.minor_consent_types?.includes("UNDER_10") || false,
-                    age10to20: data.minor_consent_types?.includes("AGE_10_20") || false,
-                    none: data.minor_consent_types?.includes("NONE") || false,
-                },
-                internationalTransfer: {
-                    isTransfer: data.has_cross_border_transfer || false,
-                    country: data.transfer_country,
-                    companyName: data.transfer_in_group,
-                    transferMethod: data.transfer_method,
-                    protectionStandard: data.transfer_protection_standard,
-                    exception: data.transfer_exception,
-                },
-                retention: {
-                    storageType: data.storage_types?.[0]?.type || CollectionMethod.SoftFile,
-                    method: data.storage_methods?.map((m: any) => m.method) || [],
-                    duration: data.retention_value || 0,
-                    unit: data.retention_unit || RetentionUnit.Year,
-                    accessControl: data.access_control_policy || "",
-                    deletionMethod: data.deletion_method || "",
-                },
-                exemptionDisclosure: data.exemption_usage || "",
-                securityMeasures: {
-                    organizational: data.org_measures,
-                    technical: data.technical_measures,
-                    physical: data.physical_measures,
-                    accessControl: data.access_control_measures,
-                    responsibility: data.responsibility_measures,
-                    audit: data.audit_measures,
-                },
+                phone: data.phone || "",
+                rights_email: data.contact_email || "",
+                rights_phone: data.company_phone || "",
+                data_subject_name: data.data_owner_name || "",
+                processing_activity: data.processing_activity || "",
+                purpose_of_processing: data.purpose_of_processing || "",
+                personal_data_items: data.personal_data_items?.map((i: any) => i.type) || [],
+                data_categories: data.data_categories?.map((i: any) => i.category) || [],
+                data_types: data.data_types?.map((i: any) => i.type) || [],
+                stored_data_types_other: data.personal_data_items?.find((i: any) => i.other_description)?.other_description || "",
+                collection_method: (data.collection_methods?.[0]?.method as any) || CollectionMethod.OnlineForm,
+                data_source_direct: data.data_sources?.some((i: any) => i.source === "DIRECT") || false,
+                data_source_indirect: data.data_sources?.some((i: any) => i.source === "INDIRECT") || false,
+                legal_basis: data.legal_basis || "",
+                minor_consent_under_10: data.minor_consent_types?.includes("UNDER_10") || false,
+                minor_consent_10_to_20: data.minor_consent_types?.includes("AGE_10_20") || false,
+                minor_consent_none: data.minor_consent_types?.includes("NONE") || false,
+                has_cross_border_transfer: data.has_cross_border_transfer || false,
+                transfer_country: data.transfer_country,
+                transfer_company: data.transfer_in_group,
+                transfer_method: data.transfer_method,
+                transfer_protection_standard: data.transfer_protection_standard,
+                transfer_exception: data.transfer_exception,
+                retention_value: data.retention_value || 0,
+                retention_unit: data.retention_unit || RetentionUnit.YEARS,
+                access_condition: data.access_control_policy || "",
+                deletion_method: data.deletion_method || "",
+                exemption_usage: data.exemption_usage || "",
+                org_measures: data.org_measures,
+                technical_measures: data.technical_measures,
+                physical_measures: data.physical_measures,
+                access_control_measures: data.access_control_measures,
+                responsibility_measures: data.responsibility_measures,
+                audit_measures: data.audit_measures,
                 status: data.status === "DONE" ? RopaStatus.Processing : RopaStatus.Draft,
                 workflow: "processing"
             };
@@ -300,20 +300,19 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             // Fetch deletion info
             try {
                 const delReq = await ropaService.getDeletionRequest(id);
-                normalized.deletionStatus = delReq.status === "APPROVED" ? "DELETED" : "DELETE_PENDING";
-                normalized.deletionRequest = {
+                normalized.deletion_status = delReq.status === "APPROVED" ? "DELETED" : "DELETE_PENDING";
+                normalized.deletion_request = {
                     id: delReq.id,
                     status: delReq.status,
-                    ownerReason: delReq.owner_reason,
-                    dpoDecision: delReq.dpo_decision,
-                    dpoReason: delReq.dpo_reason,
-                    requestedAt: delReq.requested_at,
-                    decidedAt: delReq.decided_at,
+                    owner_reason: delReq.owner_reason || "",
+                    dpo_reason: delReq.dpo_reason || "",
+                    requested_at: delReq.requested_at || "",
+                    decided_at: delReq.decided_at || ""
                 };
             } catch (e) {
                 // If 404, no deletion request yet
-                normalized.deletionStatus = null;
-                normalized.deletionRequest = undefined;
+                normalized.deletion_status = null;
+                normalized.deletion_request = undefined;
             }
 
             return normalized;
@@ -327,42 +326,40 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const saveRecord = async (record: Partial<OwnerRecord>): Promise<OwnerRecord> => {
         if (!record.id) throw new Error("Document ID required for saving");
-        
+
         // Re-mapping frontend back to backend expected format for saveOwnerDraft
         const payload = {
-            title_prefix: record.title,
-            first_name: record.firstName,
-            last_name: record.lastName,
+            title_prefix: record.title_prefix,
+            first_name: record.first_name,
+            last_name: record.last_name,
             address: record.address,
             email: record.email,
-            phone: record.phoneNumber,
-            contact_email: record.rightsEmail,
-            company_phone: record.rightsPhone,
-            data_owner_name: record.dataSubjectName,
-            processing_activity: record.processingActivity,
-            purpose_of_processing: record.purpose,
-            // Sub-tables handling would usually be more complex if backend expects objects
-            // For now, map simple strings back to objects if that's what backend wants
-            personal_data_items: record.storedDataTypes?.map(t => ({ type: t })),
-            data_categories: record.dataCategories?.map(c => ({ category: c })),
-            data_types: (Array.isArray(record.dataType) ? record.dataType : [record.dataType]).map(t => ({ type: t })),
-            legal_basis: record.legalBasis,
-            has_cross_border_transfer: record.internationalTransfer?.isTransfer,
-            transfer_country: record.internationalTransfer?.country,
-            transfer_in_group: record.internationalTransfer?.companyName,
-            transfer_method: record.internationalTransfer?.transferMethod,
-            transfer_protection_standard: record.internationalTransfer?.protectionStandard,
-            transfer_exception: record.internationalTransfer?.exception,
-            retention_value: record.retention?.duration,
-            retention_unit: record.retention?.unit,
-            access_control_policy: record.retention?.accessControl,
-            deletion_method: record.retention?.deletionMethod,
-            org_measures: record.securityMeasures?.organizational,
-            technical_measures: record.securityMeasures?.technical,
-            physical_measures: record.securityMeasures?.physical,
-            access_control_measures: record.securityMeasures?.accessControl,
-            responsibility_measures: record.securityMeasures?.responsibility,
-            audit_measures: record.securityMeasures?.audit,
+            phone: record.phone,
+            contact_email: record.rights_email,
+            company_phone: record.rights_phone,
+            data_owner_name: record.data_subject_name,
+            processing_activity: record.processing_activity,
+            purpose_of_processing: record.purpose_of_processing,
+            personal_data_items: record.personal_data_items?.map(t => ({ type: t })),
+            data_categories: record.data_categories?.map(c => ({ category: c })),
+            data_types: record.data_types?.map(t => ({ type: t })),
+            legal_basis: record.legal_basis,
+            has_cross_border_transfer: record.has_cross_border_transfer,
+            transfer_country: record.transfer_country,
+            transfer_in_group: record.transfer_company,
+            transfer_method: record.transfer_method,
+            transfer_protection_standard: record.transfer_protection_standard,
+            transfer_exception: record.transfer_exception,
+            retention_value: record.retention_value,
+            retention_unit: record.retention_unit,
+            access_control_policy: record.access_condition,
+            deletion_method: record.deletion_method,
+            org_measures: record.org_measures,
+            technical_measures: record.technical_measures,
+            physical_measures: record.physical_measures,
+            access_control_measures: record.access_control_measures,
+            responsibility_measures: record.responsibility_measures,
+            audit_measures: record.audit_measures,
         };
 
         const response = await ropaService.saveOwnerDraft(record.id, payload);
@@ -378,32 +375,32 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     };
 
     const submitDoSection = async (id: string) => {
-         await ropaService.submitOwnerSection(id);
-         await refresh();
+        await ropaService.submitOwnerSection(id);
+        await refresh();
     };
 
     const sendToDpo = async (id: string, payload: any = {}) => {
-         await ropaService.sendToDpo(id, payload);
-         await refresh();
+        await ropaService.sendToDpo(id, payload);
+        await refresh();
     };
 
     const saveRiskAssessment = async (id: string, risk: any) => {
-         try {
-             await api.post(`/owner/documents/${id}/risk`, risk);
-             await refresh();
-         } catch (error) {
-             console.error("Failed to save risk assessment:", error);
-             throw error;
-         }
+        try {
+            await api.post(`/owner/documents/${id}/risk`, risk);
+            await refresh();
+        } catch (error) {
+            console.error("Failed to save risk assessment:", error);
+            throw error;
+        }
     };
 
     const requestDelete = async (id: string, reason: string) => {
-         await ropaService.requestDeletion(id, reason);
-         await refresh();
+        await ropaService.requestDeletion(id, reason);
+        await refresh();
     };
 
     const deleteRecord = async (id: string) => {
-         console.warn("deleteRecord API integration pending");
+        console.warn("deleteRecord API integration pending");
     };
 
     // ─── Data Processor Handlers ──────────────────────────────────────────────

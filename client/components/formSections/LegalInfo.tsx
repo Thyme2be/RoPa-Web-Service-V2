@@ -35,11 +35,11 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                     <Input
                         label="ฐานในการประมวลผล"
                         required
-                        name="legalBasis"
-                        value={form?.legalBasis || ""}
+                        name="legal_basis"
+                        value={form?.legal_basis || ""}
                         placeholder="ระบุฐานในการประมวลผล (เช่น ฐานปฏิบัติตามสัญญา)"
                         onChange={handleChange}
-                        error={errors?.legalBasis}
+                        error={errors?.legal_basis}
                         disabled={disabled}
                         requiredColor={markerColor}
                         focusColor={primaryColor}
@@ -86,79 +86,79 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         {/* Radio Selection: มี / ไม่มี to match image */}
                         <div className="flex items-center gap-6 pr-4">
                             <button
-                                onClick={() => !disabled && handleChange({ target: { name: "internationalTransfer.isTransfer", value: true } })}
+                                onClick={() => !disabled && handleChange({ target: { name: "has_cross_border_transfer", value: true } })}
                                 className="flex items-center gap-2 group cursor-pointer"
                                 disabled={disabled}
                             >
                                 <div className={cn(
                                     "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
-                                    isTransfer ? "border-gray-400" : "border-gray-300"
-                                )} style={isTransfer ? { borderColor: primaryColor } : {}}>
-                                    {isTransfer && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
+                                    form?.has_cross_border_transfer ? "border-gray-400" : "border-gray-300"
+                                )} style={form?.has_cross_border_transfer ? { borderColor: primaryColor } : {}}>
+                                    {form?.has_cross_border_transfer && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
                                 </div>
-                                <span className={cn("text-sm font-bold transition-all", isTransfer ? "text-[#1B1C1C]" : "text-gray-400")}>มี</span>
+                                <span className={cn("text-sm font-bold transition-all", form?.has_cross_border_transfer ? "text-[#1B1C1C]" : "text-gray-400")}>มี</span>
                             </button>
                             <button
-                                onClick={() => !disabled && handleChange({ target: { name: "internationalTransfer.isTransfer", value: false } })}
+                                onClick={() => !disabled && handleChange({ target: { name: "has_cross_border_transfer", value: false } })}
                                 className="flex items-center gap-2 group cursor-pointer"
                                 disabled={disabled}
                             >
                                 <div className={cn(
                                     "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
-                                    !isTransfer ? "border-gray-400" : "border-gray-300"
-                                )} style={!isTransfer ? { borderColor: primaryColor } : {}}>
-                                    {!isTransfer && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
+                                    !form?.has_cross_border_transfer ? "border-gray-400" : "border-gray-300"
+                                )} style={!form?.has_cross_border_transfer ? { borderColor: primaryColor } : {}}>
+                                    {!form?.has_cross_border_transfer && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
                                 </div>
-                                <span className={cn("text-sm font-bold transition-all", !isTransfer ? "text-[#1B1C1C]" : "text-gray-400")}>ไม่มี</span>
+                                <span className={cn("text-sm font-bold transition-all", !form?.has_cross_border_transfer ? "text-[#1B1C1C]" : "text-gray-400")}>ไม่มี</span>
                             </button>
                         </div>
                     </div>
 
                     <div className={cn(
                         "grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 transition-all duration-300",
-                        !isTransfer && "pointer-events-none grayscale-[0.05]" 
+                        !form?.has_cross_border_transfer && "pointer-events-none grayscale-[0.05]" 
                     )}>
                         <Input
                             label="หากมีการส่งหรือโอนข้อมูลโปรดระบุประเทศปลายทาง"
                             required
-                            name="internationalTransfer.country"
-                            value={form?.internationalTransfer?.country || ""}
+                            name="transfer_country"
+                            value={form?.transfer_country || ""}
                             placeholder="ระบุประเทศปลายทาง (เช่น จีน)"
                             onChange={handleChange}
-                            disabled={disabled || !isTransfer}
+                            disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />
                         <Input
                             label="ส่งข้อมูลไปยังต่างประเทศของกลุ่มบริษัทในเครือหรือไม่"
                             required
-                            name="internationalTransfer.isInGroup"
-                            value={form?.internationalTransfer?.isInGroup || ""}
+                            name="transfer_company"
+                            value={form?.transfer_company || ""}
                             placeholder="หากใช่ระบุชื่อบริษัท (เช่น บริษัท B)"
                             onChange={handleChange}
-                            disabled={disabled || !isTransfer}
+                            disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />
                         <Input
                             label="วิธีการโอนข้อมูล"
                             required
-                            name="internationalTransfer.transferMethod"
-                            value={form?.internationalTransfer?.transferMethod || ""}
+                            name="transfer_method"
+                            value={form?.transfer_method || ""}
                             placeholder="ระบุวิธีการโอนข้อมูล (เช่น โอนทางอิเล็กทรอนิกส์)"
                             onChange={handleChange}
-                            disabled={disabled || !isTransfer}
+                            disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />
                         <Input
                             label="มาตรฐานการคุ้มครองข้อมูลส่วนบุคคลของประเทศปลายทาง"
                             required
-                            name="internationalTransfer.protectionStandard"
-                            value={form?.internationalTransfer?.protectionStandard || ""}
+                            name="transfer_protection_standard"
+                            value={form?.transfer_protection_standard || ""}
                             placeholder="ระบุมาตรฐานการคุ้มครองข้อมูลส่วนบุคคล"
                             onChange={handleChange}
-                            disabled={disabled || !isTransfer}
+                            disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />
@@ -166,16 +166,16 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
 
                     <div className={cn(
                         "transition-all duration-300",
-                        !isTransfer && "pointer-events-none grayscale-[0.05]"
+                        !form?.has_cross_border_transfer && "pointer-events-none grayscale-[0.05]"
                     )}>
                         <Input
                             label="ข้อยกเว้นตามมาตรา 28"
                             required
-                            name="internationalTransfer.exception"
-                            value={form?.internationalTransfer?.exception || ""}
+                            name="transfer_exception"
+                            value={form?.transfer_exception || ""}
                             placeholder="ระบุข้อยกเว้นตามมาตรา 28 (เช่น ปฏิบัติตามกฎหมาย ความยินยอม ปฏิบัติตามสัญญา ป้องกันอันตรายต่อชีวิต)"
                             onChange={handleChange}
-                            disabled={disabled || !isTransfer}
+                            disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />
@@ -187,11 +187,11 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="การใช้หรือเปิดเผยข้อมูลส่วนบุคคลที่ได้รับยกเว้นไม่ต้องขอความยินยอม"
                             required
-                            name="exemptionDisclosure"
-                            value={form?.exemptionDisclosure || ""}
+                            name="exemption_usage"
+                            value={form?.exemption_usage || ""}
                             placeholder="ระบุกรณียกเว้นตามกฎหมาย (ระบุให้สอดคล้องกับฐานในการประมวลผล)"
                             onChange={handleChange}
-                            error={errors?.exemptionDisclosure}
+                            error={errors?.exemption_usage}
                             disabled={disabled}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
