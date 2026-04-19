@@ -6,8 +6,9 @@ from uuid import UUID
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
 from app.api.deps import get_db
 from app.core.rbac import Role, require_roles
@@ -16,15 +17,87 @@ from app.schemas.enums import UserRoleEnum, UserStatusEnum, DocumentStatusEnum
 from app.schemas.auth import RegisterRequest
 from app.schemas.admin_docs import AdminDocumentTableItem, PaginatedAdminDocumentResponse
 from app.models.document import RopaDocumentModel, DocumentDeletionRequestModel
+from app.models.assignment import ProcessorAssignmentModel, AuditorAssignmentModel
 from app.models.workflow import ReviewDpoAssignmentModel, DocumentReviewCycleModel
 from app.models.user import UserModel
 from app.schemas.user import UserRead, PaginatedUserResponse, PaginatedUserReadItem, UserUpdate
+from app.schemas.dashboard import UserDashboardResponse, UserDashboardStatistics
 from app.schemas.document import DeletionApprovalRequest
 from sqlalchemy.orm import aliased
 
 router = APIRouter(prefix="/admin", tags=["Admin — User Management"])
 
 AdminOnly = Depends(require_roles(Role.ADMIN))
+
+@router.get("/users/{id}/dashboard", response_model=UserDashboardResponse, summary="Admin: Per-User Dashboard")
+def user_dashboard(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: UserRead = AdminOnly,
+):
+    from app.api.routers.dashboard import (
+        _get_org_metrics_internal,
+        _get_owner_metrics_internal,
+        _get_processor_metrics_internal,
+        _get_dpo_metrics_internal,
+        _get_auditor_metrics_internal,
+        _get_executive_metrics_internal
+    )
+    
+    target_user = (
+        db.query(UserModel)
+        .filter(UserModel.id == id)
+        .first()
+    )
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    created_docs = db.query(
+        RopaDocumentModel.status,
+        func.count(RopaDocumentModel.id).label("count"),
+    ).filter(
+        RopaDocumentModel.created_by == target_user.id
+    ).group_by(RopaDocumentModel.status).all()
+
+    processor_assignments = db.query(func.count(ProcessorAssignmentModel.id)).filter(
+        ProcessorAssignmentModel.processor_id == target_user.id
+    ).count()
+
+    auditor_assignments = db.query(func.count(AuditorAssignmentModel.id)).filter(
+        AuditorAssignmentModel.auditor_id == target_user.id
+    ).count()
+
+    owned_assignments = db.query(func.count(ProcessorAssignmentModel.id)).filter(
+        ProcessorAssignmentModel.assigned_by == target_user.id
+    ).count()
+
+    # Determine role-specific metrics
+    role_metrics = None
+    role_str = str(getattr(target_user.role, 'value', target_user.role)).upper()
+    
+    if role_str == 'DPO':
+        role_metrics = _get_dpo_metrics_internal(db, target_user.id).model_dump()
+    elif role_str == 'AUDITOR':
+        role_metrics = _get_auditor_metrics_internal(db, target_user.id).model_dump()
+    elif role_str == 'PROCESSOR':
+        role_metrics = _get_processor_metrics_internal(db, target_user.id).model_dump()
+    elif role_str == 'OWNER':
+        role_metrics = _get_owner_metrics_internal(db, target_user.id).model_dump()
+    elif role_str == 'EXECUTIVE':
+        role_metrics = _get_executive_metrics_internal(db).model_dump()
+    elif role_str == 'ADMIN':
+        role_metrics = _get_org_metrics_internal(db, "30_days").model_dump()
+
+    return UserDashboardResponse(
+        user=UserRead.model_validate(target_user),
+        role_dashboard=role_metrics,
+        statistics=UserDashboardStatistics(
+            documents_created={str(getattr(r.status, 'value', r.status)): r.count for r in created_docs},
+            processor_assignments=processor_assignments,
+            auditor_assignments=auditor_assignments,
+            owned_assignments=owned_assignments,
+        )
+    )
 
 
 @router.get("/users", response_model=PaginatedUserResponse, summary="List All Users")

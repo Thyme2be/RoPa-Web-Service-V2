@@ -628,67 +628,6 @@ def auditor_dashboard(db: Session = Depends(get_db), current_user: UserRead = De
 def dpo_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.DPO))):
     return _get_dpo_metrics_internal(db, current_user.id)
 
-@router.get("/admin/users/{id}/dashboard", response_model=UserDashboardResponse, summary="Admin: Per-User Dashboard", tags=["Dashboard (Admin)"])
-def user_dashboard(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: UserRead = Depends(require_roles(Role.ADMIN)),
-):
-    target_user = (
-        db.query(UserModel)
-        .filter(UserModel.id == id)
-        .first()
-    )
-    if not target_user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    created_docs = db.query(
-        RopaDocumentModel.status,
-        func.count(RopaDocumentModel.id).label("count"),
-    ).filter(
-        RopaDocumentModel.created_by == target_user.id
-    ).group_by(RopaDocumentModel.status).all()
-
-    processor_assignments = db.query(func.count(ProcessorAssignmentModel.id)).filter(
-        ProcessorAssignmentModel.processor_id == target_user.id
-    ).count()
-
-    auditor_assignments = db.query(func.count(AuditorAssignmentModel.id)).filter(
-        AuditorAssignmentModel.auditor_id == target_user.id
-    ).count()
-
-    owned_assignments = db.query(func.count(ProcessorAssignmentModel.id)).filter(
-        ProcessorAssignmentModel.assigned_by == target_user.id
-    ).count()
-
-    # Determine role-specific metrics
-    role_metrics = None
-    role_str = str(getattr(target_user.role, 'value', target_user.role)).upper()
-    
-    if role_str == 'DPO':
-        role_metrics = _get_dpo_metrics_internal(db, target_user.id).model_dump()
-    elif role_str == 'AUDITOR':
-        role_metrics = _get_auditor_metrics_internal(db, target_user.id).model_dump()
-    elif role_str == 'PROCESSOR':
-        role_metrics = _get_processor_metrics_internal(db, target_user.id).model_dump()
-    elif role_str == 'OWNER':
-        role_metrics = _get_owner_metrics_internal(db, target_user.id).model_dump()
-    elif role_str == 'EXECUTIVE':
-        role_metrics = _get_executive_metrics_internal(db).model_dump()
-    elif role_str == 'ADMIN':
-        # For ADMIN users, we might show global stats or empty
-        role_metrics = _get_org_metrics_internal(db, "30_days").model_dump() # Default to 30 days global stats
-
-    return UserDashboardResponse(
-        user=UserRead.model_validate(target_user),
-        role_dashboard=role_metrics,
-        statistics=UserDashboardStatistics(
-            documents_created={str(getattr(r.status, 'value', r.status)): r.count for r in created_docs},
-            processor_assignments=processor_assignments,
-            auditor_assignments=auditor_assignments,
-            owned_assignments=owned_assignments,
-        )
-    )
 
 
 @router.get("/dashboard/users", response_model=AdminUserDashboardResponse, summary="Admin: User Statistics Dashboard", tags=["Dashboard (Admin)"])

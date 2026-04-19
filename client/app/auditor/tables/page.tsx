@@ -15,7 +15,7 @@ function AuditorTableContent() {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
     const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
-    
+
     const [documents, setDocuments] = useState<any[]>([]);
     const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -27,7 +27,7 @@ function AuditorTableContent() {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("token");
-        
+
         if (!token) {
             setError("ไม่พบ Token การยืนยันตัวตน");
             setLoading(false);

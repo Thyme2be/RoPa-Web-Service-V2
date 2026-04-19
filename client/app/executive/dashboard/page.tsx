@@ -129,7 +129,7 @@ export default function ExecutiveDashboard() {
                             totalDocuments={currentDeptRisk.total || 0}
                             departments={(data?.available_departments || []).map((d: string) => ({ label: `แผนก ${d}`, value: d }))}
                             selectedDept={selectedDept}
-                            onDeptChange={(v) => setSelectedDept(v as DeptKey)}
+                            onDeptChange={(v) => setSelectedDept(v)}
                         />
                         <SensitiveDataCard
                             items={sensitiveSummary}

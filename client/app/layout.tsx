@@ -15,9 +15,6 @@ export const metadata: Metadata = {
   description: "Enterprise Record of Processing Activities Manager",
 };
 
-import { RopaProvider } from "@/context/RopaContext";
-import { RopaAuditProvider } from "@/context/RopaAuditContext";
-
 export default function RootLayout({
   children,
 }: Readonly<{

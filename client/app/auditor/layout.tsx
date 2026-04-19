@@ -6,10 +6,12 @@ import Link from "next/link";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import AuditorGuard from "@/components/auth/AuditorGuard";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AuditorLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { logout } = useAuth();
 
     // Mock data lookup for display names
     const mockDocs = [
@@ -27,10 +29,15 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
     // The "ตารางเอกสาร" menu item should be active for both the list and detail pages
     const isMenuTablesActive = isTablesPage;
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        router.push("/login");
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } catch (error) {
+            console.error("Logout failed:", error);
+            // Fallback for extreme cases
+            localStorage.clear();
+            window.location.href = "/login";
+        }
     };
 
     const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
