@@ -18,6 +18,7 @@ class AuditorAssignmentModel(Base):
     
     auditor_type = Column(auditor_type_enum, nullable=True)
     department = Column(String, nullable=True)
+    preferred_title = Column(String, nullable=True)
     preferred_first_name = Column(String, nullable=True)
     preferred_last_name = Column(String, nullable=True)
     due_date = Column(DateTime(timezone=True), nullable=False)
