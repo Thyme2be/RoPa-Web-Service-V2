@@ -7,7 +7,7 @@ from typing import Optional, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import func, text, and_, or_, exists, cast, Date
+from sqlalchemy import func, text, and_, or_, exists, cast, Date, extract
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
@@ -41,7 +41,9 @@ from app.schemas.dashboard import (
     OwnerDashboardResponse,
     ProcessorDashboardResponse,
     AuditorDashboardResponse,
-    ExecutiveDashboardResponse
+    ExecutiveDashboardResponse,
+    DocumentOverview,
+    RiskOverview
 )
 from app.schemas.dpo_comment import DpoCommentBulkRequest, DpoCommentRead
 
@@ -380,6 +382,7 @@ def user_dashboard(
         role_metrics = _get_executive_metrics_internal(db)
 
     return {
+        "user": target_user,
         "role_dashboard": role_metrics,
         "statistics": {
             "documents_created": {str(getattr(r.status, 'value', r.status)): r.count for r in created_docs},
@@ -529,6 +532,7 @@ def user_stats_dashboard(
 def list_dpo_documents(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
     days_filter: Optional[int] = Query(None, description="Days filter"),
+    search: Optional[str] = Query(None, description="Search by title or document number"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -566,6 +570,15 @@ def list_dpo_documents(
     if days_filter:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
         query = query.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff_date)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                RopaDocumentModel.title.ilike(search_term),
+                RopaDocumentModel.document_number.ilike(search_term)
+            )
+        )
 
     if status_filter:
         s_filter = status_filter.lower()
@@ -919,6 +932,7 @@ def list_documents_from_dpo(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     status: Optional[str] = Query(None, description="FILTER: WAITING_FOR_DPO, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED"),
+    search: Optional[str] = Query(None, description="Search by title or doc number"),
     date_range: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(get_current_user)
@@ -974,10 +988,10 @@ def list_documents_from_dpo(
     id_cte = db.query(
         RopaDocumentModel.id.label("doc_id"),
         func.row_number().over(
-            partition_by=func.date_part('year', RopaDocumentModel.created_at),
+            partition_by=extract('year', RopaDocumentModel.created_at),
             order_by=RopaDocumentModel.created_at
         ).label("seq_id"),
-        func.date_part('year', RopaDocumentModel.created_at).label("year")
+        extract('year', RopaDocumentModel.created_at).label("year")
     ).subquery()
 
     # 3. Base Query
@@ -1005,7 +1019,14 @@ def list_documents_from_dpo(
     elif date_range == '30_days':
         query = query.filter(RopaDocumentModel.created_at >= now - timedelta(days=30))
 
-    # Note: Status filter is tricky because it's mapping-based.
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                RopaDocumentModel.title.ilike(search_term),
+                RopaDocumentModel.document_number.ilike(search_term)
+            )
+        )
     # We apply it at the Python level if needed, but for better performance we can map back to DB enums.
 
     total_items = query.count()
