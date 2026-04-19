@@ -125,7 +125,29 @@ export default function ManagementProcessingPage() {
             }
         }
 
-        // Date Filter
+        // Date Filter - Based on Due Date as shown in table
+        let matchDate = true;
+        if (dateFilter !== "all" && record.due_date) {
+            const rowDate = new Date(record.due_date);
+            const now = new Date();
+            if (dateFilter === "7days") {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= sevenDaysAgo;
+            } else if (dateFilter === "30days") {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= thirtyDaysAgo;
+            } else if (dateFilter === "custom" && customDate) {
+                matchDate = rowDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
+            }
+        } else if (dateFilter !== "all" && !record.due_date) {
+            matchDate = false;
+        }
+
+        return matchStatus && matchDate;
+    });
+
+    const filteredDrafts = draftRecords.filter(record => {
+        // Date Filter - Based on Created At (Last Saved) as shown in table
         let matchDate = true;
         if (dateFilter !== "all" && record.created_at) {
             const rowDate = new Date(record.created_at);
@@ -139,9 +161,11 @@ export default function ManagementProcessingPage() {
             } else if (dateFilter === "custom" && customDate) {
                 matchDate = rowDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
             }
+        } else if (dateFilter !== "all" && !record.created_at) {
+            matchDate = false;
         }
 
-        return matchStatus && matchDate;
+        return matchDate;
     });
 
     // ─── Action Handlers ────────────────────────────────────────────────────────
@@ -161,9 +185,10 @@ export default function ManagementProcessingPage() {
     const getDpLabel = (r: ActiveTableItem) =>
         r.processor_status?.code === "DP_DONE" ? "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น" : "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล";
 
-    const ITEMS_PER_PAGE = 5;
-    const paginatedProcessing = filteredProcessing.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-    const paginatedDrafts = draftRecords.slice((draftPage - 1) * ITEMS_PER_PAGE, draftPage * ITEMS_PER_PAGE);
+    const PROCESSING_ITEMS_PER_PAGE = 3;
+    const DRAFT_ITEMS_PER_PAGE = 2;
+    const paginatedProcessing = filteredProcessing.slice((page - 1) * PROCESSING_ITEMS_PER_PAGE, page * PROCESSING_ITEMS_PER_PAGE);
+    const paginatedDrafts = filteredDrafts.slice((draftPage - 1) * DRAFT_ITEMS_PER_PAGE, draftPage * DRAFT_ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-background font-sans">
@@ -188,11 +213,11 @@ export default function ManagementProcessingPage() {
 
                     <DocumentFilterBar
                         statusValue={statusFilter}
-                        onStatusChange={setStatusFilter}
+                        onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         dateValue={dateFilter}
-                        onDateChange={setDateFilter}
+                        onDateChange={(val) => { setDateFilter(val); setPage(1); setDraftPage(1); }}
                         customDate={customDate}
-                        onCustomDateChange={setCustomDate}
+                        onCustomDateChange={(val) => { setCustomDate(val); setPage(1); setDraftPage(1); }}
                         onClear={handleClearFilters}
                     />
 
@@ -274,9 +299,9 @@ export default function ManagementProcessingPage() {
                         </DocumentTable>
                         <DocumentPagination
                             current={page}
-                            totalPages={Math.max(1, Math.ceil(filteredProcessing.length / ITEMS_PER_PAGE))}
+                            totalPages={Math.max(1, Math.ceil(filteredProcessing.length / PROCESSING_ITEMS_PER_PAGE))}
                             totalItems={filteredProcessing.length}
-                            itemsPerPage={ITEMS_PER_PAGE}
+                            itemsPerPage={PROCESSING_ITEMS_PER_PAGE}
                             onChange={setPage}
                         />
                     </DocumentListCard>
@@ -334,9 +359,9 @@ export default function ManagementProcessingPage() {
                         </DocumentTable>
                         <DocumentPagination
                             current={draftPage}
-                            totalPages={Math.max(1, Math.ceil(draftRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={draftRecords.length}
-                            itemsPerPage={ITEMS_PER_PAGE}
+                            totalPages={Math.max(1, Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE))}
+                            totalItems={filteredDrafts.length}
+                            itemsPerPage={DRAFT_ITEMS_PER_PAGE}
                             onChange={setDraftPage}
                         />
                     </DocumentListCard>

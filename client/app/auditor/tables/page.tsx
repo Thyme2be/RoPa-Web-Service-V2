@@ -21,7 +21,7 @@ function AuditorTableContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
 
     const fetchDocuments = async () => {
         setLoading(true);

@@ -504,6 +504,9 @@ def create_owner_snapshot(
     if not doc:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
 
+    if payload.title:
+        doc.title = payload.title
+
     # ตรวจสอบว่ามี snapshot เดิมสำหรับเอกสารนี้และ user นี้หรือไม่
     snapshot = db.query(RopaOwnerSnapshotModel).filter_by(
         document_id=id, 
@@ -1308,6 +1311,10 @@ def save_owner_section_draft(
     if not section:
         raise HTTPException(status_code=404, detail="ไม่พบ Owner Section")
 
+    doc = db.query(RopaDocumentModel).filter_by(id=document_id).first()
+    if doc and payload.title:
+        doc.title = payload.title
+
     scalar_fields = [
         "title_prefix", "first_name", "last_name", "address", "email", "phone",
         "contact_email", "company_phone",
@@ -1356,6 +1363,10 @@ def submit_owner_section(
     )
     if not section:
         raise HTTPException(status_code=404, detail="ไม่พบ Owner Section")
+
+    doc = db.query(RopaDocumentModel).filter_by(id=document_id).first()
+    if doc and payload.title:
+        doc.title = payload.title
 
     scalar_fields = [
         "title_prefix", "first_name", "last_name", "address", "email", "phone",

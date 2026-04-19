@@ -49,7 +49,7 @@ function UsersPageContent() {
     const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
 
     // Mapping for Thai labels to Backend Enums
     const roleToEnum: Record<string, string> = {

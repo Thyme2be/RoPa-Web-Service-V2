@@ -61,7 +61,7 @@ export default function InlineFeedbackWrapper({
                         <span className={cn("material-symbols-outlined text-[18px]", isProcessor ? "text-[#00666E]" : "text-[#ED393C]")}>
                             edit_note
                         </span>
-                        <span className="text-sm font-black text-[#1B1C1C]">{title}</span>
+                        <span className="text-sm font-black text-[#5F5E5E]">{title}</span>
                     </div>
                     <p className="text-sm font-bold text-[#5F5E5E] leading-relaxed ml-7">
                         "{existingSuggestion.text}"

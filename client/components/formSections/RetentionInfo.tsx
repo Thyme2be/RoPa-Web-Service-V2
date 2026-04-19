@@ -27,7 +27,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         inventory_2
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     {sectionTitle}
                 </h2>
             </div>
@@ -119,7 +119,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
 
                 {/* Nested Policy Box */}
                 <div className="bg-[#F6F6F6] p-8 rounded-2xl space-y-8 border border-[#F0F2F5]">
-                    <h3 className="font-extrabold text-[#1B1C1C] text-[15px] tracking-tight">
+                    <h3 className="font-extrabold text-[#5F5E5E] text-[15px] tracking-tight">
                         นโยบายการเก็บรักษาข้อมูลส่วนบุคคล
                     </h3>
 

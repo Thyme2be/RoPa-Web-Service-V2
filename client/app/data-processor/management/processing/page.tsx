@@ -100,9 +100,10 @@ export default function ManagementProcessingPage() {
     const getDpLabel = (r: OwnerRecord) =>
         r.processing_status?.dp_status === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
 
-    const ITEMS_PER_PAGE = 3;
-    const paginatedProcessing = filteredAssigned.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-    const paginatedDrafts = draftRecords.slice((draftPage - 1) * ITEMS_PER_PAGE, draftPage * ITEMS_PER_PAGE);
+    const PROCESSING_ITEMS_PER_PAGE = 3;
+    const DRAFT_ITEMS_PER_PAGE = 2;
+    const paginatedProcessing = filteredAssigned.slice((page - 1) * PROCESSING_ITEMS_PER_PAGE, page * PROCESSING_ITEMS_PER_PAGE);
+    const paginatedDrafts = draftRecords.slice((draftPage - 1) * DRAFT_ITEMS_PER_PAGE, draftPage * DRAFT_ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2]">
@@ -198,9 +199,9 @@ export default function ManagementProcessingPage() {
                         </DocumentTable>
                         <DocumentPagination
                             current={page}
-                            totalPages={Math.max(1, Math.ceil(filteredAssigned.length / ITEMS_PER_PAGE))}
+                            totalPages={Math.max(1, Math.ceil(filteredAssigned.length / PROCESSING_ITEMS_PER_PAGE))}
                             totalItems={filteredAssigned.length}
-                            itemsPerPage={ITEMS_PER_PAGE}
+                            itemsPerPage={PROCESSING_ITEMS_PER_PAGE}
                             onChange={setPage}
                         />
                     </DocumentListCard>
@@ -253,9 +254,9 @@ export default function ManagementProcessingPage() {
                         </DocumentTable>
                         <DocumentPagination
                             current={draftPage}
-                            totalPages={Math.max(1, Math.ceil(draftRecords.length / ITEMS_PER_PAGE))}
+                            totalPages={Math.max(1, Math.ceil(draftRecords.length / DRAFT_ITEMS_PER_PAGE))}
                             totalItems={draftRecords.length}
-                            itemsPerPage={ITEMS_PER_PAGE}
+                            itemsPerPage={DRAFT_ITEMS_PER_PAGE}
                             onChange={setDraftPage}
                         />
                     </DocumentListCard>

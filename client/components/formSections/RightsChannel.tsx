@@ -12,7 +12,7 @@ export default function RightsChannel({ form, handleChange, errors, disabled }: 
                         chat_bubble
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     ส่วนที่ 2 : ช่องทางการใช้สิทธิของเจ้าของข้อมูล
                 </h2>
             </div>

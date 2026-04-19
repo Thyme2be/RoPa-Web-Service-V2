@@ -19,7 +19,7 @@ function DestructionTableContent() {
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
     const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
 
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
 
     const fetchDestructionRequests = async () => {
         setLoading(true);

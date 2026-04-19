@@ -23,7 +23,7 @@ function InProgressTableContent() {
     const [isSendModalOpen, setIsSendModalOpen] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
 
     const fetchDocuments = async () => {
         setLoading(true);

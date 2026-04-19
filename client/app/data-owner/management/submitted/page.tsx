@@ -62,7 +62,7 @@ export default function RopaSubmittedPage() {
         return matchStatus && matchDate;
     });
 
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
     const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     const getStatusColor = (status: string) => {

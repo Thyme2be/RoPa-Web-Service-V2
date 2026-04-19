@@ -37,7 +37,7 @@ export default function RopaReviewPage() {
     const itemsPerPage = 3;
     const paginatedModalRecords = activeRecords.slice((modalPage - 1) * itemsPerPage, modalPage * itemsPerPage);
     const totalModalPages = Math.ceil(activeRecords.length / itemsPerPage);
-    const REVIEW_PER_PAGE = 5;
+    const REVIEW_PER_PAGE = 3;
     const paginatedSubmitted = submittedRecords.slice(
         (reviewPage - 1) * REVIEW_PER_PAGE,
         reviewPage * REVIEW_PER_PAGE

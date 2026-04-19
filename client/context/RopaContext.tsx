@@ -401,6 +401,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         if (record.data_source_indirect) dataSources.push({ source: "INDIRECT" });
 
         const payload = {
+            title: record.document_name,
             title_prefix: record.title_prefix,
             first_name: record.first_name,
             last_name: record.last_name,
@@ -439,6 +440,14 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         };
 
         const response = await ropaService.saveOwnerDraft(record.id, payload);
+        
+        // ลิงก์ข้อมูล: บันทึก snapshot (ฉบับร่าง) ไปพร้อมกันเพื่อให้สองตารางเหมือนกันเสมอ
+        try {
+            await ropaService.saveOwnerSnapshot(record.id, payload);
+        } catch (e) {
+            console.warn("Failed to sync snapshot during saveRecord:", e);
+        }
+
         await refresh();
         return record as OwnerRecord;
     };
@@ -452,6 +461,18 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const submitDoSection = async (id: string) => {
         await ropaService.submitOwnerSection(id);
+        
+        // ลิงก์สถานะ: เมื่อบันทึกสมบูรณ์ (Submit) ให้ลบฉบับร่างออกเพื่อความสะอาดของตาราง
+        try {
+            const snapshots = await ropaService.getOwnerSnapshots();
+            const snap = snapshots.find((s: any) => s.document_id === id);
+            if (snap) {
+                await ropaService.deleteOwnerSnapshot(snap.id);
+            }
+        } catch (e) {
+            console.warn("Snapshot cleanup skipped or failed:", e);
+        }
+
         await refresh();
     };
 
@@ -493,6 +514,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         if (record.data_source_indirect) snapshotDataSources.push({ source: "INDIRECT" });
 
         const payload = {
+            title: record.document_name,
             title_prefix: record.title_prefix,
             first_name: record.first_name,
             last_name: record.last_name,
@@ -538,9 +560,14 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const fetchOwnerSnapshot = async (snapshotId: string): Promise<OwnerRecord | null> => {
         setIsLoading(true);
         try {
-            const data = await ropaService.getOwnerSnapshot(snapshotId);
-            // Snapshots return same format as section
-            return mapToOwnerRecord(data);
+            const snapshot = await ropaService.getOwnerSnapshot(snapshotId);
+            // ข้อมูลที่บันทึกไว้จะอยู่ใน snapshot.data เราต้องดึงออกมาและรวมกับ metadata พื้นฐาน
+            const combinedData = {
+                ...snapshot.data,
+                document_id: snapshot.document_id,
+                title: snapshot.title, // ใช้ชื่อเอกสารล่าสุดจาก metadata
+            };
+            return mapToOwnerRecord(combinedData);
         } catch (error) {
             console.error("Failed to fetch owner snapshot:", error);
             return null;

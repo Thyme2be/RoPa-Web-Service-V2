@@ -23,7 +23,7 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
                         accessibility_new
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     {sectionTitle}
                 </h2>
             </div>

@@ -22,7 +22,7 @@ function DocumentsPageContent() {
     const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
     const [customDate, setCustomDate] = useState("");
 
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 

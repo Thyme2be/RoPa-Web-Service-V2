@@ -25,7 +25,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         verified_user
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     {sectionTitle}
                 </h2>
             </div>
@@ -90,7 +90,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                     errors?.has_cross_border_transfer ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
                 )} id="has_cross_border_transfer">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <h3 className="font-extrabold text-[#1B1C1C] text-[15px] tracking-tight">
+                        <h3 className="font-extrabold text-[#5F5E5E] text-[15px] tracking-tight">
                             ส่งหรือโอนข้อมูลส่วนบุคคลไปยังต่างประเทศ <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </h3>
 

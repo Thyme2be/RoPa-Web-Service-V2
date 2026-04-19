@@ -146,6 +146,9 @@ class OwnerSectionSave(BaseModel):
       Section 7 (มาตรการ TOMs): org_measures, access_control_measures, ...
     """
 
+    # Section 0 - Document Info
+    title: Optional[str] = None
+
     # Section 1 – ผู้บันทึก (ข้อมูลส่วนตัว DO)
     title_prefix: Optional[str] = None
     first_name: Optional[str] = None

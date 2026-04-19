@@ -52,7 +52,8 @@ function ManagementFormContent() {
     } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
-    const [isLocked, setIsLocked] = useState(!isNewEdit);
+    // ปลดล็อก form ทันทีถ้าเป็นการเปิดแบบ mode=edit หรือกำลังแก้ไขฉบับร่าง (snapshotId)
+    const [isLocked, setIsLocked] = useState(!isNewEdit && !snapshotId);
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
@@ -416,10 +417,10 @@ function ManagementFormContent() {
     const handleDraft = async () => {
         if (!recordId) return;
         try {
-            await createOwnerSnapshot(recordId, form);
+            // saveRecord จัดการบันทึกทั้งตารางหลัก (Live) และตารางร่าง (Snapshot) ให้ลิงก์กันอัตโนมัติ
+            await saveRecord(form);
             setErrors({}); // ล้าง error เมื่อบันทึกร่าง
-            // ย้ายไปหน้าจัดการเอกสารทันที
-            router.push("/data-owner/management/processing");
+            setIsDraftSuccessOpen(true); // แสดง modal บันทึกร่างสำเร็จ
         } catch (error) {
             console.error("Failed to save draft:", error);
         }
@@ -718,31 +719,45 @@ function ManagementFormContent() {
                                 </button>
                             </div>
                         ) : (
-                            /* Normal form mode or view mode (Now always visible as requested) */
+                            /* Normal form mode or view mode (Conditional buttons based on lock state) */
                             <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                                {/* Left: Cancellation */}
-                                <button
-                                    onClick={handleCancel}
-                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                >
-                                    ยกเลิก
-                                </button>
+                                {viewMode && isLocked ? (
+                                    /* Single Centered Back Button in Locked View Mode */
+                                    <div className="flex justify-center w-full">
+                                        <button
+                                            onClick={handleCancel}
+                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-20 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                        >
+                                            กลับ
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Left: Cancellation */}
+                                        <button
+                                            onClick={handleCancel}
+                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                        >
+                                            ยกเลิก
+                                        </button>
 
-                                {/* Right Group: Draft + Save */}
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={handleDraft}
-                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                    >
-                                        บันทึกฉบับร่าง
-                                    </button>
-                                    <button
-                                        onClick={handleSave}
-                                        className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                    >
-                                        บันทึก
-                                    </button>
-                                </div>
+                                        {/* Right Group: Draft + Save */}
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                onClick={handleDraft}
+                                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                            >
+                                                บันทึกฉบับร่าง
+                                            </button>
+                                            <button
+                                                onClick={handleSave}
+                                                className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                            >
+                                                บันทึก
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )
                     ) : (

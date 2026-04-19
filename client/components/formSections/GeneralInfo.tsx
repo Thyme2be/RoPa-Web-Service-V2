@@ -31,7 +31,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                         person_edit
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     {isProcessor ? "ส่วนที่ 1 : รายละเอียดของผู้ประมวลผล" : "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA"}
                 </h2>
             </div>
