@@ -20,6 +20,7 @@ from app.models.document import RopaDocumentModel, DocumentDeletionRequestModel,
 from app.models.user import UserModel
 from app.models.workflow import ReviewDpoAssignmentModel, DocumentReviewCycleModel, ReviewAssignmentModel, ReviewFeedbackModel
 from app.models.dpo_comment import DpoSectionCommentModel
+from app.models.master_data import MstDepartmentModel
 from app.models.section_owner import RopaOwnerSectionModel
 from app.models.section_processor import RopaProcessorSectionModel
  
@@ -587,6 +588,10 @@ def _get_executive_metrics_internal(db: Session):
             RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETE_PENDING
         ).scalar() or 0
 
+        # 7. Final Department List (from Master Data)
+        all_depts = db.query(MstDepartmentModel.name).filter(MstDepartmentModel.is_active == True).all()
+        available_depts = [d[0] for d in all_depts]
+
         return ExecutiveDashboardResponse(
             selected_period="all",
             ropa_status_overview=ropa_status,
@@ -595,6 +600,7 @@ def _get_executive_metrics_internal(db: Session):
             pending_documents=PendingDocuments(data_owner_count=pending_do, data_processor_count=pending_dp),
             approved_documents=ApprovedDocumentsSummary(total=approved_total),
             pending_dpo_review=PendingDpoReviewSummary(for_archiving=for_archiving, for_destruction=for_destruction),
+            available_departments=available_depts,
         )
     except Exception as e:
         print(f"Error in _get_executive_metrics: {str(e)}")
@@ -607,6 +613,7 @@ def _get_executive_metrics_internal(db: Session):
             pending_documents=PendingDocuments(data_owner_count=0, data_processor_count=0),
             approved_documents=ApprovedDocumentsSummary(total=0),
             pending_dpo_review=PendingDpoReviewSummary(for_archiving=0, for_destruction=0),
+            available_departments=[],
         )
 
 # --- Endpoints ---
