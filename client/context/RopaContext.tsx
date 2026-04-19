@@ -1,15 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { 
-    OwnerRecord, 
-    OwnerDashboardData, 
-    ActiveTableItem, 
+import {
+    OwnerRecord,
+    OwnerDashboardData,
+    ActiveTableItem,
     SentToDpoTableItem,
     ApprovedTableItem,
     DestroyedTableItem,
-    OwnerSnapshotTableItem,
-    StatusBadge 
+    StatusBadge
 } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { ExecutiveDashboardResponse, RiskByDepartment } from "@/types/executive";
@@ -98,8 +97,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                     setSentRecords(sent);
                     setApprovedRecords(approved);
                     setDestroyedRecords(destroyed);
-                    setOwnerSnapshots(snapshots);
-                    
+
                     // Legacy records mapping for screens that still use unified list
                     const legacyMapping = active.map(item => ({
                         id: item.document_id,
@@ -128,10 +126,10 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             if (user.role === "PROCESSOR") {
                 try {
                     const assignedDocs = await ropaService.getProcessorAssignedTable();
-                    
+
                     let activeDocs: any[] = [];
                     let draftDocs: any[] = [];
-                    
+
                     if (Array.isArray(assignedDocs)) {
                         activeDocs = assignedDocs;
                     } else if (assignedDocs && typeof assignedDocs === 'object') {
@@ -165,7 +163,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
                     const normalizedActive = activeDocs.map(item => mapItem(item, false));
                     const normalizedDrafts = draftDocs.map(item => mapItem(item, true));
-                    
+
                     const allNormalized = [...normalizedActive, ...normalizedDrafts];
                     setProcessorRecords(allNormalized as any);
                     setRecords(allNormalized as any);
@@ -299,8 +297,8 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
 
     // ─── Data Owner Handlers ──────────────────────────────────────────────────
-    
-    
+
+
     /**
      * Helper to map raw backend snapshot/section data to OwnerRecord frontend type
      */

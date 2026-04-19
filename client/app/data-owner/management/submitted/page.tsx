@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
 import { useRopa } from "@/context/RopaContext";
@@ -109,7 +109,7 @@ export default function RopaSubmittedPage() {
                         onClear={handleClearFilters}
                     />
 
-                    <ListCard title="เอกสารที่ส่งให้กับเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" icon="assignment" iconColor="#FF9800" bodyClassName="p-0">
+                    <DocumentListCard title="เอกสารที่ส่งให้กับเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" icon="assignment" iconColor="#FF9800" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[18%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
@@ -179,7 +179,7 @@ export default function RopaSubmittedPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
-                    </ListCard>
+                    </DocumentListCard>
                 </div>
             </main>
         </div>

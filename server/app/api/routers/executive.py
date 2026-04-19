@@ -70,7 +70,7 @@ def executive_dashboard(
         base_q = base_q.filter(RopaDocumentModel.created_at >= cutoff)
     
     # Subquery for document IDs to use in subsequent filters
-    doc_id_subq = base_q.with_entities(RopaDocumentModel.id).subquery()
+    doc_id_subq = base_q.with_entities(RopaDocumentModel.id).correlate(None).subquery()
     total_docs = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.id.in_(doc_id_subq)).scalar() or 0
 
     # 1. ROPA Status Overview (Optimized: No N+1 loops)

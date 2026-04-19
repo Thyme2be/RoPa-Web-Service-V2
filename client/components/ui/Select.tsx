@@ -97,7 +97,10 @@ export default function Select({
                     )}>
                         {selectedOption ? selectedOption.label : placeholder || "เลือกรายการ..."}
                     </span>
-                    <span className="material-symbols-outlined text-gray-400 transition-transform duration-300"
+                    <span className={cn(
+                        "material-symbols-outlined text-gray-400 transition-transform duration-300",
+                        isOpen && "rotate-180"
+                    )}
                         style={{ color: isOpen ? primaryColor : undefined }}>
                         expand_more
                     </span>
@@ -105,7 +108,7 @@ export default function Select({
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div 
+                    <div
                         className={cn(
                             "absolute z-50 w-full bg-white border border-opacity-20 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] overflow-hidden top-full mt-[-1px]",
                             rounding === "2xl" ? "rounded-b-2xl" : rounding === "xl" ? "rounded-b-xl" : "rounded-b-lg"

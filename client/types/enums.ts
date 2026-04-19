@@ -5,6 +5,9 @@ export enum RopaStatus {
   UNDER_REVIEW = "UNDER_REVIEW",     // ตาราง 2
   COMPLETED = "COMPLETED",           // ตาราง 3
   DELETED = "DELETED",               // ตาราง 4
+  ReviewPending = "ReviewPending",   // สำหรับ mock
+  Approved = "Approved",             // สำหรับ mock
+  DeletePending = "DeletePending",   // สำหรับ mock
 }
 
 export enum SectionStatus {

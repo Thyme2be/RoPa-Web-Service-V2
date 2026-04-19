@@ -7,7 +7,7 @@ const publicRoutes = ["/login"];
 
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-    
+
     // 1. Skip static files (images, fonts, etc.)
     if (PUBLIC_FILE.test(pathname) || pathname.startsWith("/_next") || pathname.startsWith("/api")) {
         return NextResponse.next();
@@ -31,7 +31,7 @@ export function middleware(req: NextRequest) {
         // If trying to access login page or root, redirect to respective dashboard
         if (isPublicRoute || pathname === "/") {
             const url = req.nextUrl.clone();
-            
+
             if (role === "EXECUTIVE") {
                 url.pathname = "/executive/dashboard";
             } else if (role === "PROCESSOR") {

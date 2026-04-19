@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Pagination } from "@/components/ropa/ListComponents";
 
 export interface Column<T> {
     header: string;
@@ -59,10 +60,6 @@ export default function DataTable<T extends { id: string | number }>({
                         />
                     </div>
                 )}
-
-                <div className="text-[14px] font-bold uppercase tracking-widest text-[#1B1C1C]">
-                    แสดงผล {totalItems > 0 ? startIndex + 1 : 0} - {Math.min(currentPage * itemsPerPage, totalItems)} จาก {totalItems} รายการ
-                </div>
             </div>
 
             {/* Table */}
@@ -109,45 +106,13 @@ export default function DataTable<T extends { id: string | number }>({
             </div>
 
             {/* Pagination Controls */}
-            {totalPages > 0 && (
-                <div className="px-6 py-3 bg-surface-container-low/30 flex items-center justify-between">
-                    <button
-                        type="button"
-                        onClick={() => onPageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className={`text-xs font-bold flex items-center gap-1 transition-all ${currentPage === 1 ? "text-secondary opacity-50 cursor-not-allowed" : "text-secondary hover:text-[#B90A1E] cursor-pointer"
-                            }`}
-                    >
-                        <span className="material-symbols-outlined text-sm">chevron_left</span> ย้อนกลับ
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                            <button
-                                key={page}
-                                type="button"
-                                onClick={() => onPageChange(page)}
-                                className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${currentPage === page
-                                    ? "bg-[#B90A1E] text-white shadow-md shadow-red-900/10"
-                                    : "hover:bg-surface-container-high text-on-surface"
-                                    }`}
-                            >
-                                {page}
-                            </button>
-                        ))}
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => onPageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className={`text-xs font-bold flex items-center gap-1 transition-all ${currentPage === totalPages ? "text-secondary opacity-50 cursor-not-allowed" : "text-secondary hover:text-[#B90A1E] cursor-pointer"
-                            }`}
-                    >
-                        ถัดไป <span className="material-symbols-outlined text-sm">chevron_right</span>
-                    </button>
-                </div>
-            )}
+            <div className="px-6 pb-6">
+                <Pagination 
+                    current={currentPage} 
+                    total={totalPages} 
+                    onChange={onPageChange} 
+                />
+            </div>
         </div>
     );
 }

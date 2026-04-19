@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import CreateDocumentModal from "@/components/ropa/CreateDocumentModal";
 import { useRouter } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
@@ -197,7 +197,7 @@ export default function ManagementProcessingPage() {
                     />
 
                     {/* ─── Processing Table ─────────────────────────────────── */}
-                    <ListCard title="เอกสารที่ดำเนินการ" icon="check_circle" iconColor="#0D9488" bodyClassName="p-0">
+                    <DocumentListCard title="เอกสารที่ดำเนินการ" icon="check_circle" iconColor="#0D9488" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
@@ -278,10 +278,10 @@ export default function ManagementProcessingPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage}
                         />
-                    </ListCard>
+                    </DocumentListCard>
 
                     {/* ─── Draft Table ──────────────────────────────────────── */}
-                    <ListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
+                    <DocumentListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[50%] text-center">ชื่อเอกสาร</DocumentTableHeader>
@@ -337,7 +337,7 @@ export default function ManagementProcessingPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setDraftPage}
                         />
-                    </ListCard>
+                    </DocumentListCard>
                 </div>
 
                 <CreateDocumentModal

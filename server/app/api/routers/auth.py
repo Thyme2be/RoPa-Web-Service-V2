@@ -25,17 +25,12 @@ from app.schemas.user import UserRead
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.get("/me", summary="Get Current User Info (Simplified)")
+@router.get("/me", response_model=UserRead, summary="Get Current User Info")
 def get_me(current_user: UserRead = Depends(get_current_user)):
     """
-    Returns only first_name, last_name, and role.
+    Returns the current user's profile information.
     """
-    return {
-        "title": current_user.title,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "role": current_user.role
-    }
+    return current_user
 
 
 def _authenticate_user(db: Session, identifier: str, password: str) -> UserModel | None:
