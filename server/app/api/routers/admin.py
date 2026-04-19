@@ -15,8 +15,11 @@ from app.core.security import get_password_hash
 from app.schemas.enums import UserRoleEnum, UserStatusEnum, DocumentStatusEnum
 from app.schemas.auth import RegisterRequest
 from app.schemas.admin_docs import AdminDocumentTableItem, PaginatedAdminDocumentResponse
-from app.models.document import RopaDocumentModel
+from app.models.document import RopaDocumentModel, DocumentDeletionRequestModel
 from app.models.workflow import ReviewDpoAssignmentModel, DocumentReviewCycleModel
+from app.models.user import UserModel
+from app.schemas.user import UserRead, PaginatedUserResponse, PaginatedUserReadItem, UserUpdate
+from app.schemas.document import DeletionApprovalRequest
 from sqlalchemy.orm import aliased
 
 router = APIRouter(prefix="/admin", tags=["Admin — User Management"])
@@ -219,3 +222,41 @@ def list_all_documents(
         limit=limit,
         items=items
     )
+
+@router.patch("/deletion-requests/{request_id}/approve", summary="Admin/DPO: Approve or Reject Destruction Request", tags=["Admin — Document Management"])
+def approve_destruction_request(
+    request_id: UUID,
+    payload: DeletionApprovalRequest,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.ADMIN, Role.DPO))
+):
+    """
+    Approve or Reject a document destruction request.
+    If APPROVED, the source document's deletion_status is updated to 'DELETED' (or 'DESTROYED').
+    """
+    req = db.query(DocumentDeletionRequestModel).filter(DocumentDeletionRequestModel.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Deletion request not found.")
+
+    req.status = payload.status.upper()
+    req.dpo_id = current_user.id
+    req.dpo_decision = payload.status.upper()
+    req.dpo_reason = payload.rejection_reason
+    req.decided_at = datetime.now(timezone.utc)
+
+    if req.status == 'APPROVED':
+        doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == req.document_id).first()
+        if doc:
+            # Sync state: set deletion_status to DELETED (as per enum)
+            doc.deletion_status = 'DELETED'
+            doc.deleted_at = req.decided_at
+            db.add(doc)
+
+    db.add(req)
+    db.commit()
+
+    return {
+        "message": f"Destruction request {req.status}",
+        "request_id": request_id,
+        "new_status": req.status
+    }
