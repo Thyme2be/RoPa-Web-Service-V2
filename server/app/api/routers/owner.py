@@ -87,6 +87,7 @@ from app.schemas.owner import (
     DeletionRequestCreate,
     DeletionRequestRead,
     DocumentCreateOwner,
+    ProcessorCompaniesResponse,
     DoSuggestionUpdate,
     DoSuggestionResponse,
     FeedbackBatch,
@@ -295,6 +296,32 @@ def _processor_status_badge(
 # POST /owner/documents — สร้างเอกสารใหม่
 # =============================================================================
 
+@router.get(
+    "/processors/companies",
+    response_model=ProcessorCompaniesResponse,
+    summary="ดึงรายชื่อบริษัท DP ทั้งหมด (สำหรับ dropdown ตอนสร้างเอกสาร)",
+)
+def list_processor_companies(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    คืนรายชื่อบริษัทที่มี PROCESSOR user อยู่ → frontend เอาไปทำ dropdown ในหน้าสร้างเอกสาร
+    """
+    rows = (
+        db.query(UserModel.company_name)
+        .filter(
+            UserModel.role == "PROCESSOR",
+            UserModel.company_name.isnot(None),
+            UserModel.status == "ACTIVE",
+        )
+        .distinct()
+        .order_by(UserModel.company_name)
+        .all()
+    )
+    return {"companies": [r.company_name for r in rows]}
+
+
 @router.post(
     "/documents",
     status_code=status.HTTP_201_CREATED,
@@ -309,17 +336,50 @@ def create_document(
     หน้า: Modal "สร้างเอกสาร" → กดปุ่ม "สร้าง"
 
     ขั้นตอน:
-    1. สร้าง ropa_documents พร้อม document_number = DFT-YYYY-XX
-    2. สร้าง ropa_owner_sections (เปล่า status=DRAFT)
-    3. สร้าง processor_assignments → ผูก DP ที่เลือกกับเอกสารนี้
-    4. สร้าง ropa_processor_sections (เปล่า status=DRAFT)
+    1. สุ่ม DP แบบ round robin จาก users ที่ role=PROCESSOR, company_name=processor_company
+       (ดูว่าใครถูก assign ล่าสุด → เอาคนถัดไปเรียงตาม user.id)
+    2. สร้าง ropa_documents พร้อม document_number = DFT-YYYY-XX
+    3. สร้าง ropa_owner_sections (เปล่า status=DRAFT)
+    4. สร้าง processor_assignments → ผูก DP ที่สุ่มได้กับเอกสารนี้
+    5. สร้าง ropa_processor_sections (เปล่า status=DRAFT)
     """
-    dp_user = db.query(UserModel).filter(UserModel.id == payload.assigned_processor_id).first()
-    if not dp_user or dp_user.role != "PROCESSOR":
+    # ดึง DP ทั้งหมดในบริษัทที่เลือก เรียงตาม id
+    dp_candidates = (
+        db.query(UserModel)
+        .filter(
+            UserModel.role == "PROCESSOR",
+            UserModel.company_name == payload.processor_company,
+            UserModel.status == "ACTIVE",
+        )
+        .order_by(UserModel.id)
+        .all()
+    )
+    if not dp_candidates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="assigned_processor_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ PROCESSOR",
+            detail=f"ไม่พบ Data Processor ที่ active ในบริษัท '{payload.processor_company}'",
         )
+
+    # Round robin: หา DP ที่ถูก assign ล่าสุดในบริษัทนี้
+    last_assignment = (
+        db.query(ProcessorAssignmentModel)
+        .join(UserModel, UserModel.id == ProcessorAssignmentModel.processor_id)
+        .filter(
+            UserModel.company_name == payload.processor_company,
+            UserModel.role == "PROCESSOR",
+        )
+        .order_by(ProcessorAssignmentModel.id.desc())
+        .first()
+    )
+
+    dp_ids = [dp.id for dp in dp_candidates]
+    if not last_assignment or last_assignment.processor_id not in dp_ids:
+        # ยังไม่มี assignment ในบริษัทนี้เลย หรือคนล่าสุดไม่อยู่ใน list → เริ่มคนแรก
+        dp_user = dp_candidates[0]
+    else:
+        last_idx = dp_ids.index(last_assignment.processor_id)
+        next_idx = (last_idx + 1) % len(dp_ids)
+        dp_user = dp_candidates[next_idx]
 
     now = datetime.now(timezone.utc)
     year = now.year
@@ -346,7 +406,7 @@ def create_document(
 
     assignment = ProcessorAssignmentModel(
         document_id=doc.id,
-        processor_id=payload.assigned_processor_id,
+        processor_id=dp_user.id,
         assigned_by=current_user.id,
         due_date=payload.due_date,
         status="IN_PROGRESS",
@@ -356,7 +416,7 @@ def create_document(
 
     processor_section = RopaProcessorSectionModel(
         document_id=doc.id,
-        processor_id=payload.assigned_processor_id,
+        processor_id=dp_user.id,
         status="DRAFT",
     )
     db.add(processor_section)
@@ -367,6 +427,8 @@ def create_document(
     return {
         "document_id": str(doc.id),
         "document_number": doc.document_number,
+        "assigned_processor_id": dp_user.id,
+        "assigned_processor_name": f"{dp_user.first_name or ''} {dp_user.last_name or ''}".strip(),
         "message": "สร้างเอกสารสำเร็จ",
     }
 

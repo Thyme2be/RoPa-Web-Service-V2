@@ -8,6 +8,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 
 ## สารบัญ
 
+0. [ดึงรายชื่อบริษัท DP (dropdown)](#0-get-ownerprocessorscompanies--ดึงรายชื่อบริษัท-dp)
 1. [สร้างเอกสาร](#1-post-ownerdocuments--สร้างเอกสาร)
 2. [Dashboard](#2-get-ownerdashboard--dashboard)
 3. [ตาราง 1 — Active](#3-get-ownertablesactive--ตาราง-1-active)
@@ -31,10 +32,41 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 
 ---
 
+## 0. GET /owner/processors/companies — ดึงรายชื่อบริษัท DP
+
+**หน้า UI:** เรียกตอนเปิด Modal "สร้างเอกสาร" เพื่อโหลด dropdown บริษัท  
+**เรียกเมื่อ:** ก่อนแสดง modal (หรือตอน mount component)
+
+### Response `200`
+```json
+{
+  "companies": ["Thetadata", "บริษัท A", "บริษัท B"]
+}
+```
+
+> คืนเฉพาะบริษัทที่มี PROCESSOR user active อยู่เท่านั้น  
+> เรียงตามตัวอักษร A–Z
+
+---
+
 ## 1. POST /owner/documents — สร้างเอกสาร
 
 **หน้า UI:** Modal "สร้างเอกสาร"  
 **เรียกเมื่อ:** กดปุ่ม "สร้าง" ใน modal
+
+### Flow การทำงาน
+```
+ก่อนเปิด modal → GET /owner/processors/companies → โหลด dropdown บริษัท
+                                                              ↓
+                                              DO เลือกบริษัท เช่น "บริษัท A"
+                                                              ↓
+                                     กดสร้าง → POST /owner/documents
+                                                              ↓
+                              backend สุ่ม DP แบบ Round Robin จากบริษัทนั้น
+                              (ดูว่าใครได้งานล่าสุด → เอาคนถัดไปเรียงตาม user.id)
+                                                              ↓
+                                           สร้างเอกสาร + assign DP คนนั้น
+```
 
 ### Request Body
 ```json
@@ -43,30 +75,37 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
   "description": "string | null",
   "review_interval_days": 365,
   "due_date": "2025-12-31T00:00:00Z | null",
-  "processor_company": "string | null",
-  "assigned_processor_id": 1
+  "processor_company": "บริษัท A (required)"
 }
 ```
 
 | Field | Required | หมายเหตุ |
 |-------|----------|---------|
 | `title` | ✅ | ชื่อเอกสาร |
-| `assigned_processor_id` | ✅ | user.id ของ DP ที่จะ assign (ต้องมี role = PROCESSOR) |
+| `processor_company` | ✅ | ชื่อบริษัท DP ที่เลือกจาก dropdown |
 | `review_interval_days` | ❌ | default 365 (ทบทวนรายปี) |
 | `due_date` | ❌ | วันกำหนดส่งของ DP |
-| `processor_company` | ❌ | ชื่อบริษัทของ DP |
+| `description` | ❌ | คำอธิบายเพิ่มเติม |
 
 ### Response `201 Created`
 ```json
 {
   "document_id": "uuid",
   "document_number": "DFT-2025-01",
+  "assigned_processor_id": 7,
+  "assigned_processor_name": "สมชาย ใจดี",
   "message": "สร้างเอกสารสำเร็จ"
 }
 ```
 
+> `assigned_processor_id` และ `assigned_processor_name` คือ DP ที่ถูกสุ่มให้  
 > หลังสร้างสำเร็จ → เอกสารปรากฏใน ตาราง 1 (Active) ทันที  
 > `document_number` ขึ้นต้นด้วย `DFT-` (ฉบับร่าง) จนกว่าจะส่ง DPO จะเปลี่ยนเป็น `RP-`
+
+### Error Cases
+| Status | Detail |
+|--------|--------|
+| `400` | `ไม่พบ Data Processor ที่ active ในบริษัท '{ชื่อบริษัท}'` |
 
 ---
 
