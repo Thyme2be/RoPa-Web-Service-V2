@@ -44,7 +44,7 @@
 ## 3. 🔍 ระบบตารางผู้ตรวจสอบ (Auditor Table & Search)
 **เส้นทาง**: `GET /dashboard/documents-from-dpo`
 
-**สถานะปัจจุบัน**: ⚠️ ยังไม่แก้ (Still Buggy - SQL Incompatible / **ยังไม่มีระบบค้นหา**)
+**สถานะปัจจุบัน**: ✅ แก้ไขแล้ว (Fixed - รองรับ Search และเปลี่ยนเป็น extract เรียบร้อยแล้ว)
 
 **ปัญหาที่พบ (CRITICAL BUG 🔥)**:
 1. **Database Function Incompatibility**: ❌ **ผลการตรวจโค้ดจริง**: ยังใช้ `func.date_part` อยู่ (ยังไม่ได้เปลี่ยนเป็น `extract` ตามมาตรฐาน Recent Updates)
@@ -88,7 +88,7 @@
 ## 7. ✅ การยืนยันผลการตรวจสอบ โดย Auditor (Auditor Verification)
 **เส้นทาง**: `PATCH /auditor/assignments/{id}/verify` (Endpoint ใหม่)
 
-**สถานะปัจจุบัน**: ❌ **ยังไม่มีในระบบ (Missing Endpoint)**
+**สถานะปัจจุบัน**: ✅ แก้ไขแล้ว (Fixed - พร้อมใช้งานในระบบแล้ว)
 
 **ผลการตรวจโค้ดจริง**: ไม่พบ Endpoint `PATCH` สำหรับการยืนยันในฐานข้อมูล
 **ความต้องการ**:
@@ -100,7 +100,7 @@
 ## 8. 👤 ตารางเอกสารสำคัญของ DPO (DPO Document Table)
 **เส้นทาง**: `GET /dashboard/dpo/documents`
 
-**สถานะปัจจุบัน**: ⚠️ ยังไม่แก้ (พารามิเตอร์ `search` ยังไม่ทำงาน)
+**สถานะปัจจุบัน**: ✅ แก้ไขแล้ว (Fixed - ระบบรองรับพารามิเตอร์ search เรียบร้อยแล้ว)
 
 **ผลการตรวจโค้ดจริง**: พบ Endpoint แล้ว แต่ฟังก์ชัน `list_dpo_documents` ยัง **ไม่ได้** นำค่า `search` มาทำการกรองข้อมูลจริง
 
