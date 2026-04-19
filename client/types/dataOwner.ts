@@ -47,7 +47,7 @@ export type OwnerRecord = {
   phone?: string;
   rights_email?: string;
   rights_phone?: string;
-  status?: RopaStatus;
+  status?: RopaStatus | SectionStatus;
   date_created?: string;
 
   // Workflow tracking

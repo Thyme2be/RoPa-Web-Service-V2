@@ -18,7 +18,6 @@ import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
-import { mockOwnerRecords, mockProcessorRecords } from "@/lib/ropaMockRecords";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -32,7 +31,7 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
     const markerColor = "#ED393C";
     const lightBg = isProcessor ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
     const borderLColor = isProcessor ? "border-l-[#00666E]" : "border-l-[#ED393C]";
-    
+
     // Changing "ส่วนที่ 2" to "ส่วนที่ 3" specifically for this page
     const sectionTitle = isProcessor ? "ส่วนที่ 2 : รายละเอียดกิจกรรม" : "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์";
 
@@ -59,11 +58,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             <Input
                                 label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
                                 required
-                                name="dataSubjectName"
-                                value={form?.dataSubjectName || ""}
+                                name="data_subject_name"
+                                value={form?.data_subject_name || ""}
                                 placeholder="ระบุเจ้าของข้อมูล (เช่น บริษัท A)"
                                 onChange={handleChange}
-                                error={errors?.dataSubjectName}
+                                error={errors?.data_subject_name}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -74,11 +73,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             <Input
                                 label="กิจกรรมประมวลผล"
                                 required
-                                name="processingActivity"
-                                value={form?.processingActivity || ""}
+                                name="processing_activity"
+                                value={form?.processing_activity || ""}
                                 placeholder="ระบุกิจกรรมประมวลผล (เช่น การรับสมัครพนักงาน)"
                                 onChange={handleChange}
-                                error={errors?.processingActivity}
+                                error={errors?.processing_activity}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -86,11 +85,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             <Input
                                 label="วัตถุประสงค์การประมวลผล"
                                 required
-                                name="purpose"
-                                value={form?.purpose || ""}
+                                name="purpose_of_processing"
+                                value={form?.purpose_of_processing || ""}
                                 placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อรับสมัครบุคคลเข้าทำงาน)"
                                 onChange={handleChange}
-                                error={errors?.purpose}
+                                error={errors?.purpose_of_processing}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -102,11 +101,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <Input
                             label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
                             required
-                            name="processorName"
-                            value={form?.processorName || ""}
+                            name="processor_name"
+                            value={form?.processor_name || ""}
                             placeholder="ระบุชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
                             onChange={handleChange}
-                            error={errors?.processorName}
+                            error={errors?.processor_name}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
@@ -126,11 +125,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <Input
                             label="กิจกรรมประมวลผล"
                             required
-                            name="processingActivity"
-                            value={form?.processingActivity || ""}
+                            name="processing_activity"
+                            value={form?.processing_activity || ""}
                             placeholder="ระบุกิจกรรมประมวลผล (เช่น ดำเนินการตามสัญญาว่าจ้าง)"
                             onChange={handleChange}
-                            error={errors?.processingActivity}
+                            error={errors?.processing_activity}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
@@ -138,11 +137,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <Input
                             label="วัตถุประสงค์ของการประมวลผล"
                             required
-                            name="purpose"
-                            value={form?.purpose || ""}
+                            name="purpose_of_processing"
+                            value={form?.purpose_of_processing || ""}
                             placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อจัดจ้าง ออกแบบ/พัฒนาระบบ)"
                             onChange={handleChange}
-                            error={errors?.purpose}
+                            error={errors?.purpose_of_processing}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
@@ -191,7 +190,7 @@ function DpoDestructionDetailContent() {
     const [activeTab, setActiveTab] = useState("owner");
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const { getById, getProcessorById } = useRopa();
-    
+
     // Destruction Review State
     const [destructionStatus, setDestructionStatus] = useState<"approve" | "reject" | "none">("none");
     const [rejectionReason, setRejectionReason] = useState("");
@@ -201,9 +200,9 @@ function DpoDestructionDetailContent() {
     const [error, setError] = useState<string | null>(null);
 
     const [form, setForm] = useState<Partial<OwnerRecord>>({
-        documentName: "กำลังโหลด...",
+        document_name: "กำลังโหลด...",
         status: RopaStatus.DeletePending,
-        processingStatus: { doStatus: "done", dpStatus: "done" },
+        processing_status: { do_status: "done", dp_status: "done" },
     });
 
     const [processorForm, setProcessorForm] = useState<Partial<ProcessorRecord>>({
@@ -234,11 +233,11 @@ function DpoDestructionDetailContent() {
                     setForm({
                         ...os,
                         id: recordId,
-                        documentName: docData.title,
-                        dataSubjectName: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
+                        document_name: docData.title,
+                        data_subject_name: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
                         status: docData.status as RopaStatus,
-                        riskAssessment: docData.risk_assessment,
-                        processingStatus: { doStatus: "done", dpStatus: "done" } 
+                        risk_assessment: docData.risk_assessment,
+                        processing_status: { do_status: "done", dp_status: "done" }
                     });
                 }
 
@@ -246,8 +245,9 @@ function DpoDestructionDetailContent() {
                 if (docData.processor_sections && docData.processor_sections.length > 0) {
                     const ps = docData.processor_sections[0];
                     setProcessorForm({
-                        ...ps,
-                        id: recordId,
+                        processor_name: ps.processor_name,
+                        processing_activity: ps.processing_activity,
+                        purpose_of_processing: ps.purpose_of_processing || ps.purpose,
                         status: docData.status as RopaStatus
                     });
                 }
@@ -265,7 +265,7 @@ function DpoDestructionDetailContent() {
     const handleCancel = () => {
         router.push("/dpo/tables/destruction");
     };
-    
+
     const handleFinalSubmit = async () => {
         const token = localStorage.getItem("token");
         try {
@@ -293,8 +293,8 @@ function DpoDestructionDetailContent() {
     };
 
     // Validation logic for button state
-    const isSubmitDisabled = 
-        destructionStatus === "none" || 
+    const isSubmitDisabled =
+        destructionStatus === "none" ||
         (destructionStatus === "reject" && !rejectionReason.trim());
 
     const handleConfirmReview = () => {
@@ -302,7 +302,7 @@ function DpoDestructionDetailContent() {
         setIsConfirmModalOpen(true);
     };
 
-    const emptyHandler = () => {};
+    const emptyHandler = () => { };
 
     // Navigation logic MATCHING in-progress exactly
     const handlePrevTab = () => {
@@ -384,11 +384,11 @@ function DpoDestructionDetailContent() {
                             key={recordId}
                             doStatus="done"
                             dpStatus="done"
-                            existingRisk={form.riskAssessment}
+                            existingRisk={form.risk_assessment}
                             activeView="none"
-                            onViewDoSection={() => {}}
-                            onViewDpSection={() => {}}
-                            onSubmit={() => {}}
+                            onViewDoSection={() => { }}
+                            onViewDpSection={() => { }}
+                            onSubmit={() => { }}
                             onCancel={() => setActiveTab("owner")}
                             readOnly={true}
                             showFeedback={false}
@@ -412,12 +412,12 @@ function DpoDestructionDetailContent() {
 
                         {/* Approval Status */}
                         <div className="flex gap-6 pt-4">
-                            <button 
+                            <button
                                 onClick={() => setDestructionStatus("approve")}
                                 className={cn(
                                     "flex-1 h-14 rounded-[16px] border flex items-center px-6 gap-4 transition-all shadow-sm",
-                                    destructionStatus === "approve" 
-                                        ? "bg-white border-[#ED393C] ring-1 ring-[#ED393C]" 
+                                    destructionStatus === "approve"
+                                        ? "bg-white border-[#ED393C] ring-1 ring-[#ED393C]"
                                         : "bg-white border-[#E5E2E1] hover:border-gray-400"
                                 )}
                             >
@@ -429,13 +429,13 @@ function DpoDestructionDetailContent() {
                                 </div>
                                 <span className="text-[17px] font-bold text-[#1B1C1C]">อนุมัติคำร้อง</span>
                             </button>
-                            
-                            <button 
+
+                            <button
                                 onClick={() => setDestructionStatus("reject")}
                                 className={cn(
                                     "flex-1 h-14 rounded-[16px] border flex items-center px-6 gap-4 transition-all shadow-sm",
-                                    destructionStatus === "reject" 
-                                        ? "bg-white border-[#ED393C] ring-1 ring-[#ED393C]" 
+                                    destructionStatus === "reject"
+                                        ? "bg-white border-[#ED393C] ring-1 ring-[#ED393C]"
                                         : "bg-white border-[#E5E2E1] hover:border-gray-400"
                                 )}
                             >
@@ -456,7 +456,7 @@ function DpoDestructionDetailContent() {
                         )}>
                             <h3 className="text-[20px] font-headline font-black text-[#1B1C1C] tracking-tight">เหตุผลในการไม่อนุมัติ</h3>
                             <div className="bg-white rounded-[16px] p-6 border border-[#E5E2E1] focus-within:border-[#ED393C] transition-all shadow-sm">
-                                <textarea 
+                                <textarea
                                     rows={2}
                                     placeholder="ระบุเหตุผลในการไม่อนุมัติ"
                                     className="w-full bg-transparent outline-none text-[17px] font-medium text-[#1B1C1C] placeholder:text-gray-400 resize-none"
@@ -493,8 +493,8 @@ function DpoDestructionDetailContent() {
                             disabled={isSubmitDisabled}
                             className={cn(
                                 "bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-black text-base shadow-2xl transition-all flex items-center gap-2",
-                                isSubmitDisabled 
-                                    ? "opacity-50 grayscale cursor-not-allowed shadow-none" 
+                                isSubmitDisabled
+                                    ? "opacity-50 grayscale cursor-not-allowed shadow-none"
                                     : "shadow-red-900/40 hover:brightness-110 active:scale-95 cursor-pointer"
                             )}
                         >
@@ -511,7 +511,7 @@ function DpoDestructionDetailContent() {
                 </div>
             </div>
 
-            <SaveSuccessModal 
+            <SaveSuccessModal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={handleFinalSubmit}

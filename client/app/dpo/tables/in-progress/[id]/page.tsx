@@ -83,8 +83,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1">
                             <Input
                                 label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
-                                name="dataSubjectName"
-                                value={form?.dataSubjectName || ""}
+                                name="data_subject_name"
+                                value={form?.data_subject_name || ""}
                                 placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
                                 disabled={disabled}
@@ -96,8 +96,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <Input
                                 label="กิจกรรมประมวลผล"
-                                name="processingActivity"
-                                value={form?.processingActivity || ""}
+                                name="processing_activity"
+                                value={form?.processing_activity || ""}
                                 placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
                                 disabled={disabled}
@@ -106,8 +106,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             />
                             <Input
                                 label="วัตถุประสงค์การประมวลผล"
-                                name="purpose"
-                                value={form?.purpose || ""}
+                                name="purpose_of_processing"
+                                value={form?.purpose_of_processing || form?.purpose || ""}
                                 placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
                                 disabled={disabled}
@@ -120,8 +120,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                         <Input
                             label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-                            name="processorName"
-                            value={form?.processorName || ""}
+                            name="processor_name"
+                            value={form?.processor_name || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -140,8 +140,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         />
                         <Input
                             label="กิจกรรมประมวลผล"
-                            name="processingActivity"
-                            value={form?.processingActivity || ""}
+                            name="processing_activity"
+                            value={form?.processing_activity || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -150,8 +150,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         />
                         <Input
                             label="วัตถุประสงค์ของการประมวลผล"
-                            name="purpose"
-                            value={form?.purpose || ""}
+                            name="purpose_of_processing"
+                            value={form?.purpose_of_processing || form?.purpose || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -183,7 +183,7 @@ function DpoInProgressDetailContent() {
     const [error, setError] = useState<string | null>(null);
 
     const [form, setForm] = useState<Partial<OwnerRecord>>({
-        documentName: "กำลังโหลด...",
+        document_name: "กำลังโหลด...",
         status: RopaStatus.Processing,
     });
 
@@ -219,16 +219,16 @@ function DpoInProgressDetailContent() {
                         ...prev,
                         ...os, // Direct map all fields (General, Stored, Retention, etc.)
                         id: recordId,
-                        documentName: docData.title,
-                        dataSubjectName: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
-                        processingActivity: os.processing_activity,
-                        purpose: os.purpose_of_processing || os.purpose,
+                        document_name: docData.title,
+                        data_subject_name: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
+                        processing_activity: os.processing_activity,
+                        purpose_of_processing: os.purpose_of_processing || os.purpose,
                         status: docData.status as RopaStatus,
-                        riskAssessment: docData.risk_assessment,
-                        processingStatus: { doStatus: "done", dpStatus: "done" } 
+                        risk_assessment: docData.risk_assessment,
+                        processing_status: { do_status: "done", dp_status: "done" } 
                     }));
                 } else {
-                    setForm(prev => ({ ...prev, documentName: docData.title, status: docData.status as RopaStatus }));
+                    setForm(prev => ({ ...prev, document_name: docData.title, status: docData.status as RopaStatus }));
                 }
 
                 // Map Processor Section (Full mapping)
@@ -238,9 +238,9 @@ function DpoInProgressDetailContent() {
                         ...prev,
                         ...ps, // Direct map all fields
                         id: recordId,
-                        processorName: ps.processor_name,
-                        processingActivity: ps.processing_activity,
-                        purpose: ps.purpose_of_processing || ps.purpose,
+                        processor_name: ps.processor_name,
+                        processing_activity: ps.processing_activity,
+                        purpose_of_processing: ps.purpose_of_processing || ps.purpose,
                         status: docData.status as RopaStatus
                     }));
                 }
@@ -510,7 +510,7 @@ function DpoInProgressDetailContent() {
                             key={recordId}
                             doStatus="done"
                             dpStatus="done"
-                            existingRisk={form.riskAssessment}
+                            existingRisk={form.risk_assessment}
                             activeView={riskDocView}
                             onViewDoSection={() => setRiskDocView(prev => prev === "owner" ? "none" : "owner")}
                             onViewDpSection={() => setRiskDocView(prev => prev === "processor" ? "none" : "processor")}

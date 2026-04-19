@@ -66,7 +66,7 @@ export default function DPOTopBar() {
     const detailPaths = ["in-progress", "destruction", "auditor-submission"];
     const isDetailPage = detailPaths.some(p => pathname.includes(`/dpo/tables/${p}/`) && pathname.split('/').length > 4);
     const docId = isDetailPage ? pathname.split('/').pop() : "";
-    const docName = isDetailPage ? (mockOwnerRecords.find(d => d.id === docId)?.documentName || "รายละเอียดเอกสาร") : "";
+    const docName = isDetailPage ? (mockOwnerRecords.find(d => d.id === docId)?.document_name || "รายละเอียดเอกสาร") : "";
 
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">

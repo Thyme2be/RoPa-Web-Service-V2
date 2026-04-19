@@ -42,14 +42,14 @@ export function RopaAuditProvider({ children }: { children: ReactNode }) {
 
         if (index > -1) {
             updated = [...records];
-            saved = { ...updated[index], ...record, updatedDate: now } as OwnerRecord;
+            saved = { ...updated[index], ...record, updated_date: now } as OwnerRecord;
             updated[index] = saved;
         } else {
             saved = {
                 ...record,
                 id: record.id || Math.random().toString(36).substr(2, 9),
                 dateCreated: now,
-                updatedDate: now,
+                updated_date: now,
                 status: record.status || RopaStatus.Draft,
                 workflow: record.workflow || "processing"
             } as OwnerRecord;
@@ -72,18 +72,18 @@ export function RopaAuditProvider({ children }: { children: ReactNode }) {
         const nonDrafts = records.filter(r => r.status !== RopaStatus.Draft);
         const processing = records.filter(r => r.workflow === "processing");
         const sentDpo = records.filter(r => r.workflow === "sent_dpo");
-        
+
         const risk = {
-            low: nonDrafts.filter(r => r.riskAssessment?.level === "ต่ำ").length,
-            medium: nonDrafts.filter(r => r.riskAssessment?.level === "ปานกลาง").length,
-            high: nonDrafts.filter(r => r.riskAssessment?.level === "สูง").length,
+            low: nonDrafts.filter(r => r.risk_assessment?.level === "ต่ำ").length,
+            medium: nonDrafts.filter(r => r.risk_assessment?.level === "ปานกลาง").length,
+            high: nonDrafts.filter(r => r.risk_assessment?.level === "สูง").length,
         };
 
         return {
             totalDocs: nonDrafts.length,
             docsToEdit: {
-                owner: processing.filter(r => r.processingStatus?.doStatus !== "done").length,
-                processor: processing.filter(r => r.processingStatus?.dpStatus !== "done").length
+                owner: processing.filter(r => r.processing_status?.do_status !== "done").length,
+                processor: processing.filter(r => r.processing_status?.dp_status !== "done").length
             },
             risk: {
                 ...risk,
@@ -95,8 +95,8 @@ export function RopaAuditProvider({ children }: { children: ReactNode }) {
             },
             approved: records.filter(r => r.workflow === "approved").length,
             sensitive: nonDrafts.filter(r => {
-                if (Array.isArray(r.dataType)) return r.dataType.includes(DataType.Sensitive);
-                return r.dataType === DataType.Sensitive;
+                if (Array.isArray(r.data_types)) return r.data_types.includes(DataType.Sensitive);
+                return r.data_types === DataType.Sensitive;
             }).length,
             delayed: 0,
             annualCheck: { reviewed: 0, notReviewed: nonDrafts.length },
@@ -116,9 +116,9 @@ export function RopaAuditProvider({ children }: { children: ReactNode }) {
             approved: filtered.filter(r => r.workflow === "approved").length,
             destroyed: filtered.filter(r => r.workflow === "destroyed").length,
             risk: {
-                low: nonDrafts.filter(r => r.riskAssessment?.level === "ต่ำ").length,
-                medium: nonDrafts.filter(r => r.riskAssessment?.level === "ปานกลาง").length,
-                high: nonDrafts.filter(r => r.riskAssessment?.level === "สูง").length,
+                low: nonDrafts.filter(r => r.risk_assessment?.level === "ต่ำ").length,
+                medium: nonDrafts.filter(r => r.risk_assessment?.level === "ปานกลาง").length,
+                high: nonDrafts.filter(r => r.risk_assessment?.level === "สูง").length,
             }
         };
     };
