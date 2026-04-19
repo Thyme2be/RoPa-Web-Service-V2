@@ -14,7 +14,7 @@ export default function RopaSelectionPage() {
     ];
 
     return (
-        <div className="flex min-h-screen bg-[#F6F3F2] font-sans">
+        <div className="flex min-h-screen bg-background">
             <Sidebar />
 
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">

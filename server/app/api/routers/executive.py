@@ -6,13 +6,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.rbac import Role, require_roles
 from app.models.assignment import ProcessorAssignmentModel
 from app.models.document import RopaDocumentModel, RopaRiskAssessmentModel
+from app.models.master_data import MstDepartmentModel
 from app.models.section_owner import RopaOwnerSectionModel, OwnerDataTypeModel
 from app.models.section_processor import RopaProcessorSectionModel
 from app.models.user import UserModel
@@ -53,111 +54,115 @@ def _parse_period(period: str) -> Optional[datetime]:
 )
 def executive_dashboard(
     period: str = Query("all", description="Filter: 7_days, 30_days, this_month, this_year, all"),
-    department: Optional[str] = Query(None, description="Filter risk by department (auditor_assignments.department)"),
+    department: Optional[str] = Query(None, description="Filter risk by department"),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.EXECUTIVE)),
 ):
     cutoff = _parse_period(period)
 
-    # Base query - all documents, filtered by period (created_at)
+    # 0. Get all active departments for the dropdown and stats
+    all_depts = db.query(MstDepartmentModel.name).filter(MstDepartmentModel.is_active == True).all()
+    all_department_names = [d[0] for d in all_depts]
+
+    # Base query for documents (used as a subquery for performance)
     base_q = db.query(RopaDocumentModel)
     if cutoff:
         base_q = base_q.filter(RopaDocumentModel.created_at >= cutoff)
+    
+    # Subquery for document IDs to use in subsequent filters
+    doc_id_subq = base_q.with_entities(RopaDocumentModel.id).subquery()
+    total_docs = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.id.in_(doc_id_subq)).scalar() or 0
 
-    all_docs = base_q.all()
-    doc_ids = [d.id for d in all_docs]
+    # 1. ROPA Status Overview (Optimized: No N+1 loops)
+    # Under Review
+    under_review_count = db.query(func.count(RopaDocumentModel.id)).filter(
+        RopaDocumentModel.status == "UNDER_REVIEW",
+        RopaDocumentModel.id.in_(doc_id_subq)
+    ).scalar() or 0
 
-    # ROPA status 4 values
-    draft_count = 0
-    pending_count = 0
-    under_review_count = 0
-    completed_count = 0
+    # Completed: Both DO and DP sections are SUBMITTED
+    completed_count = (
+        db.query(func.count(RopaDocumentModel.id))
+        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .join(RopaProcessorSectionModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.status != "UNDER_REVIEW",
+            RopaOwnerSectionModel.status == "SUBMITTED",
+            RopaProcessorSectionModel.status == "SUBMITTED",
+            RopaDocumentModel.id.in_(doc_id_subq)
+        )
+        .scalar() or 0
+    )
 
-    for doc in all_docs:
-        owner_sec = db.query(RopaOwnerSectionModel).filter(
-            RopaOwnerSectionModel.document_id == doc.id
-        ).first()
-        proc_sec = db.query(RopaProcessorSectionModel).filter(
-            RopaProcessorSectionModel.document_id == doc.id
-        ).first()
-
-        # Draft = owner or processor section still DRAFT
-        if (owner_sec and owner_sec.status == "DRAFT") or (proc_sec and proc_sec.status == "DRAFT"):
-            draft_count += 1
-            continue
-
-        # Pending = has open feedback
-        has_open_feedback = db.query(ReviewFeedbackModel).filter(
-            ReviewFeedbackModel.target_id.in_(
-                [s.id for s in [owner_sec, proc_sec] if s]
+    # Draft: At least one section is DRAFT
+    draft_count = (
+        db.query(func.count(func.distinct(RopaDocumentModel.id)))
+        .outerjoin(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .outerjoin(RopaProcessorSectionModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.status != "UNDER_REVIEW",
+            or_(
+                RopaOwnerSectionModel.status == "DRAFT",
+                RopaProcessorSectionModel.status == "DRAFT"
             ),
-            ReviewFeedbackModel.status == "OPEN",
-        ).first() is not None
-        if has_open_feedback:
-            pending_count += 1
-            continue
+            RopaDocumentModel.id.in_(doc_id_subq)
+        )
+        .scalar() or 0
+    )
 
-        # Under review = document UNDER_REVIEW or processor_assignment SUBMITTED awaiting DO
-        if doc.status == "UNDER_REVIEW":
-            under_review_count += 1
-            continue
-
-        proc_assignment = db.query(ProcessorAssignmentModel).filter(
-            ProcessorAssignmentModel.document_id == doc.id,
-            ProcessorAssignmentModel.status == "SUBMITTED",
-        ).first()
-        if proc_assignment and doc.status == "IN_PROGRESS":
-            under_review_count += 1
-            continue
-
-        # Completed = both owner and processor SUBMITTED
-        if (
-            owner_sec and owner_sec.status == "SUBMITTED"
-            and proc_sec and proc_sec.status == "SUBMITTED"
-        ):
-            completed_count += 1
+    # Pending: No sections created yet
+    pending_count = (
+        db.query(func.count(RopaDocumentModel.id))
+        .outerjoin(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .outerjoin(RopaProcessorSectionModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.status != "UNDER_REVIEW",
+            RopaOwnerSectionModel.id == None,
+            RopaProcessorSectionModel.id == None,
+            RopaDocumentModel.id.in_(doc_id_subq)
+        )
+        .scalar() or 0
+    )
 
     ropa_status = RopaStatusOverview(
         draft=draft_count,
         pending=pending_count,
         under_review=under_review_count,
         completed=completed_count,
-        total=len(all_docs),
+        total=total_docs,
     )
 
-    # Risk by department (from users.department of the Data Owner who created the document)
-    dept_q = (
+    # 2. Risk by Department (Optimized Join)
+    risk_query = (
         db.query(
             UserModel.department,
             RopaRiskAssessmentModel.risk_level,
-            func.count(RopaRiskAssessmentModel.id).label("cnt"),
+            func.count(RopaRiskAssessmentModel.id).label("cnt")
         )
-        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
-        .join(UserModel, UserModel.id == RopaOwnerSectionModel.owner_id)
-        .join(RopaRiskAssessmentModel, RopaRiskAssessmentModel.document_id == RopaDocumentModel.id)
+        .select_from(UserModel)
+        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.owner_id == UserModel.id)
+        .join(RopaRiskAssessmentModel, RopaRiskAssessmentModel.document_id == RopaOwnerSectionModel.document_id)
         .filter(
             UserModel.department.isnot(None),
-            RopaDocumentModel.id.in_(doc_ids),
+            RopaOwnerSectionModel.document_id.in_(doc_id_subq)
         )
     )
+
     if department:
-        dept_q = dept_q.filter(UserModel.department == department)
+        risk_query = risk_query.filter(UserModel.department == department)
 
-    dept_rows = dept_q.group_by(
-        UserModel.department,
-        RopaRiskAssessmentModel.risk_level,
-    ).all()
+    risk_rows = risk_query.group_by(UserModel.department, RopaRiskAssessmentModel.risk_level).all()
 
-    risk_map: dict = {}
-    for dept, risk_level, cnt in dept_rows:
-        if dept not in risk_map:
-            risk_map[dept] = {"low": 0, "medium": 0, "high": 0}
-        if risk_level == "LOW":
-            risk_map[dept]["low"] += cnt
-        elif risk_level == "MEDIUM":
-            risk_map[dept]["medium"] += cnt
-        elif risk_level == "HIGH":
-            risk_map[dept]["high"] += cnt
+    # Pre-populate map with all departments set to zero
+    risk_map = {dname: {"low": 0, "medium": 0, "high": 0} for dname in all_department_names}
+    
+    for dname, rlevel, count in risk_rows:
+        if dname not in risk_map:
+            risk_map[dname] = {"low": 0, "medium": 0, "high": 0}
+        
+        if rlevel == "LOW": risk_map[dname]["low"] = count
+        elif rlevel == "MEDIUM": risk_map[dname]["medium"] = count
+        elif rlevel == "HIGH": risk_map[dname]["high"] = count
 
     risk_by_dept = [
         RiskByDepartment(
@@ -165,91 +170,65 @@ def executive_dashboard(
             low=v["low"],
             medium=v["medium"],
             high=v["high"],
-            total=v["low"] + v["medium"] + v["high"],
-        )
-        for dept, v in risk_map.items()
+            total=v["low"] + v["medium"] + v["high"]
+        ) for dept, v in risk_map.items()
     ]
 
-    # Sensitive documents by department (from users.department of the Data Owner)
     sensitive_rows = (
         db.query(
             UserModel.department,
-            func.count(func.distinct(RopaDocumentModel.id)).label("cnt"),
+            func.count(func.distinct(RopaOwnerSectionModel.document_id)).label("cnt")
         )
-        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
-        .join(UserModel, UserModel.id == RopaOwnerSectionModel.owner_id)
+        .select_from(UserModel)
+        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.owner_id == UserModel.id)
         .join(OwnerDataTypeModel, OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id)
         .filter(
             UserModel.department.isnot(None),
-            OwnerDataTypeModel.is_sensitive == True,
-            RopaDocumentModel.id.in_(doc_ids),
+            OwnerDataTypeModel.type == "sensitive",
+            RopaOwnerSectionModel.document_id.in_(doc_id_subq)
         )
         .group_by(UserModel.department)
         .all()
     )
-    sensitive_by_dept = [
-        SensitiveDocByDepartment(department=dept, count=cnt)
-        for dept, cnt in sensitive_rows
-    ]
+    
+    # Pre-populate sensitive map with all departments set to zero
+    sensitive_map = {dname: 0 for dname in all_department_names}
+    for dname, count in sensitive_rows:
+        sensitive_map[dname] = count
 
-    # Pending documents (DRAFT sections)
-    pending_do = (
-        db.query(func.count(RopaOwnerSectionModel.id))
-        .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
-        .filter(
-            RopaOwnerSectionModel.status == "DRAFT",
-            RopaDocumentModel.id.in_(doc_ids),
-        )
-        .scalar() or 0
-    )
-    pending_dp = (
-        db.query(func.count(RopaProcessorSectionModel.id))
-        .join(RopaDocumentModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
-        .filter(
-            RopaProcessorSectionModel.status == "DRAFT",
-            RopaDocumentModel.id.in_(doc_ids),
-        )
-        .scalar() or 0
-    )
+    sensitive_by_dept = [SensitiveDocByDepartment(department=d, count=c) for d, c in sensitive_map.items()]
 
-    # Approved documents (DPO approved) - use last_approved_at when period filter is active
-    if cutoff:
-        approved_total = (
-            db.query(func.count(RopaDocumentModel.id))
-            .filter(
-                RopaDocumentModel.status == "COMPLETED",
-                RopaDocumentModel.last_approved_at >= cutoff,
-            )
-            .scalar() or 0
-        )
-    else:
-        approved_total = (
-            db.query(func.count(RopaDocumentModel.id))
-            .filter(
-                RopaDocumentModel.status == "COMPLETED",
-                RopaDocumentModel.id.in_(doc_ids),
-            )
-            .scalar() or 0
-        )
+    # 4. Pending Documents (Quick Counts)
+    pending_do = db.query(func.count(RopaOwnerSectionModel.id)).filter(
+        RopaOwnerSectionModel.status == "DRAFT",
+        RopaOwnerSectionModel.document_id.in_(doc_id_subq)
+    ).scalar() or 0
+    
+    pending_dp = db.query(func.count(RopaProcessorSectionModel.id)).filter(
+        RopaProcessorSectionModel.status == "DRAFT",
+        RopaProcessorSectionModel.document_id.in_(doc_id_subq)
+    ).scalar() or 0
 
-    # Pending DPO review
-    for_archiving = (
-        db.query(func.count(RopaDocumentModel.id))
-        .filter(
-            RopaDocumentModel.status == "UNDER_REVIEW",
-            RopaDocumentModel.deletion_status.is_(None),
-            RopaDocumentModel.id.in_(doc_ids),
-        )
-        .scalar() or 0
-    )
-    for_destruction = (
-        db.query(func.count(RopaDocumentModel.id))
-        .filter(
-            RopaDocumentModel.deletion_status == "DELETE_PENDING",
-            RopaDocumentModel.id.in_(doc_ids),
-        )
-        .scalar() or 0
-    )
+    # 5. Approved Total
+    approved_total = db.query(func.count(RopaDocumentModel.id)).filter(
+        RopaDocumentModel.status == "COMPLETED",
+        RopaDocumentModel.id.in_(doc_id_subq)
+    ).scalar() or 0
+
+    # 6. Pending DPO Review
+    for_archiving = db.query(func.count(RopaDocumentModel.id)).filter(
+        RopaDocumentModel.status == "UNDER_REVIEW",
+        RopaDocumentModel.deletion_status.is_(None),
+        RopaDocumentModel.id.in_(doc_id_subq)
+    ).scalar() or 0
+    
+    for_destruction = db.query(func.count(RopaDocumentModel.id)).filter(
+        RopaDocumentModel.deletion_status == "DELETE_PENDING",
+        RopaDocumentModel.id.in_(doc_id_subq)
+    ).scalar() or 0
+
+    # 7. Final Department List (from Master Data)
+    available_depts = all_department_names
 
     return ExecutiveDashboardResponse(
         selected_period=period,
@@ -265,4 +244,5 @@ def executive_dashboard(
             for_archiving=for_archiving,
             for_destruction=for_destruction,
         ),
+        available_departments=available_depts
     )

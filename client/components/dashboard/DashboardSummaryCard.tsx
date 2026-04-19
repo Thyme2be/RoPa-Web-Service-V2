@@ -49,9 +49,9 @@ export default function DashboardSummaryCard({
     };
 
     return (
-        <div className={`bg-white rounded-xl shadow-sm border border-[#E5E2E1]/50 border-b-[4px] ${borderColors[accentColor]} p-6 flex flex-col h-full min-h-[160px]`}>
+        <div className={`bg-white rounded-[24px] shadow-sm border border-[#E5E2E1]/50 border-b-[4px] ${borderColors[accentColor]} p-6 flex flex-col h-full min-h-[160px]`}>
             <div className="flex justify-between items-start mb-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconColors[accentColor]}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconColors[accentColor]}`}>
                     <span className="material-symbols-outlined text-2xl font-bold">{icon}</span>
                 </div>
                 <div className="text-right flex-1 ml-4">

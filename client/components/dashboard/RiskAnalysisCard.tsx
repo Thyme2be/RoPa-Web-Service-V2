@@ -19,7 +19,7 @@ export default function RiskAnalysisCard({
     onDeptChange,
 }: RiskAnalysisCardProps) {
     return (
-        <div className="bg-white rounded-[48px] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2] flex flex-col">
+        <div className="bg-white rounded-[32px] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2] flex flex-col">
             <h3 className="text-[18px] font-black text-[#1B1C1C] tracking-tight leading-snug mb-8">
                 ความเสี่ยงของเอกสารทั้งหมด โดยแสดงผลแต่ละแผนก
             </h3>
@@ -32,7 +32,6 @@ export default function RiskAnalysisCard({
                 options={departments}
                 onChange={(e) => onDeptChange(e.target.value)}
                 rounding="2xl"
-                bgColor="white"
                 labelClassName="text-black"
             />
 

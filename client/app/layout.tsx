@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
+import { RopaProvider } from "@/context/RopaContext";
 
 const sarabun = Sarabun({
   variable: "--font-sarabun",
@@ -33,11 +35,11 @@ export default function RootLayout({
         />
       </head>
       <body className="h-full">
-        <RopaProvider>
-          <RopaAuditProvider>
+        <AuthProvider>
+          <RopaProvider>
             {children}
-          </RopaAuditProvider>
-        </RopaProvider>
+          </RopaProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -13,7 +13,7 @@ export default function SensitiveDataCard({
     totalCount,
 }: SensitiveDataCardProps) {
     return (
-        <div className="bg-white rounded-[48px] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2] border-b-[8px] border-b-[#9747FF] flex flex-col">
+        <div className="bg-white rounded-[32px] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2] border-b-[8px] border-b-[#9747FF] flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-center mb-10">
                 <div className="p-3 bg-[#9747FF]/10 rounded-[20px]">
@@ -31,7 +31,7 @@ export default function SensitiveDataCard({
                 {items.map((item, i) => (
                     <div
                         key={i}
-                        className="bg-[#F8F9FA] rounded-[20px] px-6 py-4 flex justify-between items-center group hover:bg-[#9747FF]/5 transition-all cursor-pointer"
+                        className="bg-[#F8F9FA] rounded-[20px] px-6 py-4 flex justify-between items-center group hover:bg-[#9747FF]/5 transition-all"
                     >
                         <span className="text-[15px] font-bold text-[#1B1C1C] group-hover:text-[#9747FF] transition-colors">
                             {item.dept}

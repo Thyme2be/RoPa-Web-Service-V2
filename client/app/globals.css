@@ -25,13 +25,17 @@
   --error-container: #ffdad6;
   --on-error-container: #93000a;
 
-  --background: #fcf9f8;
+  --background: #f6f3f2;
   --on-background: #1b1c1c;
 
-  --surface: #fcf9f8;
+  --surface: #f6f3f2;
   --on-surface: #1b1c1c;
   --surface-variant: #e5e2e1;
   --on-surface-variant: #5c403d;
+
+  /* Field & Dropdown Styling */
+  --field-bg: #fafafa;
+  --field-border: #e4e4e7;
   --outline: #906f6c;
   --outline-variant: #e5bdba;
 
@@ -70,6 +74,8 @@
   --color-neutral: var(--neutral);
   --color-error: var(--error);
   --color-outline: var(--outline);
+  --color-field-bg: var(--field-bg);
+  --color-field-border: var(--field-border);
 
   /* Map fonts from layout.tsx variables */
   --font-sans: var(--font-sarabun), ui-sans-serif, system-ui, sans-serif;

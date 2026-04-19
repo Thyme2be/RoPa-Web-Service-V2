@@ -3,9 +3,12 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -17,40 +20,32 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username_or_email: username,
-          password: password,
-        }),
+      const response = await api.post("/auth/login", {
+        username_or_email: username,
+        password: password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        let message = "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน";
-        
-        if (typeof errorData.detail === "string") {
-          message = errorData.detail;
-        } else if (Array.isArray(errorData.detail)) {
-          // Handle FastAPI's list of error objects
-          message = errorData.detail.map((err: any) => err.msg).join(", ");
-        }
-        
-        throw new Error(message);
+      const data = response.data;
+
+      if (data.access_token && data.refresh_token) {
+        // Use the centralized login function to handle tokens and cookies
+        await login(data.access_token, data.refresh_token);
+        // AuthContext handles the redirection based on user role
+      } else {
+        throw new Error("ไม่พบ Token หลังเข้าสู่ระบบ");
       }
-
-      const data = await response.json();
-
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
-      }
-
-      router.push("/");
     } catch (err: any) {
-      setError(err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      console.error("Login Error:", err);
+      let message = "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน";
+
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        message = typeof detail === "string" ? detail : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(", ") : message);
+      } else if (err.message) {
+        message = err.message;
+      }
+
+      setError(message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setIsLoading(false);
     }

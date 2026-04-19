@@ -42,15 +42,15 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <div className="bg-[#F6F3F2] p-6 rounded-xl space-y-4">
                             <Checkbox
                                 label="ข้อมูลอิเล็กทรอนิกส์"
-                                checked={form?.collectionMethod === "soft_file"}
-                                onChange={() => handleChange({ target: { name: "collectionMethod", value: "soft_file" } })}
+                                checked={form?.collection_method === "soft_file"}
+                                onChange={() => handleChange({ target: { name: "collection_method", value: "soft_file" } })}
                                 disabled={disabled}
                                 themeColor={primaryColor}
                             />
                             <Checkbox
                                 label="เอกสาร"
-                                checked={form?.collectionMethod === "hard_copy"}
-                                onChange={() => handleChange({ target: { name: "collectionMethod", value: "hard_copy" } })}
+                                checked={form?.collection_method === "hard_copy"}
+                                onChange={() => handleChange({ target: { name: "collection_method", value: "hard_copy" } })}
                                 disabled={disabled}
                             />
                         </div>
@@ -63,15 +63,15 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <div className="bg-[#F6F3F2] p-6 rounded-xl space-y-4">
                             <Checkbox
                                 label="จากเจ้าของข้อมูลโดยตรง"
-                                checked={!!form?.dataSource?.direct}
-                                onChange={(e: any) => handleChange({ target: { name: "dataSource.direct", value: e.target.checked } })}
+                                checked={!!form?.data_source_direct}
+                                onChange={(e: any) => handleChange({ target: { name: "data_source_direct", value: e.target.checked } })}
                                 disabled={disabled}
                             />
                             <div className="flex items-center gap-3 h-6">
                                 <Checkbox
                                     label="จากแหล่งอื่น โปรดระบุ"
-                                    checked={!!form?.dataSource?.indirect}
-                                    onChange={(e: any) => handleChange({ target: { name: "dataSource.indirect", value: e.target.checked } })}
+                                    checked={!!form?.data_source_indirect}
+                                    onChange={(e: any) => handleChange({ target: { name: "data_source_indirect", value: e.target.checked } })}
                                     disabled={disabled}
                                 />
                                 <input
@@ -79,10 +79,10 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                         "flex-1 bg-white border-none rounded-full h-8 px-4 text-sm focus:outline-none focus:ring-2 shadow-sm transition-all",
                                         ringColor
                                     )}
-                                    disabled={!form?.dataSource?.indirect || disabled}
+                                    disabled={!form?.data_source_indirect || disabled}
                                     placeholder=""
-                                    value={form?.dataSource?.indirectText || ""}
-                                    onChange={(e) => handleChange({ target: { name: "dataSource.indirectText", value: e.target.value } })}
+                                    value={form?.data_source_other || ""}
+                                    onChange={(e) => handleChange({ target: { name: "data_source_other", value: e.target.value } })}
                                 />
                             </div>
                         </div>
@@ -125,9 +125,9 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             </label>
                             <div className="bg-[#F6F3F2] p-0 rounded-xl overflow-hidden">
                                 <Select
-                                    name="retention.method"
+                                    name="storage_methods"
                                     placeholder="วิธีการเก็บรักษาข้อมูล"
-                                    value={form?.retention?.method || ""}
+                                    value={form?.storage_methods || ""}
                                     options={[
                                         { label: "Cloud Storage", value: "cloud" },
                                         { label: "Server", value: "server" },
@@ -151,8 +151,8 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <div className="flex items-center gap-3">
                             <div className="flex-1">
                                 <Input
-                                    name="retention.duration"
-                                    value={form?.retention?.duration || ""}
+                                    name="retention_value"
+                                    value={form?.retention_value || ""}
                                     placeholder="ระบุระยะเวลา (เช่น 5)"
                                     onChange={handleChange}
                                     disabled={disabled}
@@ -162,12 +162,12 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             </div>
                             <div className="w-[120px]">
                                 <Select
-                                    name="retention.unit"
-                                    value={form?.retention?.unit || "year"}
+                                    name="retention_unit"
+                                    value={form?.retention_unit || "YEARS"}
                                     options={[
-                                        { label: "ปี", value: "year" },
-                                        { label: "เดือน", value: "month" },
-                                        { label: "วัน", value: "day" },
+                                        { label: "ปี", value: "YEARS" },
+                                        { label: "เดือน", value: "MONTHS" },
+                                        { label: "วัน", value: "DAYS" },
                                     ]}
                                     onChange={handleChange}
                                     disabled={disabled}
@@ -184,8 +184,8 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <Input
                             label="สิทธิและวิธีการเข้าถึงข้อมูลส่วนบุคคล"
                             required
-                            name="retention.accessControl"
-                            value={form?.retention?.accessControl || ""}
+                            name="access_condition"
+                            value={form?.access_condition || ""}
                             placeholder="ระบุเงื่อนไขการใช้สิทธิและวิธีการ (เช่น กำหนดสิทธิเฉพาะผู้มีสิทธิ/ฝ่ายขาย/ฝ่าย IT)"
                             onChange={handleChange}
                             disabled={disabled}
@@ -196,8 +196,8 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <Input
                             label="วิธีการลบหรือทำลายข้อมูลส่วนบุคคลเมื่อสิ้นสุดระยะเวลาจัดเก็บ"
                             required
-                            name="retention.deletionMethod"
-                            value={form?.retention?.deletionMethod || ""}
+                            name="deletion_method"
+                            value={form?.deletion_method || ""}
                             placeholder="ระบุวิธีการลบหรือทำลายข้อมูลส่วนบุคคล (เช่น เครื่องทำลายเอกสาร)"
                             onChange={handleChange}
                             disabled={disabled}

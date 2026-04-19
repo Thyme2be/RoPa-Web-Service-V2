@@ -623,9 +623,6 @@ def processor_dashboard(db: Session = Depends(get_db), current_user: UserRead = 
 def auditor_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.AUDITOR))):
     return _get_auditor_metrics_internal(db, current_user.id)
 
-@router.get("/dashboard/executive", response_model=ExecutiveDashboardResponse, summary="Executive: Dashboard", tags=["Dashboard (Executive)"])
-def executive_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.EXECUTIVE))):
-    return _get_executive_metrics_internal(db)
 
 @router.get("/dashboard/dpo", response_model=DpoDashboardResponse, summary="DPO: Dashboard", tags=["Dashboard (DPO)"])
 def dpo_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.DPO))):

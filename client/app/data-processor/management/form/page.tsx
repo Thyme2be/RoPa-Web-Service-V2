@@ -12,7 +12,7 @@ import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
-import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
+import { SectionStatus } from "@/types/enums";
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
@@ -26,57 +26,60 @@ function DataProcessorFormContent() {
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
 
-    const { getById, submitDpSection, getProcessorById, saveProcessorRecord } = useRopa();
+    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord } = useRopa();
+    const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
 
     const [form, setForm] = useState<Partial<ProcessorRecord>>({
-        processorName: "",
-        controllerName: "",
-        controllerAddress: "",
-        status: RopaStatus.Draft,
-        dataSource: { direct: false, indirect: false },
-        internationalTransfer: { isTransfer: false },
-        dataCategories: [],
-        storedDataTypes: [],
-        retention: {
-            storageType: CollectionMethod.SoftFile,
-            method: [],
-            duration: 0,
-            unit: RetentionUnit.Year,
-            accessCondition: "",
-            accessControl: "",
-            deletionMethod: ""
-        },
-        dataType: [DataType.General],
-        securityMeasures: {},
+        processor_name: "",
+        controller_name: "",
+        controller_address: "",
+        status: SectionStatus.DRAFT,
+        collection_methods: [],
+        data_sources: [],
+        data_source_other: "",
+        has_cross_border_transfer: false,
+        data_categories: [],
+        personal_data_items: [],
+        data_types: [],
+        storage_types: [],
+        storage_methods: [],
+        retention_value: 0,
+        retention_unit: "YEARS",
+        access_condition: "",
+        deletion_method: "",
+        legal_basis: "",
+        exemption_usage: "",
+        org_measures: "",
+        technical_measures: "",
+        physical_measures: "",
+        access_control_measures: "",
+        responsibility_measures: "",
+        audit_measures: ""
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Load existing record
     useEffect(() => {
-        if (recordId) {
-            // Priority 1: Current Processor session record (linked by shared ID)
-            const existingProc = getProcessorById(recordId);
-            if (existingProc) {
-                setForm(prev => ({ ...prev, ...existingProc }));
-                return;
-            }
+        let isMounted = true;
 
-            // Priority 2: Initialize from DO record (Source of Truth)
-            const existingOwner = getById(recordId);
-            if (existingOwner) {
-                setForm(prev => ({ 
-                    ...prev, 
-                    documentName: existingOwner.documentName,
-                    processorName: existingOwner.processorCompany || existingOwner.assignedProcessor?.name || "",
-                    id: recordId 
-                }));
+        const loadFullRecord = async () => {
+            if (recordId) {
+                setIsLoadingFull(true);
+                const fullRecord = await fetchFullProcessorRecord(recordId);
+                if (fullRecord && isMounted) {
+                    setForm(prev => ({ ...prev, ...fullRecord }));
+                }
+                setIsLoadingFull(false);
             }
-        }
-    }, [recordId, getById, getProcessorById]);
+        };
+
+        loadFullRecord();
+        return () => { isMounted = false; };
+    }, [recordId]);
 
     const handleChange = (e: any) => {
         const { name, value, type } = e.target;
@@ -105,6 +108,8 @@ function DataProcessorFormContent() {
             }
 
             if (keys.length === 1) return { ...prev, [name]: val };
+            // Note: In the new flattened structure, keys.length should mostly be 1.
+            // Keeping nested support for backward compat if any component still uses it temporarily
             if (keys.length === 2) {
                 const [p, c] = keys;
                 return { ...prev, [p]: { ...prev[p], [c]: val } };
@@ -115,59 +120,56 @@ function DataProcessorFormContent() {
 
     const completedSteps = useMemo(() => {
         const completed = [];
-        // Step 1: General (DP needs controllerName/processorName for processor)
-        if (form.controllerName && form.processorName && form.title && form.firstName && form.lastName) completed.push(1);
+        // Step 1: General
+        if (form.controller_name && form.processor_name && form.title_prefix && form.first_name && form.last_name) completed.push(1);
         // Step 2: Activity
-        if (form.processorName && form.controllerAddress && form.processingActivity && form.purpose) completed.push(2);
+        if (form.processor_name && form.controller_address && form.processing_activity && form.purpose_of_processing) completed.push(2);
         // Step 3: Stored Info
-        if (form.dataCategories && form.dataCategories.length > 0 && form.storedDataTypes && form.storedDataTypes.length > 0) completed.push(3);
+        if (form.data_categories && form.data_categories.length > 0 && form.personal_data_items && form.personal_data_items.length > 0) completed.push(3);
         // Step 4: Retention
-        if (form.collectionMethod && form.retention?.duration && form.retention?.accessControl) completed.push(4);
+        if (form.collection_methods && form.collection_methods.length > 0 && form.retention_value && form.access_condition) completed.push(4);
         // Step 5: Legal
-        if (form.legalBasis && form.exemptionDisclosure) completed.push(5);
+        if (form.legal_basis && form.exemption_usage) completed.push(5);
         // Step 6: Security
-        const sm = form.securityMeasures;
-        if (sm?.organizational && sm?.accessControl && sm?.technical) completed.push(6);
+        if (form.org_measures && form.access_control_measures && form.technical_measures) completed.push(6);
         return completed;
     }, [form]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
-        
+
         // Step 1: General
-        if (!form.controllerName) newErrors.controllerName = "กรุณาระบุชื่อผู้ควบคุมข้อมูล";
-        if (!form.processorName) newErrors.processorName = "กรุณาระบุชื่อผู้ประมวลผลข้อมูล";
-        if (!form.title) newErrors.title = "กรุณาระบุคำนำหน้า";
-        if (!form.firstName) newErrors.firstName = "กรุณาระบุชื่อ";
-        if (!form.lastName) newErrors.lastName = "กรุณาระบุนามสกุล";
+        if (!form.controller_name) newErrors.controller_name = "กรุณาระบุชื่อผู้ควบคุมข้อมูล";
+        if (!form.processor_name) newErrors.processor_name = "กรุณาระบุชื่อผู้ประมวลผลข้อมูล";
+        if (!form.title_prefix) newErrors.title_prefix = "กรุณาระบุคำนำหน้า";
+        if (!form.first_name) newErrors.first_name = "กรุณาระบุชื่อ";
+        if (!form.last_name) newErrors.last_name = "กรุณาระบุนามสกุล";
 
         // Step 2: Activity
-        if (!form.controllerAddress) newErrors.controllerAddress = "กรุณาระบุที่อยู่ผู้ควบคุมข้อมูล";
-        if (!form.processingActivity) newErrors.processingActivity = "กรุณาระบุกิจกรรมการประมวลผล";
-        if (!form.purpose) newErrors.purpose = "กรุณาระบุวัตถุประสงค์";
+        if (!form.controller_address) newErrors.controller_address = "กรุณาระบุที่อยู่ผู้ควบคุมข้อมูล";
+        if (!form.processing_activity) newErrors.processing_activity = "กรุณาระบุกิจกรรมการประมวลผล";
+        if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณาระบุวัตถุประสงค์";
 
         // Step 3: Stored Info
-        if (!form.dataCategories || form.dataCategories.length === 0) newErrors.dataCategories = "กรุณาเลือกหมวดหมู่ข้อมูล";
-        if (!form.storedDataTypes || form.storedDataTypes.length === 0) newErrors.storedDataTypes = "กรุณาประเภทข้อมูล";
+        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ข้อมูล";
+        if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาประเภทข้อมูล";
 
         // Step 4: Retention
-        if (!form.retention?.duration) newErrors["retention.duration"] = "กรุณาระบุระยะเวลา";
-        if (!form.retention?.accessControl) newErrors["retention.accessControl"] = "กรุณาระบุการควบคุมการเข้าถึง";
+        if (!form.retention_value) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.access_condition) newErrors.access_condition = "กรุณาระบุการควบคุมการเข้าถึง";
 
         // Step 5: Legal
-        if (!form.legalBasis) newErrors.legalBasis = "กรุณาระบุฐานการประมวลผล";
-        if (!form.exemptionDisclosure) newErrors.exemptionDisclosure = "กรุณาระบุข้อยกเว้น";
+        if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานการประมวลผล";
+        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุข้อยกเว้น";
 
         // Step 6: Security
-        const sm = form.securityMeasures;
-        if (!sm?.organizational) newErrors["securityMeasures.organizational"] = "กรุณาระบุมาตรการด้านบริหารจัดการ";
-        if (!sm?.accessControl) newErrors["securityMeasures.accessControl"] = "กรุณาระบุการควบคุมการเข้าถึง";
-        if (!sm?.technical) newErrors["securityMeasures.technical"] = "กรุณาระบุมาตรการด้านเทคนิค";
+        if (!form.org_measures) newErrors.org_measures = "กรุณาระบุมาตรการด้านบริหารจัดการ";
+        if (!form.access_control_measures) newErrors.access_control_measures = "กรุณาระบุการควบคุมการเข้าถึง";
+        if (!form.technical_measures) newErrors.technical_measures = "กรุณาระบุมาตรการด้านเทคนิค";
 
         setErrors(newErrors);
-        
+
         if (Object.keys(newErrors).length > 0) {
-            // Scroll to top or first error could be added here
             return false;
         }
         return true;
@@ -180,8 +182,8 @@ function DataProcessorFormContent() {
 
     const handleFinalConfirm = () => {
         if (!validateForm()) return;
-        
-        saveProcessorRecord({ ...form, status: RopaStatus.Processing } as ProcessorRecord);
+
+        saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
         if (recordId) {
             submitDpSection(recordId);
         }
@@ -189,12 +191,12 @@ function DataProcessorFormContent() {
     };
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low overflow-x-hidden">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col overflow-x-hidden">
                 <TopBar
-                    documentName={form.documentName}
+                    documentName={form.document_name}
                     pageTitle="ข้อมูลลูกค้า"
                     handleChange={handleChange}
                     status={form.status}
@@ -203,40 +205,45 @@ function DataProcessorFormContent() {
                     isProcessor={true}
                 />
 
-                <div className="flex-1 overflow-y-auto pt-8 pb-36 space-y-6 animate-in fade-in duration-1000">
-                    <div className="px-10 flex items-center justify-between gap-4">
-                        <div className="flex-1 overflow-visible">
-                            <Stepper variant="processor" completedSteps={completedSteps} />
+                {isLoadingFull ? (
+                    <div className="flex-1 flex items-center justify-center pt-20">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลดข้อมูลเอกสาร...</p>
                         </div>
-                        
-                        <button
-                            onClick={() => setIsLocked(!isLocked)}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
-                                isLocked 
-                                    ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none" 
-                                    : "text-[#5C403D] border-none hover:bg-black/5"
-                            )}
-                        >
-                            <span className="material-symbols-outlined text-[20px]">
-                                {isLocked ? "edit" : "done_all"}
-                            </span>
-                            {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
-                        </button>
                     </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto pt-8 pb-36 space-y-6 animate-in fade-in duration-1000">
+                        <div className="px-10 flex justify-end">
+                            <button
+                                onClick={() => setIsLocked(!isLocked)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
+                                    isLocked
+                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
+                                        : "text-[#5C403D] border-none hover:bg-black/5"
+                                )}
+                            >
+                                <span className="material-symbols-outlined text-[20px]">
+                                    {isLocked ? "edit" : "done_all"}
+                                </span>
+                                {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
+                            </button>
+                        </div>
 
-                    <div className="px-10 space-y-8">
-                        <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                        <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                        <div className="px-10 space-y-8">
+                            <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Footer Action Bar (Fixed Red as per request) */}
-                <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
+                <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
                     <button
                         onClick={() => router.back()}
                         className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"

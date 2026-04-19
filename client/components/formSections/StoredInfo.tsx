@@ -51,11 +51,11 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                                 "เบอร์โทรศัพท์",
                                 "อื่นๆ",
                             ]}
-                            selectedValues={form?.storedDataTypes || []}
+                            selectedValues={form?.personal_data_items || []}
                             onChange={(values: string[]) => {
-                                handleChange({ target: { name: "storedDataTypes", value: values } } as any);
+                                handleChange({ target: { name: "personal_data_items", value: values } } as any);
                             }}
-                            error={errors?.storedDataTypes}
+                            error={errors?.personal_data_items}
                             disabled={disabled}
                             variant={variant}
                         />
@@ -76,13 +76,13 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                                     <Checkbox
                                         key={idx}
                                         label={cat}
-                                        checked={!!form?.dataCategories?.includes(values[idx])}
+                                        checked={!!form?.data_categories?.includes(values[idx])}
                                         onChange={(e: any) => {
-                                            const current = form?.dataCategories || [];
+                                            const current = form?.data_categories || [];
                                             const newVals = e.target.checked 
                                                 ? [...current, values[idx]]
                                                 : current.filter((v: string) => v !== values[idx]);
-                                            handleChange({ target: { name: "dataCategories", value: newVals } });
+                                            handleChange({ target: { name: "data_categories", value: newVals } });
                                         }}
                                         disabled={disabled}
                                         themeColor={primaryColor}
@@ -103,22 +103,22 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                         )}>
                             <Checkbox
                                 label="ข้อมูลทั่วไป"
-                                checked={!!form?.dataType?.includes("general")}
+                                checked={!!form?.data_types?.includes("general")}
                                 onChange={(e: any) => {
-                                    const current = Array.isArray(form?.dataType) ? form.dataType : (form?.dataType ? [form.dataType] : []);
+                                    const current = Array.isArray(form?.data_types) ? form.data_types : (form?.data_types ? [form.data_types] : []);
                                     const newVals = e.target.checked ? [...current, "general"] : current.filter((v: string) => v !== "general");
-                                    handleChange({ target: { name: "dataType", value: newVals } });
+                                    handleChange({ target: { name: "data_types", value: newVals } });
                                 }}
                                 disabled={disabled}
                                 themeColor={primaryColor}
                             />
                             <Checkbox
                                 label="ข้อมูลอ่อนไหว"
-                                checked={!!form?.dataType?.includes("sensitive")}
+                                checked={!!form?.data_types?.includes("sensitive")}
                                 onChange={(e: any) => {
-                                    const current = Array.isArray(form?.dataType) ? form.dataType : (form?.dataType ? [form.dataType] : []);
+                                    const current = Array.isArray(form?.data_types) ? form.data_types : (form?.data_types ? [form.data_types] : []);
                                     const newVals = e.target.checked ? [...current, "sensitive"] : current.filter((v: string) => v !== "sensitive");
-                                    handleChange({ target: { name: "dataType", value: newVals } });
+                                    handleChange({ target: { name: "data_types", value: newVals } });
                                 }}
                                 disabled={disabled}
                                 themeColor={primaryColor}

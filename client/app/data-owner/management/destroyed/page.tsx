@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
@@ -9,20 +10,18 @@ import Select from "@/components/ui/Select";
 import { useRopa } from "@/context/RopaContext";
 
 export default function RopaDestroyedPage() {
-    const { records } = useRopa();
+    const { destroyedRecords: contextDestroyedRecords } = useRopa();
+    const router = useRouter();
     const [page, setPage] = useState(1);
     
-    // Filter destroyed records
-    const destroyedRecords = records.filter(r => r.workflow === "destroyed");
-
     const ITEMS_PER_PAGE = 5;
-    const paginatedRecords = destroyedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = contextDestroyedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
                 <TopBar showBack={false} backUrl="/data-owner/management" pageTitle=" " hideSearch={true} />
 
                 <div className="p-10 space-y-10">
@@ -54,14 +53,24 @@ export default function RopaDestroyedPage() {
                                     </DocumentTableRow>
                                 ) : (
                                     paginatedRecords.map((record) => (
-                                        <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left">{record.id} {record.documentName}</DocumentTableCell>
-                                            <DocumentTableCell>{record.title}{record.firstName} {record.lastName}</DocumentTableCell>
-                                            <DocumentTableCell>นายกิตติพงศ์ ศรีวัฒนากุล</DocumentTableCell>
-                                            <DocumentTableCell align="left">{record.updatedDate || "—"}</DocumentTableCell>
+                                        <DocumentTableRow key={record.document_id}>
+                                            <DocumentTableCell align="left">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                            </DocumentTableCell>
+                                            <DocumentTableCell>{record.do_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell align="left">
+                                                {record.deletion_approved_at ? new Date(record.deletion_approved_at).toLocaleDateString("th-TH") : "—"}
+                                            </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
+                                                    <ActionIconWithTooltip 
+                                                        icon="visibility" 
+                                                        tooltipText="ดูเอกสาร" 
+                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                    />
                                                 </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
@@ -71,8 +80,8 @@ export default function RopaDestroyedPage() {
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={Math.max(1, Math.ceil(destroyedRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={destroyedRecords.length}
+                            totalPages={Math.max(1, Math.ceil(contextDestroyedRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={contextDestroyedRecords.length}
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />

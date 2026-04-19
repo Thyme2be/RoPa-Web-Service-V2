@@ -1,32 +1,19 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LogoutButton() {
-    const router = useRouter();
-
+    const { logout } = useAuth();
     const [isLoading, setIsLoading] = React.useState(false);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const handleLogout = async () => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("token");
-            if (token) {
-                await fetch(`${API_BASE_URL}/auth/logout`, {
-                    method: 'POST',
-                    headers: {
-                        "Authorization": `Bearer ${token}`
-                    }
-                });
-            }
+            await logout();
         } catch (error) {
-            console.error("Logout API failed:", error);
+            console.error("Logout failed:", error);
         } finally {
-            // Always clear storage and redirect even if API fails
-            localStorage.removeItem("token");
-            router.push("/login");
             setIsLoading(false);
         }
     };

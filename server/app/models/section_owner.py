@@ -76,7 +76,6 @@ class OwnerDataTypeModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=True)
-    is_sensitive = Column(Boolean, nullable=False, default=False)  # ข้อมูลทั่วไป=False / ข้อมูลอ่อนไหว=True
 
 class OwnerCollectionMethodModel(Base):
     __tablename__ = "owner_collection_methods"

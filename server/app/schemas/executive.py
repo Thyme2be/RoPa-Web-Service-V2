@@ -45,3 +45,4 @@ class ExecutiveDashboardResponse(BaseModel):
     pending_documents: PendingDocuments
     approved_documents: ApprovedDocumentsSummary
     pending_dpo_review: PendingDpoReviewSummary
+    available_departments: List[str]

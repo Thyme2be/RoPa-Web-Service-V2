@@ -52,7 +52,6 @@ class DataCategoryOut(DataCategoryIn):
 class DataTypeIn(BaseModel):
     """ประเภทข้อมูล พร้อมระบุว่าเป็นข้อมูลทั่วไปหรือข้อมูลอ่อนไหว"""
     type: Optional[str] = None
-    is_sensitive: bool = False  # False=ข้อมูลทั่วไป, True=ข้อมูลอ่อนไหว
 
 class DataTypeOut(DataTypeIn):
     id: UUID

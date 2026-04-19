@@ -35,6 +35,7 @@ from app.schemas.owner import (
     StorageMethodIn,
     StorageMethodOut,
     ProcessorStatusBadge,
+    FeedbackRead,
 )
 
 
@@ -222,5 +223,23 @@ class ProcessorAssignedTableResponse(BaseModel):
 class MessageResponse(BaseModel):
     """Response สำหรับ endpoint ที่ส่งกลับแค่ข้อความ"""
     message: str
+
+
+class DpoCommentForDpRead(BaseModel):
+    """
+    Comment จาก DPO ที่ส่งมาถึง DP (DP_SEC_*)
+    แยกออกจาก FeedbackRead เพราะมาจาก dpo_section_comments คนละ table
+    """
+    section_key: str        # เช่น DP_SEC_1, DP_SEC_2
+    comment: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProcessorFeedbackResponse(BaseModel):
+    """Response รวม feedback ที่ DP ได้รับจากทั้ง DO และ DPO"""
+    from_do: List[FeedbackRead]         # feedback จาก DO (ReviewFeedbackModel)
+    from_dpo: List[DpoCommentForDpRead] # comment จาก DPO (DpoSectionCommentModel)
 
 

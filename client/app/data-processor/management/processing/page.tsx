@@ -6,7 +6,7 @@ import TopBar from "@/components/layouts/TopBar";
 import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import { useRouter } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
-import { RopaStatus } from "@/types/enums";
+import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
 
@@ -78,14 +78,14 @@ export default function ManagementProcessingPage() {
         setCustomDate("");
     };
 
-    const assignedRecords = records.filter(r => r.assignedProcessor);
-    const draftRecords = processorRecords.filter(r => r.status === RopaStatus.Draft);
+    const assignedRecords = records.filter(r => r.assigned_processor);
+    const draftRecords = processorRecords.filter(r => r.status === SectionStatus.DRAFT);
 
     const filteredAssigned = assignedRecords.filter(record => {
         let matchStatus = true;
-        const dpStatus = record.processingStatus?.dpStatus;
-        if (statusFilter === "wait_processor") matchStatus = dpStatus !== "done";
-        if (statusFilter === "done_processor") matchStatus = dpStatus === "done";
+        const dp_status = record.processing_status?.dp_status;
+        if (statusFilter === "wait_processor") matchStatus = dp_status !== "done";
+        if (statusFilter === "done_processor") matchStatus = dp_status === "done";
         return matchStatus;
     });
 
@@ -95,20 +95,20 @@ export default function ManagementProcessingPage() {
     };
 
     const getDoLabel = (r: OwnerRecord) =>
-        r.processingStatus?.doStatus === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
+        r.processing_status?.do_status === "done" ? "Data Owner ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Owner";
 
     const getDpLabel = (r: OwnerRecord) =>
-        r.processingStatus?.dpStatus === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
+        r.processing_status?.dp_status === "done" ? "Data Processor ดำเนินการเสร็จสิ้น" : "รอส่วนของ Data Processor";
 
     const ITEMS_PER_PAGE = 3;
     const paginatedProcessing = filteredAssigned.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
     const paginatedDrafts = draftRecords.slice((draftPage - 1) * ITEMS_PER_PAGE, draftPage * ITEMS_PER_PAGE);
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-[#F6F3F2]">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
                 <TopBar showBack={false} backUrl="/data-processor/management" pageTitle=" " hideSearch={true} isProcessor={true} />
 
                 <div className="p-10 space-y-10">
@@ -131,7 +131,7 @@ export default function ManagementProcessingPage() {
                     <ListCard title="เอกสารที่ได้รับมอบหมาย" icon="assignment" iconColor="#00666E" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[25%] text-left pl-6">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[25%] text-center">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[20%]">ชื่อผู้รับผิดชอบข้อมูล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[12%]">วันที่ได้รับ</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[13%]">วันที่กำหนดส่ง</DocumentTableHeader>
@@ -157,16 +157,17 @@ export default function ManagementProcessingPage() {
                                 ) : (
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.documentName}
+                                            <DocumentTableCell align="left" className="pl-6">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.title}{record.firstName} {record.lastName}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.assignedProcessor?.assignedDate || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.dueDate || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>{record.title_prefix}{record.first_name} {record.last_name}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.assigned_processor?.assigned_date || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.due_date || "—"}</DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
-                                                    <StatusBadge done={record.processingStatus?.doStatus === "done"} label={getDoLabel(record)} />
-                                                    <StatusBadge done={record.processingStatus?.dpStatus === "done"} label={getDpLabel(record)} />
+                                                    <StatusBadge done={record.processing_status?.do_status === "done"} label={getDoLabel(record)} />
+                                                    <StatusBadge done={record.processing_status?.dp_status === "done"} label={getDpLabel(record)} />
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
@@ -202,7 +203,7 @@ export default function ManagementProcessingPage() {
                     <ListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[50%] text-left pl-6">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[50%] text-center">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">บันทึกล่าสุด</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
@@ -216,11 +217,12 @@ export default function ManagementProcessingPage() {
                                 ) : (
                                     paginatedDrafts.map((record) => (
                                         <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.documentName}
+                                            <DocumentTableCell align="left" className="pl-6">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number || record.document_id}</div>
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5F5E5E] font-medium">
-                                                {record.lastUpdated || "—"}
+                                                {record.updated_at || "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-4">
@@ -228,7 +230,7 @@ export default function ManagementProcessingPage() {
                                                         icon="edit"
                                                         tooltipText="แก้ไขฉบับร่าง"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#00666E]"
-                                                        onClick={() => router.push(`/data-processor/management/form?id=${record.ropaId}`)}
+                                                        onClick={() => router.push(`/data-processor/management/form?id=${record.document_id}`)}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="delete"

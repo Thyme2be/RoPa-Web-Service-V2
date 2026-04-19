@@ -2,11 +2,32 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
-export default function TopBar({ documentName, handleChange, status, isProcessor, isExecutive, pageTitle, showBack, backUrl, hideSearch, hasError, minimal, formMode }: any) {
+export default function TopBar({ 
+    documentName, 
+    handleChange, 
+    status, 
+    isProcessor, 
+    isExecutive, 
+    pageTitle, 
+    showBack, 
+    backUrl, 
+    hideSearch, 
+    hasError, 
+    minimal, 
+    formMode 
+}: any) {
+    const { user } = useAuth();
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
 
     const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
+
+    // Standardized role display based on real user data
+    const userRole = user?.role === "EXECUTIVE" ? "ผู้บริหารระดับสูง" : 
+                    user?.role === "PROCESSOR" ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : 
+                    "ผู้รับผิดชอบข้อมูล";
+    const userName = user ? (user.first_name ? `${user.first_name} ${user.last_name || ""}` : user.username) : "Unknown User";
 
     const handleBack = () => {
         if (backUrl) {
@@ -73,7 +94,6 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
 
             {/* Notifications & Account */}
             <div className="flex items-center gap-6 relative h-full">
-                {/* Search Bar - Hidden conditionally */}
                 {!hideSearch && !formMode && (
                     <div className="relative group hidden lg:block">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
@@ -88,7 +108,6 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                 )}
 
                 <div className="flex items-center gap-4 h-full">
-                    {/* Notifications Bell */}
                     {!minimal && !formMode && (
                         <>
                             <button
@@ -98,7 +117,6 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                                 <span className="material-symbols-outlined">notifications</span>
                             </button>
 
-                            {/* Notification Popover */}
                             {isNotifyOpen && (
                                 <div className="absolute top-14 right-24 w-[420px] bg-white rounded-3xl shadow-[0_10px_50px_rgba(0,0,0,0.1)] border border-[#F6F3F2] z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
                                     <div className="flex items-center justify-between px-8 py-6 border-b border-[#F6F3F2]">
@@ -139,37 +157,18 @@ export default function TopBar({ documentName, handleChange, status, isProcessor
                                     </div>
                                 </div>
                             )}
-
-                            {/* Divider */}
                             <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
                         </>
                     )}
 
-                    {formMode && (
-                        <div className="flex items-center h-full gap-2">
-                            <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[15px] font-black text-[#1B1C1C]">
-                                    {isExecutive ? "ประวิตร เป่งเซ่ง" : (isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก")}
-                                </span>
-                                <span className="text-[12px] text-neutral-400 font-bold whitespace-nowrap">
-                                    {isExecutive ? "ผู้บริหารระดับสูง" : (isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล")}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* User Profile - Standard Mode */}
-                    {!formMode && (
-                        <div className="flex flex-col items-end">
-                            <span className="text-xs font-bold text-neutral-900">
-                                {isExecutive ? "ประวิตร เป่งเซ่ง" : (isProcessor ? "ชญะพันธุ์ ทิพมาศ" : "พรรษชล บุญมาก")}
-                            </span>
-                            <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                                {isExecutive ? "ผู้บริหารระดับสูง" : (isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล")}
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex flex-col items-end">
+                        <span className="text-[15px] font-black text-[#1B1C1C]">
+                            {userName}
+                        </span>
+                        <span className="text-[12px] text-neutral-400 font-bold whitespace-nowrap">
+                            {userRole}
+                        </span>
+                    </div>
                 </div>
             </div>
         </header>

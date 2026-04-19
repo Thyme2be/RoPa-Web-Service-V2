@@ -22,21 +22,21 @@ export default function RightsChannel({ form, handleChange, errors, disabled }: 
                     <Input
                         label="อีเมล"
                         required
-                        name="rightsEmail"
-                        value={form?.rightsEmail || ""}
+                        name="rights_email"
+                        value={form?.rights_email || ""}
                         placeholder="example@netbay.co.th"
                         onChange={handleChange}
-                        error={errors?.rightsEmail}
+                        error={errors?.rights_email}
                         disabled={disabled}
                     />
                     <Input
                         label="เบอร์โทรศัพท์บริษัท"
                         required
-                        name="rightsPhone"
-                        value={form?.rightsPhone || ""}
+                        name="rights_phone"
+                        value={form?.rights_phone || ""}
                         placeholder="02-XXX-XXXX"
                         onChange={handleChange}
-                        error={errors?.rightsPhone}
+                        error={errors?.rights_phone}
                         disabled={disabled}
                     />
                 </div>

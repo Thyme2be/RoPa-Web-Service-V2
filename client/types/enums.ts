@@ -1,14 +1,30 @@
 export enum RopaStatus {
-  Draft = "draft",
-  Processing = "processing",         // กำลังดำเนินการ (ทั้ง DO และ DP)
-  DoPending = "do_pending",          // DO เสร็จ รอ DP
-  Submitted = "submitted",
-  Active = "active",
-  Rejected = "rejected",
-  ReviewPending = "review_pending",  // ส่ง DPO แล้ว รอตรวจสอบ
-  DeletePending = "delete_pending",  // ส่งคำขอลบ รอ DPO
-  Approved = "approved",             // DPO อนุมัติ
-  Destroyed = "destroyed",           // ถูกทำลายแล้ว
+  Draft = "draft",                   // สำหรับ mock เดิม
+  Processing = "processing",         // สำหรับ mock เดิม
+  IN_PROGRESS = "IN_PROGRESS",       // ตาราง 1
+  UNDER_REVIEW = "UNDER_REVIEW",     // ตาราง 2
+  COMPLETED = "COMPLETED",           // ตาราง 3
+  DELETED = "DELETED",               // ตาราง 4
+}
+
+export enum SectionStatus {
+  DRAFT = "DRAFT",
+  SUBMITTED = "SUBMITTED",
+}
+
+export enum UserRole {
+  OWNER = "OWNER",
+  PROCESSOR = "PROCESSOR",
+  EXECUTIVE = "EXECUTIVE",
+  ADMIN = "ADMIN",
+  DPO = "DPO",
+  AUDITOR = "AUDITOR"
+}
+
+export enum RetentionUnit {
+  DAYS = "DAYS",
+  MONTHS = "MONTHS",
+  YEARS = "YEARS"
 }
 
 export enum DataCategory {
@@ -25,16 +41,8 @@ export enum DataType {
 
 export enum CollectionMethod {
   SoftFile = "soft_file",
-  HardCopy = "hard_copy"
+  HardCopy = "hard_copy",
+  OnlineForm = "online_form",
+  Other = "other"
 }
 
-export enum RetentionUnit {
-  Year = "year",
-  Month = "month",
-  Day = "day"
-}
-
-export enum UserRole {
-  DataOwner = "data_owner",
-  DataProcessor = "data_processor"
-}
