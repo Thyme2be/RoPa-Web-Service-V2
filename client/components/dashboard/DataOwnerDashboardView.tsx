@@ -3,25 +3,40 @@
 import React from "react";
 import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
 import DonutChart from "@/components/ui/DonutChart";
-import { globalMockDashboardData } from "@/lib/mockDashboardData";
 
 interface DataOwnerDashboardViewProps {
     userId?: string;
-    // Note: We'll use the timeRange from the parent Admin page if possible, 
-    // but for now, we'll keep it internal to match the standalone page's behavior
+    stats?: {
+        total_documents: number;
+        needs_fix_do_count: number;
+        needs_fix_dp_count: number;
+        risk_low_count: number;
+        risk_medium_count: number;
+        risk_high_count: number;
+        under_review_storage_count: number;
+        under_review_deletion_count: number;
+        pending_do_count: number;
+        pending_dp_count: number;
+        completed_count: number;
+        sensitive_document_count: number;
+        overdue_dp_count: number;
+        annual_reviewed_count: number;
+        annual_not_reviewed_count: number;
+        destruction_due_count: number;
+        deleted_count: number;
+    };
 }
 
-export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardViewProps) {
-    // In the actual Data Owner page, they have a local timeFilter. 
-    // We'll use "monthly" as default to match the common case.
-    const timeFilter = "monthly"; 
-    const currentData = globalMockDashboardData[timeFilter] || globalMockDashboardData["monthly"];
+export default function DataOwnerDashboardView({ userId, stats }: DataOwnerDashboardViewProps) {
+    if (!stats) return <div className="p-10 text-center text-neutral-400 font-bold">กำลังโหลดข้อมูล...</div>;
 
     const riskChartData = [
-        { label: "ความเสี่ยงต่ำ (1)", value: currentData.risk.low, color: "#B4F534" },
-        { label: "ความเสี่ยงปานกลาง (2)", value: currentData.risk.medium, color: "#F9A506" },
-        { label: "ความเสี่ยงสูง (3)", value: currentData.risk.high, color: "#FB8827" },
+        { label: "ความเสี่ยงต่ำ (1)", value: stats.risk_low_count || 0, color: "#B4F534" },
+        { label: "ความเสี่ยงปานกลาง (2)", value: stats.risk_medium_count || 0, color: "#F9A506" },
+        { label: "ความเสี่ยงสูง (3)", value: stats.risk_high_count || 0, color: "#FB8827" },
     ];
+
+    const riskTotal = (stats.risk_low_count || 0) + (stats.risk_medium_count || 0) + (stats.risk_high_count || 0);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -30,7 +45,7 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                 <DashboardSummaryCard
                     icon="inventory_2"
                     label="จำนวนเอกสารทั้งหมด"
-                    value={currentData.totalDocs}
+                    value={stats.total_documents}
                     subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
                     accentColor="neutral"
                 />
@@ -39,8 +54,8 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                     label="เอกสารที่ต้องแก้ไขหลังจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
                     accentColor="danger"
                     splitValues={[
-                        { label: "ผู้รับผิดชอบข้อมูล", value: currentData.docsToEdit.owner },
-                        { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: currentData.docsToEdit.processor }
+                        { label: "ผู้รับผิดชอบข้อมูล", value: stats.needs_fix_do_count },
+                        { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: stats.needs_fix_dp_count }
                     ]}
                 />
             </div>
@@ -48,12 +63,26 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
             {/* Second Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
-                    <DonutChart
-                        variant="card"
-                        title="ความเสี่ยงของเอกสารทั้งหมด"
-                        data={riskChartData}
-                        total={currentData.risk.total}
-                    />
+                    {riskTotal > 0 ? (
+                        <DonutChart
+                            variant="card"
+                            title="ความเสี่ยงของเอกสารทั้งหมด"
+                            data={riskChartData}
+                            total={riskTotal}
+                        />
+                    ) : (
+                        <div className="bg-white rounded-[24px] shadow-sm border border-[#E5E2E1]/50 p-8 h-full flex flex-col items-center">
+                            <div className="w-full text-left mb-6">
+                                <h3 className="text-base font-black text-[#1B1C1C] tracking-tight">ความเสี่ยงของเอกสารทั้งหมด</h3>
+                            </div>
+                            <div className="mb-8 relative flex items-center justify-center border-8 border-[#F6F3F2] rounded-full" style={{ width: 180, height: 180 }}>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3">
+                                    <p className="text-xs font-bold text-[#5F5E5E] leading-tight">จากเอกสารทั้งหมด</p>
+                                    <p className="text-xl font-black text-[#1B1C1C] tracking-tighter">0 ฉบับ</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="lg:col-span-2 space-y-6 flex flex-col h-full">
                     <DashboardSummaryCard
@@ -61,8 +90,8 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                         label="เอกสารรอเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
                         accentColor="info"
                         splitValues={[
-                            { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: currentData.pendingDpo.store },
-                            { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: currentData.pendingDpo.destroy }
+                            { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: stats.under_review_storage_count },
+                            { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: stats.under_review_deletion_count }
                         ]}
                     />
                     <DashboardSummaryCard
@@ -70,8 +99,8 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                         label="เอกสารที่รอดำเนินการ"
                         accentColor="info"
                         splitValues={[
-                            { label: "ผู้รับผิดชอบข้อมูล", value: currentData.pendingDocs.owner },
-                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: currentData.pendingDocs.processor }
+                            { label: "ผู้รับผิดชอบข้อมูล", value: stats.pending_do_count },
+                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: stats.pending_dp_count }
                         ]}
                     />
                 </div>
@@ -82,22 +111,22 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                 <DashboardSummaryCard
                     icon="check_circle"
                     label="เอกสารที่ได้รับการอนุมัติ"
-                    value={currentData.approved}
+                    value={stats.completed_count}
                     subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
                     accentColor="success"
                 />
                 <DashboardSummaryCard
                     icon="visibility_off"
                     label="เอกสารประเภทข้อมูลอ่อนไหว"
-                    value={currentData.sensitive}
+                    value={stats.sensitive_document_count}
                     subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
                     accentColor="accent"
                 />
                 <DashboardSummaryCard
                     icon="priority_high"
-                    label="เอกสารที่ล่าช้า"
-                    value={currentData.delayed}
-                    subLabel="เอกสารที่ครบกำหนดทำลายและเกินกำหนดทำลาย"
+                    label="เอกสารที่เครื่องประมวลผลล่าช้า"
+                    value={stats.overdue_dp_count}
+                    subLabel="เอกสารที่เกินกำหนดการดำเนินการโดยผู้ประมวลผล"
                     accentColor="warning"
                 />
             </div>
@@ -109,8 +138,8 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                     label="เอกสารที่ต้องเช็ครายปี"
                     accentColor="info"
                     splitValues={[
-                        { label: "เอกสารที่ตรวจสอบแล้วโดยเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", value: currentData.annualCheck.reviewed },
-                        { label: "เอกสารที่ยังไม่ได้ตรวจสอบ", value: currentData.annualCheck.notReviewed }
+                        { label: "เอกสารที่ตรวจสอบแล้วโดยเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", value: stats.annual_reviewed_count },
+                        { label: "เอกสารที่ยังไม่ได้ตรวจสอบ", value: stats.annual_not_reviewed_count }
                     ]}
                 />
             </div>
@@ -120,15 +149,15 @@ export default function DataOwnerDashboardView({ userId }: DataOwnerDashboardVie
                 <DashboardSummaryCard
                     icon="event_busy"
                     label="เอกสารที่ครบกำหนดทำลาย"
-                    value={currentData.dueDestroy}
-                    subLabel="เอกสารทั้งหมด"
+                    value={stats.destruction_due_count}
+                    subLabel="เอกสารทั้งหมดที่ถึงกำหนดทำลายตามระยะเวลาจัดเก็บ"
                     accentColor="warning"
                 />
                 <DashboardSummaryCard
                     icon="event_note"
                     label="เอกสารที่ถูกทำลายแล้ว"
-                    value={currentData.destroyed}
-                    subLabel="เอกสารทั้งหมด"
+                    value={stats.deleted_count}
+                    subLabel="เอกสารทั้งหมดที่ได้รับการยืนยันการทำลายแล้ว"
                     accentColor="muted"
                 />
             </div>

@@ -45,17 +45,18 @@ export default function UserRoleDashboardPage() {
             setLoading(true);
             try {
                 const token = localStorage.getItem("token");
-                if (!token) throw new Error("No authorization token found");
+                if (!token) throw new Error("ไม่พบ Token สำหรับยืนยันตัวตน (Authentication token missing)");
 
-                const response = await fetch(`${API_BASE_URL}/${userId}/dashboard`, {
+                const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/dashboard`, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
                 });
 
                 if (!response.ok) {
-                    if (response.status === 404) throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
-                    throw new Error("Failed to fetch user dashboard data");
+                    const statusText = response.status === 500 ? "Server Error (500)" : response.statusText;
+                    if (response.status === 404) throw new Error("ไม่พบข้อมูลผู้ใช้งาน (User not found)");
+                    throw new Error(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${statusText} (${response.status})`);
                 }
 
                 const json = await response.json();
@@ -70,7 +71,6 @@ export default function UserRoleDashboardPage() {
                     else if (rd.compliance_score !== undefined) inferredRole = "EXECUTIVE";
                     else if (rd.total_documents !== undefined) inferredRole = "OWNER";
                 } else if (!inferredRole && !json.role_dashboard) {
-                    // If no dashboard and no role, check statistics or default to ADMIN if viewed by admin
                     inferredRole = "ADMIN";
                 }
                 inferredRole = inferredRole || "OWNER";
@@ -99,7 +99,6 @@ export default function UserRoleDashboardPage() {
                     if (orgRes.ok) {
                         const orgJson = await orgRes.json();
                         
-                        // Fetch User stats too for the full admin experience
                         const userRes = await fetch(`${API_BASE_URL}/dashboard/users?period=${timeRange}`, {
                             headers: { "Authorization": `Bearer ${token}` }
                         });
@@ -148,15 +147,23 @@ export default function UserRoleDashboardPage() {
         );
     }
 
-    if (error || !data) {
+    if (!data) {
+        if (error) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
+                    <span className="material-symbols-outlined text-6xl text-red-400 mb-4">error</span>
+                    <h3 className="text-2xl font-bold text-neutral-900 mb-2">เกิดข้อผิดพลาด</h3>
+                    <p className="text-[#5F5E5E] mb-6">{error}</p>
+                    <Link href="/admin/tables/users" className="text-primary font-bold hover:underline flex items-center gap-2">
+                        <span className="material-symbols-outlined">arrow_back</span> กลับไปหน้าตารางผู้ใช้
+                    </Link>
+                </div>
+            );
+        }
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
-                <span className="material-symbols-outlined text-6xl text-red-400 mb-4">error</span>
-                <h3 className="text-2xl font-bold text-neutral-900 mb-2">เกิดข้อผิดพลาด</h3>
-                <p className="text-[#5F5E5E] mb-6">{error || "ไม่สามารถโหลดข้อมูลได้"}</p>
-                <Link href="/admin/tables/users" className="text-primary font-bold hover:underline flex items-center gap-2">
-                    <span className="material-symbols-outlined">arrow_back</span> กลับไปหน้าตารางผู้ใช้
-                </Link>
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <span className="ml-4 text-[#5F5E5E] font-medium text-lg">กำลังเตรียมข้อมูล...</span>
             </div>
         );
     }
@@ -230,11 +237,11 @@ export default function UserRoleDashboardPage() {
         }
 
         if (roleNormalized === "OWNER") {
-            return <DataOwnerDashboardView userId={userId} />;
+            return <DataOwnerDashboardView userId={userId} stats={data.role_dashboard} />;
         }
 
         if (roleNormalized === "EXECUTIVE") {
-            return <ExecutiveDashboardView />;
+            return <ExecutiveDashboardView stats={data.role_dashboard} />;
         }
 
         // Default basic view for other roles

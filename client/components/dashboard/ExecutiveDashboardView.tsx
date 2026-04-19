@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import RopaStatusCard from "@/components/dashboard/RopaStatusCard";
 import RiskAnalysisCard from "@/components/dashboard/RiskAnalysisCard";
 import SensitiveDataCard from "@/components/dashboard/SensitiveDataCard";
@@ -8,16 +8,39 @@ import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
 import Select from "@/components/ui/Select";
 import { DonutData } from "@/components/ui/DonutChart";
 
-type DeptKey = "แผนกขาย" | "แผนกการตลาด" | "แผนก IT" | "แผนก HR";
-
-interface DeptData {
-    ropaStatus: DonutData[];
-    risk: DonutData[];
-    sensitiveItems: { dept: string; count: number }[];
-    sensitiveTotal: number;
-    pending: { owner: number; processor: number };
-    approved: number;
-    dpo: { store: number; destroy: number };
+interface ExecutiveDashboardViewProps {
+    stats?: {
+        selected_period: string;
+        ropa_status_overview: {
+            draft: number;
+            pending: number;
+            under_review: number;
+            completed: number;
+            total: number;
+        };
+        risk_by_department: {
+            department: string;
+            low: number;
+            medium: number;
+            high: number;
+            total: number;
+        }[];
+        sensitive_docs_by_department: {
+            department: string;
+            count: number;
+        }[];
+        pending_documents: {
+            data_owner_count: number;
+            data_processor_count: number;
+        };
+        approved_documents: {
+            total: number;
+        };
+        pending_dpo_review: {
+            for_archiving: number;
+            for_destruction: number;
+        };
+    };
 }
 
 const RISK_COLORS: DonutData["color"][] = ["#B4F534", "#F9A506", "#FB8827"];
@@ -39,97 +62,144 @@ function makeStatus(draft: number, pending: number, review: number, done: number
     ];
 }
 
-const mockByDept: Record<DeptKey, DeptData> = {
-    "แผนกขาย": {
-        ropaStatus: makeStatus(45, 120, 12, 200),
-        risk: makeRisk(70, 20, 10),
-        sensitiveItems: [
-            { dept: "กระบวนการขายหลัก", count: 8 },
-            { dept: "ข้อมูลลูกค้า CRM", count: 6 },
-            { dept: "สัญญาและข้อตกลง", count: 4 },
-            { dept: "รายงานการขาย", count: 2 },
-        ],
-        sensitiveTotal: 20,
-        pending: { owner: 12, processor: 18 },
-        approved: 8,
-        dpo: { store: 7, destroy: 5 },
-    },
-    "แผนกการตลาด": {
-        ropaStatus: makeStatus(30, 95, 8, 160),
-        risk: makeRisk(55, 30, 15),
-        sensitiveItems: [
-            { dept: "แคมเปญโฆษณาออนไลน์", count: 7 },
-            { dept: "ข้อมูลพฤติกรรมผู้บริโภค", count: 6 },
-            { dept: "งานวิจัยตลาด", count: 5 },
-            { dept: "ฐานข้อมูลสมาชิก", count: 2 },
-        ],
-        sensitiveTotal: 20,
-        pending: { owner: 8, processor: 14 },
-        approved: 6,
-        dpo: { store: 9, destroy: 3 },
-    },
-    "แผนก IT": {
-        ropaStatus: makeStatus(60, 140, 18, 250),
-        risk: makeRisk(40, 35, 25),
-        sensitiveItems: [
-            { dept: "ระบบฐานข้อมูลหลัก", count: 9 },
-            { dept: "บันทึก Log การเข้าถึง", count: 5 },
-            { dept: "ข้อมูลโครงสร้างพื้นฐาน", count: 4 },
-            { dept: "รหัสและ Credential", count: 2 },
-        ],
-        sensitiveTotal: 20,
-        pending: { owner: 20, processor: 30 },
-        approved: 15,
-        dpo: { store: 12, destroy: 8 },
-    },
-    "แผนก HR": {
-        ropaStatus: makeStatus(80, 127, 4, 230),
-        risk: makeRisk(80, 12, 8),
-        sensitiveItems: [
-            { dept: "ข้อมูลพนักงานส่วนตัว", count: 10 },
-            { dept: "ประวัติการจ้างงาน", count: 5 },
-            { dept: "เงินเดือนและสวัสดิการ", count: 3 },
-            { dept: "ประเมินผลการทำงาน", count: 2 },
-        ],
-        sensitiveTotal: 20,
-        pending: { owner: 5, processor: 9 },
-        approved: 18,
-        dpo: { store: 4, destroy: 2 },
-    },
-};
+export default function ExecutiveDashboardView({ stats }: ExecutiveDashboardViewProps) {
+    const [selectedDept, setSelectedDept] = useState<string>("ทั้งหมด");
 
-const allRopaStatus: DonutData[] = makeStatus(215, 482, 42, 840);
+    // Dynamic department options from backend data
+    const DEPT_OPTIONS = useMemo(() => {
+        const base = [{ label: "ทุกแผนก", value: "ทั้งหมด" }];
+        if (!stats?.risk_by_department) return base;
+        const depts = stats.risk_by_department.map(d => ({ label: d.department, value: d.department }));
+        return [...base, ...depts];
+    }, [stats]);
 
-const DEPT_OPTIONS: { label: string; value: DeptKey }[] = [
-    { label: "แผนกขาย", value: "แผนกขาย" },
-    { label: "แผนกการตลาด", value: "แผนกการตลาด" },
-    { label: "แผนก IT", value: "แผนก IT" },
-    { label: "แผนก HR", value: "แผนก HR" },
-];
+    // ROPA Status Mapping
+    const orgRopaStatus = useMemo(() => {
+        if (!stats?.ropa_status_overview) return makeStatus(0, 0, 0, 0);
+        const { draft, pending, under_review, completed } = stats.ropa_status_overview;
+        return makeStatus(draft, pending, under_review, completed);
+    }, [stats]);
 
-export default function ExecutiveDashboardView() {
-    const [selectedDept, setSelectedDept] = useState<DeptKey>("แผนกขาย");
+    const totalOrgDocs = stats?.ropa_status_overview?.total || 0;
 
-    const dept = mockByDept[selectedDept];
-    const totalDeptDocs = dept.risk.reduce((s, i) => s + i.value, 0);
+    // Risk Mapping (Filtered by Dept)
+    const riskChartData = useMemo(() => {
+        if (!stats?.risk_by_department) return makeRisk(0, 0, 0);
+        
+        if (selectedDept === "ทั้งหมด") {
+            const low = stats.risk_by_department.reduce((s, d) => s + d.low, 0);
+            const med = stats.risk_by_department.reduce((s, d) => s + d.medium, 0);
+            const high = stats.risk_by_department.reduce((s, d) => s + d.high, 0);
+            return makeRisk(low, med, high);
+        }
+        
+        const deptData = stats.risk_by_department.find(d => d.department === selectedDept);
+        return deptData ? makeRisk(deptData.low, deptData.medium, deptData.high) : makeRisk(0, 0, 0);
+    }, [stats, selectedDept]);
+
+    const totalRiskDocs = useMemo(() => riskChartData.reduce((s, i) => s + i.value, 0), [riskChartData]);
+
+    // Sensitive Data Mapping
+    const sensitiveItems = useMemo(() => {
+        if (!stats?.sensitive_docs_by_department) return [];
+        return stats.sensitive_docs_by_department.map(d => ({ dept: d.department, count: d.count }));
+    }, [stats]);
+
+    const sensitiveTotal = useMemo(() => sensitiveItems.reduce((s, i) => s + i.count, 0), [sensitiveItems]);
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* ROPA Status (org-wide) */}
-            <RopaStatusCard data={allRopaStatus} />
+            {totalOrgDocs > 0 ? (
+                <RopaStatusCard data={orgRopaStatus} />
+            ) : (
+                <div className="bg-white rounded-[48px] p-12 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2]">
+                    <div className="flex flex-col mb-12">
+                        <h2 className="text-[20px] font-black text-[#1B1C1C] tracking-tight mb-1">สถานะเอกสาร ROPA</h2>
+                        <p className="text-[15px] text-neutral-400 font-bold uppercase tracking-wider">แบ่งตามสถานะการดำเนินงานปัจจุบัน</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-24">
+                        <div className="relative flex items-center justify-center shrink-0 border-[35px] border-[#F6F3F2] rounded-full" style={{ width: 260, height: 260 }}>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3">
+                                <div className="text-[13px] font-black text-[#1B1C1C] leading-tight flex flex-col items-center">
+                                    <span>จำนวนเอกสาร</span>
+                                    <span>ทั้งหมด</span>
+                                </div>
+                                <span className="text-[11px] font-bold text-neutral-400 mt-1">0 ฉบับ</span>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-y-6">
+                            {orgRopaStatus.map((item, i) => (
+                                <div key={i} className="flex items-center justify-between w-[280px] group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
+                                        <span className="text-[17px] font-bold text-[#1B1C1C] opacity-80 group-hover:opacity-100 transition-opacity">
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="text-[18px] font-black text-[#1B1C1C]">0</span>
+                                        <span className="text-[14px] text-neutral-400 font-bold">ฉบับ</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Risk + Sensitive (filtered by dept) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <RiskAnalysisCard
-                    data={dept.risk}
-                    totalDocuments={totalDeptDocs}
-                    departments={DEPT_OPTIONS}
-                    selectedDept={selectedDept}
-                    onDeptChange={(v) => setSelectedDept(v as DeptKey)}
-                />
+                {totalRiskDocs > 0 ? (
+                    <RiskAnalysisCard
+                        data={riskChartData}
+                        totalDocuments={totalRiskDocs}
+                        departments={DEPT_OPTIONS}
+                        selectedDept={selectedDept}
+                        onDeptChange={(v) => setSelectedDept(v)}
+                    />
+                ) : (
+                    <div className="bg-white rounded-[48px] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2] flex flex-col h-full">
+                        <h3 className="text-[18px] font-black text-[#1B1C1C] tracking-tight leading-snug mb-8">
+                            ความเสี่ยงของเอกสารทั้งหมด โดยแสดงผลแต่ละแผนก
+                        </h3>
+                        <Select
+                            label="แผนก"
+                            name="department"
+                            value={selectedDept}
+                            options={DEPT_OPTIONS}
+                            onChange={(e) => setSelectedDept(e.target.value)}
+                            rounding="2xl"
+                            bgColor="white"
+                            labelClassName="text-black"
+                        />
+                        <div className="flex items-center justify-between px-4 mt-10">
+                            <div className="relative flex items-center justify-center shrink-0 border-[25px] border-[#F6F3F2] rounded-full" style={{ width: 180, height: 180 }}>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3">
+                                    <p className="text-[10px] font-bold text-[#5F5E5E] leading-tight mb-0.5">จากเอกสารทั้งหมด</p>
+                                    <p className="text-[14px] font-black text-[#1B1C1C] tracking-tighter">0 ฉบับ</p>
+                                </div>
+                            </div>
+                            <div className="space-y-4 shrink-0">
+                                {riskChartData.map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                            <span className="text-[14.5px] font-bold text-[#5F5E5E]">{item.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[15px] font-black text-[#1B1C1C]">0</span>
+                                            <span className="text-[13px] text-neutral-400 font-bold">ฉบับ</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <SensitiveDataCard
-                    items={dept.sensitiveItems}
-                    totalCount={dept.sensitiveTotal}
+                    items={sensitiveItems}
+                    totalCount={sensitiveTotal}
                 />
             </div>
 
@@ -142,8 +212,8 @@ export default function ExecutiveDashboardView() {
                         label="เอกสารที่รอดำเนินการ"
                         accentColor="info"
                         splitValues={[
-                            { label: "ผู้รับผิดชอบข้อมูล", value: dept.pending.owner },
-                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: dept.pending.processor },
+                            { label: "ผู้รับผิดชอบข้อมูล", value: stats?.pending_documents.data_owner_count || 0 },
+                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: stats?.pending_documents.data_processor_count || 0 },
                         ]}
                     />
                 </div>
@@ -152,7 +222,7 @@ export default function ExecutiveDashboardView() {
                 <DashboardSummaryCard
                     icon="check_circle"
                     label="เอกสารที่ได้รับการอนุมัติ"
-                    value={dept.approved}
+                    value={stats?.approved_documents.total || 0}
                     subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
                     accentColor="success"
                 />
@@ -164,8 +234,8 @@ export default function ExecutiveDashboardView() {
                         label="เอกสารรอเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
                         accentColor="info"
                         splitValues={[
-                            { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: dept.dpo.store },
-                            { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: dept.dpo.destroy },
+                            { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: stats?.pending_dpo_review.for_archiving || 0 },
+                            { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: stats?.pending_dpo_review.for_destruction || 0 },
                         ]}
                     />
                 </div>

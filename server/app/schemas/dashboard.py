@@ -126,18 +126,6 @@ class ProcessorDashboardResponse(BaseModel):
     completed_submissions: int
     revision_needed: int
 
-class OwnerDashboardResponse(BaseModel):
-    total_documents: int
-    draft_documents: int
-    in_review_documents: int
-    approved_documents: int
-    revision_needed: int
-
-class ExecutiveDashboardResponse(BaseModel):
-    document_overview: DocumentOverview
-    risk_overview: RiskOverview
-    compliance_score: float # Percentage of approved vs total
-
 class DocumentStatusFlags(BaseModel):
     owner_completed: bool
     processor_completed: bool
@@ -206,3 +194,16 @@ class PaginatedOwnerDpoReviewedDocumentResponse(BaseModel):
     limit: int
     items: List[OwnerDpoReviewedDocumentTableItem]
     filters: Dict[str, Optional[str]]
+
+# --- Per-User Dashboard (Admin View) ---
+
+class UserDashboardStatistics(BaseModel):
+    documents_created: Dict[str, int]
+    processor_assignments: int
+    auditor_assignments: int
+    owned_assignments: int
+
+class UserDashboardResponse(BaseModel):
+    user: UserRead
+    role_dashboard: Optional[dict] = None  # Using dict for flexible role-specific metrics
+    statistics: UserDashboardStatistics

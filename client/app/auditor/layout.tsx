@@ -28,8 +28,9 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
     const isMenuTablesActive = isTablesPage;
 
     const handleLogout = () => {
-        localStorage.clear();
-        router.push("/auth/login");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
     };
 
     const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -68,7 +69,7 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
                     </nav>
 
                     <div className="p-4 mt-auto">
-                        <button 
+                        <button
                             onClick={handleLogout}
                             className="w-full flex items-center justify-center gap-2 bg-logout-gradient h-12 rounded-xl text-white font-bold text-[15px] shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
                         >
