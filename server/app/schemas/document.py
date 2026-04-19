@@ -105,3 +105,7 @@ class AuditorAssignRequest(BaseModel):
     auditor_type: AuditorTypeEnum
     department: str
     due_date: datetime
+
+class DeletionApprovalRequest(BaseModel):
+    status: str # "APPROVED" or "REJECTED"
+    rejection_reason: Optional[str] = None
