@@ -187,6 +187,7 @@ class OwnerDpoReviewedDocumentTableItem(BaseModel):
     due_date: Optional[datetime]
     status: str                  # WAITING_FOR_DPO, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED
     is_overdue: bool
+    assignment_id: Optional[UUID] = None
 
 class PaginatedOwnerDpoReviewedDocumentResponse(BaseModel):
     total: int

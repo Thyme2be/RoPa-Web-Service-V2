@@ -14,7 +14,7 @@ import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -80,8 +80,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1">
                             <Input
                                 label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
-                                name="dataSubjectName"
-                                value={form?.dataSubjectName || ""}
+                                name="data_subject_name"
+                                value={form?.data_subject_name || ""}
                                 placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
                                 disabled={disabled}
@@ -93,8 +93,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <Input
                                 label="กิจกรรมประมวลผล"
-                                name="processingActivity"
-                                value={form?.processingActivity || ""}
+                                name="processing_activity"
+                                value={form?.processing_activity || ""}
                                 placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
                                 disabled={disabled}
@@ -103,8 +103,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             />
                             <Input
                                 label="วัตถุประสงค์การประมวลผล"
-                                name="purpose"
-                                value={form?.purpose || ""}
+                                name="purpose_of_processing"
+                                value={form?.purpose_of_processing || ""}
                                 placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
                                 disabled={disabled}
@@ -117,8 +117,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                         <Input
                             label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-                            name="processorName"
-                            value={form?.processorName || ""}
+                            name="processor_name"
+                            value={form?.processor_name || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -127,8 +127,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         />
                         <Input
                             label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
-                            name="controllerAddress"
-                            value={form?.controllerAddress || ""}
+                            name="controller_address"
+                            value={form?.controller_address || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -137,8 +137,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         />
                         <Input
                             label="กิจกรรมประมวลผล"
-                            name="processingActivity"
-                            value={form?.processingActivity || ""}
+                            name="processing_activity"
+                            value={form?.processing_activity || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -147,8 +147,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         />
                         <Input
                             label="วัตถุประสงค์ของการประมวลผล"
-                            name="purpose"
-                            value={form?.purpose || ""}
+                            name="purpose_of_processing"
+                            value={form?.purpose_of_processing || ""}
                             placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
                             disabled={disabled}
@@ -165,7 +165,9 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
 function AuditorDetailContent() {
     const router = useRouter();
     const params = useParams();
+    const searchParams = useSearchParams();
     const recordId = params?.id as string;
+    const assignmentId = searchParams.get("assignment");
 
     const [activeTab, setActiveTab] = useState("owner");
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
@@ -173,8 +175,8 @@ function AuditorDetailContent() {
     const [error, setError] = useState<string | null>(null);
 
     const [form, setForm] = useState<Partial<OwnerRecord>>({
-        documentName: "กำลังโหลด...",
-        status: RopaStatus.Submitted,
+        document_name: "กำลังโหลด...",
+        status: RopaStatus.UNDER_REVIEW,
     });
 
     const [processorForm, setProcessorForm] = useState<Partial<ProcessorRecord>>({
@@ -209,37 +211,38 @@ function AuditorDetailContent() {
                     setForm(prev => ({
                         ...prev,
                         id: recordId,
-                        documentName: docData.title,
-                        title: os.title_prefix || "",
-                        firstName: os.first_name || "",
-                        lastName: os.last_name || "",
-                        dataSubjectName: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
+                        document_name: docData.title,
+                        title_prefix: os.title_prefix || "",
+                        first_name: os.first_name || "",
+                        last_name: os.last_name || "",
+                        data_subject_name: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
                         email: os.email || "",
-                        phoneNumber: os.phone || "",
+                        phone: os.phone || "",
                         address: os.address || "",
-                        processingActivity: os.processing_activity || "",
-                        purpose: os.purpose_of_processing || "",
+                        processing_activity: os.processing_activity || "",
+                        purpose_of_processing: os.purpose_of_processing || "",
                         
-                        // Lists (Expect Array of Strings)
-                        storedDataTypes: os.personal_data_categories || [],
-                        dataCategories: os.subject_categories || [],
-                        dataType: os.data_types || [],
+                        // Lists
+                        personal_data_items: os.personal_data_categories || [],
+                        data_categories: os.subject_categories || [],
+                        data_types: os.data_types || [],
                         
                         // Retention
-                        retentionPeriod: os.retention_value || "",
-                        retentionUnit: os.retention_unit || "",
-                        storageMethod: os.storage_method || "",
-                        destructionMethod: os.destruction_method || "",
+                        retention_value: os.retention_value || "",
+                        retention_unit: os.retention_unit || "",
+                        storage_methods: os.storage_method || "",
+                        deletion_method: os.destruction_method || "",
                         
                         // Legal & Security
-                        legalBasis: os.legal_basis || "",
-                        technicalMeasures: os.technical_measures || "",
-                        organizationalMeasures: os.org_measures || "",
+                        legal_basis: os.legal_basis || "",
+                        technical_measures: os.technical_measures || "",
+                        org_measures: os.org_measures || "",
                         
-                        status: docData.status as RopaStatus
+                        status: docData.status as RopaStatus,
+                        risk_assessment: docData.risk_assessment
                     }));
                 } else {
-                    setForm(prev => ({ ...prev, documentName: docData.title, status: docData.status as RopaStatus }));
+                    setForm(prev => ({ ...prev, document_name: docData.title, status: docData.status as RopaStatus }));
                 }
 
                 // Map Processor Section
@@ -248,31 +251,31 @@ function AuditorDetailContent() {
                     setProcessorForm(prev => ({
                         ...prev,
                         id: recordId,
-                        title: ps.title_prefix || "",
-                        firstName: ps.first_name || "",
-                        lastName: ps.last_name || "",
-                        processorName: ps.processor_name || "",
+                        title_prefix: ps.title_prefix || "",
+                        first_name: ps.first_name || "",
+                        last_name: ps.last_name || "",
+                        processor_name: ps.processor_name || "",
                         email: ps.email || "",
-                        phoneNumber: ps.phone || "",
+                        phone: ps.phone || "",
                         address: ps.address || "",
-                        processingActivity: ps.processing_activity || "",
-                        purpose: ps.purpose_of_processing || "",
+                        processing_activity: ps.processing_activity || "",
+                        purpose_of_processing: ps.purpose_of_processing || "",
                         
-                        // Lists
-                        storedDataTypes: ps.personal_data_categories || [],
-                        dataCategories: ps.subject_categories || [],
-                        dataType: ps.data_types || [],
+                        // Lists (Casting strings from API to any for simple display)
+                        personal_data_items: (ps.personal_data_categories || []) as any,
+                        data_categories: (ps.subject_categories || []) as any,
+                        data_types: (ps.data_types || []) as any,
                         
                         // Retention
-                        retentionPeriod: ps.retention_value || "",
-                        retentionUnit: ps.retention_unit || "",
-                        storageMethod: ps.storage_method || "",
-                        destructionMethod: ps.destruction_method || "",
+                        retention_value: ps.retention_value || "",
+                        retention_unit: ps.retention_unit || "",
+                        storage_methods: ps.storage_method || "",
+                        deletion_method: ps.destruction_method || "",
                         
                         // Legal & Security
-                        legalBasis: ps.legal_basis || "",
-                        technicalMeasures: ps.technical_measures || "",
-                        organizationalMeasures: ps.org_measures || "",
+                        legal_basis: ps.legal_basis || "",
+                        technical_measures: ps.technical_measures || "",
+                        org_measures: ps.org_measures || "",
                         
                         status: docData.status as RopaStatus
                     }));
@@ -384,7 +387,7 @@ function AuditorDetailContent() {
                             key={recordId}
                             doStatus="done"
                             dpStatus="done"
-                            existingRisk={form.riskAssessment}
+                            existingRisk={form.risk_assessment}
                             activeView={riskDocView}
                             onViewDoSection={() => setRiskDocView(prev => prev === "owner" ? "none" : "owner")}
                             onViewDpSection={() => setRiskDocView(prev => prev === "processor" ? "none" : "processor")}
@@ -480,11 +483,28 @@ function AuditorDetailContent() {
             <SaveSuccessModal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
-                onConfirm={() => {
-                    const completedIds = JSON.parse(localStorage.getItem("auditor_completed_ids") || "[]");
-                    if (!completedIds.includes(recordId)) {
-                        localStorage.setItem("auditor_completed_ids", JSON.stringify([...completedIds, recordId]));
+                onConfirm={async () => {
+                    const token = localStorage.getItem("token");
+                    if (assignmentId && token) {
+                        try {
+                            const res = await fetch(`${API_BASE_URL}/auditor/assignments/${assignmentId}/verify`, {
+                                method: "PATCH",
+                                headers: { "Authorization": `Bearer ${token}` }
+                            });
+                            if (!res.ok) throw new Error("Verification failed");
+                        } catch (err) {
+                            console.error("Audit verification error:", err);
+                            alert("เกิดข้อผิดพลาดในการยืนยันการตรวจสอบ");
+                            return;
+                        }
+                    } else {
+                        // Fallback for demo/manual testing if assignmentId is missing
+                        const completedIds = JSON.parse(localStorage.getItem("auditor_completed_ids") || "[]");
+                        if (!completedIds.includes(recordId)) {
+                            localStorage.setItem("auditor_completed_ids", JSON.stringify([...completedIds, recordId]));
+                        }
                     }
+                    setIsConfirmModalOpen(false);
                     router.push("/auditor/tables");
                 }}
                 title="ยืนยันการตรวจสอบ"

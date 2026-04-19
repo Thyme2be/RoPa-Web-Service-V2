@@ -1243,7 +1243,8 @@ def list_documents_from_dpo(
         UserModel.first_name,
         UserModel.last_name,
         id_cte.c.seq_id,
-        id_cte.c.year
+        id_cte.c.year,
+        AuditorAssignmentModel.id.label("auditor_assignment_id")
     ).select_from(RopaDocumentModel).join(
         id_cte, id_cte.c.doc_id == RopaDocumentModel.id
     ).outerjoin(
@@ -1252,6 +1253,11 @@ def list_documents_from_dpo(
         ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
     ).outerjoin(
         UserModel, UserModel.id == ReviewDpoAssignmentModel.dpo_id
+    ).outerjoin(
+        AuditorAssignmentModel, and_(
+            AuditorAssignmentModel.document_id == RopaDocumentModel.id,
+            AuditorAssignmentModel.auditor_id == user_id
+        )
     ).filter(access_filter)
 
     # 4. Filters
@@ -1274,7 +1280,7 @@ def list_documents_from_dpo(
     results = query.order_by(RopaDocumentModel.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
 
     items = []
-    for doc, cycle, dpo_assign, fname, lname, seq, year in results:
+    for doc, cycle, dpo_assign, fname, lname, seq, year, aud_assign_id in results:
         doc_code = f"RP-{int(year)}-{int(seq):02d}"
         
         # Calculate UI Status
@@ -1323,7 +1329,8 @@ def list_documents_from_dpo(
             review_date=cycle.reviewed_at if cycle else None,
             due_date=doc.due_date,
             status=ui_status,
-            is_overdue=doc.due_date < now if doc.due_date else False
+            is_overdue=doc.due_date < now if doc.due_date else False,
+            assignment_id=aud_assign_id
         ))
 
     return PaginatedOwnerDpoReviewedDocumentResponse(

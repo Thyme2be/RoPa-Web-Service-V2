@@ -39,20 +39,10 @@ function UsersPageContent() {
         total_users: number,
         active_users: number,
         users_list: any[],
-        total_users_trend?: {
-            direction: string;
-            value: string;
-            text_label: string;
-        }
     }>({
         total_users: 0,
         active_users: 0,
         users_list: [],
-        total_users_trend: {
-            direction: "neutral",
-            value: "0%",
-            text_label: "จากเดือนที่แล้ว"
-        }
     });
     const [loading, setLoading] = useState(true);
     const [allDepartments, setAllDepartments] = useState<any[]>([]);
@@ -143,11 +133,6 @@ function UsersPageContent() {
                 total_users: data.total,
                 active_users: data.items.filter((u: any) => u.status === "ACTIVE").length, // Approximate active in current view
                 users_list: transformedUsers,
-                total_users_trend: {
-                    direction: "neutral",
-                    value: "0%",
-                    text_label: "จากเดือนที่แล้ว"
-                }
             });
         } catch (error) {
             console.error("Error fetching users:", error);

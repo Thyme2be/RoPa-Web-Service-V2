@@ -13,18 +13,31 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
     const router = useRouter();
     const { user, logout } = useAuth();
 
-    // Mock data lookup for display names
-    const mockDocs = [
-        { id: "RP-2026-03", name: "ข้อมูลลูกค้า" },
-        { id: "RP-2026-02", name: "การกำกับดูแลข้อมูลธุรกรรม" },
-        { id: "RP-2026-01", name: "การจัดการข้อมูลโครงข่าย" }
-    ];
-
-    // Check if we are on the tables page or a detail page
+    const [docName, setDocName] = React.useState("รายละเอียดเอกสาร");
     const isTablesPage = pathname.startsWith("/auditor/tables");
     const isDetailPage = pathname.match(/\/auditor\/tables\/[^\/]+/);
     const docId = isDetailPage ? pathname.split('/').pop() : "";
-    const docName = isDetailPage ? (mockDocs.find(d => d.id === docId)?.name || "รายละเอียดเอกสาร") : "";
+
+    React.useEffect(() => {
+        if (isDetailPage && docId) {
+            const fetchDocName = async () => {
+                const token = localStorage.getItem("token");
+                if (!token) return;
+                try {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/${docId}`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setDocName(data.title || "รายละเอียดเอกสาร");
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch doc name for topbar:", err);
+                }
+            };
+            fetchDocName();
+        }
+    }, [isDetailPage, docId]);
 
     // The "ตารางเอกสาร" menu item should be active for both the list and detail pages
     const isMenuTablesActive = isTablesPage;
@@ -118,7 +131,11 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
                                 <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-xs font-bold text-neutral-900">
-                                        {user ? (user.first_name ? `${user.first_name} ${user.last_name || ""}` : user.username) : "กำลังโหลด..."}
+                                        {user ? (
+                                            user.first_name 
+                                                ? `${user.title || ""} ${user.first_name} ${user.last_name || ""}`.trim() 
+                                                : user.username
+                                        ) : "กำลังโหลด..."}
                                     </span>
                                     <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
                                         {user?.role === "AUDITOR" ? "ผู้ตรวจสอบ" : 

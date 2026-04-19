@@ -198,7 +198,7 @@ function AuditorTableContent() {
                                             <td className="py-4">
                                                 <div className="flex justify-center">
                                                     <Link
-                                                        href={`/auditor/tables/${doc.raw_document_id}`}
+                                                        href={`/auditor/tables/${doc.raw_document_id}?assignment=${doc.assignment_id || ""}`}
                                                         title="ตรวจสอบ"
                                                         className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >

@@ -10,9 +10,13 @@ interface User {
     email: string;
     username: string;
     role: UserRole;
+    title?: string;
     first_name?: string;
     last_name?: string;
     department?: string;
+    company_name?: string;
+    auditor_type?: string;
+    status?: string;
 }
 
 interface AuthContextType {

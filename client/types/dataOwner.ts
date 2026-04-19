@@ -147,6 +147,9 @@ export type OwnerRecord = {
   title?: string;
   document_number?: string;
   document_id?: string;
+  storage_method?: string;
+  storage_methods?: string;
+  storage_type?: string;
 };
 
 // --- Table Item Interfaces (Matching Backend Schemas) ---
