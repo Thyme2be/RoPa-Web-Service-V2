@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function SummaryCard({ title, value, unit, subtitle, icon, color = "primary", borderColor = "border-zinc-200" }: any) {
     const colorClasses: any = {

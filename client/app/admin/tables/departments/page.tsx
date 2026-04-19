@@ -85,7 +85,7 @@ function DeptManagementPageContent() {
 
     const ITEMS_PER_PAGE = 3;
 
-    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const [depts, setDepts] = useState<any[]>([]);
     const [roles, setRoles] = useState<any[]>([]);

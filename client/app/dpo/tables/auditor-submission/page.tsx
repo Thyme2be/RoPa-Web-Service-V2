@@ -5,7 +5,7 @@ import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/RopaLi
 import Select from "@/components/ui/Select";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function AuditorSubmissionTableContent() {
     const searchParams = useSearchParams();

@@ -16,7 +16,7 @@ import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /** Tabs Component for Auditor document review */
 function AuditorFormTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {

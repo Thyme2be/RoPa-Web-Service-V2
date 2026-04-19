@@ -18,7 +18,7 @@ import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /** Local Tabs Component for DPO (No status dots to avoid conflict) */
 function DpoFormTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
@@ -263,7 +263,10 @@ function DpoInProgressDetailContent() {
         );
     };
 
-    const handleNextTab = () => {
+    const handleNextTab = async () => {
+        // Save drafts when moving between tabs
+        await saveComments(false);
+        
         const currentIndex = tabs.indexOf(activeTab);
         if (currentIndex < tabs.length - 1) {
             setActiveTab(tabs[currentIndex + 1]);
@@ -285,31 +288,91 @@ function DpoInProgressDetailContent() {
         router.push("/dpo/tables/in-progress");
     };
 
-    const handleConfirmReview = async () => {
-        setIsSubmitting(true);
-        const token = localStorage.getItem("token");
-        
-        try {
-            // Collect all comments
-            const comments = Object.entries(sectionFeedbacks)
-                .filter(([_, text]) => text.trim() !== "")
-                .map(([section, text]) => ({
-                    section_name: section,
-                    comment: text
-                }));
+    const DO_KEY_MAP: Record<string, string> = {
+        "ข้อมูลทั่วไป (DO)": "DO_SEC_1",
+        "ชื่อกิจกรรมและวัตถุประสงค์ (DO)": "DO_SEC_2",
+        "รายละเอียดกิจกรรม (DO)": "DO_SEC_2",
+        "รายละเอียดของกิจกรรมและวัตถุประสงค์ (DO)": "DO_SEC_3",
+        "ข้อมูลที่จัดเก็บ (DO)": "DO_SEC_4",
+        "ระยะเวลาการเก็บรักษา (DO)": "DO_SEC_5",
+        "ฐานทางกฎหมาย (DO)": "DO_SEC_6",
+        "มาตรการรักษาความปลอดภัย (DO)": "DO_SEC_7",
+        "ช่องทางการใช้สิทธิของเจ้าของข้อมูล (DO)": "DO_SEC_8",
+        "การประเมินความเสี่ยง": "DO_RISK"
+    };
 
-            // Submit comments to backend
-            const response = await fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
+    const DP_KEY_MAP: Record<string, string> = {
+        "ข้อมูลทั่วไป (DP)": "DP_SEC_1",
+        "กิจกรรมประมวลผล (DP)": "DP_SEC_2",
+        "ข้อมูลที่จัดเก็บ (DP)": "DP_SEC_3",
+        "ระยะเวลาการเก็บรักษา (DP)": "DP_SEC_4",
+        "ฐานทางกฎหมาย (DP)": "DP_SEC_5",
+        "มาตรการรักษาความปลอดภัย (DP)": "DP_SEC_6"
+    };
+
+    const saveComments = async (isFinal: boolean) => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const doComments = Object.entries(sectionFeedbacks)
+            .filter(([key, text]) => DO_KEY_MAP[key] && text.trim() !== "")
+            .map(([key, text]) => ({
+                section_key: DO_KEY_MAP[key],
+                comment: text
+            }));
+
+        const dpComments = Object.entries(sectionFeedbacks)
+            .filter(([key, text]) => DP_KEY_MAP[key] && text.trim() !== "")
+            .map(([key, text]) => ({
+                section_key: DP_KEY_MAP[key],
+                comment: text
+            }));
+
+        const promises = [];
+
+        // Save DO group if has comments or if it's the final submission
+        if (doComments.length > 0 || isFinal) {
+            promises.push(fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify(comments)
-            });
+                body: JSON.stringify({
+                    group: "DO",
+                    comments: doComments,
+                    is_final: isFinal
+                })
+            }));
+        }
 
-            if (!response.ok) throw new Error("Failed to submit comments");
+        // Save DP group if has comments
+        if (dpComments.length > 0) {
+            promises.push(fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    group: "DP",
+                    comments: dpComments,
+                    is_final: false
+                })
+            }));
+        }
 
+        try {
+            await Promise.all(promises);
+        } catch (err) {
+            console.error("Save comments error:", err);
+        }
+    };
+
+    const handleConfirmReview = async () => {
+        setIsSubmitting(true);
+        try {
+            await saveComments(true);
             setIsConfirmModalOpen(false);
             router.push("/dpo/tables/in-progress");
         } catch (err: any) {

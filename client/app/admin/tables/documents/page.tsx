@@ -24,7 +24,7 @@ function DocumentsPageContent() {
 
     const ITEMS_PER_PAGE = 5;
 
-    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const fetchDocuments = async () => {
         try {
@@ -37,8 +37,8 @@ function DocumentsPageContent() {
             if (res.ok) {
                 const data = await res.json();
                 const mappedDocs = data.items.map((doc: any) => ({
-                    id: doc.ropa_code || `DOC-${doc.id}`,
-                    name: doc.activity_name || "ไม่ระบุชื่อกิจกรรม",
+                    id: doc.document_number || `DOC-${doc.id}`,
+                    name: doc.title || "ไม่ระบุชื่อกิจกรรม",
                     owner: doc.owner_name || "-",
                     department: doc.department || "-",
                     dpo: doc.dpo_name || "-",

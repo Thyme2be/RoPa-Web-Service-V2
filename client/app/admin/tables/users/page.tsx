@@ -58,7 +58,7 @@ function UsersPageContent() {
     const [allDepartments, setAllDepartments] = useState<any[]>([]);
     const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
-    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
     const ITEMS_PER_PAGE = 5;
 
     // Mapping for Thai labels to Backend Enums

@@ -7,7 +7,7 @@ import Select from "@/components/ui/Select";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function InProgressTableContent() {
     const searchParams = useSearchParams();
@@ -158,11 +158,11 @@ function InProgressTableContent() {
                     "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    auditor_id: 1, // Placeholder: Currently requiring backend update or user picker implementation
+                    title: data.prefix,
+                    first_name: data.firstName,
+                    last_name: data.lastName,
                     auditor_type: data.auditorType.toUpperCase(),
                     department: data.department,
-                    preferred_first_name: data.firstName,
-                    preferred_last_name: data.lastName,
                     due_date: data.dueDate ? new Date(data.dueDate).toISOString() : new Date().toISOString()
                 })
             });

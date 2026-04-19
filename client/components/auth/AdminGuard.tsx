@@ -19,7 +19,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
             }
 
             try {
-                const response = await fetch("https://ropa-web-service-v2.onrender.com/auth/me", {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }

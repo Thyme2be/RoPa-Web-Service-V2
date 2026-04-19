@@ -38,7 +38,7 @@ export default function UserRoleDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     useEffect(() => {
         const fetchUserData = async () => {

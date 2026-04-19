@@ -150,7 +150,7 @@ export default function DashboardPage() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const fetchDashboardData = async () => {
         setLoading(true);

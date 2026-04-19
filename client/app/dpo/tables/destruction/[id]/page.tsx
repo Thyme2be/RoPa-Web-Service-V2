@@ -20,7 +20,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { mockOwnerRecords, mockProcessorRecords } from "@/lib/ropaMockRecords";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /** 
  * Local version of ActivityDetails to allow custom numbering (Part 3) 

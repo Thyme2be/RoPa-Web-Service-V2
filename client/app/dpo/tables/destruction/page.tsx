@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ListCard, StatusBadge, GenericFilterBar, Pagination } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 
-const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function DestructionTableContent() {
     const searchParams = useSearchParams();
