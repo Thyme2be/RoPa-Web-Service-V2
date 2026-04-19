@@ -68,6 +68,7 @@ from app.models.section_owner import (
 )
 from app.models.section_processor import RopaProcessorSectionModel
 from app.models.user import UserModel
+from app.models.dpo_comment import DpoSectionCommentModel
 from app.models.workflow import (
     DocumentReviewCycleModel,
     ReviewAssignmentModel,
@@ -392,32 +393,42 @@ def get_owner_dashboard(
     total = base_q.count()
 
     # ── Card 2: ต้องแก้ไข (แยก DO / DP) ──────────────────────────────────
-    # needs_fix_do = มี OPEN feedback ส่งมาถึง DO ใน review cycle (DPO ส่งให้แก้)
+    # DPO ใช้ DpoSectionCommentModel (section_key: DO_SEC_x, DP_SEC_x)
+    # + cycle.status = CHANGES_REQUESTED เพื่อบ่งบอกว่า DPO ส่งกลับให้แก้
+
+    # needs_fix_do = DPO มี comment ถึง DO (DO_SEC_x / DO_RISK) และ cycle อยู่ใน CHANGES_REQUESTED
     needs_fix_do = (
         db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
-        .join(ReviewFeedbackModel, ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id)
         .join(RopaDocumentModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id)
         .filter(
             RopaDocumentModel.created_by == uid,
-            ReviewFeedbackModel.to_user_id == uid,
-            ReviewFeedbackModel.status == "OPEN",
+            DocumentReviewCycleModel.status == "CHANGES_REQUESTED",
+            DocumentReviewCycleModel.document_id.in_(
+                db.query(DpoSectionCommentModel.document_id)
+                .filter(
+                    or_(
+                        DpoSectionCommentModel.section_key.like("DO_SEC_%"),
+                        DpoSectionCommentModel.section_key == "DO_RISK",
+                    )
+                )
+            ),
         )
         .scalar() or 0
     )
 
-    # needs_fix_dp = DP ต้องแก้ไข ไม่ว่าจะมาจาก DO หรือ DPO
-    #   - จาก DPO/DO ผ่าน review cycle: OPEN feedback ส่งถึง processor_id
-    #   - จาก DO feedback ตรง: OPEN feedback target = processor_section
+    # needs_fix_dp = DPO มี comment ถึง DP (DP_SEC_x) และ cycle อยู่ใน CHANGES_REQUESTED
+    #              + DO ส่ง feedback โดยตรงถึง DP ผ่าน ReviewFeedbackModel (OPEN)
     dp_fix_from_dpo = set(
         row[0] for row in (
             db.query(DocumentReviewCycleModel.document_id)
-            .join(ReviewFeedbackModel, ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id)
-            .join(ProcessorAssignmentModel, ProcessorAssignmentModel.document_id == DocumentReviewCycleModel.document_id)
             .join(RopaDocumentModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id)
             .filter(
                 RopaDocumentModel.created_by == uid,
-                ReviewFeedbackModel.to_user_id == ProcessorAssignmentModel.processor_id,
-                ReviewFeedbackModel.status == "OPEN",
+                DocumentReviewCycleModel.status == "CHANGES_REQUESTED",
+                DocumentReviewCycleModel.document_id.in_(
+                    db.query(DpoSectionCommentModel.document_id)
+                    .filter(DpoSectionCommentModel.section_key.like("DP_SEC_%"))
+                ),
             )
             .all()
         )
@@ -722,52 +733,34 @@ def _table2_ui_status(
     if not cycle:
         return "WAITING_REVIEW", "รอตรวจสอบ"
 
-    # หา owner section และ processor section
-    owner_section = (
-        db.query(RopaOwnerSectionModel)
-        .filter(RopaOwnerSectionModel.document_id == doc.id)
-        .first()
-    )
-    processor_section = (
-        db.query(RopaProcessorSectionModel)
-        .filter(RopaProcessorSectionModel.document_id == doc.id)
-        .first()
-    )
-
-    # feedback OPEN ถึง DO
-    do_open_feedback = (
-        db.query(ReviewFeedbackModel)
-        .filter(
-            ReviewFeedbackModel.review_cycle_id == cycle.id,
-            ReviewFeedbackModel.to_user_id == uid,
-            ReviewFeedbackModel.status == "OPEN",
-        )
-        .first()
-    )
-
-    # feedback OPEN ถึง DP
-    dp_open_feedback = None
-    if processor_section:
-        proc_assignment = (
-            db.query(ProcessorAssignmentModel)
-            .filter(ProcessorAssignmentModel.document_id == doc.id)
+    # DPO ใช้ DpoSectionCommentModel + cycle.status = CHANGES_REQUESTED
+    # section_key: DO_SEC_x, DO_RISK = feedback ถึง DO
+    #              DP_SEC_x           = feedback ถึง DP
+    if cycle.status == "CHANGES_REQUESTED":
+        has_do_comment = (
+            db.query(DpoSectionCommentModel)
+            .filter(
+                DpoSectionCommentModel.document_id == doc.id,
+                or_(
+                    DpoSectionCommentModel.section_key.like("DO_SEC_%"),
+                    DpoSectionCommentModel.section_key == "DO_RISK",
+                ),
+            )
             .first()
         )
-        if proc_assignment:
-            dp_open_feedback = (
-                db.query(ReviewFeedbackModel)
-                .filter(
-                    ReviewFeedbackModel.review_cycle_id == cycle.id,
-                    ReviewFeedbackModel.to_user_id == proc_assignment.processor_id,
-                    ReviewFeedbackModel.status == "OPEN",
-                )
-                .first()
-            )
+        if has_do_comment:
+            return "WAITING_DO_FIX", "รอ DO แก้ไข"
 
-    if do_open_feedback:
-        return "WAITING_DO_FIX", "รอ DO แก้ไข"
-    if dp_open_feedback:
-        return "WAITING_DP_FIX", "รอ DP แก้ไข"
+        has_dp_comment = (
+            db.query(DpoSectionCommentModel)
+            .filter(
+                DpoSectionCommentModel.document_id == doc.id,
+                DpoSectionCommentModel.section_key.like("DP_SEC_%"),
+            )
+            .first()
+        )
+        if has_dp_comment:
+            return "WAITING_DP_FIX", "รอ DP แก้ไข"
 
     # ReviewAssignment ของ DO ในรอบนี้
     owner_review_assignment = (
@@ -882,7 +875,6 @@ def get_approved_table(
         .filter(
             RopaDocumentModel.created_by == uid,
             RopaDocumentModel.status == "COMPLETED",
-            RopaDocumentModel.next_review_due_at <= now,
             or_(
                 RopaDocumentModel.deletion_status == None,
                 RopaDocumentModel.deletion_status != "DELETED",
@@ -928,8 +920,18 @@ def get_approved_table(
             elif ru == "YEARS":
                 destruction_date = doc.last_approved_at + timedelta(days=rv * 365)
 
-        annual_review_status = "NOT_REVIEWED"
-        annual_review_status_label = "ยังไม่ตรวจสอบ"
+        # ถ้าถึงวันทำลายแล้ว → รอทำลาย ไม่ต้องตรวจรายปีอีก
+        # ถ้าครบปีแล้ว (next_review_due_at <= now) → ยังไม่ได้ตรวจสอบรายปี
+        # ถ้ายังไม่ครบปี → ตรวจสอบเสร็จสิ้น
+        if destruction_date and destruction_date <= now:
+            annual_review_status = "PENDING_DESTRUCTION"
+            annual_review_status_label = "รอทำลายเอกสาร"
+        elif doc.next_review_due_at and doc.next_review_due_at <= now:
+            annual_review_status = "NOT_REVIEWED"
+            annual_review_status_label = "ยังไม่ได้ตรวจสอบ"
+        else:
+            annual_review_status = "REVIEWED"
+            annual_review_status_label = "ตรวจสอบเสร็จสิ้น"
 
         result.append(ApprovedTableItem(
             document_id=doc.id,
@@ -1284,7 +1286,7 @@ def send_back_to_dpo(
         db.query(DocumentReviewCycleModel)
         .filter(
             DocumentReviewCycleModel.document_id == document_id,
-            DocumentReviewCycleModel.status == "IN_REVIEW",
+            DocumentReviewCycleModel.status.in_(["IN_REVIEW", "CHANGES_REQUESTED"]),
         )
         .order_by(DocumentReviewCycleModel.requested_at.desc())
         .first()
@@ -1306,6 +1308,19 @@ def send_back_to_dpo(
         raise HTTPException(status_code=400, detail="ไม่พบ review assignment ที่ต้องแก้ไข หรือแก้ไขไปแล้ว")
 
     assignment.status = "FIX_SUBMITTED"
+
+    # Reset cycle กลับเป็น IN_REVIEW เพื่อให้ DPO ตรวจรอบใหม่ได้
+    # ถ้าไม่ reset → save_document_comments ใน dashboard.py จะหา cycle IN_REVIEW ไม่เจอ
+    # → DPO กด "ยืนยัน" ครั้งถัดไปไม่มีผล (cycle ไม่ถูก APPROVED)
+    cycle.status = "IN_REVIEW"
+
+    # ลบ DPO comments เก่าออก เพื่อให้ DPO ตรวจรอบใหม่ได้สะอาด
+    # ถ้าไม่ลบ → ตอน DPO กด "ยืนยัน" ครั้งถัดไปโดยไม่เขียน comment
+    # has_any_comment จะเจอ comment เก่า → CHANGES_REQUESTED วนไม่จบ
+    db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id
+    ).delete(synchronize_session=False)
+
     db.commit()
 
     return {"message": "ส่งการแก้ไขคืนให้ DPO สำเร็จ"}
@@ -1384,6 +1399,12 @@ def request_annual_review(
     ))
 
     doc.status = "UNDER_REVIEW"
+
+    # ลบ DPO comments เก่าออก เพื่อให้ DPO ตรวจรอบใหม่ได้สะอาด
+    db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id
+    ).delete(synchronize_session=False)
+
     db.commit()
 
     return {

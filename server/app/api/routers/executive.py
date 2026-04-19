@@ -81,36 +81,22 @@ def executive_dashboard(
             RopaProcessorSectionModel.document_id == doc.id
         ).first()
 
-        # Draft = owner or processor section still DRAFT
-        if (owner_sec and owner_sec.status == "DRAFT") or (proc_sec and proc_sec.status == "DRAFT"):
-            draft_count += 1
-            continue
-
-        # Pending = has open feedback
-        has_open_feedback = db.query(ReviewFeedbackModel).filter(
-            ReviewFeedbackModel.target_id.in_(
-                [s.id for s in [owner_sec, proc_sec] if s]
-            ),
-            ReviewFeedbackModel.status == "OPEN",
-        ).first() is not None
-        if has_open_feedback:
-            pending_count += 1
-            continue
-
-        # Under review = document UNDER_REVIEW or processor_assignment SUBMITTED awaiting DO
+        # reviewing = DO ส่งให้ DPO แล้ว รอตรวจสอบ
         if doc.status == "UNDER_REVIEW":
             under_review_count += 1
             continue
 
-        proc_assignment = db.query(ProcessorAssignmentModel).filter(
-            ProcessorAssignmentModel.document_id == doc.id,
-            ProcessorAssignmentModel.status == "SUBMITTED",
-        ).first()
-        if proc_assignment and doc.status == "IN_PROGRESS":
-            under_review_count += 1
+        # pending = เพิ่งสร้างมา ยังไม่มีใครกดดูหรือกรอกอะไรเลย
+        if not owner_sec and not proc_sec:
+            pending_count += 1
             continue
 
-        # Completed = both owner and processor SUBMITTED
+        # draft = อย่างน้อย 1 section ยังเป็น DRAFT
+        if (owner_sec and owner_sec.status == "DRAFT") or (proc_sec and proc_sec.status == "DRAFT"):
+            draft_count += 1
+            continue
+
+        # completed = ทั้ง DO และ DP กดบันทึก (SUBMITTED) เสร็จแล้วทั้งคู่
         if (
             owner_sec and owner_sec.status == "SUBMITTED"
             and proc_sec and proc_sec.status == "SUBMITTED"

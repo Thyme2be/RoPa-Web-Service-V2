@@ -101,8 +101,8 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 | Field | Card UI | คำอธิบาย | แหล่งข้อมูล |
 |-------|---------|---------|------------|
 | `total_documents` | รวมทั้งหมด | เอกสารทั้งหมดที่ DO นี้สร้าง | `ropa_documents.created_by` |
-| `needs_fix_do_count` | ต้องแก้ไข (DO) | นับ distinct document ที่มี OPEN feedback ส่งมาถึง DO ใน review cycle (DPO ส่งให้แก้) | `review_feedbacks.to_user_id == uid AND status = OPEN` |
-| `needs_fix_dp_count` | ต้องแก้ไข (DP) | นับ distinct document ที่ DP ต้องแก้ ไม่ว่า feedback จะมาจาก DO หรือ DPO | OPEN feedback ถึง DP ใน cycle + OPEN feedback ตรงจาก DO |
+| `needs_fix_do_count` | ต้องแก้ไข (DO) | นับ distinct document ที่ cycle = CHANGES_REQUESTED **และ** มี DPO comment กลุ่ม `DO_SEC_*` หรือ `DO_RISK` | `dpo_section_comments` + `review_cycles.status = CHANGES_REQUESTED` |
+| `needs_fix_dp_count` | ต้องแก้ไข (DP) | นับ distinct document ที่ DO ส่ง feedback OPEN ให้ DP | `review_feedbacks.to_user_id = DP AND status = OPEN` |
 | `risk_low_count` | Donut chart | score < 8 | `ropa_risk_assessments.risk_level = LOW` |
 | `risk_medium_count` | Donut chart | score 8–14 | `risk_level = MEDIUM` |
 | `risk_high_count` | Donut chart | score ≥ 15 | `risk_level = HIGH` |
@@ -110,15 +110,13 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 | `under_review_deletion_count` | รอ DPO (ทำลาย) | รอ DPO อนุมัติการทำลาย | `deletion_status = DELETE_PENDING` |
 | `pending_do_count` | รอดำเนินการ (DO) | DO ยังไม่ submit | `IN_PROGRESS AND owner_section.status = DRAFT` |
 | `pending_dp_count` | รอดำเนินการ (DP) | DP ยังไม่ submit | `IN_PROGRESS AND processor_section.status = DRAFT` |
-| `completed_count` | อนุมัติแล้ว | DPO อนุมัติแล้ว | `status = COMPLETED` ⚠️ จะเป็น 0 จนกว่า DPO implement approve endpoint |
+| `completed_count` | อนุมัติแล้ว | DPO อนุมัติแล้ว | `status = COMPLETED` |
 | `sensitive_document_count` | ข้อมูลอ่อนไหว | DO ติ๊ก is_sensitive = true ใน Section 4 | `owner_data_types.is_sensitive = true` (distinct doc) |
 | `overdue_dp_count` | DP ส่งช้า | เอกสาร IN_PROGRESS ที่ DP ยังไม่ submit แต่เลย due_date แล้ว | `processor_assignments.due_date <= now AND status != SUBMITTED` |
-| `annual_reviewed_count` | รายปี (ตรวจแล้ว) | COMPLETED ที่ผ่าน annual review cycle แล้ว | `review_cycles.cycle_number > 1 AND status = APPROVED` ⚠️ ต้องรอ DPO |
-| `annual_not_reviewed_count` | รายปี (ยังไม่ตรวจ) | COMPLETED ที่ครบ 1 ปีแล้วแต่ยังไม่ส่งตรวจ | `next_review_due_at <= now` ⚠️ ต้องรอ DPO |
-| `destruction_due_count` | ครบกำหนดทำลาย | retention period หมดแล้ว ยังไม่ยื่นขอทำลาย | คำนวณจาก `last_approved_at + retention` ⚠️ ต้องรอ DPO |
+| `annual_reviewed_count` | รายปี (ตรวจแล้ว) | COMPLETED ที่ผ่าน annual review cycle แล้ว | `review_cycles.cycle_number > 1 AND status = APPROVED` |
+| `annual_not_reviewed_count` | รายปี (ยังไม่ตรวจ) | COMPLETED ที่ครบ review_interval_days แล้วแต่ยังไม่ส่งตรวจ | `next_review_due_at <= now` |
+| `destruction_due_count` | ครบกำหนดทำลาย | retention period หมดแล้ว ยังไม่ยื่นขอทำลาย | คำนวณจาก `last_approved_at + retention` |
 | `deleted_count` | ถูกทำลายแล้ว | ถูกทำลายแล้ว | `deletion_status = DELETED` |
-
-> ⚠️ `completed_count`, `annual_reviewed_count`, `annual_not_reviewed_count`, `destruction_due_count` จะเป็น 0 จนกว่า DPO team implement approve endpoint
 
 ---
 
@@ -154,13 +152,13 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 ]
 ```
 
-**`owner_status.code` ที่เป็นไปได้ (2 ค่าเท่านั้น):**
+**`owner_status.code` (2 ค่า):**
 | code | label | เงื่อนไข |
 |------|-------|---------|
 | `WAITING_DO` | รอส่วนของ Data Owner | `owner_section.status = DRAFT` หรือไม่มี section |
 | `DO_DONE` | Data Owner ดำเนินการเสร็จสิ้น | `owner_section.status = SUBMITTED` |
 
-**`processor_status.code` ที่เป็นไปได้ (2 ค่าเท่านั้น):**
+**`processor_status.code` (2 ค่า):**
 | code | label | เงื่อนไข |
 |------|-------|---------|
 | `WAITING_DP` | รอส่วนของ Data Processor | `processor_section.status = DRAFT` หรือไม่มี section |
@@ -196,14 +194,14 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 ]
 ```
 
-**`ui_status` ที่เป็นไปได้ (5 ค่า):**
-| ui_status | ui_status_label | ความหมาย |
-|-----------|----------------|---------|
-| `WAITING_REVIEW` | รอตรวจสอบ | DO ส่งให้ DPO แล้ว ยังไม่มี feedback |
-| `WAITING_DO_FIX` | รอ DO แก้ไข | DPO ส่ง feedback OPEN มาถึง DO |
-| `WAITING_DP_FIX` | รอ DP แก้ไข | DPO ส่ง feedback OPEN มาถึง DP |
-| `DO_DONE` | DO ดำเนินการเสร็จสิ้น | DO กด send-back-to-dpo แล้ว (`ReviewAssignment.status = FIX_SUBMITTED`) |
-| `DP_DONE` | DP ดำเนินการเสร็จสิ้น | DP ส่งแก้ไขคืน DPO แล้ว |
+**`ui_status` (5 ค่า):**
+| ui_status | ui_status_label | ความหมาย | เงื่อนไข backend |
+|-----------|----------------|---------|----------------|
+| `WAITING_REVIEW` | รอตรวจสอบ | DO ส่งให้ DPO แล้ว ยังไม่มี comment | `cycle.status = IN_REVIEW` ไม่มี DPO comment |
+| `WAITING_DO_FIX` | รอ DO แก้ไข | DPO ส่ง comment มาถึง DO | มี `dpo_section_comments` กลุ่ม `DO_SEC_*` หรือ `DO_RISK` |
+| `WAITING_DP_FIX` | รอ DP แก้ไข | DPO ส่ง comment มาถึง DP | มี `dpo_section_comments` กลุ่ม `DP_SEC_*` |
+| `DO_DONE` | DO ดำเนินการเสร็จสิ้น | DO กด send-back-to-dpo แล้ว | `ReviewAssignment(OWNER).status = FIX_SUBMITTED` |
+| `DP_DONE` | DP ดำเนินการเสร็จสิ้น | DP ส่งแก้ไขคืน DPO แล้ว | `ReviewAssignment(PROCESSOR).status = FIX_SUBMITTED` |
 
 **Actions ในแถว:**
 | ปุ่ม | Endpoint | เงื่อนไขแสดง |
@@ -216,9 +214,8 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 
 ## 5. GET /owner/tables/approved — ตาราง 3 Approved
 
-**หน้า UI:** ตาราง 3 — เอกสารที่ครบรอบ 1 ปีหลังอนุมัติ (COMPLETED + ครบ next_review_due_at)
-
-> ⚠️ ตารางนี้จะว่างจนกว่า DPO implement approve endpoint (ที่เซต `doc.status = COMPLETED` และ `next_review_due_at`)
+**หน้า UI:** ตาราง 3 — เอกสารที่ DPO อนุมัติแล้วทั้งหมด (`doc.status = COMPLETED`)  
+**แสดงทุกเอกสาร COMPLETED** ไม่จำกัดว่าครบรอบปีหรือยัง โดยแยก badge สถานะ
 
 ### Response `200` — Array
 ```json
@@ -232,18 +229,22 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
     "last_approved_at": "datetime | null",
     "next_review_due_at": "datetime | null",
     "destruction_date": "datetime | null",
-    "annual_review_status": "NOT_REVIEWED",
-    "annual_review_status_label": "ยังไม่ตรวจสอบ"
+    "annual_review_status": "REVIEWED | NOT_REVIEWED | PENDING_DESTRUCTION",
+    "annual_review_status_label": "ตรวจสอบเสร็จสิ้น | ยังไม่ได้ตรวจสอบ | รอทำลายเอกสาร"
   }
 ]
 ```
 
-**`annual_review_status` (1 ค่าในตอนนี้):**
-| annual_review_status | label | ความหมาย |
+**`annual_review_status` (3 ค่า) — ตรวจตามลำดับความสำคัญ:**
+| annual_review_status | label | เงื่อนไข |
 |---------------------|-------|---------|
-| `NOT_REVIEWED` | ยังไม่ตรวจสอบ | ครบ 1 ปีแล้วแต่ยังไม่ส่ง DPO ตรวจรายปี |
+| `PENDING_DESTRUCTION` | รอทำลายเอกสาร | `destruction_date <= now` (ถึงวันทำลายแล้ว) |
+| `NOT_REVIEWED` | ยังไม่ได้ตรวจสอบ | `next_review_due_at <= now` (ครบรอบปีแล้ว ยังไม่ส่งตรวจ) |
+| `REVIEWED` | ตรวจสอบเสร็จสิ้น | ยังไม่ถึงรอบตรวจหรือเพิ่ง approved มา |
 
-> ทุกแถวในตาราง 3 จะเป็น `NOT_REVIEWED` เสมอ เพราะ filter เฉพาะเอกสารที่ `next_review_due_at <= now`
+> Priority: `PENDING_DESTRUCTION` > `NOT_REVIEWED` > `REVIEWED`  
+> `destruction_date` คำนวณจาก `last_approved_at + retention_value/unit` ที่ DO กรอกในฟอร์ม Section 4  
+> `next_review_due_at` คำนวณจาก `last_approved_at + review_interval_days` (default 365)
 
 **Actions ในแถว:**
 | ปุ่ม | Endpoint | เงื่อนไขแสดง |
@@ -376,13 +377,10 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 
 ## 10. DELETE /owner/documents/{document_id}/section/draft — ลบฉบับร่าง
 
-**หน้า UI:** ปุ่ม "ลบ" ในตารางฉบับร่าง (ถ้า UI แยกตารางฉบับร่างไว้)  
+**หน้า UI:** ปุ่ม "ลบ" ในตารางฉบับร่าง  
 **ผล:** ลบข้อมูล owner section พร้อม sub-tables ทั้งหมด — เอกสารยังอยู่ใน ตาราง 1
 
 **เงื่อนไข:** `owner_section.status = DRAFT` เท่านั้น (ถ้า SUBMITTED จะ error)
-
-### Request Body
-> ไม่มี body
 
 ### Response `204 No Content`
 
@@ -419,7 +417,8 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 ```
 
 > `document_number` เปลี่ยนจาก `DFT-` เป็น `RP-`  
-> เอกสารย้ายจาก ตาราง 1 ไป ตาราง 2
+> เอกสารย้ายจาก ตาราง 1 ไป ตาราง 2  
+> `doc.status` = `UNDER_REVIEW`, `cycle.status` = `IN_REVIEW`
 
 ### Error Cases
 | Status | Detail |
@@ -446,6 +445,11 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 { "message": "ส่งการแก้ไขคืนให้ DPO สำเร็จ" }
 ```
 
+### สิ่งที่เกิดขึ้นใน backend
+1. `ReviewAssignment(OWNER).status` → `FIX_SUBMITTED`
+2. `cycle.status` → reset กลับเป็น `IN_REVIEW` (เพื่อให้ DPO ตรวจรอบใหม่ได้)
+3. ลบ `DpoSectionComments` เก่าทั้งหมดของเอกสารนี้ออก (เพื่อให้ DPO เริ่มตรวจใหม่สะอาด)
+
 > หลังกด → `ui_status` ของแถวนั้นเปลี่ยนเป็น `DO_DONE`
 
 ---
@@ -453,7 +457,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 ## 13. POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี
 
 **หน้า UI:** ปุ่ม ✈️ ในตาราง 3  
-**เรียกเมื่อ:** เอกสาร COMPLETED ครบ 1 ปีแล้ว (`annual_review_status = "NOT_REVIEWED"`)  
+**เรียกเมื่อ:** เอกสาร COMPLETED ครบรอบปีแล้ว (`annual_review_status = "NOT_REVIEWED"`)  
 **เงื่อนไขแสดงปุ่ม:** `annual_review_status === "NOT_REVIEWED"`
 
 ### Request Body
@@ -469,7 +473,11 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 }
 ```
 
-> หลังกด → เอกสารย้ายไป ตาราง 2 (doc.status = UNDER_REVIEW)
+### สิ่งที่เกิดขึ้นใน backend
+1. สร้าง `DocumentReviewCycle` ใหม่ (`cycle_number` +1)
+2. `doc.status` → `UNDER_REVIEW`
+3. ลบ `DpoSectionComments` เก่าออก (เริ่มรอบตรวจใหม่สะอาด)
+4. เอกสารย้ายจาก ตาราง 3 ไป ตาราง 2
 
 ### Error Cases
 | Status | Detail |
@@ -731,7 +739,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น
 |-----|-------|---------|
 | `IN_PROGRESS` | ตาราง 1 | กำลังดำเนินการ |
 | `UNDER_REVIEW` | ตาราง 2 | ส่ง DPO แล้ว |
-| `COMPLETED` | ตาราง 3 (เฉพาะที่ครบ 1 ปี) | DPO อนุมัติแล้ว |
+| `COMPLETED` | ตาราง 3 (ทุกเอกสาร) | DPO อนุมัติแล้ว |
 
 ### Document `deletion_status`
 | ค่า | ความหมาย |
