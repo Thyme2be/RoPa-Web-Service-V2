@@ -142,6 +142,11 @@ export type OwnerRecord = {
       requested_at: string;
       decided_at?: string;
   };
+
+  // Additional fields for table/mapping compatibility
+  title?: string;
+  document_number?: string;
+  document_id?: string;
 };
 
 // --- Table Item Interfaces (Matching Backend Schemas) ---

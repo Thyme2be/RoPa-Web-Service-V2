@@ -191,10 +191,10 @@ function DataProcessorFormContent() {
     };
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low overflow-x-hidden">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col overflow-x-hidden">
                 <TopBar
                     documentName={form.document_name}
                     pageTitle="ข้อมูลลูกค้า"
@@ -243,7 +243,7 @@ function DataProcessorFormContent() {
                 )}
 
                 {/* Footer Action Bar (Fixed Red as per request) */}
-                <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
+                <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
                     <button
                         onClick={() => router.back()}
                         className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"

@@ -41,4 +41,6 @@ export interface ExecutiveDashboardResponse {
   pending_documents: PendingDocuments;
   approved_documents: ApprovedDocumentsSummary;
   pending_dpo_review: PendingDpoReviewSummary;
+  compliance_score: number;
+  available_departments: string[];
 }

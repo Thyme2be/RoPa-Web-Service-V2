@@ -71,6 +71,7 @@ export interface RopaProcessorRecord {
   // Backward compatibility aliases if needed
   document_name?: string;
   title?: string;
+  document_number?: string;
 }
 
 export type ProcessorRecord = RopaProcessorRecord;

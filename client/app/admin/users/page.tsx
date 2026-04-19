@@ -289,7 +289,7 @@ export default function UsersPage() {
     ];
 
     return (
-        <div className="flex flex-col h-full -m-8">
+        <div className="flex flex-col h-full -m-8 bg-background">
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
                 {/* Page Header */}
                 <div className="flex justify-between items-end">

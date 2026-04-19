@@ -105,10 +105,10 @@ export default function ManagementProcessingPage() {
     const paginatedDrafts = draftRecords.slice((draftPage - 1) * ITEMS_PER_PAGE, draftPage * ITEMS_PER_PAGE);
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-[#F6F3F2]">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
                 <TopBar showBack={false} backUrl="/data-processor/management" pageTitle=" " hideSearch={true} isProcessor={true} />
 
                 <div className="p-10 space-y-10">
@@ -157,8 +157,9 @@ export default function ManagementProcessingPage() {
                                 ) : (
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.document_name}
+                                            <DocumentTableCell align="left" className="pl-6">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>{record.title_prefix}{record.first_name} {record.last_name}</DocumentTableCell>
                                             <DocumentTableCell className="text-[#1B1C1C]">{record.assigned_processor?.assigned_date || "—"}</DocumentTableCell>
@@ -216,8 +217,9 @@ export default function ManagementProcessingPage() {
                                 ) : (
                                     paginatedDrafts.map((record) => (
                                         <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.document_name}
+                                            <DocumentTableCell align="left" className="pl-6">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number || record.document_id}</div>
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5F5E5E] font-medium">
                                                 {record.updated_at || "—"}

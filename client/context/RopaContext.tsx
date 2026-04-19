@@ -1,7 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { OwnerRecord, OwnerDashboardData, ActiveTableItem, StatusBadge } from "@/types/dataOwner";
+import { 
+    OwnerRecord, 
+    OwnerDashboardData, 
+    ActiveTableItem, 
+    SentToDpoTableItem,
+    ApprovedTableItem,
+    DestroyedTableItem,
+    StatusBadge 
+} from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
 import { ExecutiveDashboardResponse, RiskByDepartment } from "@/types/executive";
 import { ropaService } from "@/services/ropaService";
@@ -11,6 +19,10 @@ import { useAuth } from "./AuthContext";
 
 interface RopaContextType {
     records: OwnerRecord[];
+    activeRecords: ActiveTableItem[];
+    sentRecords: SentToDpoTableItem[];
+    approvedRecords: ApprovedTableItem[];
+    destroyedRecords: DestroyedTableItem[];
     processorRecords: RopaProcessorRecord[];
     executiveDashboardData: ExecutiveDashboardResponse | null;
     ownerDashboardData: OwnerDashboardData | null;
@@ -54,6 +66,10 @@ const RopaContext = createContext<RopaContextType | undefined>(undefined);
 export function RopaProvider({ children }: { children: ReactNode }) {
     const { isAuthenticated, user } = useAuth();
     const [records, setRecords] = useState<OwnerRecord[]>([]);
+    const [activeRecords, setActiveRecords] = useState<ActiveTableItem[]>([]);
+    const [sentRecords, setSentRecords] = useState<SentToDpoTableItem[]>([]);
+    const [approvedRecords, setApprovedRecords] = useState<ApprovedTableItem[]>([]);
+    const [destroyedRecords, setDestroyedRecords] = useState<DestroyedTableItem[]>([]);
     const [processorRecords, setProcessorRecords] = useState<RopaProcessorRecord[]>([]);
     const [executiveDashboardData, setExecutiveDashboardData] = useState<any | null>(null);
     const [ownerDashboardData, setOwnerDashboardData] = useState<any | null>(null);
@@ -65,28 +81,32 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         try {
             if (user.role === "OWNER") {
                 try {
-                    const activeDocs = await ropaService.getOwnerActiveTable();
+                    const [active, sent, approved, destroyed] = await Promise.all([
+                        ropaService.getOwnerActiveTable(),
+                        ropaService.getOwnerSentTable(),
+                        ropaService.getOwnerApprovedTable(),
+                        ropaService.getOwnerDestroyedTable()
+                    ]);
 
-                    // Normalize backend format to frontend OwnerRecord
-                    const normalized = activeDocs.map((item: ActiveTableItem) => ({
+                    setActiveRecords(active);
+                    setSentRecords(sent);
+                    setApprovedRecords(approved);
+                    setDestroyedRecords(destroyed);
+                    
+                    // Legacy records mapping for screens that still use unified list
+                    const legacyMapping = active.map(item => ({
                         id: item.document_id,
                         document_name: item.title,
-                        title_prefix: item.title,
+                        assigned_processor: { name: item.dp_name },
                         processor_company: item.dp_company,
                         due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
-                        assigned_processor: item.dp_name ? {
-                            name: item.dp_name,
-                            assigned_date: item.created_at,
-                            document_title: item.title
-                        } : undefined,
+                        status: item.owner_section_status === "SUBMITTED" ? RopaStatus.IN_PROGRESS : RopaStatus.Draft,
                         processing_status: {
                             do_status: item.owner_status.code === "DO_DONE" ? "done" : "pending",
                             dp_status: item.processor_status.code === "DP_DONE" ? "done" : "pending"
-                        },
-                        status: RopaStatus.IN_PROGRESS,
-                        workflow: "processing"
+                        }
                     }));
-                    setRecords(normalized as OwnerRecord[]);
+                    setRecords(legacyMapping as any);
 
                     const ownerStats = await ropaService.getOwnerDashboard();
                     setOwnerDashboardData(ownerStats);
@@ -98,26 +118,47 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             if (user.role === "PROCESSOR") {
                 try {
                     const assignedDocs = await ropaService.getProcessorAssignedTable();
+                    
+                    let activeDocs: any[] = [];
+                    let draftDocs: any[] = [];
+                    
+                    if (Array.isArray(assignedDocs)) {
+                        activeDocs = assignedDocs;
+                    } else if (assignedDocs && typeof assignedDocs === 'object') {
+                        activeDocs = assignedDocs.active || [];
+                        draftDocs = assignedDocs.drafts || [];
+                    }
 
-                    const normalized = assignedDocs.map((item: any) => ({
+                    const mapItem = (item: any, isDraft: boolean) => ({
                         id: item.document_id,
                         ropa_id: item.document_id,
-                        document_name: item.title,
+                        document_id: item.document_id,
+                        document_name: item.title || item.document_name,
+                        title: item.title || item.document_name,
+                        document_number: item.document_number,
                         title_prefix: item.owner_title || "คุณ",
                         first_name: item.owner_first_name || item.owner_name || "—",
                         last_name: item.owner_last_name || "",
                         due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
+                        updated_at: item.updated_at ? new Date(item.updated_at).toLocaleDateString("th-TH") : "—",
                         assigned_processor: {
                             assigned_date: item.assigned_at ? new Date(item.assigned_at).toLocaleDateString("th-TH") : "—"
                         },
                         processing_status: {
-                            do_status: item.owner_status.code === "DO_DONE" ? "done" : "pending",
-                            dp_status: item.processor_status.code === "DP_DONE" ? "done" : "pending"
+                            do_status: item.owner_status?.code === "DO_DONE" ? "done" : "pending",
+                            dp_status: item.processor_status?.code === "DP_DONE" ? "done" : "pending"
                         },
-                        status: item.processor_status.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS
-                    }));
-                    setProcessorRecords(normalized as any);
-                    setRecords(normalized as any);
+                        processor_status: item.processor_status,
+                        owner_status: item.owner_status,
+                        status: isDraft ? SectionStatus.DRAFT : (item.processor_status?.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
+                    });
+
+                    const normalizedActive = activeDocs.map(item => mapItem(item, false));
+                    const normalizedDrafts = draftDocs.map(item => mapItem(item, true));
+                    
+                    const allNormalized = [...normalizedActive, ...normalizedDrafts];
+                    setProcessorRecords(allNormalized as any);
+                    setRecords(allNormalized as any);
                 } catch (err) {
                     console.error("Processor data fetch failed:", err);
                 }
@@ -218,28 +259,29 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         };
 
         const d = executiveDashboardData;
+        const riskByDept = d.risk_by_department || [];
 
         // Sum up risks if not filtered by department
         let low = 0, medium = 0, high = 0;
         if (dept) {
-            const risk = d.risk_by_department.find((r: RiskByDepartment) => r.department === dept);
+            const risk = riskByDept.find((r: RiskByDepartment) => r.department === dept);
             low = risk?.low || 0;
             medium = risk?.medium || 0;
             high = risk?.high || 0;
         } else {
-            d.risk_by_department.forEach((r: RiskByDepartment) => {
-                low += r.low;
-                medium += r.medium;
-                high += r.high;
+            riskByDept.forEach((r: RiskByDepartment) => {
+                low += r.low || 0;
+                medium += r.medium || 0;
+                high += r.high || 0;
             });
         }
 
         return {
-            total: d.ropa_status_overview.total,
-            draft: d.ropa_status_overview.draft,
-            pending: d.ropa_status_overview.pending,
-            underReview: d.ropa_status_overview.under_review,
-            approved: d.ropa_status_overview.completed,
+            total: d.ropa_status_overview?.total || 0,
+            draft: d.ropa_status_overview?.draft || 0,
+            pending: d.ropa_status_overview?.pending || 0,
+            underReview: d.ropa_status_overview?.under_review || 0,
+            approved: d.ropa_status_overview?.completed || 0,
             risk: { low, medium, high }
         };
     };
@@ -274,7 +316,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                 data_source_indirect: data.data_sources?.some((i: any) => i.source === "INDIRECT") || false,
                 legal_basis: data.legal_basis || "",
                 minor_consent_under_10: data.minor_consent_types?.includes("UNDER_10") || false,
-                minor_consent_10_to_20: data.minor_consent_types?.includes("AGE_10_20") || false,
+                minor_consent_10_to_20: data.minor_consent_types?.includes("10_TO_20") || false,
                 minor_consent_none: data.minor_consent_types?.includes("NONE") || false,
                 has_cross_border_transfer: data.has_cross_border_transfer || false,
                 transfer_country: data.transfer_country,
@@ -446,6 +488,10 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     return (
         <RopaContext.Provider value={{
             records,
+            activeRecords,
+            sentRecords,
+            approvedRecords,
+            destroyedRecords,
             processorRecords,
             executiveDashboardData,
             ownerDashboardData,

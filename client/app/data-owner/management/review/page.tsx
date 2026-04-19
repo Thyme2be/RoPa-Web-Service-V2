@@ -47,10 +47,10 @@ export default function RopaReviewPage() {
     };
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
                 <TopBar pageTitle="ตรวจสอบรายการ RoPA" hideSearch={true} />
 
                 <div className="p-10 space-y-10">

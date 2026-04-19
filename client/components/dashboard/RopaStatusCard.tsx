@@ -6,12 +6,12 @@ interface RopaStatusCardProps {
 
 export default function RopaStatusCard({ data }: RopaStatusCardProps) {
     return (
-        <div className="bg-white rounded-[48px] p-12 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2]">
-            <div className="flex flex-col mb-12">
+        <div className="bg-white rounded-[32px] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-[#F6F3F2]">
+            <div className="flex flex-col mb-8">
                 <h2 className="text-[20px] font-black text-[#1B1C1C] tracking-tight mb-1">
                     สถานะเอกสาร ROPA
                 </h2>
-                <p className="text-[15px] text-neutral-400 font-bold uppercase tracking-wider">
+                <p className="text-[15px] text-[#5C403D] font-bold uppercase tracking-wider">
                     แบ่งตามสถานะการดำเนินงานปัจจุบัน
                 </p>
             </div>

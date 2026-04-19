@@ -9,20 +9,20 @@ import Select from "@/components/ui/Select";
 import { useRopa } from "@/context/RopaContext";
 
 export default function RopaApprovedPage() {
-    const { records } = useRopa();
+    const { approvedRecords: contextApprovedRecords } = useRopa();
     const [page, setPage] = useState(1);
     
-    // Filter approved records
-    const approvedRecords = records.filter(r => r.workflow === "approved");
+    const ITEMS_PER_PAGE = 5;
+    const paginatedRecords = contextApprovedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     const ITEMS_PER_PAGE = 5;
     const paginatedRecords = approvedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
             <Sidebar />
 
-            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
+            <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
                 <TopBar showBack={false} backUrl="/data-owner/management" pageTitle=" " hideSearch={true} />
 
                 <div className="p-10 space-y-10">
@@ -65,20 +65,32 @@ export default function RopaApprovedPage() {
                                     </DocumentTableRow>
                                 ) : (
                                     paginatedRecords.map((record) => (
-                                        <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left">{record.id} {record.documentName}</DocumentTableCell>
-                                            <DocumentTableCell>{record.title}{record.firstName} {record.lastName}</DocumentTableCell>
-                                            <DocumentTableCell>นายกิตติพงศ์ ศรีวัฒนากุล</DocumentTableCell>
-                                            <DocumentTableCell align="left">{record.updatedDate || "—"}</DocumentTableCell>
-                                            <DocumentTableCell align="left">25/03/2571</DocumentTableCell>
+                                        <DocumentTableRow key={record.document_id}>
+                                            <DocumentTableCell align="left">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                            </DocumentTableCell>
+                                            <DocumentTableCell>{record.do_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell align="left">
+                                                {record.last_approved_at ? new Date(record.last_approved_at).toLocaleDateString("th-TH") : "—"}
+                                            </DocumentTableCell>
+                                            <DocumentTableCell align="left">
+                                                {record.destruction_date ? new Date(record.destruction_date).toLocaleDateString("th-TH") : "—"}
+                                            </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <span className="px-3 py-1 rounded-[4px] text-[10px] font-bold text-white bg-[#2C8C00]">
-                                                    ตรวจสอบเสร็จสิ้น
+                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : "bg-[#FF9800]"}`}>
+                                                    {record.annual_review_status_label}
                                                 </span>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip icon="visibility" tooltipText="ดูเอกสาร" buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]" />
+                                                    <ActionIconWithTooltip 
+                                                        icon="visibility" 
+                                                        tooltipText="ดูเอกสาร" 
+                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                    />
                                                 </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
@@ -88,8 +100,8 @@ export default function RopaApprovedPage() {
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={Math.max(1, Math.ceil(approvedRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={approvedRecords.length}
+                            totalPages={Math.max(1, Math.ceil(contextApprovedRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={contextApprovedRecords.length}
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />

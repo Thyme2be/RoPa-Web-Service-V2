@@ -63,7 +63,7 @@ function StatusBadge({ done, label }: { done: boolean; label: string }) {
 
 export default function ManagementProcessingPage() {
     const router = useRouter();
-    const { records, sendToDpo, requestDelete } = useRopa();
+    const { activeRecords, sendToDpo, requestDelete } = useRopa();
     const [page, setPage] = useState(1);
     const [draftPage, setDraftPage] = useState(1);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -90,28 +90,18 @@ export default function ManagementProcessingPage() {
     };
 
     // ─── Filter processing records ─────────────────────────────────────────────
-    // Records in "processing" table: Processing, DoPending, or no workflow set (fresh)
-    const processingRecords = records.filter(r =>
-        r.workflow === "processing" ||
-        r.status === RopaStatus.Processing ||
-        r.status === RopaStatus.IN_PROGRESS ||
-        r.status === RopaStatus.UNDER_REVIEW ||
-        r.status === RopaStatus.COMPLETED ||
-        r.status === RopaStatus.DELETED ||
-        (!r.workflow && r.status !== RopaStatus.Draft)
-    );
-
-    // Draft records
-    const draftRecords = records.filter(r => r.status === RopaStatus.Draft);
+    // Records in "processing" table are from activeRecords state
+    const processingRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.SUBMITTED || r.owner_section_status === "SUBMITTED");
+    const draftRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.DRAFT || r.owner_section_status === "DRAFT");
 
     const filteredProcessing = processingRecords.filter(record => {
         let matchStatus = true;
-        const do_status = record.processing_status?.do_status;
-        const dp_status = record.processing_status?.dp_status;
-        if (statusFilter === "wait_owner") matchStatus = do_status !== "done";
-        if (statusFilter === "wait_processor") matchStatus = dp_status !== "done";
-        if (statusFilter === "done_owner") matchStatus = do_status === "done";
-        if (statusFilter === "done_processor") matchStatus = dp_status === "done";
+        const do_code = record.owner_status?.code;
+        const dp_code = record.processor_status?.code;
+        if (statusFilter === "wait_owner") matchStatus = do_code !== "DO_DONE";
+        if (statusFilter === "wait_processor") matchStatus = dp_code !== "DP_DONE";
+        if (statusFilter === "done_owner") matchStatus = do_code === "DO_DONE";
+        if (statusFilter === "done_processor") matchStatus = dp_code === "DP_DONE";
         return matchStatus;
     });
 
@@ -137,7 +127,7 @@ export default function ManagementProcessingPage() {
     const paginatedDrafts = draftRecords.slice((draftPage - 1) * ITEMS_PER_PAGE, draftPage * ITEMS_PER_PAGE);
 
     return (
-        <div className="flex min-h-screen bg-[#FCF9F8]">
+        <div className="flex min-h-screen bg-background font-sans">
             <Sidebar />
 
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
@@ -196,17 +186,22 @@ export default function ManagementProcessingPage() {
                                     </DocumentTableRow>
                                 ) : (
                                     paginatedProcessing.map((record) => (
-                                        <DocumentTableRow key={record.id}>
-                                            <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.document_name}
+                                        <DocumentTableRow key={record.document_id}>
+                                            <DocumentTableCell align="left" className="pl-6">
+                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.assigned_processor?.name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.processor_company || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.due_date || "—"}</DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <div className="text-[#1B1C1C]">{record.dp_name || "—"}</div>
+                                            </DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">{record.dp_company || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#1B1C1C]">
+                                                {record.due_date ? new Date(record.due_date).toLocaleDateString("th-TH") : "—"}
+                                            </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
-                                                    <StatusBadge done={record.processing_status?.do_status === "done"} label={getDoLabel(record)} />
-                                                    <StatusBadge done={record.processing_status?.dp_status === "done"} label={getDpLabel(record)} />
+                                                    <StatusBadge done={record.owner_status?.code === "DO_DONE"} label={record.owner_status?.label} />
+                                                    <StatusBadge done={record.processor_status?.code === "DP_DONE"} label={record.processor_status?.label} />
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
@@ -215,19 +210,19 @@ export default function ManagementProcessingPage() {
                                                         icon="visibility"
                                                         tooltipText="ดูเอกสาร"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.id}&mode=view`)}
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="send"
                                                         tooltipText="ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => setDpoConfirm({ open: true, id: record.id })}
+                                                        onClick={() => setDpoConfirm({ open: true, id: record.document_id })}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="cancel_schedule_send"
                                                         tooltipText="ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
-                                                        onClick={() => setDeleteConfirm({ open: true, id: record.id })}
+                                                        onClick={() => setDeleteConfirm({ open: true, id: record.document_id })}
                                                     />
                                                 </div>
                                             </DocumentTableCell>
@@ -262,12 +257,13 @@ export default function ManagementProcessingPage() {
                                     </DocumentTableRow>
                                 ) : (
                                     paginatedDrafts.map((record) => (
-                                        <DocumentTableRow key={record.id}>
+                                        <DocumentTableRow key={record.document_id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                {record.id} {record.document_name}
+                                                <div className="text-[#1B1C1C]">{record.title}</div>
+                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell className="text-[#5F5E5E] font-medium">
-                                                {record.updated_date || "—"}
+                                            <DocumentTableCell className="text-[#5F5E5E] font-medium text-center">
+                                                {record.created_at ? new Date(record.created_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-4">
@@ -275,7 +271,7 @@ export default function ManagementProcessingPage() {
                                                         icon="edit"
                                                         tooltipText="แก้ไขฉบับร่าง"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.id}`)}
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}`)}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="delete"
@@ -283,7 +279,7 @@ export default function ManagementProcessingPage() {
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
                                                         onClick={() => {
                                                             if (confirm("ต้องการลบฉบับร่างนี้ใช่หรือไม่?")) {
-                                                                // deleteRecord(record.id);
+                                                                // deleteRecord(record.document_id);
                                                             }
                                                         }}
                                                     />

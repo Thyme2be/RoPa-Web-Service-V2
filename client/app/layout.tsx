@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
+import { RopaProvider } from "@/context/RopaContext";
 
 const sarabun = Sarabun({
   variable: "--font-sarabun",
@@ -12,8 +14,6 @@ export const metadata: Metadata = {
   title: "Netbay RoPA Management",
   description: "Enterprise Record of Processing Activities Manager",
 };
-
-import { AuthProvider } from "@/context/AuthContext";
 
 export default function RootLayout({
   children,
@@ -33,7 +33,9 @@ export default function RootLayout({
       </head>
       <body className="h-full">
         <AuthProvider>
-          {children}
+          <RopaProvider>
+            {children}
+          </RopaProvider>
         </AuthProvider>
       </body>
     </html>
