@@ -3,8 +3,10 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
-import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/RopaListComponents";
+import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+
+const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
 
 function AuditorTableContent() {
     const searchParams = useSearchParams();
@@ -12,107 +14,91 @@ function AuditorTableContent() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
-    const [selectedDateRange, setSelectedDateRange] = useState("ภายใน 7 วัน");
-    const [customDate, setCustomDate] = useState("");
+    const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
+    
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [totalItems, setTotalItems] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const ITEMS_PER_PAGE = 5;
 
-    // Mock data for Auditor
-    const mockDocsBase = [
-        {
-            id: "RP-2026-03",
-            name: "ข้อมูลลูกค้า",
-            owner: "นายธนกร จิตต์สุวรรณ",
-            receivedDate: "2026-03-20",
-            displayReceivedDate: "20/03/2569",
-            auditDate: "25/03/2569",
-            deadline: "25/03/2569",
-            status: "รอตรวจสอบ",
-            statusType: "warning"
-        },
-        {
-            id: "RP-2026-02",
-            name: "การกำกับดูแลข้อมูลธุรกรรม",
-            owner: "นายธนกร จิตต์สุวรรณ",
-            receivedDate: "2026-03-18",
-            displayReceivedDate: "18/03/2569",
-            auditDate: "28/03/2569",
-            deadline: "25/03/2569",
-            status: "รอตรวจสอบ",
-            statusType: "warning",
-            isOverdue: true
-        },
-        {
-            id: "RP-2026-01",
-            name: "การจัดการข้อมูลโครงข่าย",
-            owner: "นายธนกร จิตต์สุวรรณ",
-            receivedDate: "2026-03-15",
-            displayReceivedDate: "15/03/2569",
-            auditDate: "29/03/2569",
-            deadline: "29/03/2569",
-            status: "ตรวจสอบเสร็จสิ้น",
-            statusType: "success"
+    const fetchDocuments = async () => {
+        setLoading(true);
+        setError(null);
+        const token = localStorage.getItem("token");
+        
+        if (!token) {
+            setError("ไม่พบ Token การยืนยันตัวตน");
+            setLoading(false);
+            return;
         }
-    ];
 
-    const [completedAudits, setCompletedAudits] = useState<string[]>([]);
+        try {
+            // Map UI date range to API date_range
+            let apiDateRange = "";
+            if (selectedDateRange === "ภายใน 7 วัน") apiDateRange = "7_days";
+            else if (selectedDateRange === "ภายใน 30 วัน") apiDateRange = "30_days";
 
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("auditor_completed_ids");
-            if (saved) {
-                try {
-                    setCompletedAudits(JSON.parse(saved));
-                } catch (e) {
-                    console.error("Failed to load completed audits", e);
+            // Map UI status to API status (optional filter)
+            let apiStatus = "";
+            if (selectedStatus === "รอตรวจสอบ") apiStatus = "WAITING_FOR_DPO";
+            else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") apiStatus = "DPO_APPROVED";
+
+            const queryParams = new URLSearchParams({
+                page: currentPage.toString(),
+                limit: ITEMS_PER_PAGE.toString(),
+            });
+
+            if (apiDateRange) queryParams.append("date_range", apiDateRange);
+            if (apiStatus) queryParams.append("status", apiStatus);
+            if (globalSearchQuery) queryParams.append("search", globalSearchQuery);
+
+            const response = await fetch(`${API_BASE_URL}/dashboard/documents-from-dpo?${queryParams.toString()}`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`
                 }
-            }
-        }
-    }, []);
+            });
 
-    // Apply status overrides based on local simulation
-    const docsWithStatus = mockDocsBase.map(doc => {
-        if (completedAudits.includes(doc.id)) {
-            return { ...doc, status: "ตรวจสอบเสร็จสิ้น", statusType: "success" };
-        }
-        return doc;
-    });
+            if (!response.ok) throw new Error("ไม่สามารถดึงข้อมูลเอกสารได้");
 
-    const getStatusColor = (type: string) => {
-        switch (type) {
-            case "success": return "bg-[#228B15] text-white"; // Green
-            case "warning": return "bg-[#FBBF24] text-[#5C403D]"; // Yellow
-            case "danger": return "bg-[#ED393C] text-white"; // Red
-            default: return "bg-gray-200 text-gray-700";
+            const data = await response.json();
+            setDocuments(data.items || []);
+            setTotalItems(data.total || 0);
+        } catch (err: any) {
+            console.error("Fetch error:", err);
+            setError(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Filtering logic
-    const filteredDocs = docsWithStatus.filter(doc => {
-        const matchesSearch = globalSearchQuery === "" ||
-            doc.id.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.owner.toLowerCase().includes(globalSearchQuery.toLowerCase());
+    useEffect(() => {
+        fetchDocuments();
+    }, [currentPage, selectedStatus, selectedDateRange, globalSearchQuery]);
 
-        const matchesStatus = selectedStatus === "ทั้งหมด" || doc.status === selectedStatus;
+    const formatThaiDate = (dateStr: string | null) => {
+        if (!dateStr) return "-";
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('th-TH', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    };
 
-        let matchesDate = true;
-        if (selectedDateRange !== "ทั้งหมด") {
-            const docDate = new Date(doc.receivedDate);
-            const now = new Date("2026-04-18");
-            const diffDays = (now.getTime() - docDate.getTime()) / (1000 * 3600 * 24);
-
-            if (selectedDateRange === "ภายใน 7 วัน") matchesDate = diffDays <= 7;
-            else if (selectedDateRange === "ภายใน 30 วัน") matchesDate = diffDays <= 30;
-            else if (selectedDateRange === "เลยกำหนด") matchesDate = !!doc.isOverdue;
+    const getUIStatus = (apiStatus: string) => {
+        switch (apiStatus) {
+            case "WAITING_FOR_DPO": return "รอตรวจสอบ";
+            case "ACTION_REQUIRED_DO": return "ต้องแก้ไข";
+            case "ACTION_REQUIRED_DP": return "ต้องแก้ไข";
+            case "DPO_APPROVED": return "ตรวจสอบเสร็จสิ้น";
+            default: return "ฉบับร่าง";
         }
+    };
 
-        return matchesSearch && matchesStatus && matchesDate;
-    });
-
-    const totalPages = Math.ceil(filteredDocs.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const currentDocs = filteredDocs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
     return (
         <div className="flex flex-col h-full -m-8">
@@ -123,7 +109,7 @@ function AuditorTableContent() {
                 </div>
 
                 {/* Filters Box */}
-                <GenericFilterBar onClear={() => { setSelectedStatus("ทั้งหมด"); setSelectedDateRange("ทั้งหมด"); setCustomDate(""); setCurrentPage(1); }}>
+                <GenericFilterBar onClear={() => { setSelectedStatus("ทั้งหมด"); setSelectedDateRange("ทั้งหมด"); setCurrentPage(1); }}>
                     <div className="w-[280px]">
                         <Select
                             label="สถานะ"
@@ -154,9 +140,7 @@ function AuditorTableContent() {
                                 options={[
                                     { label: "ทั้งหมด", value: "ทั้งหมด" },
                                     { label: "ภายใน 7 วัน", value: "ภายใน 7 วัน" },
-                                    { label: "ภายใน 30 วัน", value: "ภายใน 30 วัน" },
-                                    { label: "เลยกำหนด", value: "เลยกำหนด" },
-                                    { label: "กำหนดเอง", value: "กำหนดเอง" }
+                                    { label: "ภายใน 30 วัน", value: "ภายใน 30 วัน" }
                                 ]}
                                 containerClassName="!w-full"
                             />
@@ -172,45 +156,49 @@ function AuditorTableContent() {
                                 <thead className="relative z-20">
                                     <tr className="border-b border-[#E5E2E1]/40">
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อเอกสาร</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อผู้ตรวจสอบข้อมูล</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อเจ้าหน้าที่ (DPO)</th>
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ตรวจสอบ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่กำหนดส่ง</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">วันที่กำหนดส่ง</th>
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
                                         <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
-                                    {currentDocs.length > 0 ? currentDocs.map((doc) => (
-                                        <tr key={doc.id} className="hover:bg-gray-50 transition-colors group">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse">กำลังดึงข้อมูล...</td>
+                                        </tr>
+                                    ) : error ? (
+                                        <tr>
+                                            <td colSpan={6} className="py-12 text-center text-[#ED393C] font-black tracking-tight">{error}</td>
+                                        </tr>
+                                    ) : documents.length > 0 ? documents.map((doc) => (
+                                        <tr key={doc.raw_document_id} className="hover:bg-gray-50 transition-colors group">
                                             <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-secondary text-[13.5px] font-medium">{doc.id}</span>
-                                                    <span className="text-[#1B1C1C] font-medium tracking-tight">{doc.name}</span>
+                                                    <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
+                                                    <span className="text-[#1B1C1C] font-medium tracking-tight">{doc.document_name}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.owner}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.displayReceivedDate}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.auditDate}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center flex items-center justify-center gap-2 min-h-[64px]">
-                                                {doc.isOverdue && (
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{doc.reviewer_name}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{formatThaiDate(doc.received_date)}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center flex items-center justify-center gap-2 min-h-[64px]">
+                                                {doc.is_overdue && (
                                                     <span className="px-2 py-0.5 bg-[#ED393C] text-white text-[10px] font-black rounded-md shadow-sm">
-                                                        {doc.deadline}
+                                                        {formatThaiDate(doc.due_date)}
                                                     </span>
                                                 )}
-                                                {!doc.isOverdue && doc.deadline}
+                                                {!doc.is_overdue && formatThaiDate(doc.due_date)}
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center py-1">
-                                                    <span className={`px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center shadow-sm ${getStatusColor(doc.statusType)}`}>
-                                                        {doc.status}
-                                                    </span>
+                                                    <StatusBadge status={getUIStatus(doc.status) as any} />
                                                 </div>
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center">
                                                     <Link
-                                                        href={`/auditor/tables/${doc.id}`}
+                                                        href={`/auditor/tables/${doc.raw_document_id}`}
                                                         title="ตรวจสอบ"
                                                         className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >
@@ -221,27 +209,29 @@ function AuditorTableContent() {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={7} className="py-12 text-center text-secondary opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
+                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
 
                             {/* Pagination Area */}
-                            <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
-                                <div className="px-6 flex items-center justify-between">
-                                    <p className="text-[12px] font-medium text-secondary opacity-80">
-                                        แสดง {startIndex + 1} ถึง {Math.min(startIndex + ITEMS_PER_PAGE, filteredDocs.length)} จากทั้งหมด 10 รายการ
-                                    </p>
-                                    <div className="[&_p]:hidden [&_div]:mt-0">
-                                        <Pagination
-                                            current={currentPage}
-                                            total={totalPages}
-                                            onChange={setCurrentPage}
-                                        />
+                            {!loading && !error && documents.length > 0 && (
+                                <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
+                                    <div className="px-6 flex items-center justify-between">
+                                        <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
+                                            แสดง {startIndex + 1} ถึง {Math.min(startIndex + ITEMS_PER_PAGE, totalItems)} จากทั้งหมด {totalItems} รายการ
+                                        </p>
+                                        <div className="[&_p]:hidden [&_div]:mt-0">
+                                            <Pagination
+                                                current={currentPage}
+                                                total={totalPages}
+                                                onChange={setCurrentPage}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </ListCard>
                 </div>

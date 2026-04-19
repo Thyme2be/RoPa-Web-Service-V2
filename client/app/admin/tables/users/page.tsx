@@ -55,6 +55,8 @@ function UsersPageContent() {
         }
     });
     const [loading, setLoading] = useState(true);
+    const [allDepartments, setAllDepartments] = useState<any[]>([]);
+    const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
     const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
     const ITEMS_PER_PAGE = 5;
@@ -154,8 +156,27 @@ function UsersPageContent() {
         }
     };
 
+    const fetchMasterData = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+            const headers = { "Authorization": `Bearer ${token}` };
+
+            const [dRes, cRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/admin/departments?limit=1000`, { headers }),
+                fetch(`${API_BASE_URL}/admin/companies?limit=1000`, { headers })
+            ]);
+
+            if (dRes.ok) setAllDepartments((await dRes.json()).items || []);
+            if (cRes.ok) setAllCompanies((await cRes.json()).items || []);
+        } catch (e) {
+            console.error("Failed to fetch master data:", e);
+        }
+    };
+
     React.useEffect(() => {
         fetchUsers();
+        fetchMasterData();
     }, [currentPage, selectedRole, selectedStatus, globalSearchQuery]);
 
     // Filters are now handled server-side, so paginatedUsers is just usersData.users_list
@@ -163,7 +184,14 @@ function UsersPageContent() {
     const totalPages = Math.ceil(usersData.total_users / ITEMS_PER_PAGE);
 
     const handleOpenCreateModal = () => {
-        setCreateFormData(initialCreateFormData);
+        const defaultDept = allDepartments.length > 0 ? allDepartments[0].name : "ไม่ระบุ";
+        const defaultComp = allCompanies.length > 0 ? allCompanies[0].name : "ไม่ระบุ";
+        
+        setCreateFormData({
+            ...initialCreateFormData,
+            department: defaultDept,
+            company: defaultComp
+        });
         setSelectedUserDbId(null);
         setIsEditMode(false);
         setIsCreateModalOpen(true);
@@ -387,11 +415,11 @@ function UsersPageContent() {
                             <tbody className="divide-y divide-[#E5E2E1]/10">
                                 {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{user.id}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{user.id}</td>
                                         <td className="py-7 text-[13.5px] font-medium text-[#1B1C1C] tracking-tight leading-snug">{user.name}</td>
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{user.email}</td>
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{user.role}</td>
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{user.department}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{user.email}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{user.role}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{user.department}</td>
                                         <td className="py-7">
                                             <div className="flex justify-center scale-110">
                                                 <StatusBadge status={user.status as any} />
@@ -433,14 +461,9 @@ function UsersPageContent() {
                             </tbody>
                         </table>
 
-                        {/* Pagination integrated into the same card footer area if possible, 
-                            but keeping the requested 30% background from the previous turn 
-                            by placing it right after the table inside the card padding or outside?
-                            Actually, Data Owner puts it INSIDE the ListCard.
-                        */}
                         <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                             <div className="px-6 flex items-center justify-between">
-                                <p className="text-[12px] font-medium text-secondary opacity-80">
+                                <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
                                     แสดง {(currentPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentPage * ITEMS_PER_PAGE, usersData.total_users)} จากทั้งหมด {usersData.total_users} รายการ
                                 </p>
                                 <div className="[&_p]:hidden [&_div]:mt-0">
@@ -579,8 +602,11 @@ function UsersPageContent() {
                                         onChange={(e) => setCreateFormData(prev => ({ ...prev, company: e.target.value }))}
                                         className="w-full h-[42px] bg-[#F6F3F2] border-transparent rounded-[8px] pl-4 pr-10 text-[14px] outline-none hover:bg-[#EAE6E4] focus:ring-2 focus:ring-[#ED393C]/20 transition-all font-medium text-[#6B7280] appearance-none cursor-pointer"
                                     >
-                                        <option>บริษัท A</option>
-                                        <option>บริษัท B</option>
+                                        {allCompanies.length > 0 ? (
+                                            allCompanies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)
+                                        ) : (
+                                            <option value="">ไม่มีข้อมูลบริษัท</option>
+                                        )}
                                     </select>
                                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
                                 </div>
@@ -621,11 +647,11 @@ function UsersPageContent() {
                                             onChange={(e) => setCreateFormData(prev => ({ ...prev, department: e.target.value }))}
                                             className="w-full h-[42px] bg-[#F6F3F2] border-transparent rounded-[8px] pl-4 pr-10 text-[14px] outline-none hover:bg-[#EAE6E4] focus:ring-2 focus:ring-[#ED393C]/20 transition-all font-medium text-[#6B7280] appearance-none cursor-pointer"
                                         >
-                                            <option>แผนกขาย</option>
-                                            <option>แผนกการตลาด</option>
-                                            <option>แผนกประชาสัมพันธ์</option>
-                                            <option>แผนก IT</option>
-                                            <option>แผนก HR</option>
+                                            {allDepartments.length > 0 ? (
+                                                allDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)
+                                            ) : (
+                                                <option value="">ไม่มีข้อมูลแผนก</option>
+                                            )}
                                         </select>
                                         <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
                                     </div>

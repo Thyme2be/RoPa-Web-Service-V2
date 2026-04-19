@@ -30,8 +30,8 @@ export default function DPOSidebar() {
                             href={item.path}
                             className={`relative w-full h-12 flex items-center px-4 py-3 transition-all duration-300 group ${isActive
                                 ? "bg-[#F0EDED] rounded-xl"
-                                : " text-secondary"
-                                }`}
+                                : " text-[#5F5E5E]"
+                                }}`}
                         >
                             {/* Accent Line (Active State Only) */}
                             {isActive && (
@@ -41,7 +41,7 @@ export default function DPOSidebar() {
                             <span
                                 className={`material-symbols-outlined shrink-0 mr-3.5 transition-all duration-300 ${isActive
                                     ? "text-primary scale-110"
-                                    : "text-secondary group-hover:text-primary"
+                                    : "text-[#5F5E5E] group-hover:text-primary"
                                     }`}
                                 style={{ fontVariationSettings: `'FILL' ${item.id === "dashboard" ? 0 : 1}` }}
                             >
@@ -49,7 +49,7 @@ export default function DPOSidebar() {
                             </span>
 
                             {/* Label */}
-                            <span className={`text-[16px] font-bold tracking-tight transition-colors ${isActive ? "text-primary" : "text-secondary group-hover:text-primary"
+                            <span className={`text-[16px] font-bold tracking-tight transition-colors ${isActive ? "text-primary" : "text-[#5F5E5E] group-hover:text-primary"
                                 }`}>
                                 {item.label}
                             </span>

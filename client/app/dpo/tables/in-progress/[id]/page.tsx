@@ -12,6 +12,13 @@ import DpoRiskAssessment from "@/components/ropa/DpoRiskAssessment";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import Input from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
+import { OwnerRecord } from "@/types/dataOwner";
+import { ProcessorRecord } from "@/types/dataProcessor";
+import { RopaStatus } from "@/types/enums";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useParams } from "next/navigation";
+
+const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
 
 /** Local Tabs Component for DPO (No status dots to avoid conflict) */
 function DpoFormTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
@@ -40,17 +47,9 @@ function DpoFormTabs({ activeTab, onTabChange }: { activeTab: string; onTabChang
         </div>
     );
 }
-import { OwnerRecord } from "@/types/dataOwner";
-import { ProcessorRecord } from "@/types/dataProcessor";
-import { RopaStatus } from "@/types/enums";
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
-import { mockOwnerRecords, mockProcessorRecords } from "@/lib/ropaMockRecords";
 
 /** 
  * Local version of ActivityDetails to allow custom numbering (Part 3) 
- * without modifying the shared friend's file.
  */
 function LocalActivityDetails({ form, handleChange, errors, disabled, variant = "owner" }: any) {
     const isProcessor = variant === "processor";
@@ -84,12 +83,10 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1">
                             <Input
                                 label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
-                                required
                                 name="dataSubjectName"
                                 value={form?.dataSubjectName || ""}
-                                placeholder="ระบุเจ้าของข้อมูล (เช่น บริษัท A)"
+                                placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
-                                error={errors?.dataSubjectName}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -99,24 +96,20 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <Input
                                 label="กิจกรรมประมวลผล"
-                                required
                                 name="processingActivity"
                                 value={form?.processingActivity || ""}
-                                placeholder="ระบุกิจกรรมประมวลผล (เช่น การรับสมัครพนักงาน)"
+                                placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
-                                error={errors?.processingActivity}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
                             />
                             <Input
                                 label="วัตถุประสงค์การประมวลผล"
-                                required
                                 name="purpose"
                                 value={form?.purpose || ""}
-                                placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อรับสมัครบุคคลเข้าทำงาน)"
+                                placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
-                                error={errors?.purpose}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -127,48 +120,40 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                         <Input
                             label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-                            required
                             name="processorName"
                             value={form?.processorName || ""}
-                            placeholder="ระบุชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.processorName}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
                         />
                         <Input
                             label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
-                            required
                             name="controllerAddress"
                             value={form?.controllerAddress || ""}
-                            placeholder="ระบุที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.controllerAddress}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
                         />
                         <Input
                             label="กิจกรรมประมวลผล"
-                            required
                             name="processingActivity"
                             value={form?.processingActivity || ""}
-                            placeholder="ระบุกิจกรรมประมวลผล (เช่น ดำเนินการตามสัญญาว่าจ้าง)"
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.processingActivity}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
                         />
                         <Input
                             label="วัตถุประสงค์ของการประมวลผล"
-                            required
                             name="purpose"
                             value={form?.purpose || ""}
-                            placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อจัดจ้าง ออกแบบ/พัฒนาระบบ)"
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.purpose}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
@@ -192,85 +177,85 @@ function DpoInProgressDetailContent() {
 
     const [activeTab, setActiveTab] = useState("owner");
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
-    const { getById, getProcessorById, saveRiskAssessment } = useRopa();
     const [openFeedbackSections, setOpenFeedbackSections] = useState<string[]>([]);
     const [sectionFeedbacks, setSectionFeedbacks] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [form, setForm] = useState<Partial<OwnerRecord>>({
         documentName: "กำลังโหลด...",
         status: RopaStatus.Processing,
-        processingStatus: { doStatus: "pending", dpStatus: "pending" },
     });
 
     const [processorForm, setProcessorForm] = useState<Partial<ProcessorRecord>>({
         status: RopaStatus.Draft,
     });
 
-
-
-// Load existing record and drafts
-useEffect(() => {
-    if (recordId) {
-        const existing = getById(recordId);
-        if (existing) {
-            // Local Merge: Priority for mock data on document RP-2026-03
-            // This ensures DPO always sees the pre-filled values for testing/demo
-            const mockMatch = mockOwnerRecords.find(m => m.id === recordId);
-            const merged = mockMatch ? {
-                ...existing,
-                // Force prioritize mock values for these specific fields for the demonstration record
-                riskAssessment: (mockMatch.riskAssessment && Object.keys(mockMatch.riskAssessment).length > 0) 
-                    ? mockMatch.riskAssessment 
-                    : existing.riskAssessment,
-                processingStatus: mockMatch.processingStatus || existing.processingStatus
-            } : existing;
-
-            console.log("DPO Detail Load:", { recordId, hasMock: !!mockMatch, risk: merged.riskAssessment });
-            setForm(merged);
-        }
-
-            // Load Processor Part with Merge
-            const procData = getProcessorById(recordId);
-            const mockProcMatch = mockProcessorRecords.find(m => m.id === recordId);
-            const mergedProc = mockProcMatch ? { ...(procData || {}), ...mockProcMatch } : procData;
-            if (mergedProc) {
-                setProcessorForm(mergedProc as any);
-            }
-
-            // Load feedback drafts from localStorage
-            const savedFeedback = localStorage.getItem(`dpo-feedback-${recordId}`);
-            const savedOpenSections = localStorage.getItem(`dpo-open-sections-${recordId}`);
-            if (savedFeedback) {
-                try {
-                    setSectionFeedbacks(JSON.parse(savedFeedback));
-                } catch (e) { console.error("Error parsing saved feedback", e); }
-            }
-            if (savedOpenSections) {
-                try {
-                    setOpenFeedbackSections(JSON.parse(savedOpenSections));
-                } catch (e) { console.error("Error parsing saved open sections", e); }
-            }
-        }
-    }, [recordId, getById, getProcessorById]);
-
-    // Save drafts to localStorage whenever they change
-    useEffect(() => {
-        if (recordId && Object.keys(sectionFeedbacks).length > 0) {
-            localStorage.setItem(`dpo-feedback-${recordId}`, JSON.stringify(sectionFeedbacks));
-        }
-    }, [sectionFeedbacks, recordId]);
-
-    useEffect(() => {
-        if (recordId && openFeedbackSections.length > 0) {
-            localStorage.setItem(`dpo-open-sections-${recordId}`, JSON.stringify(openFeedbackSections));
-        }
-    }, [openFeedbackSections, recordId]);
-
-    const doStatus = form.processingStatus?.doStatus ?? "done";
-    const dpStatus = form.processingStatus?.dpStatus ?? "done";
-    const tabs = ["owner", "processor", "risk"];
-
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const fetchDetail = async () => {
+            if (!recordId) return;
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setError("No token found");
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/documents/${recordId}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error("Failed to fetch document");
+                const docData = await response.json();
+
+                // Map Owner Section (Full mapping)
+                if (docData.owner_sections && docData.owner_sections.length > 0) {
+                    const os = docData.owner_sections[0];
+                    setForm(prev => ({
+                        ...prev,
+                        ...os, // Direct map all fields (General, Stored, Retention, etc.)
+                        id: recordId,
+                        documentName: docData.title,
+                        dataSubjectName: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
+                        processingActivity: os.processing_activity,
+                        purpose: os.purpose_of_processing || os.purpose,
+                        status: docData.status as RopaStatus,
+                        riskAssessment: docData.risk_assessment,
+                        processingStatus: { doStatus: "done", dpStatus: "done" } 
+                    }));
+                } else {
+                    setForm(prev => ({ ...prev, documentName: docData.title, status: docData.status as RopaStatus }));
+                }
+
+                // Map Processor Section (Full mapping)
+                if (docData.processor_sections && docData.processor_sections.length > 0) {
+                    const ps = docData.processor_sections[0];
+                    setProcessorForm(prev => ({
+                        ...prev,
+                        ...ps, // Direct map all fields
+                        id: recordId,
+                        processorName: ps.processor_name,
+                        processingActivity: ps.processing_activity,
+                        purpose: ps.purpose_of_processing || ps.purpose,
+                        status: docData.status as RopaStatus
+                    }));
+                }
+            } catch (err: any) {
+                console.error("Fetch detail error:", err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDetail();
+    }, [recordId]);
+
+    const tabs = ["owner", "processor", "risk"];
 
     const toggleFeedback = (section: string) => {
         setOpenFeedbackSections(prev =>
@@ -292,35 +277,56 @@ useEffect(() => {
             setActiveTab(tabs[currentIndex - 1]);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-            // If on first tab, "Back" goes to the table
             router.push("/dpo/tables/in-progress");
         }
     };
 
     const handleCancel = () => {
-        // Clear drafts on cancel
-        localStorage.removeItem(`dpo-feedback-${recordId}`);
-        localStorage.removeItem(`dpo-open-sections-${recordId}`);
         router.push("/dpo/tables/in-progress");
     };
 
-    const handleReturnForEdit = () => {
-        // In real app: call API with all collected feedbacks in 'sectionFeedbacks'
-        console.log("Feedbacks to send:", sectionFeedbacks);
+    const handleConfirmReview = async () => {
+        setIsSubmitting(true);
+        const token = localStorage.getItem("token");
+        
+        try {
+            // Collect all comments
+            const comments = Object.entries(sectionFeedbacks)
+                .filter(([_, text]) => text.trim() !== "")
+                .map(([section, text]) => ({
+                    section_name: section,
+                    comment: text
+                }));
 
-        // Clear drafts on successful submission
-        localStorage.removeItem(`dpo-feedback-${recordId}`);
-        localStorage.removeItem(`dpo-open-sections-${recordId}`);
+            // Submit comments to backend
+            const response = await fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(comments)
+            });
 
-        router.push("/dpo/tables/in-progress");
+            if (!response.ok) throw new Error("Failed to submit comments");
+
+            setIsConfirmModalOpen(false);
+            router.push("/dpo/tables/in-progress");
+        } catch (err: any) {
+            console.error("Submit review error:", err);
+            alert(`Error: ${err.message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const isLastTab = activeTab === tabs[tabs.length - 1];
-    const isFirstTab = activeTab === tabs[0];
-
     const emptyHandler = () => { };
 
-    const renderOwnerSections = (isInline = false) => (
+    if (loading) return <div className="p-8 text-[#5F5E5E] animate-pulse font-bold">กำลังโหลดข้อมูลเอกสาร...</div>;
+    if (error) return <div className="p-8 text-[#ED393C] font-bold">เกิดข้อผิดพลาด: {error}</div>;
+
+    const renderOwnerSections = () => (
         <div className="space-y-12">
             {[
                 { title: "ข้อมูลทั่วไป", component: GeneralInfo },
@@ -332,29 +338,13 @@ useEffect(() => {
                 { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
             ].map((sec, idx) => (
                 <div key={idx} className="flex flex-col gap-4">
-                    {/* Inline Feedback Box */}
                     {openFeedbackSections.includes(sec.title) && (
-                        <div className={cn(
-                            "bg-white rounded-[20px] shadow-sm border-l-[6px] p-6 animate-in slide-in-from-top-4 duration-300",
-                            isInline ? "border-l-[#ED393C]" : "border-l-[#ED393C]"
-                        )}>
+                        <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#ED393C] p-6 animate-in slide-in-from-top-4 duration-300">
                             <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
                                 <textarea
-                                    rows={1}
-                                    ref={(el) => {
-                                        if (el) {
-                                            el.style.height = "auto";
-                                            el.style.height = `${el.scrollHeight}px`;
-                                        }
-                                    }}
-                                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none overflow-hidden"
+                                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
                                     placeholder="ระบุข้อเสนอแนะสำหรับผู้รับผิดชอบข้อมูล"
                                     value={sectionFeedbacks[sec.title] || ""}
-                                    onInput={(e) => {
-                                        const target = e.target as HTMLTextAreaElement;
-                                        target.style.height = "auto";
-                                        target.style.height = `${target.scrollHeight}px`;
-                                    }}
                                     onChange={(e) => setSectionFeedbacks(prev => ({ ...prev, [sec.title]: e.target.value }))}
                                 />
                             </div>
@@ -370,7 +360,6 @@ useEffect(() => {
                                     ? "bg-[#ED393C] text-white"
                                     : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]"
                             )}
-                            title={`ข้อเสนอแนะส่วน${sec.title}`}
                         >
                             <span className="material-symbols-outlined text-[20px]">
                                 {openFeedbackSections.includes(sec.title) ? "close" : "comment"}
@@ -394,26 +383,13 @@ useEffect(() => {
                 { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
             ].map((sec, idx) => (
                 <div key={idx} className="flex flex-col gap-4">
-                    {/* Inline Feedback Box for DP */}
                     {openFeedbackSections.includes(sec.title) && (
                         <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#00666E] p-6 animate-in slide-in-from-top-4 duration-300">
                             <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
                                 <textarea
-                                    rows={1}
-                                    ref={(el) => {
-                                        if (el) {
-                                            el.style.height = "auto";
-                                            el.style.height = `${el.scrollHeight}px`;
-                                        }
-                                    }}
-                                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none overflow-hidden"
+                                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
                                     placeholder="ระบุข้อเสนอแนะสำหรับส่วนผู้ประมวลผลข้อมูล"
                                     value={sectionFeedbacks[sec.title] || ""}
-                                    onInput={(e) => {
-                                        const target = e.target as HTMLTextAreaElement;
-                                        target.style.height = "auto";
-                                        target.style.height = `${target.scrollHeight}px`;
-                                    }}
                                     onChange={(e) => setSectionFeedbacks(prev => ({ ...prev, [sec.title]: e.target.value }))}
                                 />
                             </div>
@@ -429,7 +405,6 @@ useEffect(() => {
                                     ? "bg-[#00666E] text-white"
                                     : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]"
                             )}
-                            title={`ข้อเสนอแนะส่วน${sec.title}`}
                         >
                             <span className="material-symbols-outlined text-[20px]">
                                 {openFeedbackSections.includes(sec.title) ? "close" : "comment"}
@@ -454,172 +429,43 @@ useEffect(() => {
                     </div>
                 </div>
 
-                {/* Tab: DO (Data Owner) - RESTORED ORIGINAL INLINE CODE */}
                 {activeTab === "owner" && (
                     <div className="space-y-8 pb-32">
-                        <div className="space-y-12">
-                            {[
-                                { title: "ข้อมูลทั่วไป", component: GeneralInfo },
-                                { title: "ช่องทางใช้สิทธิ", component: RightsChannel },
-                                { title: "กิจกรรมประมวลผล", component: LocalActivityDetails },
-                                { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo },
-                                { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo },
-                                { title: "ฐานทางกฎหมาย", component: LegalInfo },
-                                { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
-                            ].map((sec, idx) => (
-                                <div key={idx} className="flex flex-col gap-4">
-                                    {/* Inline Feedback Box */}
-                                    {openFeedbackSections.includes(sec.title) && (
-                                        <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#ED393C] p-6 animate-in slide-in-from-top-4 duration-300">
-                                            <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
-                                                <textarea
-                                                    rows={1}
-                                                    ref={(el) => {
-                                                        if (el) {
-                                                            el.style.height = "auto";
-                                                            el.style.height = `${el.scrollHeight}px`;
-                                                        }
-                                                    }}
-                                                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none overflow-hidden"
-                                                    placeholder="ระบุข้อเสนอแนะสำหรับผู้รับผิดชอบข้อมูล"
-                                                    value={sectionFeedbacks[sec.title] || ""}
-                                                    onInput={(e) => {
-                                                        const target = e.target as HTMLTextAreaElement;
-                                                        target.style.height = "auto";
-                                                        target.style.height = `${target.scrollHeight}px`;
-                                                    }}
-                                                    onChange={(e) => setSectionFeedbacks(prev => ({ ...prev, [sec.title]: e.target.value }))}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="relative group">
-                                        <button
-                                            onClick={() => toggleFeedback(sec.title)}
-                                            className={cn(
-                                                "absolute top-5 right-5 z-10 w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer",
-                                                openFeedbackSections.includes(sec.title)
-                                                    ? "bg-[#ED393C] text-white"
-                                                    : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]"
-                                            )}
-                                            title={`ข้อเสนอแนะส่วน${sec.title}`}
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">
-                                                {openFeedbackSections.includes(sec.title) ? "close" : "comment"}
-                                            </span>
-                                        </button>
-                                        <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        {renderOwnerSections()}
                     </div>
                 )}
 
-                {/* Tab: DP (Data Processor) - RESTORED ORIGINAL INLINE CODE */}
                 {activeTab === "processor" && (
                     <div className="space-y-8 pb-32">
-                        <div className="space-y-12">
-                            {[
-                                { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo },
-                                { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails },
-                                { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo },
-                                { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo },
-                                { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo },
-                                { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
-                            ].map((sec, idx) => (
-                                <div key={idx} className="flex flex-col gap-4">
-                                    {/* Inline Feedback Box for DP */}
-                                    {openFeedbackSections.includes(sec.title) && (
-                                        <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#00666E] p-6 animate-in slide-in-from-top-4 duration-300">
-                                            <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
-                                                <textarea
-                                                    rows={1}
-                                                    ref={(el) => {
-                                                        if (el) {
-                                                            el.style.height = "auto";
-                                                            el.style.height = `${el.scrollHeight}px`;
-                                                        }
-                                                    }}
-                                                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none overflow-hidden"
-                                                    placeholder="ระบุข้อเสนอแนะสำหรับส่วนผู้ประมวลผลข้อมูล"
-                                                    value={sectionFeedbacks[sec.title] || ""}
-                                                    onInput={(e) => {
-                                                        const target = e.target as HTMLTextAreaElement;
-                                                        target.style.height = "auto";
-                                                        target.style.height = `${target.scrollHeight}px`;
-                                                    }}
-                                                    onChange={(e) => setSectionFeedbacks(prev => ({ ...prev, [sec.title]: e.target.value }))}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="relative group">
-                                        <button
-                                            onClick={() => toggleFeedback(sec.title)}
-                                            className={cn(
-                                                "absolute top-5 right-5 z-10 w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer",
-                                                openFeedbackSections.includes(sec.title)
-                                                    ? "bg-[#00666E] text-white"
-                                                    : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]"
-                                            )}
-                                            title={`ข้อเสนอแนะส่วน${sec.title}`}
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">
-                                                {openFeedbackSections.includes(sec.title) ? "close" : "comment"}
-                                            </span>
-                                        </button>
-                                        <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        {renderProcessorSections()}
                     </div>
                 )}
 
-                {/* Tab: Risk */}
                 {activeTab === "risk" && (
                     <div className="mt-4 pb-32 space-y-8">
                         <DpoRiskAssessment
                             key={recordId}
-                            doStatus={doStatus}
-                            dpStatus={dpStatus}
+                            doStatus="done"
+                            dpStatus="done"
                             existingRisk={form.riskAssessment}
                             activeView={riskDocView}
                             onViewDoSection={() => setRiskDocView(prev => prev === "owner" ? "none" : "owner")}
                             onViewDpSection={() => setRiskDocView(prev => prev === "processor" ? "none" : "processor")}
-                            onSubmit={(p, i) => {
-                                if (recordId) saveRiskAssessment(recordId, { probability: p, impact: i });
-                            }}
+                            onSubmit={emptyHandler}
                             onCancel={() => setActiveTab("owner")}
                             readOnly={true}
                             isFeedbackOpen={openFeedbackSections.includes("การประเมินความเสี่ยง")}
                             onToggleFeedback={() => toggleFeedback("การประเมินความเสี่ยง")}
                         />
 
-                        {/* Risk Assessment Feedback Box */}
                         {openFeedbackSections.includes("การประเมินความเสี่ยง") && (
                             <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#ED393C] p-6 animate-in slide-in-from-top-4 duration-300">
                                 <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
                                     <textarea
-                                        rows={1}
-                                        ref={(el) => {
-                                            if (el) {
-                                                el.style.height = "auto";
-                                                el.style.height = `${el.scrollHeight}px`;
-                                            }
-                                        }}
-                                        className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none overflow-hidden"
+                                        className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
                                         placeholder="ระบุข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
                                         value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
-                                        onInput={(e) => {
-                                            const target = e.target as HTMLTextAreaElement;
-                                            target.style.height = "auto";
-                                            target.style.height = `${target.scrollHeight}px`;
-                                        }}
-                                        onChange={(e) => setSectionFeedbacks(prev => ({ ...prev, i: e.target.value, ["การประเมินความเสี่ยง"]: e.target.value }))}
+                                        onChange={(e) => setSectionFeedbacks(prev => ({ ...prev, ["การประเมินความเสี่ยง"]: e.target.value }))}
                                     />
                                 </div>
                             </div>
@@ -642,22 +488,9 @@ useEffect(() => {
                         )}
                     </div>
                 )}
-
-                {/* Tab: Destruction */}
-                {activeTab === "destruction" && (
-                    <div className="space-y-8 pb-32">
-                        <div className="bg-white rounded-[20px] p-8 border border-[#E5E2E1] flex flex-col items-center justify-center text-secondary py-20">
-                            <span className="material-symbols-outlined text-[64px] mb-4 opacity-20 text-[#5C403D]">delete_sweep</span>
-                            <h3 className="text-xl font-black text-[#5C403D]">ยังไม่มีการขอยื่นทำลาย</h3>
-                            <p className="font-bold opacity-60">เอกสารฉบับนี้ยังไม่มีการยื่นคำร้องขอยื่นทำลายข้อมูล</p>
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* Action Bar (Footer) */}
             <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-[#F6F3F2] border-t border-[#E5E2E1] p-5 px-10 flex items-center justify-between z-40">
-                {/* Left Side */}
                 <button
                     onClick={handleCancel}
                     className="px-10 h-[52px] rounded-2xl font-bold text-[#5C403D] border border-[#E5E2E1] hover:bg-gray-50 transition-all cursor-pointer shadow-md"
@@ -665,7 +498,6 @@ useEffect(() => {
                     ยกเลิก
                 </button>
 
-                {/* Right Side */}
                 <div className="flex items-center gap-4">
                     <button
                         onClick={handlePrevTab}
@@ -695,12 +527,13 @@ useEffect(() => {
             <SaveSuccessModal 
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
-                onConfirm={() => {
-                    router.push("/dpo/tables/in-progress");
-                }}
+                onConfirm={handleConfirmReview}
+                isLoading={isSubmitting}
                 title="ยืนยันการตรวจสอบ"
-                subtitle="ยืนยันว่าได้ดำเนินการตรวจสอบครบถ้วนเรียบร้อยแล้ว"
-                buttonText="ยืนยันการตรวจสอบ"
+                subtitle={Object.keys(sectionFeedbacks).some(k => sectionFeedbacks[k].trim() !== "") 
+                    ? "คุณมีข้อเสนอแนะ ระบบจะส่งกลับไปให้ผู้รับผิดชอบแก้ไข" 
+                    : "ยืนยันการตรวจสอบว่าถูกต้องครบถ้วนแล้ว"}
+                buttonText={isSubmitting ? "กำลังดำเนินการ..." : "ยืนยันการตรวจสอบ"}
             />
         </div>
     );
@@ -708,7 +541,7 @@ useEffect(() => {
 
 export default function DPOInProgressDetailPage() {
     return (
-        <Suspense fallback={<div className="p-8">กำลังโหลดฟอร์ม...</div>}>
+        <Suspense fallback={<div className="p-8 text-[#5F5E5E]">กำลังโหลดฟอร์ม...</div>}>
             <DpoInProgressDetailContent />
         </Suspense>
     );

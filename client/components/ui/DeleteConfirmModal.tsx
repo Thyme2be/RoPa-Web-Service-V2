@@ -46,7 +46,7 @@ export default function DeleteConfirmModal({
                     <button
                         onClick={onClose}
                         disabled={isLoading}
-                        className="px-8 h-11 rounded-2xl text-[15px] font-bold text-secondary hover:bg-surface-container-high transition-colors cursor-pointer disabled:opacity-50"
+                        className="px-8 h-11 rounded-2xl text-[15px] font-bold text-[#5F5E5E] hover:bg-surface-container-high transition-colors cursor-pointer disabled:opacity-50"
                     >
                         {cancelLabel}
                     </button>

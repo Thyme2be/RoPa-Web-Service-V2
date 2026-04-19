@@ -15,8 +15,8 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
-import { mockOwnerRecords, mockProcessorRecords } from "@/lib/ropaMockRecords";
+
+const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
 
 /** Tabs Component for Auditor document review */
 function AuditorFormTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
@@ -80,12 +80,10 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1">
                             <Input
                                 label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
-                                required
                                 name="dataSubjectName"
                                 value={form?.dataSubjectName || ""}
-                                placeholder="กำลังโหลด..."
+                                placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
-                                error={errors?.dataSubjectName}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -95,24 +93,20 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <Input
                                 label="กิจกรรมประมวลผล"
-                                required
                                 name="processingActivity"
                                 value={form?.processingActivity || ""}
-                                placeholder="กำลังโหลด..."
+                                placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
-                                error={errors?.processingActivity}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
                             />
                             <Input
                                 label="วัตถุประสงค์การประมวลผล"
-                                required
                                 name="purpose"
                                 value={form?.purpose || ""}
-                                placeholder="กำลังโหลด..."
+                                placeholder="ไม่มีข้อมูล"
                                 onChange={handleChange}
-                                error={errors?.purpose}
                                 disabled={disabled}
                                 focusColor={primaryColor}
                                 requiredColor={markerColor}
@@ -123,48 +117,40 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                         <Input
                             label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-                            required
                             name="processorName"
                             value={form?.processorName || ""}
-                            placeholder="กำลังโหลด..."
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.processorName}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
                         />
                         <Input
                             label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
-                            required
                             name="controllerAddress"
                             value={form?.controllerAddress || ""}
-                            placeholder="กำลังโหลด..."
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.controllerAddress}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
                         />
                         <Input
                             label="กิจกรรมประมวลผล"
-                            required
                             name="processingActivity"
                             value={form?.processingActivity || ""}
-                            placeholder="กำลังโหลด..."
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.processingActivity}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
                         />
                         <Input
                             label="วัตถุประสงค์ของการประมวลผล"
-                            required
                             name="purpose"
                             value={form?.purpose || ""}
-                            placeholder="กำลังโหลด..."
+                            placeholder="ไม่มีข้อมูล"
                             onChange={handleChange}
-                            error={errors?.purpose}
                             disabled={disabled}
                             focusColor={primaryColor}
                             requiredColor={markerColor}
@@ -183,38 +169,134 @@ function AuditorDetailContent() {
 
     const [activeTab, setActiveTab] = useState("owner");
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
-    const { getById, getProcessorById } = useRopa();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [form, setForm] = useState<Partial<OwnerRecord>>({
         documentName: "กำลังโหลด...",
         status: RopaStatus.Submitted,
-        processingStatus: { doStatus: "done", dpStatus: "done" },
     });
 
     const [processorForm, setProcessorForm] = useState<Partial<ProcessorRecord>>({
         status: RopaStatus.Draft,
     });
 
+    const [dpoComments, setDpoComments] = useState<any[]>([]);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
-    // Load record from centralized context, then merge with detailed mock data
     useEffect(() => {
-        if (recordId) {
-            const existing = getById(recordId);
-            if (existing) {
-                const mockMatch = mockOwnerRecords.find(m => m.id === recordId);
-                const merged = mockMatch ? { ...existing, ...mockMatch } : existing;
-                setForm(merged);
+        const fetchDetail = async () => {
+            if (!recordId) return;
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setError("No token found");
+                setLoading(false);
+                return;
             }
 
-            const procData = getProcessorById(recordId);
-            const mockProcMatch = mockProcessorRecords.find(m => m.id === recordId);
-            const mergedProc = mockProcMatch ? { ...(procData || {}), ...mockProcMatch } : procData;
-            if (mergedProc) {
-                setProcessorForm(mergedProc as any);
+            try {
+                // 1. Fetch document detail
+                const docRes = await fetch(`${API_BASE_URL}/documents/${recordId}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!docRes.ok) throw new Error("Failed to fetch document");
+                const docData = await docRes.json();
+
+                // Map Owner Section
+                if (docData.owner_sections && docData.owner_sections.length > 0) {
+                    const os = docData.owner_sections[0];
+                    setForm(prev => ({
+                        ...prev,
+                        id: recordId,
+                        documentName: docData.title,
+                        title: os.title_prefix || "",
+                        firstName: os.first_name || "",
+                        lastName: os.last_name || "",
+                        dataSubjectName: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
+                        email: os.email || "",
+                        phoneNumber: os.phone || "",
+                        address: os.address || "",
+                        processingActivity: os.processing_activity || "",
+                        purpose: os.purpose_of_processing || "",
+                        
+                        // Lists (Expect Array of Strings)
+                        storedDataTypes: os.personal_data_categories || [],
+                        dataCategories: os.subject_categories || [],
+                        dataType: os.data_types || [],
+                        
+                        // Retention
+                        retentionPeriod: os.retention_value || "",
+                        retentionUnit: os.retention_unit || "",
+                        storageMethod: os.storage_method || "",
+                        destructionMethod: os.destruction_method || "",
+                        
+                        // Legal & Security
+                        legalBasis: os.legal_basis || "",
+                        technicalMeasures: os.technical_measures || "",
+                        organizationalMeasures: os.org_measures || "",
+                        
+                        status: docData.status as RopaStatus
+                    }));
+                } else {
+                    setForm(prev => ({ ...prev, documentName: docData.title, status: docData.status as RopaStatus }));
+                }
+
+                // Map Processor Section
+                if (docData.processor_sections && docData.processor_sections.length > 0) {
+                    const ps = docData.processor_sections[0];
+                    setProcessorForm(prev => ({
+                        ...prev,
+                        id: recordId,
+                        title: ps.title_prefix || "",
+                        firstName: ps.first_name || "",
+                        lastName: ps.last_name || "",
+                        processorName: ps.processor_name || "",
+                        email: ps.email || "",
+                        phoneNumber: ps.phone || "",
+                        address: ps.address || "",
+                        processingActivity: ps.processing_activity || "",
+                        purpose: ps.purpose_of_processing || "",
+                        
+                        // Lists
+                        storedDataTypes: ps.personal_data_categories || [],
+                        dataCategories: ps.subject_categories || [],
+                        dataType: ps.data_types || [],
+                        
+                        // Retention
+                        retentionPeriod: ps.retention_value || "",
+                        retentionUnit: ps.retention_unit || "",
+                        storageMethod: ps.storage_method || "",
+                        destructionMethod: ps.destruction_method || "",
+                        
+                        // Legal & Security
+                        legalBasis: ps.legal_basis || "",
+                        technicalMeasures: ps.technical_measures || "",
+                        organizationalMeasures: ps.org_measures || "",
+                        
+                        status: docData.status as RopaStatus
+                    }));
+                }
+
+                // 2. Fetch DPO comments
+                const commentRes = await fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (commentRes.ok) {
+                    const comments = await commentRes.json();
+                    setDpoComments(comments);
+                }
+
+            } catch (err: any) {
+                console.error("Fetch detail error:", err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
             }
-        }
-    }, [recordId, getById, getProcessorById]);
+        };
+
+        fetchDetail();
+    }, [recordId]);
 
     const tabs = ["owner", "processor", "risk"];
 
@@ -242,6 +324,9 @@ function AuditorDetailContent() {
 
     const isLastTab = activeTab === tabs[tabs.length - 1];
     const emptyHandler = () => { };
+
+    if (loading) return <div className="p-8 font-bold text-[#5F5E5E] animate-pulse">กำลังโหลดข้อมูลเอกสาร...</div>;
+    if (error) return <div className="p-8 font-bold text-[#ED393C]">เกิดข้อผิดพลาด: {error}</div>;
 
     return (
         <div className="flex-1 space-y-6 animate-in fade-in duration-700">
@@ -306,7 +391,8 @@ function AuditorDetailContent() {
                             onSubmit={emptyHandler}
                             onCancel={() => setActiveTab("owner")}
                             readOnly={true}
-                            showFeedback={false}
+                            showFeedback={true}
+                            feedbackData={dpoComments}
                             showViewSections={false}
                         />
 
@@ -395,7 +481,6 @@ function AuditorDetailContent() {
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={() => {
-                    // Simulate persistence without modifying RopaContext
                     const completedIds = JSON.parse(localStorage.getItem("auditor_completed_ids") || "[]");
                     if (!completedIds.includes(recordId)) {
                         localStorage.setItem("auditor_completed_ids", JSON.stringify([...completedIds, recordId]));
@@ -412,7 +497,7 @@ function AuditorDetailContent() {
 
 export default function AuditorTableDetailPage() {
     return (
-        <Suspense fallback={<div className="p-8 font-bold text-secondary">กำลังโหลดข้อมูล...</div>}>
+        <Suspense fallback={<div className="p-8 font-bold text-[#5F5E5E]">กำลังโหลดข้อมูล...</div>}>
             <AuditorDetailContent />
         </Suspense>
     );

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
@@ -9,6 +9,7 @@ import AuditorGuard from "@/components/auth/AuditorGuard";
 
 export default function AuditorLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
 
     // Mock data lookup for display names
     const mockDocs = [
@@ -26,6 +27,21 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
     // The "ตารางเอกสาร" menu item should be active for both the list and detail pages
     const isMenuTablesActive = isTablesPage;
 
+    const handleLogout = () => {
+        localStorage.clear();
+        router.push("/auth/login");
+    };
+
+    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            const val = (e.target as HTMLInputElement).value;
+            const params = new URLSearchParams(window.location.search);
+            if (val) params.set("search", val);
+            else params.delete("search");
+            router.push(`${pathname}?${params.toString()}`);
+        }
+    };
+
     return (
         <AuditorGuard>
             <div className="flex min-h-screen bg-surface-container-low">
@@ -37,14 +53,14 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
 
                     <nav className="flex-1 pl-4 space-y-2">
                         <Link href="/auditor/tables" className="block outline-none">
-                            <div className={`relative w-full h-12 flex items-center px-4 py-3 transition-all duration-300 rounded-lg cursor-pointer group ${isMenuTablesActive ? "bg-white/60 shadow-sm" : "text-secondary hover:bg-white/30"}`}>
+                            <div className={`relative w-full h-12 flex items-center px-4 py-3 transition-all duration-300 rounded-lg cursor-pointer group ${isMenuTablesActive ? "bg-white/60 shadow-sm" : "text-[#5F5E5E] hover:bg-white/30"}`}>
                                 {isMenuTablesActive && (
                                     <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-primary shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)]" />
                                 )}
-                                <span className={`material-symbols-outlined shrink-0 mr-3.5 transition-all duration-300 ${isMenuTablesActive ? "text-primary scale-110" : "text-secondary group-hover:text-primary"}`} style={{ fontVariationSettings: `'FILL' ${isMenuTablesActive ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}>
+                                <span className={`material-symbols-outlined shrink-0 mr-3.5 transition-all duration-300 ${isMenuTablesActive ? "text-primary scale-110" : "text-[#5F5E5E] group-hover:text-primary"}`} style={{ fontVariationSettings: `'FILL' ${isMenuTablesActive ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}>
                                     list_alt
                                 </span>
-                                <span className={`text-[16px] font-bold tracking-tight transition-colors ${isMenuTablesActive ? "text-primary" : "text-secondary group-hover:text-primary"}`}>
+                                <span className={`text-[16px] font-bold tracking-tight transition-colors ${isMenuTablesActive ? "text-primary" : "text-[#5F5E5E] group-hover:text-primary"}`}>
                                     ตารางเอกสาร
                                 </span>
                             </div>
@@ -52,7 +68,10 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
                     </nav>
 
                     <div className="p-4 mt-auto">
-                        <button className="w-full flex items-center justify-center gap-2 bg-logout-gradient h-12 rounded-xl text-white font-bold text-[15px] shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer">
+                        <button 
+                            onClick={handleLogout}
+                            className="w-full flex items-center justify-center gap-2 bg-logout-gradient h-12 rounded-xl text-white font-bold text-[15px] shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
+                        >
                             <span className="material-symbols-outlined text-[20px]">logout</span>
                             ออกจากระบบ
                         </button>
@@ -81,6 +100,8 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
                                         className="bg-[#F6F3F2] border-none rounded-2xl pl-10 pr-4 py-2 text-sm w-80 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
                                         placeholder="ค้นหา..."
                                         type="text"
+                                        onKeyDown={handleSearch}
+                                        defaultValue={new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("search") || ""}
                                     />
                                 </div>
                             )}

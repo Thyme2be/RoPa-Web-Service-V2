@@ -92,7 +92,7 @@ export function ListCard({
                     </span>
                     <h2 className="text-[17px] font-headline font-black text-[#1B1C1C] tracking-tight">{title}</h2>
                 </div>
-                {showSort && <span className="material-symbols-outlined text-secondary text-lg cursor-pointer">sort</span>}
+                {showSort && <span className="material-symbols-outlined text-[#5F5E5E] text-lg cursor-pointer">sort</span>}
             </div>
             <div className={`${bodyClassName} overflow-x-auto`}>
                 {children}

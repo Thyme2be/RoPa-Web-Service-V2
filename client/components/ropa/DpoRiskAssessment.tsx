@@ -22,6 +22,7 @@ interface RiskAssessmentProps {
     onToggleFeedback?: () => void;
     showFeedback?: boolean;
     showViewSections?: boolean;
+    feedbackData?: any[];
 }
 
 function ScaleSelector({
@@ -80,12 +81,24 @@ export default function DpoRiskAssessment({
     onCancel,
     readOnly = false,
     onToggleFeedback,
-    isFeedbackOpen = false,
+    isFeedbackOpen: externalFeedbackOpen,
     showFeedback = true,
     showViewSections = true,
+    feedbackData = [],
 }: RiskAssessmentProps) {
     const [probability, setProbability] = useState(existingRisk?.probability ?? 0);
     const [impact, setImpact] = useState(existingRisk?.impact ?? 0);
+    const [internalFeedbackOpen, setInternalFeedbackOpen] = useState(false);
+
+    // Use external state if provided, otherwise fallback to internal state
+    const isFeedbackOpen = externalFeedbackOpen !== undefined ? externalFeedbackOpen : internalFeedbackOpen;
+    const handleToggleFeedback = () => {
+        if (onToggleFeedback) {
+            onToggleFeedback();
+        } else {
+            setInternalFeedbackOpen(!internalFeedbackOpen);
+        }
+    };
 
     const currentProb = readOnly ? (existingRisk?.probability ?? 0) : probability;
     const currentImpact = readOnly ? (existingRisk?.impact ?? 0) : impact;
@@ -97,20 +110,45 @@ export default function DpoRiskAssessment({
         <div className="space-y-8">
             <div className="bg-transparent space-y-12 relative group">
                 {showFeedback && (
-                    <button
-                        onClick={onToggleFeedback}
-                        className={cn(
-                            "absolute top-5 right-5 z-10 w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer",
-                            isFeedbackOpen
-                                ? "bg-[#ED393C] text-white"
-                                : "bg-white border border-[#E5E2E1] text-[#5C403D] hover:bg-[#F6F3F2]"
+                    <div className="absolute top-5 right-5 z-20 flex flex-col items-end gap-3">
+                        <button
+                            onClick={handleToggleFeedback}
+                            className={cn(
+                                "w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer shadow-sm",
+                                isFeedbackOpen
+                                    ? "bg-[#ED393C] text-white"
+                                    : "bg-white border border-[#E5E2E1] text-[#5C403D] hover:bg-[#F6F3F2]"
+                            )}
+                            title="ข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">
+                                {isFeedbackOpen ? "close" : "comment"}
+                            </span>
+                        </button>
+
+                        {/* Feedback List Overlay */}
+                        {isFeedbackOpen && feedbackData.length > 0 && (
+                            <div className="w-[320px] bg-white rounded-2xl border border-[#E5E2E1] shadow-xl p-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <h4 className="text-[15px] font-black text-[#1B1C1C] mb-4 border-b border-[#F1EDEC] pb-2">ความคิดเห็นจาก DPO</h4>
+                                <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar">
+                                    {feedbackData.map((fb, i) => (
+                                        <div key={i} className="bg-[#F9F9F9] p-3 rounded-xl border-l-4 border-l-[#ED393C]">
+                                            <p className="text-[13px] text-[#1B1C1C] font-medium leading-relaxed">{fb.content}</p>
+                                            <p className="text-[11px] text-[#5F5E5E] mt-2 font-bold">
+                                                {new Date(fb.created_at).toLocaleDateString("th-TH", { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
-                        title="ข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">
-                            {isFeedbackOpen ? "close" : "comment"}
-                        </span>
-                    </button>
+
+                        {isFeedbackOpen && feedbackData.length === 0 && (
+                            <div className="w-[320px] bg-white rounded-2xl border border-[#E5E2E1] shadow-xl p-5 animate-in fade-in slide-in-from-top-2 duration-300 text-center">
+                                <p className="text-[13px] text-[#5F5E5E] font-medium italic">ไม่มีข้อเสนอแนะในขณะนี้</p>
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 <div className="flex items-center justify-between">

@@ -20,6 +20,8 @@ import { useRouter, useParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
 import { mockOwnerRecords, mockProcessorRecords } from "@/lib/ropaMockRecords";
 
+const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+
 /** 
  * Local version of ActivityDetails to allow custom numbering (Part 3) 
  * without modifying the shared friend's file.
@@ -195,6 +197,9 @@ function DpoDestructionDetailContent() {
     const [rejectionReason, setRejectionReason] = useState("");
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     const [form, setForm] = useState<Partial<OwnerRecord>>({
         documentName: "กำลังโหลด...",
         status: RopaStatus.DeletePending,
@@ -207,28 +212,93 @@ function DpoDestructionDetailContent() {
 
     const tabsList = ["owner", "processor", "risk", "destruction"];
 
-    // Load record
+    // Load record from API
     useEffect(() => {
-        if (recordId) {
-            const existing = getById(recordId);
-            if (existing) {
-                const mockMatch = mockOwnerRecords.find(m => m.id === recordId);
-                const merged = mockMatch ? { ...existing, ...mockMatch } : existing;
-                setForm(merged);
-            }
+        const fetchDetail = async () => {
+            if (!recordId) return;
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            if (!token) return;
 
-            const procData = getProcessorById(recordId);
-            const mockProcMatch = mockProcessorRecords.find(m => m.id === recordId);
-            const mergedProc = mockProcMatch ? { ...(procData || {}), ...mockProcMatch } : procData;
-            if (mergedProc) setProcessorForm(mergedProc as any);
-        }
-    }, [recordId, getById, getProcessorById]);
+            try {
+                // In DPO view, we fetch the document detail using recordId
+                const response = await fetch(`${API_BASE_URL}/documents/${recordId}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error("Failed to fetch document detail");
+                const docData = await response.json();
+
+                // Map Owner Section
+                if (docData.owner_sections && docData.owner_sections.length > 0) {
+                    const os = docData.owner_sections[0];
+                    setForm({
+                        ...os,
+                        id: recordId,
+                        documentName: docData.title,
+                        dataSubjectName: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
+                        status: docData.status as RopaStatus,
+                        riskAssessment: docData.risk_assessment,
+                        processingStatus: { doStatus: "done", dpStatus: "done" } 
+                    });
+                }
+
+                // Map Processor Section
+                if (docData.processor_sections && docData.processor_sections.length > 0) {
+                    const ps = docData.processor_sections[0];
+                    setProcessorForm({
+                        ...ps,
+                        id: recordId,
+                        status: docData.status as RopaStatus
+                    });
+                }
+            } catch (err: any) {
+                console.error("Fetch destruction detail error:", err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDetail();
+    }, [recordId]);
 
     const handleCancel = () => {
         router.push("/dpo/tables/destruction");
     };
     
+    const handleFinalSubmit = async () => {
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${API_BASE_URL}/dashboard/dpo/destruction-requests/${recordId}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    status: destructionStatus === "approve" ? "APPROVED" : "REJECTED",
+                    rejection_reason: rejectionReason
+                })
+            });
+
+            if (!response.ok) throw new Error("Failed to submit destruction review");
+
+            // Removed alert, redirecting directly
+            router.push("/dpo/tables/destruction");
+        } catch (err: any) {
+            console.error("Submission error:", err);
+            // Optionally could keep a silent error log or show a small toast, 
+            // but following user's request to remove alerts.
+        }
+    };
+
+    // Validation logic for button state
+    const isSubmitDisabled = 
+        destructionStatus === "none" || 
+        (destructionStatus === "reject" && !rejectionReason.trim());
+
     const handleConfirmReview = () => {
+        if (isSubmitDisabled) return;
         setIsConfirmModalOpen(true);
     };
 
@@ -420,7 +490,13 @@ function DpoDestructionDetailContent() {
                     {isLastTab ? (
                         <button
                             onClick={handleConfirmReview}
-                            className="bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-black text-base shadow-2xl shadow-red-900/40 hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+                            disabled={isSubmitDisabled}
+                            className={cn(
+                                "bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-black text-base shadow-2xl transition-all flex items-center gap-2",
+                                isSubmitDisabled 
+                                    ? "opacity-50 grayscale cursor-not-allowed shadow-none" 
+                                    : "shadow-red-900/40 hover:brightness-110 active:scale-95 cursor-pointer"
+                            )}
                         >
                             ยืนยันการตรวจสอบ
                         </button>
@@ -438,9 +514,7 @@ function DpoDestructionDetailContent() {
             <SaveSuccessModal 
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
-                onConfirm={() => {
-                    router.push("/dpo/tables/destruction");
-                }}
+                onConfirm={handleFinalSubmit}
                 title="ยืนยันการตรวจสอบ"
                 subtitle="ยืนยันว่าได้ดำเนินการตรวจสอบครบถ้วนเรียบร้อยแล้ว"
                 buttonText="ยืนยันการตรวจสอบ"

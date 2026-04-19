@@ -183,14 +183,14 @@ function DocumentsPageContent() {
                                     <tr key={doc.id} className="hover:bg-gray-50 transition-colors group">
                                         <td className="py-7 text-[13.5px] font-medium text-left pl-4">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-secondary text-[13.5px] opacity-70">{doc.id}</span>
+                                                <span className="text-[#5F5E5E] text-[13.5px] opacity-70">{doc.id}</span>
                                                 <span className="text-[#1B1C1C] font-medium tracking-tight">{doc.name}</span>
                                             </div>
                                         </td>
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{doc.owner}</td>
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{doc.department}</td>
-                                        <td className="py-7 text-[13.5px] font-medium text-secondary">{doc.dpo}</td>
-                                        <td className="py-7 text-[12px] font-medium text-secondary italic opacity-80">{doc.activity}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{doc.owner}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{doc.department}</td>
+                                        <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{doc.dpo}</td>
+                                        <td className="py-7 text-[12px] font-medium text-[#5F5E5E] italic opacity-80">{doc.activity}</td>
                                         <td className="py-7">
                                             <div className="flex justify-center scale-110">
                                                 <StatusBadge status={doc.status as any} />
@@ -205,10 +205,9 @@ function DocumentsPageContent() {
                             </tbody>
                         </table>
 
-                        {/* Pagination Section matching the requested layout */}
                         <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                             <div className="px-6 flex items-center justify-between">
-                                <p className="text-[12px] font-medium text-secondary opacity-80">
+                                <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
                                     แสดง {(currentPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentPage * ITEMS_PER_PAGE, filteredDocs.length)} จากทั้งหมด {filteredDocs.length} รายการ
                                 </p>
                                 <div className="[&_p]:hidden [&_div]:mt-0">

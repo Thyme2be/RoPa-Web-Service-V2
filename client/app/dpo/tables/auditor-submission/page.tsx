@@ -1,32 +1,99 @@
 "use client";
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListCard, Pagination, GenericFilterBar } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
+const API_BASE_URL = "https://ropa-web-service-v2.onrender.com";
+
 function AuditorSubmissionTableContent() {
     const searchParams = useSearchParams();
     const globalSearchQuery = searchParams.get("search") || "";
 
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [totalItems, setTotalItems] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
     const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
-    const [customDate, setCustomDate] = useState("");
     const [isSendModalOpen, setIsSendModalOpen] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
     const ITEMS_PER_PAGE = 5;
 
-    // Expanded Mock data for Auditor Submission
-    const mockDocsBase = [
-        { id: "RP-2026-07", name: "ข้อมูลประสิทธิภาพเครือข่าย", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-04-05", displayReceivedDate: "05/04/2569", auditor: "Internal Audit - Legal Team", status: "รอตรวจสอบ", statusType: "warning" },
-        { id: "RP-2026-08", name: "ข้อมูลนโยบายรักษาความปลอดภัย", owner: "นางสาวพรรษชล บุญมาก", receivedDate: "2026-04-06", displayReceivedDate: "06/04/2569", auditor: "External Audit - ABC Consulting", status: "ตรวจสอบเสร็จสิ้น", statusType: "success" },
-        { id: "RP-2026-09", name: "ข้อมูลการสำรองข้อมูลรายปี", owner: "นายวิชาญ ดวงดี", receivedDate: "2026-04-07", displayReceivedDate: "07/04/2569", auditor: "Internal Audit - IT Dept", status: "รอตรวจสอบ", statusType: "warning" },
-        { id: "RP-2026-10", name: "รายงานการเข้าถึงระบบ", owner: "นางสาวปิยะนาถ มั่นคง", receivedDate: "2026-04-08", displayReceivedDate: "08/04/2569", auditor: "External Audit - XYZ Audit", status: "ตรวจสอบเสร็จสิ้น", statusType: "success" },
-        { id: "RP-2026-11", name: "ข้อมูลการบริหารจัดการความเสี่ยง", owner: "นายสมชาย ใจดี", receivedDate: "2026-04-09", displayReceivedDate: "09/04/2569", auditor: "Internal Audit - Compliance", status: "รอตรวจสอบ", statusType: "warning" },
-        { id: "RP-2026-12", name: "ข้อมูลการตรวจประเมินภายใน", owner: "นางสาววรัญญา มีชัย", receivedDate: "2026-04-10", displayReceivedDate: "10/04/2569", auditor: "Audit Committee", status: "ตรวจสอบเสร็จสิ้น", statusType: "success" }
-    ];
+    const fetchAuditorAssignments = async () => {
+        setLoading(true);
+        setError(null);
+        const token = localStorage.getItem("token");
+        if (!token) {
+            setError("ไม่พบสิทธิ์การเข้าถึง กรุณาเข้าสู่ระบบใหม่");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const daysFilter = selectedDateRange === "ภายใน 7 วัน" ? 7 : (selectedDateRange === "ภายใน 30 วัน" ? 30 : 0);
+            
+            let statusFilter = "";
+            if (selectedStatus === "รอตรวจสอบ") statusFilter = "PENDING";
+            else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "COMPLETED";
+
+            const queryParams = new URLSearchParams({
+                page: currentPage.toString(),
+                limit: ITEMS_PER_PAGE.toString(),
+                days_filter: daysFilter.toString()
+            });
+
+            if (statusFilter) queryParams.append("status", statusFilter);
+            if (globalSearchQuery) queryParams.append("search", globalSearchQuery);
+
+            const response = await fetch(`${API_BASE_URL}/dashboard/dpo/auditor-assignments?${queryParams.toString()}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error("ไม่สามารถเรียกข้อมูลรายการส่งตรวจสอบได้");
+            const data = await response.json();
+            setDocuments(data.items || []);
+            setTotalItems(data.total || 0);
+        } catch (err: any) {
+            console.error("Fetch auditor assignments error:", err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAuditorAssignments();
+    }, [currentPage, selectedStatus, selectedDateRange, globalSearchQuery]);
+
+    const formatThaiDate = (dateStr: string | null) => {
+        if (!dateStr || dateStr === "-") return "-";
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('th-TH', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    };
+
+    const getStatusType = (apiStatus: string) => {
+        switch (apiStatus) {
+            case "PENDING": return "warning";
+            case "COMPLETED": return "success";
+            default: return "neutral";
+        }
+    };
+
+    const getDisplayStatus = (apiStatus: string) => {
+        switch (apiStatus) {
+            case "PENDING": return "รอตรวจสอบ";
+            case "COMPLETED": return "ตรวจสอบเสร็จสิ้น";
+            default: return apiStatus;
+        }
+    };
 
     const getStatusColor = (type: string) => {
         switch (type) {
@@ -37,36 +104,8 @@ function AuditorSubmissionTableContent() {
         }
     };
 
-    // Filtering logic
-    const filteredDocs = mockDocsBase.filter(doc => {
-        const matchesSearch = globalSearchQuery === "" ||
-            doc.id.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.owner.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-            doc.auditor.toLowerCase().includes(globalSearchQuery.toLowerCase());
-
-        const matchesStatus = selectedStatus === "ทั้งหมด" || doc.status === selectedStatus;
-
-        let matchesDate = true;
-        if (selectedDateRange !== "ทั้งหมด") {
-            const docDate = new Date(doc.receivedDate);
-            const now = new Date("2026-04-18");
-            const diffDays = (now.getTime() - docDate.getTime()) / (1000 * 3600 * 24);
-
-            if (selectedDateRange === "ภายใน 7 วัน") matchesDate = diffDays <= 7;
-            else if (selectedDateRange === "ภายใน 30 วัน") matchesDate = diffDays <= 30;
-            else if (selectedDateRange === "เกินกำหนด") matchesDate = diffDays > 30 && doc.status === "รอตรวจสอบ";
-            else if (selectedDateRange === "กำหนดเอง" && customDate) {
-                matchesDate = doc.receivedDate === customDate;
-            }
-        }
-
-        return matchesSearch && matchesStatus && matchesDate;
-    });
-
-    const totalPages = Math.ceil(filteredDocs.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const currentDocs = filteredDocs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
     return (
         <div className="flex flex-col h-full -m-8">
@@ -77,14 +116,13 @@ function AuditorSubmissionTableContent() {
                 </div>
 
                 {/* Filters Box */}
-                <GenericFilterBar onClear={() => { setSelectedStatus("ทั้งหมด"); setSelectedDateRange("ทั้งหมด"); setCustomDate(""); setCurrentPage(1); }}>
+                <GenericFilterBar onClear={() => { setSelectedStatus("ทั้งหมด"); setSelectedDateRange("ทั้งหมด"); setCurrentPage(1); }}>
                     <div className="w-[280px]">
                         <Select
                             label="สถานะ"
                             name="status"
                             rounding="xl"
                             bgColor="white"
-                            error=""
                             value={selectedStatus}
                             onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
                             options={[
@@ -102,34 +140,16 @@ function AuditorSubmissionTableContent() {
                                 name="dateRange"
                                 rounding="xl"
                                 bgColor="white"
-                                error=""
                                 value={selectedDateRange}
                                 onChange={(e) => { setSelectedDateRange(e.target.value); setCurrentPage(1); }}
                                 options={[
                                     { label: "ทั้งหมด", value: "ทั้งหมด" },
                                     { label: "ภายใน 7 วัน", value: "ภายใน 7 วัน" },
-                                    { label: "ภายใน 30 วัน", value: "ภายใน 30 วัน" },
-                                    { label: "เกินกำหนด", value: "เกินกำหนด" },
-                                    { label: "กำหนดเอง", value: "กำหนดเอง" }
+                                    { label: "ภายใน 30 วัน", value: "ภายใน 30 วัน" }
                                 ]}
                                 containerClassName="!w-full"
                             />
                         </div>
-
-                        {selectedDateRange === "กำหนดเอง" && (
-                            <div className="w-[200px] animate-in fade-in slide-in-from-left-2 duration-300">
-                                <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight mb-2">เลือกวันที่</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={customDate}
-                                        onChange={(e) => { setCustomDate(e.target.value); setCurrentPage(1); }}
-                                        className="w-full h-11 bg-white border border-[#E5E2E1] rounded-xl px-4 py-2 text-sm font-medium outline-none hover:border-primary/20 transition-all text-[#6B7280]"
-                                    />
-                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">calendar_month</span>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </GenericFilterBar>
 
@@ -149,28 +169,36 @@ function AuditorSubmissionTableContent() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
-                                    {currentDocs.length > 0 ? currentDocs.map((doc) => (
-                                        <tr key={doc.id} className="hover:bg-gray-50 transition-colors group">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse">กำลังโหลดข้อมูล...</td>
+                                        </tr>
+                                    ) : error ? (
+                                        <tr>
+                                            <td colSpan={6} className="py-12 text-center text-[#ED393C] font-black">{error}</td>
+                                        </tr>
+                                    ) : documents.length > 0 ? documents.map((doc) => (
+                                        <tr key={doc.raw_document_id} className="hover:bg-gray-50 transition-colors group">
                                             <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-secondary text-[13.5px] font-medium">{doc.id}</span>
+                                                    <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
                                                     <span className="text-[#1B1C1C] font-medium tracking-tight">{doc.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.owner}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.displayReceivedDate}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-secondary text-center">{doc.auditor}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{doc.owner}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{formatThaiDate(doc.received_date)}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{doc.auditor_name || "-"}</td>
                                             <td className="py-4">
                                                 <div className="flex justify-center py-1">
-                                                    <span className={`px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center shadow-sm ${getStatusColor(doc.statusType)}`}>
-                                                        {doc.status}
+                                                    <span className={`px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center shadow-sm ${getStatusColor(getStatusType(doc.status))}`}>
+                                                        {getDisplayStatus(doc.status)}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center">
                                                     <button
-                                                        onClick={() => { setSelectedDocId(doc.id); setIsSendModalOpen(true); }}
+                                                        onClick={() => { setSelectedDocId(doc.raw_document_id); setIsSendModalOpen(true); }}
                                                         title="ส่งให้ผู้ตรวจสอบ"
                                                         className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >
@@ -181,27 +209,29 @@ function AuditorSubmissionTableContent() {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan={6} className="py-12 text-center text-secondary opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
+                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
 
                             {/* Pagination Area */}
-                            <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
-                                <div className="px-6 flex items-center justify-between">
-                                    <p className="text-[12px] font-medium text-secondary opacity-80">
-                                        แสดง {startIndex + 1} ถึง {Math.min(startIndex + ITEMS_PER_PAGE, filteredDocs.length)} จากทั้งหมด {filteredDocs.length} รายการ
-                                    </p>
-                                    <div className="[&_p]:hidden [&_div]:mt-0">
-                                        <Pagination
-                                            current={currentPage}
-                                            total={totalPages}
-                                            onChange={setCurrentPage}
-                                        />
+                            {!loading && !error && documents.length > 0 && (
+                                <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
+                                    <div className="px-6 flex items-center justify-between">
+                                        <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
+                                            แสดง {startIndex + 1} ถึง {Math.min(startIndex + ITEMS_PER_PAGE, totalItems)} จากทั้งหมด {totalItems} รายการ
+                                        </p>
+                                        <div className="[&_p]:hidden [&_div]:mt-0">
+                                            <Pagination
+                                                current={currentPage}
+                                                total={totalPages}
+                                                onChange={setCurrentPage}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </ListCard>
                 </div>
@@ -211,7 +241,7 @@ function AuditorSubmissionTableContent() {
             <SendToAuditorModal
                 isOpen={isSendModalOpen}
                 onClose={() => setIsSendModalOpen(false)}
-                onConfirm={(data) => {
+                onConfirm={async (data) => {
                     console.log("Sending to auditor for doc:", selectedDocId, data);
                     setIsSendModalOpen(false);
                 }}
@@ -222,7 +252,7 @@ function AuditorSubmissionTableContent() {
 
 export default function AuditorSubmissionPage() {
     return (
-        <Suspense fallback={<div className="p-8">กำลังโหลด...</div>}>
+        <Suspense fallback={<div className="p-8 text-[#5F5E5E]">กำลังโหลด...</div>}>
             <AuditorSubmissionTableContent />
         </Suspense>
     );

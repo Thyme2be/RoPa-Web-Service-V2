@@ -62,7 +62,7 @@ function ManagementModal({ isOpen, onClose, type, mode, initialData, onSave }: a
                     </div>
                 </div>
                 <div className="px-8 py-5 flex items-center justify-between border-t border-transparent bg-white">
-                    <button onClick={onClose} className="px-8 h-11 rounded-2xl text-[15px] font-bold text-secondary hover:bg-surface-container-high transition-colors cursor-pointer">
+                    <button onClick={onClose} className="px-8 h-11 rounded-2xl text-[15px] font-bold text-[#5F5E5E] hover:bg-surface-container-high transition-colors cursor-pointer">
                         ยกเลิก
                     </button>
                     <button onClick={() => onSave(inputValue)} className="px-10 h-11 bg-logout-gradient rounded-2xl shadow-lg shadow-red-900/20 text-white font-bold cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all">
@@ -227,7 +227,7 @@ function DeptManagementPageContent() {
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
                                     {paginatedDepts.map((item) => (
                                         <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
-                                            <td className="py-7 text-[13.5px] font-medium text-secondary">{item.name}</td>
+                                            <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{item.name}</td>
                                             <td className="py-7">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <div className="[&_p]:hidden [&_div]:mt-0">
@@ -248,7 +248,7 @@ function DeptManagementPageContent() {
                             </table>
                             <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                                 <div className="px-6 flex items-center justify-between">
-                                    <p className="text-[12px] font-medium text-secondary opacity-80">
+                                    <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
                                         แสดง {(deptPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(deptPage * ITEMS_PER_PAGE, depts.length)} จากทั้งหมด {depts.length} รายการ
                                     </p>
                                     <div className="[&_p]:hidden [&_div]:mt-0">
@@ -281,7 +281,7 @@ function DeptManagementPageContent() {
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
                                     {paginatedRoles.map((item) => (
                                         <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
-                                            <td className="py-7 text-[13.5px] font-medium text-secondary">{item.name}</td>
+                                            <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{item.name}</td>
                                             <td className="py-7">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <div className="[&_p]:hidden [&_div]:mt-0">
@@ -302,7 +302,7 @@ function DeptManagementPageContent() {
                             </table>
                             <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                                 <div className="px-6 flex items-center justify-between">
-                                    <p className="text-[12px] font-medium text-secondary opacity-80">
+                                    <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
                                         แสดง {(rolePage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(rolePage * ITEMS_PER_PAGE, roles.length)} จากทั้งหมด {roles.length} รายการ
                                     </p>
                                     <div className="[&_p]:hidden [&_div]:mt-0">
@@ -335,7 +335,7 @@ function DeptManagementPageContent() {
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
                                     {paginatedCompanies.map((item) => (
                                         <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
-                                            <td className="py-7 text-[13.5px] font-medium text-secondary">{item.name}</td>
+                                            <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{item.name}</td>
                                             <td className="py-7">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <div className="[&_p]:hidden [&_div]:mt-0">
@@ -356,7 +356,7 @@ function DeptManagementPageContent() {
                             </table>
                             <div className="px-0 py-4 bg-[#F6F3F2]/30 rounded-b-xl border-t border-[#E5E2E1]/40 -mx-6 -mb-6">
                                 <div className="px-6 flex items-center justify-between">
-                                    <p className="text-[12px] font-medium text-secondary opacity-80">
+                                    <p className="text-[12px] font-medium text-[#5F5E5E] opacity-80">
                                         แสดง {(compPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(compPage * ITEMS_PER_PAGE, companies.length)} จากทั้งหมด {companies.length} รายการ
                                     </p>
                                     <div className="[&_p]:hidden [&_div]:mt-0">

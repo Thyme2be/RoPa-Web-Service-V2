@@ -24,6 +24,7 @@ interface UserDashboardData {
         auditor_assignments: number;
         owned_assignments: number;
     };
+    role_dashboard?: any;
     accessed_by: string;
 }
 
@@ -58,10 +59,32 @@ export default function UserRoleDashboardPage() {
                 }
 
                 const json = await response.json();
-                setData(json);
+                
+                // Infer role if missing from json.user
+                let inferredRole = json.user?.role;
+                if (!inferredRole && json.role_dashboard) {
+                    const rd = json.role_dashboard;
+                    if (rd.total_reviewed) inferredRole = "DPO";
+                    else if (rd.pending_audits !== undefined) inferredRole = "AUDITOR";
+                    else if (rd.pending_submissions !== undefined) inferredRole = "PROCESSOR";
+                    else if (rd.compliance_score !== undefined) inferredRole = "EXECUTIVE";
+                    else if (rd.total_documents !== undefined) inferredRole = "OWNER";
+                } else if (!inferredRole && !json.role_dashboard) {
+                    // If no dashboard and no role, check statistics or default to ADMIN if viewed by admin
+                    inferredRole = "ADMIN";
+                }
+                inferredRole = inferredRole || "OWNER";
+
+                setData({
+                    ...json,
+                    user: {
+                        ...(json.user || {}),
+                        role: inferredRole
+                    }
+                });
 
                 // Initialize a safe default timeRange based on role
-                const normalizedRole = json.user.role.toUpperCase();
+                const normalizedRole = inferredRole.toUpperCase();
                 if (normalizedRole === "EXECUTIVE" || normalizedRole === "OWNER") {
                     setTimeRange("monthly");
                 } else {
@@ -69,7 +92,7 @@ export default function UserRoleDashboardPage() {
                 }
 
                 // If user is Admin, we might want to fetch Org stats to show the Admin dashboard style
-                if (json.user.role.toUpperCase() === "ADMIN") {
+                if (normalizedRole === "ADMIN") {
                     const orgRes = await fetch(`${API_BASE_URL}/dashboard?period=${timeRange}`, {
                         headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -120,7 +143,7 @@ export default function UserRoleDashboardPage() {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                <span className="ml-4 text-secondary font-medium text-lg">กำลังโหลดข้อมูล...</span>
+                <span className="ml-4 text-[#5F5E5E] font-medium text-lg">กำลังโหลดข้อมูล...</span>
             </div>
         );
     }
@@ -130,7 +153,7 @@ export default function UserRoleDashboardPage() {
             <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
                 <span className="material-symbols-outlined text-6xl text-red-400 mb-4">error</span>
                 <h3 className="text-2xl font-bold text-neutral-900 mb-2">เกิดข้อผิดพลาด</h3>
-                <p className="text-secondary mb-6">{error || "ไม่สามารถโหลดข้อมูลได้"}</p>
+                <p className="text-[#5F5E5E] mb-6">{error || "ไม่สามารถโหลดข้อมูลได้"}</p>
                 <Link href="/admin/tables/users" className="text-primary font-bold hover:underline flex items-center gap-2">
                     <span className="material-symbols-outlined">arrow_back</span> กลับไปหน้าตารางผู้ใช้
                 </Link>
@@ -138,8 +161,25 @@ export default function UserRoleDashboardPage() {
         );
     }
 
-    const { user, statistics } = data;
-    const roleNormalized = user.role.toUpperCase();
+    const user = data.user || {
+        id: userId,
+        email: "ไม่ระบุ",
+        first_name: "ไม่ระบุ",
+        last_name: "",
+        username: "ไม่ระบุ",
+        role: "OWNER",
+        status: "ACTIVE"
+    };
+    
+    const statistics = data.statistics || {
+        documents_created: {},
+        processor_assignments: 0,
+        auditor_assignments: 0,
+        owned_assignments: 0
+    };
+    
+    // Ensure roleNormalized captures the inferred role stored in state
+    const roleNormalized = (user.role || "OWNER").toUpperCase();
 
     // Translation maps
     const roleTranslation: Record<string, string> = {
@@ -157,8 +197,9 @@ export default function UserRoleDashboardPage() {
         "PENDING": "รอการยืนยัน"
     };
 
-    const translatedRole = roleTranslation[roleNormalized] || user.role;
-    const translatedStatus = statusTranslation[user.status.toUpperCase()] || user.status;
+    const translatedRole = roleTranslation[roleNormalized] || user.role || "ไม่ระบุ";
+    const statusKey = (user.status || "ACTIVE").toUpperCase();
+    const translatedStatus = statusTranslation[statusKey] || user.status || "ไม่ระบุ";
 
     // Render based on role
     const renderDashboardContent = () => {
@@ -168,22 +209,22 @@ export default function UserRoleDashboardPage() {
 // ... [Remaining code]
 // ... [Remaining code remains the same]
 
-        if (roleNormalized === "DPO") {
-            // These are the "0/empty" values waiting for backend update
+        if (roleNormalized === "DPO" && data.role_dashboard) {
+            const rd = data.role_dashboard;
             const dpoStats = {
-                totalDocs: Object.values(statistics.documents_created).reduce((a, b) => a + b, 0),
-                pendingReview: 0,
-                actionNeeded: 0,
+                totalDocs: rd.total_reviewed?.count || 0,
+                pendingReview: (rd.pending_dpo_review?.for_archiving || 0) + (rd.pending_dpo_review?.for_destruction || 0),
+                actionNeeded: (rd.revision_needed?.owner_count || 0) + (rd.revision_needed?.processor_count || 0),
                 complianceScore: 0,
-                correctivePersonalDocs: 0,
-                correctiveProcessorDocs: 0,
-                pendingStorage: 0,
-                pendingDestruction: 0,
-                riskDistribution: { low: 0, medium: 0, high: 0 },
-                auditorPending: statistics.auditor_assignments || 0,
-                auditorCompleted: 0,
-                approvedDocs: 0,
-                delayedDocs: 0
+                correctivePersonalDocs: rd.revision_needed?.owner_count || 0,
+                correctiveProcessorDocs: rd.revision_needed?.processor_count || 0,
+                pendingStorage: rd.pending_dpo_review?.for_archiving || 0,
+                pendingDestruction: rd.pending_dpo_review?.for_destruction || 0,
+                riskDistribution: rd.risk_overview || { low: 0, medium: 0, high: 0 },
+                auditorPending: rd.auditor_review_status?.pending || 0,
+                auditorCompleted: rd.auditor_review_status?.completed || 0,
+                approvedDocs: rd.approved_documents?.total || 0,
+                delayedDocs: rd.auditor_delayed?.count || 0
             };
             return <DpoDashboardView stats={dpoStats} />;
         }
@@ -325,7 +366,7 @@ function StatCard({ title, value, icon, color, bgColor }: { title: string; value
                     <span className={`material-symbols-outlined ${color} text-[28px]`}>{icon}</span>
                 </div>
                 <div>
-                    <p className="text-sm font-bold text-secondary mb-0.5">{title}</p>
+                    <p className="text-sm font-bold text-[#5F5E5E] mb-0.5">{title}</p>
                     <p className="text-2xl font-black text-neutral-900">{value}</p>
                 </div>
             </div>
