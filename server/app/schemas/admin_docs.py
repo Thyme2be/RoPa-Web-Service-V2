@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
-from app.models.enums import DocumentStatusEnum
+from app.schemas.enums import DocumentStatusEnum
 
 class AdminDocumentTableItem(BaseModel):
     id: UUID
