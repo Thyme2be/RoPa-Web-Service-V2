@@ -13,6 +13,7 @@ class DpoCommentCreate(DpoCommentBase):
 class DpoCommentBulkRequest(BaseModel):
     group: str # "DO" or "DP"
     comments: List[DpoCommentCreate]
+    is_final: bool = False  # Set to True only when "Confirm Review" is clicked
 
 class DpoCommentRead(DpoCommentBase):
     updated_at: datetime

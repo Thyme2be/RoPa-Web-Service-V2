@@ -832,12 +832,12 @@ def save_document_comments(
     group = payload.group.upper()
     
     # Determine if the submission results in Approval or Changes Requested
-    # Logic: If all comments are empty, whitespace-only, or strictly "ผ่าน" -> APPROVED
+    # Logic: If all comments are empty or whitespace-only -> APPROVED
     # Otherwise -> CHANGES_REQUESTED
     is_approved = True
     for item in payload.comments:
         c_text = (item.comment or "").strip()
-        if c_text and c_text != "ผ่าน":
+        if c_text:
             is_approved = False
             break
     
@@ -871,25 +871,47 @@ def save_document_comments(
         )
         db.add(new_comment)
     
-    # Update Cycle Status and Date
+    # Update Cycle Status and Date ONLY if is_final is True
     cycle = db.query(DocumentReviewCycleModel).filter(
         DocumentReviewCycleModel.document_id == document_id,
         DocumentReviewCycleModel.status == 'IN_REVIEW'
     ).order_by(DocumentReviewCycleModel.requested_at.desc()).first()
 
-    if cycle:
+    now = datetime.now(timezone.utc)
+    
+    if cycle and payload.is_final:
         cycle.status = 'APPROVED' if is_approved else 'CHANGES_REQUESTED'
-        cycle.reviewed_at = datetime.now(timezone.utc)
+        cycle.reviewed_at = now
         cycle.reviewed_by = current_user.id
         db.add(cycle)
+        
+        # If the review cycle is APPROVED, update the main Document status
+        if cycle.status == 'APPROVED':
+            doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+            if doc:
+                doc.status = 'COMPLETED'
+                doc.last_approved_at = now
+                # Calculate next review due date
+                interval = doc.review_interval_days or 365
+                doc.next_review_due_at = now + timedelta(days=interval)
+                
+                # Transform document_number prefix from DFT- to RP-
+                if doc.document_number and doc.document_number.startswith("DFT-"):
+                    doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
+                
+                db.add(doc)
     
     db.commit()
     
-    determined_status = "APPROVED" if is_approved else "NOT_APPROVED (CHANGES_REQUESTED)"
+    determined_status = "PENDING (DRAFT)"
+    if payload.is_final:
+        determined_status = "APPROVED" if is_approved else "NOT_APPROVED (CHANGES_REQUESTED)"
+        
     return {
         "message": f"Comments for {payload.group} saved successfully.",
+        "is_final": payload.is_final,
         "determined_status": determined_status,
-        "reviewed_at": cycle.reviewed_at if cycle else None
+        "reviewed_at": cycle.reviewed_at if cycle and payload.is_final else None
     }
 
 @router.get("/dashboard/documents-from-dpo", response_model=PaginatedOwnerDpoReviewedDocumentResponse, summary="Shared: Documents Received from DPO", tags=["Dashboard (Shared)"])
