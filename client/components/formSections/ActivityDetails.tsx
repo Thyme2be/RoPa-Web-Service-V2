@@ -13,7 +13,7 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
 
     return (
         <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
             borderLColor
         )}>
             {/* Header: Activity Icon */}
@@ -75,6 +75,18 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
                     </>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <Input
+                            label="ชื่อผู้ควบคุมข้อมูลส่วนบุคคล"
+                            required
+                            name="controller_name"
+                            value={form?.controller_name || ""}
+                            placeholder="ระบุชื่อผู้ควบคุมข้อมูลส่วนบุคคล"
+                            onChange={handleChange}
+                            error={errors?.controller_name}
+                            disabled={disabled}
+                            focusColor={primaryColor}
+                            requiredColor={markerColor}
+                        />
                         <Input
                             label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
                             required

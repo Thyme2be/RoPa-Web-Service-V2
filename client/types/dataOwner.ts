@@ -222,5 +222,13 @@ export interface DestroyedTableItem {
   deletion_reason: string;
 }
 
+export interface OwnerSnapshotTableItem {
+  id: string;
+  document_id: string;
+  document_number: string;
+  title: string;
+  created_at: string;
+}
+
 export type RopaRecord = OwnerRecord;
 

@@ -21,7 +21,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
 
     return (
         <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
             borderLColor
         )}>
             {/* Header: Icon and Section Title to match image */}
@@ -117,16 +117,16 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                             focusColor={primaryColor}
                         />
 
-                        {/* Phone Field */}
                         <Input
                             label="เบอร์โทรศัพท์"
                             required
                             name="phone"
                             value={form?.phone || ""}
-                            placeholder="02-XXX-XXXX"
+                            placeholder="0XXXXXXXXX (10 หลัก)"
                             onChange={handleChange}
                             error={errors?.phone}
                             disabled={disabled}
+                            maxLength={10}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />

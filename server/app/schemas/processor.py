@@ -243,3 +243,28 @@ class ProcessorFeedbackResponse(BaseModel):
     from_dpo: List[DpoCommentForDpRead] # comment จาก DPO (DpoSectionCommentModel)
 
 
+# =============================================================================
+# Snapshots (Drafts)
+# =============================================================================
+
+class ProcessorSnapshotRead(BaseModel):
+    """ข้อมูลฉบับร่าง (Snapshot) แบบเต็ม"""
+    id: UUID
+    document_id: UUID
+    document_number: Optional[str] = None
+    title: Optional[str] = None
+    data: dict
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+class ProcessorSnapshotTableItem(BaseModel):
+    """รายชื่อในตารางฉบับร่าง (Snapshot)"""
+    id: UUID
+    document_id: UUID
+    document_number: Optional[str] = None
+    title: Optional[str] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+

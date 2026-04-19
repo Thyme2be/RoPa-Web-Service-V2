@@ -4,7 +4,7 @@ import Input from "@/components/ui/Input";
 
 export default function RightsChannel({ form, handleChange, errors, disabled }: any) {
     return (
-        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#ED393C] overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#ED393C]">
             {/* Header: Rights Channel Icon */}
             <div className="flex items-center gap-4 px-8 py-6">
                 <div className="bg-[#ED393C]/10 p-2.5 rounded-xl flex items-center justify-center">
@@ -34,10 +34,11 @@ export default function RightsChannel({ form, handleChange, errors, disabled }: 
                         required
                         name="rights_phone"
                         value={form?.rights_phone || ""}
-                        placeholder="02-XXX-XXXX"
+                        placeholder="0XXXXXXXXX (10 หลัก)"
                         onChange={handleChange}
                         error={errors?.rights_phone}
                         disabled={disabled}
+                        maxLength={10}
                     />
                 </div>
             </div>

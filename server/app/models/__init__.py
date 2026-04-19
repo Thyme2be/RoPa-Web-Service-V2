@@ -50,6 +50,11 @@ from app.models.section_processor import (
     ProcessorStorageTypeModel,
     ProcessorStorageMethodModel
 )
+from app.models.section_snapshots import (
+    RopaOwnerSnapshotModel,
+    RopaProcessorSnapshotModel
+)
+
 
 # 6. Audits and Versions
 from app.models.audit import AuditLogModel, DocumentVersionModel
@@ -91,5 +96,8 @@ __all__ = [
     "DpoSectionCommentModel",
     "MstDepartmentModel",
     "MstCompanyModel",
-    "MstRoleModel"
+    "MstRoleModel",
+    "RopaOwnerSnapshotModel",
+    "RopaProcessorSnapshotModel"
 ]
+

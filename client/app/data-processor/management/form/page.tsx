@@ -81,59 +81,17 @@ function DataProcessorFormContent() {
         return () => { isMounted = false; };
     }, [recordId]);
 
-    const handleChange = (e: any) => {
-        const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
-
-        let val: any = value;
-        if (type === "number") {
-            val = value === "" ? "" : Math.max(0, Number(value));
-        }
-        if (type === "checkbox") {
-            if (!name.includes("[]")) {
-                val = (value && value !== "on") ? (checked ? value : "") : checked;
+    const validateField = (name: string, value: any) => {
+        let error = "";
+        if (name === "phone") {
+            const phoneRegex = /^[0-9]{10}$/;
+            if (value && !phoneRegex.test(value)) {
+                error = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
             }
         }
-
-        setForm((prev: any) => {
-            const keys = name.split(".");
-
-            if (name.endsWith("[]")) {
-                const arrayKey = name.replace("[]", "");
-                const currentArray = prev[arrayKey] || [];
-                const newArray = checked
-                    ? [...currentArray, value]
-                    : currentArray.filter((v: string) => v !== value);
-                return { ...prev, [arrayKey]: newArray };
-            }
-
-            if (keys.length === 1) return { ...prev, [name]: val };
-            // Note: In the new flattened structure, keys.length should mostly be 1.
-            // Keeping nested support for backward compat if any component still uses it temporarily
-            if (keys.length === 2) {
-                const [p, c] = keys;
-                return { ...prev, [p]: { ...prev[p], [c]: val } };
-            }
-            return prev;
-        });
+        setErrors(prev => ({ ...prev, [name]: error }));
+        return error === "";
     };
-
-    const completedSteps = useMemo(() => {
-        const completed = [];
-        // Step 1: General
-        if (form.controller_name && form.processor_name && form.title_prefix && form.first_name && form.last_name) completed.push(1);
-        // Step 2: Activity
-        if (form.processor_name && form.controller_address && form.processing_activity && form.purpose_of_processing) completed.push(2);
-        // Step 3: Stored Info
-        if (form.data_categories && form.data_categories.length > 0 && form.personal_data_items && form.personal_data_items.length > 0) completed.push(3);
-        // Step 4: Retention
-        if (form.collection_methods && form.collection_methods.length > 0 && form.retention_value && form.access_condition) completed.push(4);
-        // Step 5: Legal
-        if (form.legal_basis && form.exemption_usage) completed.push(5);
-        // Step 6: Security
-        if (form.org_measures && form.access_control_measures && form.technical_measures) completed.push(6);
-        return completed;
-    }, [form]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -153,9 +111,12 @@ function DataProcessorFormContent() {
         // Step 3: Stored Info
         if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ข้อมูล";
         if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาประเภทข้อมูล";
+        if (!form.data_types || form.data_types.length === 0) newErrors.data_types = "กรุณาเลือกประเภทข้อมูล";
 
         // Step 4: Retention
-        if (!form.retention_value) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.collection_methods || form.collection_methods.length === 0) newErrors.collection_methods = "กรุณาเลือกวิธีการได้มา";
+        if (!form.data_sources || form.data_sources.length === 0) newErrors.data_sources = "กรุณาเลือกแหล่งที่มา";
+        if (!form.retention_value || form.retention_value === 0) newErrors.retention_value = "กรุณาระบุระยะเวลา";
         if (!form.access_condition) newErrors.access_condition = "กรุณาระบุการควบคุมการเข้าถึง";
 
         // Step 5: Legal
@@ -170,6 +131,16 @@ function DataProcessorFormContent() {
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
+            const firstErrorField = Object.keys(newErrors)[0];
+            
+            // Auto-scroll to the first error with a small delay
+            setTimeout(() => {
+                const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }, 100);
+
             return false;
         }
         return true;
@@ -188,6 +159,63 @@ function DataProcessorFormContent() {
             submitDpSection(recordId);
         }
         setIsSuccessModalOpen(true);
+    };
+
+    const handleChange = (e: any) => {
+        const { name, value, type } = e.target;
+        const targetChecked = (e.target as any).checked;
+
+        let val: any = value;
+
+        // 1. Enforce Numeric-only and MaxLength for Phone
+        if (name === "phone") {
+            val = value.replace(/[^0-9]/g, "").slice(0, 10);
+            if (val.length === 10) validateField(name, val);
+        }
+        // 2. Enforce Numeric-only for Retention Value
+        else if (name === "retention_value") {
+            val = value.replace(/[^0-9]/g, "");
+            val = val === "" ? "" : Number(val);
+        }
+        // 3. Handle Standard Numeric Inputs
+        else if (type === "number") {
+            val = value === "" ? "" : Math.max(0, Number(value));
+        }
+        // 4. Handle Checkboxes
+        else if (type === "checkbox") {
+            if (!name.includes("[]")) {
+                val = (value && value !== "on") ? (targetChecked ? value : "") : targetChecked;
+            }
+        }
+
+        setForm((prev: any) => {
+            const next = { ...prev };
+
+            if (name.endsWith("[]")) {
+                const arrayKey = name.replace("[]", "");
+                const currentArray = prev[arrayKey] || [];
+                const newArray = targetChecked
+                    ? [...currentArray, value]
+                    : currentArray.filter((v: string) => v !== value);
+                next[arrayKey] = newArray;
+                return next;
+            }
+
+            if (name.includes(".")) {
+                const keys = name.split(".");
+                let curr = next;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    const key = keys[i];
+                    curr[key] = { ...curr[key] };
+                    curr = curr[key];
+                }
+                curr[keys[keys.length - 1]] = val;
+                return next;
+            }
+
+            next[name] = val;
+            return next;
+        });
     };
 
     return (

@@ -21,7 +21,7 @@ export default function SecurityMeasures({ form, handleChange, errors, disabled,
 
     return (
         <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
             borderLColor
         )}>
             {/* Header: Security Icon */}
@@ -40,15 +40,18 @@ export default function SecurityMeasures({ form, handleChange, errors, disabled,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                     {measures.map((m) => {
                         const value = (form as any)?.[m.id];
+                        const isRequired = ["org_measures", "access_control_measures", "technical_measures"].includes(m.id);
 
                         return (
                             <div key={m.id} className="flex flex-col space-y-4">
                                 <Input
                                     label={m.label}
+                                    required={isRequired}
                                     name={m.id}
                                     value={value || ""}
                                     placeholder={m.placeholder}
                                     onChange={handleChange}
+                                    error={errors?.[m.id]}
                                     disabled={disabled}
                                     focusColor={primaryColor}
                                 />

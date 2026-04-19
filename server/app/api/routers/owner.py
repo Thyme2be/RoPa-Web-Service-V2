@@ -42,6 +42,8 @@ owner.py ─ Data Owner API endpoints
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
+import logging
+import random
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
@@ -66,6 +68,8 @@ from app.models.section_owner import (
     OwnerStorageTypeModel,
     RopaOwnerSectionModel,
 )
+from app.models.section_snapshots import RopaOwnerSnapshotModel
+
 from app.models.section_processor import RopaProcessorSectionModel
 from app.models.user import UserModel
 from app.models.dpo_comment import DpoSectionCommentModel
@@ -88,6 +92,7 @@ from app.schemas.owner import (
     DeletionRequestRead,
     DocumentCreateOwner,
     ProcessorCompaniesResponse,
+    ProcessorAvailabilityResponse,
     DoSuggestionUpdate,
     DoSuggestionResponse,
     FeedbackBatch,
@@ -111,11 +116,15 @@ from app.schemas.owner import (
     DataSourceOut,
     StorageTypeOut,
     StorageMethodOut,
+    OwnerSnapshotRead,
+    OwnerSnapshotTableItem,
 )
+
 from app.schemas.processor import ProcessorSectionFullRead
 from app.api.routers.processor import _load_processor_section_full
 from app.schemas.user import UserRead
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/owner", tags=["Data Owner"])
 
 
@@ -311,7 +320,6 @@ def list_processor_companies(
     rows = (
         db.query(UserModel.company_name)
         .filter(
-            UserModel.role == "PROCESSOR",
             UserModel.company_name.isnot(None),
             UserModel.status == "ACTIVE",
         )
@@ -320,6 +328,28 @@ def list_processor_companies(
         .all()
     )
     return {"companies": [r.company_name for r in rows]}
+
+
+@router.get(
+    "/processors/check-availability",
+    response_model=ProcessorAvailabilityResponse,
+    summary="ตรวจสอบว่าบริษัทนั้นมี active PROCESSOR หรือไม่ (Real-time validation)",
+)
+def check_processor_availability(
+    company_name: str,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    ตรวจสอบความพร้อมของ DP ในบริษัทรายที่ระบุ
+    """
+    exists = db.query(UserModel).filter(
+        UserModel.role == "PROCESSOR",
+        func.lower(UserModel.company_name) == func.lower(company_name),
+        UserModel.status == "ACTIVE"
+    ).first() is not None
+    
+    return {"available": exists, "message": None if exists else "ไม่พบผู้ประมวลผลข้อมูลส่วนบุคคลในบริษัทนี้"}
 
 
 @router.post(
@@ -348,7 +378,7 @@ def create_document(
         db.query(UserModel)
         .filter(
             UserModel.role == "PROCESSOR",
-            UserModel.company_name == payload.processor_company,
+            func.lower(UserModel.company_name) == func.lower(payload.processor_company),
             UserModel.status == "ACTIVE",
         )
         .order_by(UserModel.id)
@@ -357,32 +387,44 @@ def create_document(
     if not dp_candidates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"ไม่พบ Data Processor ที่ active ในบริษัท '{payload.processor_company}'",
+            detail="ไม่พบผู้ประมวลผลข้อมูลส่วนบุคคลในบริษัทนี้",
         )
-
-    # Round robin: หา DP ที่ถูก assign ล่าสุดในบริษัทนี้
-    last_assignment = (
-        db.query(ProcessorAssignmentModel)
-        .join(UserModel, UserModel.id == ProcessorAssignmentModel.processor_id)
-        .filter(
-            UserModel.company_name == payload.processor_company,
-            UserModel.role == "PROCESSOR",
-        )
-        .order_by(ProcessorAssignmentModel.id.desc())
-        .first()
-    )
-
-    dp_ids = [dp.id for dp in dp_candidates]
-    if not last_assignment or last_assignment.processor_id not in dp_ids:
-        # ยังไม่มี assignment ในบริษัทนี้เลย หรือคนล่าสุดไม่อยู่ใน list → เริ่มคนแรก
-        dp_user = dp_candidates[0]
-    else:
-        last_idx = dp_ids.index(last_assignment.processor_id)
-        next_idx = (last_idx + 1) % len(dp_ids)
-        dp_user = dp_candidates[next_idx]
 
     now = datetime.now(timezone.utc)
     year = now.year
+
+    # Robust Date Parsing
+    parsed_due_date = None
+    if payload.due_date:
+        try:
+            d_str = payload.due_date
+            if "T" not in d_str and len(d_str) == 10:
+                parsed_due_date = datetime.fromisoformat(d_str)
+            else:
+                parsed_due_date = datetime.fromisoformat(d_str.replace("Z", "+00:00"))
+            
+            if parsed_due_date.tzinfo is None:
+                parsed_due_date = parsed_due_date.replace(tzinfo=timezone.utc)
+        except Exception as e:
+            logger.warning(f"Failed to parse due_date '{payload.due_date}': {e}")
+            parsed_due_date = None
+
+    # Random Assignment Logic: สุ่มเลือก DP จากรายชื่อผู้ที่ active ในบริษัทนั้น
+    dp_user = random.choice(dp_candidates)
+    logger.info(f"Automatically assigned DP {dp_user.email} (Random) for company {payload.processor_company}")
+
+    # Check for duplicate titles (Informational)
+    existing_count = db.query(func.count(RopaDocumentModel.id)).filter(
+        RopaDocumentModel.created_by == current_user.id,
+        RopaDocumentModel.title == payload.title,
+        or_(
+            RopaDocumentModel.deletion_status == None,
+            RopaDocumentModel.deletion_status != "DELETED"
+        )
+    ).scalar()
+    
+    if existing_count > 0:
+        logger.info(f"User {current_user.id} is creating a document with a duplicate title: {payload.title}")
 
     doc_number = _generate_document_number(db, year, "DFT")
     doc = RopaDocumentModel(
@@ -391,7 +433,7 @@ def create_document(
         description=payload.description,
         created_by=current_user.id,
         review_interval_days=payload.review_interval_days,
-        due_date=payload.due_date,
+        due_date=parsed_due_date,
         processor_company=payload.processor_company,
     )
     db.add(doc)
@@ -408,7 +450,7 @@ def create_document(
         document_id=doc.id,
         processor_id=dp_user.id,
         assigned_by=current_user.id,
-        due_date=payload.due_date,
+        due_date=parsed_due_date,
         status="IN_PROGRESS",
     )
     db.add(assignment)
@@ -431,6 +473,128 @@ def create_document(
         "assigned_processor_name": f"{dp_user.first_name or ''} {dp_user.last_name or ''}".strip(),
         "message": "สร้างเอกสารสำเร็จ",
     }
+
+
+# =============================================================================
+# Snapshots (Drafts) — บันทึกสแนปชอตแยกจากงานหลัก
+# =============================================================================
+
+@router.post(
+    "/documents/{id}/snapshot",
+    response_model=OwnerSnapshotRead,
+    summary="บันทึกสแนปชอต (Save as Draft) ของ Owner Section",
+)
+def create_owner_snapshot(
+    id: UUID,
+    payload: OwnerSectionSave,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    บันทึกข้อมูลฟอร์มปัจจุบันเป็นสแนปชอตแยกต่างหาก
+    - ไม่กระทบข้อมูลในตารางหลัก
+    - เก็บไว้ในตาราง ropa_owner_snapshots เพื่อแสดงในตาราง 'ฉบับร่าง'
+    """
+    doc = db.query(RopaDocumentModel).filter_by(id=id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+
+    # บันทึกลง snapshot table
+    snapshot = RopaOwnerSnapshotModel(
+        document_id=id,
+        user_id=current_user.id,
+        data=payload.model_dump(exclude_none=True),
+    )
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+
+    return OwnerSnapshotRead(
+        id=snapshot.id,
+        document_id=snapshot.document_id,
+        document_number=doc.document_number,
+        title=doc.title,
+        data=snapshot.data,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.get(
+    "/snapshots",
+    response_model=List[OwnerSnapshotTableItem],
+    summary="ดึงรายการฉบับร่าง (Snapshots) ทั้งหมดของ Data Owner",
+)
+def list_owner_snapshots(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    ดึงสแนปชอตทั้งหมดที่ user นี้สร้างไว้ เพื่อแสดงในตาราง 'ฉบับร่าง'
+    """
+    rows = (
+        db.query(RopaOwnerSnapshotModel, RopaDocumentModel.document_number, RopaDocumentModel.title)
+        .join(RopaDocumentModel, RopaOwnerSnapshotModel.document_id == RopaDocumentModel.id)
+        .filter(RopaOwnerSnapshotModel.user_id == current_user.id)
+        .order_by(RopaOwnerSnapshotModel.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for snapshot, doc_num, title in rows:
+        result.append(OwnerSnapshotTableItem(
+            id=snapshot.id,
+            document_id=snapshot.document_id,
+            document_number=doc_num,
+            title=title,
+            created_at=snapshot.created_at
+        ))
+    return result
+
+
+@router.get(
+    "/snapshots/{snapshot_id}",
+    response_model=OwnerSnapshotRead,
+    summary="ดึงข้อมูลสแนปชอตที่ระบุ",
+)
+def get_owner_snapshot(
+    snapshot_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    snapshot = db.query(RopaOwnerSnapshotModel).filter_by(id=snapshot_id, user_id=current_user.id).first()
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="ไม่พบฉบับร่าง")
+    
+    doc = db.query(RopaDocumentModel).filter_by(id=snapshot.document_id).first()
+    
+    return OwnerSnapshotRead(
+        id=snapshot.id,
+        document_id=snapshot.document_id,
+        document_number=doc.document_number if doc else None,
+        title=doc.title if doc else None,
+        data=snapshot.data,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.delete(
+    "/snapshots/{snapshot_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="ลบฉบับร่าง (Snapshot)",
+)
+def delete_owner_snapshot(
+    snapshot_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    snapshot = db.query(RopaOwnerSnapshotModel).filter_by(id=snapshot_id, user_id=current_user.id).first()
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="ไม่พบฉบับร่าง")
+    
+    db.delete(snapshot)
+    db.commit()
+    return None
+
 
 
 # =============================================================================

@@ -17,7 +17,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
 
     return (
         <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
             borderLColor
         )}>
             {/* Header: Storage and Retrieval Icon */}
@@ -35,43 +35,66 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
             <div className="px-8 pb-10 space-y-8">
                 {/* Top Level Grid: Method and Source */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                    <div className="space-y-4">
+                    <div className="space-y-4" id={isProcessor ? "collection_methods" : "collection_method"}>
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                             วิธีการได้มาซึ่งข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
-                        <div className="bg-[#F6F3F2] p-6 rounded-xl space-y-4">
+                        <div className={cn(
+                            "bg-[#F6F3F2] p-6 rounded-xl space-y-4 border transition-all",
+                            (errors?.collection_method || errors?.collection_methods) ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                        )}>
                             <Checkbox
                                 label="ข้อมูลอิเล็กทรอนิกส์"
-                                checked={form?.collection_method === "soft_file"}
-                                onChange={() => handleChange({ target: { name: "collection_method", value: "soft_file" } })}
+                                checked={isProcessor ? form?.collection_methods?.includes("soft_file") : form?.collection_method === "soft_file"}
+                                onChange={() => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "soft_file" } })}
                                 disabled={disabled}
                                 themeColor={primaryColor}
                             />
                             <Checkbox
                                 label="เอกสาร"
-                                checked={form?.collection_method === "hard_copy"}
-                                onChange={() => handleChange({ target: { name: "collection_method", value: "hard_copy" } })}
+                                checked={isProcessor ? form?.collection_methods?.includes("hard_copy") : form?.collection_method === "hard_copy"}
+                                onChange={() => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "hard_copy" } })}
                                 disabled={disabled}
                             />
                         </div>
+                        {(errors?.collection_method || errors?.collection_methods) && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {errors.collection_method || errors.collection_methods}
+                            </p>
+                        )}
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4" id={isProcessor ? "data_sources" : "data_source"}>
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                             แหล่งที่ได้มาซึ่งข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
-                        <div className="bg-[#F6F3F2] p-6 rounded-xl space-y-4">
+                        <div className={cn(
+                            "bg-[#F6F3F2] p-6 rounded-xl space-y-4 border transition-all",
+                            (errors?.data_source || errors?.data_sources) ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                        )}>
                             <Checkbox
                                 label="จากเจ้าของข้อมูลโดยตรง"
-                                checked={!!form?.data_source_direct}
-                                onChange={(e: any) => handleChange({ target: { name: "data_source_direct", value: e.target.checked } })}
+                                checked={isProcessor ? form?.data_sources?.includes("direct") : !!form?.data_source_direct}
+                                onChange={(e: any) => {
+                                    if (isProcessor) {
+                                        handleChange({ target: { name: "data_sources[]", value: "direct" } });
+                                    } else {
+                                        handleChange({ target: { name: "data_source_direct", value: e.target.checked } });
+                                    }
+                                }}
                                 disabled={disabled}
                             />
                             <div className="flex items-center gap-3 h-6">
                                 <Checkbox
                                     label="จากแหล่งอื่น โปรดระบุ"
-                                    checked={!!form?.data_source_indirect}
-                                    onChange={(e: any) => handleChange({ target: { name: "data_source_indirect", value: e.target.checked } })}
+                                    checked={isProcessor ? form?.data_sources?.includes("indirect") : !!form?.data_source_indirect}
+                                    onChange={(e: any) => {
+                                        if (isProcessor) {
+                                            handleChange({ target: { name: "data_sources[]", value: "indirect" } });
+                                        } else {
+                                            handleChange({ target: { name: "data_source_indirect", value: e.target.checked } });
+                                        }
+                                    }}
                                     disabled={disabled}
                                 />
                                 <input
@@ -79,13 +102,18 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                         "flex-1 bg-white border-none rounded-full h-8 px-4 text-sm focus:outline-none focus:ring-2 shadow-sm transition-all",
                                         ringColor
                                     )}
-                                    disabled={!form?.data_source_indirect || disabled}
+                                    disabled={isProcessor ? !form?.data_sources?.includes("indirect") : (!form?.data_source_indirect || disabled)}
                                     placeholder=""
                                     value={form?.data_source_other || ""}
                                     onChange={(e) => handleChange({ target: { name: "data_source_other", value: e.target.value } })}
                                 />
                             </div>
                         </div>
+                        {(errors?.data_source || errors?.data_sources) && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {errors.data_source || errors.data_sources}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -101,7 +129,10 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                                 ประเภทของข้อมูลที่จัดเก็บ <span className="font-bold" style={{ color: markerColor }}>*</span>
                             </label>
-                            <div className="bg-[#F6F3F2] p-6 rounded-xl space-y-4">
+                            <div className={cn(
+                                "bg-[#F6F3F2] p-6 rounded-xl space-y-4 border transition-all",
+                                errors?.storageType ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                            )}>
                                 <Checkbox
                                     label="ข้อมูลอิเล็กทรอนิกส์"
                                     checked={form?.retention?.storageType === "soft_file"}
@@ -116,30 +147,51 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                     disabled={disabled}
                                 />
                             </div>
+                            {errors?.storageType && (
+                                <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    {errors.storageType}
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-4">
-                            <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
-                                วิธีการเก็บรักษาข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
-                                &nbsp;<span className="font-bold text-[11px]" style={{ color: markerColor }}>(สามารถระบุได้มากกว่า 1)</span>
-                            </label>
-                            <div className="bg-[#F6F3F2] p-0 rounded-xl overflow-hidden">
-                                <Select
-                                    name="storage_methods"
-                                    placeholder="วิธีการเก็บรักษาข้อมูล"
-                                    value={form?.storage_methods || ""}
-                                    options={[
-                                        { label: "Cloud Storage", value: "cloud" },
-                                        { label: "Server", value: "server" },
-                                        { label: "ตู้เอกสาร", value: "cabinet" }
-                                    ]}
-                                    onChange={handleChange}
-                                    disabled={disabled}
-                                    rounding="xl"
-                                    focusColor={primaryColor}
-                                    primaryColor={primaryColor}
-                                />
-                            </div>
+                            <MultiSelect
+                                label="วิธีการเก็บรักษาข้อมูล"
+                                required
+                                description={
+                                    <p className="text-[11px] font-bold tracking-tight" style={{ color: markerColor }}>
+                                        (สามารถระบุได้มากกว่า 1)
+                                    </p>
+                                }
+                                options={[
+                                    "เข้ารหัส",
+                                    "ใส่แฟ้ม",
+                                    "เก็บในตู้เอกสารหรือสแกนเป็นไฟล์",
+                                    "อื่นๆ"
+                                ]}
+                                selectedValues={form?.storage_methods || []}
+                                onChange={(values: string[]) => {
+                                    handleChange({ target: { name: "storage_methods", value: values } } as any);
+                                }}
+                                error={errors?.storage_methods}
+                                disabled={disabled}
+                                placeholder="เลือกวิธีการเก็บรักษา..."
+                            />
+
+                            {/* "Other" specification field - visible only when "อื่นๆ" is selected */}
+                            {form?.storage_methods?.includes("อื่นๆ") && (
+                                <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <Input
+                                        label="รายละเอียดวิธีการเก็บรักษาอื่น ๆ"
+                                        name="storage_methods_other"
+                                        value={form?.storage_methods_other || ""}
+                                        placeholder="โปรดระบุรายละเอียด (เช่น พิมพ์ออกมาเก็บในตู้เซฟ)"
+                                        onChange={handleChange}
+                                        disabled={disabled}
+                                        focusColor={primaryColor}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -152,9 +204,10 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             <div className="flex-1">
                                 <Input
                                     name="retention_value"
-                                    value={form?.retention_value || ""}
-                                    placeholder="ระบุระยะเวลา (เช่น 5)"
+                                    value={form?.retention_value !== undefined ? form.retention_value : ""}
+                                    placeholder="ระบุตัวเลขระยะเวลา (เช่น 5)"
                                     onChange={handleChange}
+                                    error={errors?.retention_value}
                                     disabled={disabled}
                                     containerClassName="space-y-0"
                                     focusColor={primaryColor}
@@ -188,6 +241,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             value={form?.access_condition || ""}
                             placeholder="ระบุเงื่อนไขการใช้สิทธิและวิธีการ (เช่น กำหนดสิทธิเฉพาะผู้มีสิทธิ/ฝ่ายขาย/ฝ่าย IT)"
                             onChange={handleChange}
+                            error={errors?.access_condition}
                             disabled={disabled}
                             className="bg-white"
                             requiredColor={markerColor}
@@ -200,6 +254,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             value={form?.deletion_method || ""}
                             placeholder="ระบุวิธีการลบหรือทำลายข้อมูลส่วนบุคคล (เช่น เครื่องทำลายเอกสาร)"
                             onChange={handleChange}
+                            error={errors?.deletion_method}
                             disabled={disabled}
                             className="bg-white"
                             requiredColor={markerColor}

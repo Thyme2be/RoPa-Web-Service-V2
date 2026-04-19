@@ -12,9 +12,11 @@ Routes:
   PATCH  /processor/documents/{id}/section         บันทึกฉบับร่าง (ไม่เปลี่ยน status)
   POST   /processor/documents/{id}/section/submit  บันทึก = เปลี่ยน status เป็น SUBMITTED
 
-  Feedback ที่ได้รับจาก DO หรือ DPO (DP รับ ไม่ใช่ส่ง):
-  GET    /processor/documents/{id}/feedbacks       ดู feedback ที่ได้รับ (แสดง inline ในฟอร์ม)
-  หมายเหตุ: DP ไม่ต้อง resolve feedback เอง — แก้ไขฟอร์มแล้วกดบันทึกใหม่ได้เลย
+  Snapshots (Draft management):
+  POST   /processor/documents/{id}/snapshot        บันทึกฉบับร่างแยก (Snapshot)
+  GET    /processor/snapshots                     รายการฉบับร่างทั้งหมด
+  GET    /processor/snapshots/{id}                 ดูเนื้อหาฉบับร่าง
+  DELETE /processor/snapshots/{id}                 ลบฉบับร่าง
 """
 
 from datetime import datetime, timezone
@@ -43,6 +45,8 @@ from app.models.section_processor import (
     ProcessorStorageTypeModel,
     RopaProcessorSectionModel,
 )
+from app.models.section_snapshots import RopaProcessorSnapshotModel
+
 from app.schemas.enums import RopaSectionEnum
 from app.schemas.owner import (
     DataCategoryOut,
@@ -64,7 +68,10 @@ from app.schemas.processor import (
     ProcessorFeedbackResponse,
     DpoCommentForDpRead,
     MessageResponse,
+    ProcessorSnapshotRead,
+    ProcessorSnapshotTableItem,
 )
+
 from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/processor", tags=["Data Processor"])
@@ -206,6 +213,122 @@ def _replace_processor_sub_tables(
         db.query(ProcessorStorageMethodModel).filter_by(processor_section_id=section_id).delete()
         for item in payload.storage_methods:
             db.add(ProcessorStorageMethodModel(processor_section_id=section_id, **item.model_dump()))
+
+
+# =============================================================================
+# Snapshots (Drafts) — บันทึกสแนปชอตแยกจากงานหลัก
+# =============================================================================
+
+@router.post(
+    "/documents/{id}/snapshot",
+    response_model=ProcessorSnapshotRead,
+    summary="บันทึกสแนปชอต (Save as Draft) ของ Processor Section",
+)
+def create_processor_snapshot(
+    id: UUID,
+    payload: ProcessorSectionSave,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    """
+    บันทึกข้อมูลฟอร์มปัจจุบันเป็นสแนปชอตแยกต่างหาก (ฉบับร่าง)
+    - ไม่กระทบข้อมูลในตารางหลัก
+    """
+    doc = db.query(RopaDocumentModel).filter_by(id=id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+
+    snapshot = RopaProcessorSnapshotModel(
+        document_id=id,
+        user_id=current_user.id,
+        data=payload.model_dump(exclude_none=True),
+    )
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+
+    return ProcessorSnapshotRead(
+        id=snapshot.id,
+        document_id=snapshot.document_id,
+        document_number=doc.document_number,
+        title=doc.title,
+        data=snapshot.data,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.get(
+    "/snapshots",
+    response_model=List[ProcessorSnapshotTableItem],
+    summary="ดึงรายการฉบับร่าง (Snapshots) ทั้งหมดของ Data Processor",
+)
+def list_processor_snapshots(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    rows = (
+        db.query(RopaProcessorSnapshotModel, RopaDocumentModel.document_number, RopaDocumentModel.title)
+        .join(RopaDocumentModel, RopaProcessorSnapshotModel.document_id == RopaDocumentModel.id)
+        .filter(RopaProcessorSnapshotModel.user_id == current_user.id)
+        .order_by(RopaProcessorSnapshotModel.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for snapshot, doc_num, title in rows:
+        result.append(ProcessorSnapshotTableItem(
+            id=snapshot.id,
+            document_id=snapshot.document_id,
+            document_number=doc_num,
+            title=title,
+            created_at=snapshot.created_at
+        ))
+    return result
+
+
+@router.get(
+    "/snapshots/{snapshot_id}",
+    response_model=ProcessorSnapshotRead,
+    summary="ดึงข้อมูลสแนปชอตที่ระบุ (Processor)",
+)
+def get_processor_snapshot(
+    snapshot_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    snapshot = db.query(RopaProcessorSnapshotModel).filter_by(id=snapshot_id, user_id=current_user.id).first()
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="ไม่พบฉบับร่าง")
+    
+    doc = db.query(RopaDocumentModel).filter_by(id=snapshot.document_id).first()
+    
+    return ProcessorSnapshotRead(
+        id=snapshot.id,
+        document_id=snapshot.document_id,
+        document_number=doc.document_number if doc else None,
+        title=doc.title if doc else None,
+        data=snapshot.data,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.delete(
+    "/snapshots/{snapshot_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="ลบฉบับร่าง (Snapshot) (Processor)",
+)
+def delete_processor_snapshot(
+    snapshot_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    snapshot = db.query(RopaProcessorSnapshotModel).filter_by(id=snapshot_id, user_id=current_user.id).first()
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="ไม่พบฉบับร่าง")
+    
+    db.delete(snapshot)
+    db.commit()
+    return None
 
 
 # =============================================================================
@@ -543,8 +666,6 @@ def get_received_feedbacks(
     return ProcessorFeedbackResponse(from_do=from_do, from_dpo=from_dpo)
 
 
-
-
 # =============================================================================
 # DELETE /processor/documents/{document_id}/section/draft — ล้างข้อมูลฉบับร่าง
 # =============================================================================
@@ -631,4 +752,4 @@ def send_to_do(
         assignment.status = "SUBMITTED"
 
     db.commit()
-    return {"message": "ส่งเอกสารให้ผู้รับผิดชอบข้อมูลสำเร็จ"}
+    return MessageResponse(message="ส่งเอกสารให้ผู้รับผิดชอบข้อมูลสำเร็จ")

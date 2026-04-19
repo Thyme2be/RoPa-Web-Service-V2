@@ -64,7 +64,7 @@ function StatusBadge({ done, label }: { done: boolean; label: string }) {
 
 export default function ManagementProcessingPage() {
     const router = useRouter();
-    const { activeRecords, sendToDpo, requestDelete } = useRopa();
+    const { activeRecords, ownerSnapshots, sendToDpo, requestDelete, refresh } = useRopa();
     const [page, setPage] = useState(1);
     const [draftPage, setDraftPage] = useState(1);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -94,6 +94,7 @@ export default function ManagementProcessingPage() {
             });
 
             if (result.document_id) {
+                await refresh(); // Refresh dashboards and tables for all roles
                 router.push(`/data-owner/management/form?id=${result.document_id}&mode=edit`);
             }
         } catch (error) {
@@ -103,9 +104,9 @@ export default function ManagementProcessingPage() {
     };
 
     // ─── Filter processing records ─────────────────────────────────────────────
-    // Records in "processing" table are from activeRecords state
-    const processingRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.SUBMITTED);
-    const draftRecords = activeRecords.filter(r => r.owner_section_status === SectionStatus.DRAFT);
+    // Records in "processing" table are all active records (track status within table)
+    const processingRecords = activeRecords;
+    const draftRecords = ownerSnapshots;
 
     const filteredProcessing = processingRecords.filter(record => {
         let matchStatus = true;
@@ -296,7 +297,7 @@ export default function ManagementProcessingPage() {
                                     </DocumentTableRow>
                                 ) : (
                                     paginatedDrafts.map((record) => (
-                                        <DocumentTableRow key={record.document_id}>
+                                        <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
                                                 <div className="text-[#1B1C1C]">{record.title}</div>
                                                 <div className="text-xs text-gray-400">ID: {record.document_number}</div>
@@ -310,7 +311,7 @@ export default function ManagementProcessingPage() {
                                                         icon="edit"
                                                         tooltipText="แก้ไขฉบับร่าง"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}`)}
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&snapshot_id=${record.id}`)}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="delete"
@@ -318,7 +319,7 @@ export default function ManagementProcessingPage() {
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
                                                         onClick={() => {
                                                             if (confirm("ต้องการลบฉบับร่างนี้ใช่หรือไม่?")) {
-                                                                // deleteRecord(record.document_id);
+                                                                ropaService.deleteOwnerSnapshot(record.id).then(() => refresh());
                                                             }
                                                         }}
                                                     />

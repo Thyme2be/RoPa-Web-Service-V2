@@ -15,7 +15,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
 
     return (
         <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
             borderLColor
         )}>
             {/* Header: Category Icon */}
@@ -62,12 +62,13 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                     </div>
 
                     {/* Column 2: Data Category */}
-                    <div className="space-y-4">
+                    <div className="space-y-4" id="data_categories">
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                             หมวดหมู่ของข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
                         <div className={cn(
-                            "space-y-4 p-6 rounded-xl bg-[#F6F3F2]",
+                            "space-y-4 p-6 rounded-xl bg-[#F6F3F2] border transition-all",
+                            errors?.data_categories ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent",
                             disabled && "pointer-events-none"
                         )}>
                             {["ข้อมูลลูกค้า", "คู่ค้า", "ผู้ติดต่อ", "พนักงาน"].map((cat, idx) => {
@@ -90,15 +91,21 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                                 );
                             })}
                         </div>
+                        {errors?.data_categories && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {errors.data_categories}
+                            </p>
+                        )}
                     </div>
 
                     {/* Column 3: Data Type */}
-                    <div className="space-y-4">
+                    <div className="space-y-4" id="data_types">
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                             ประเภทของข้อมูล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
                         <div className={cn(
-                            "space-y-4 p-6 rounded-xl bg-[#F6F3F2]",
+                            "space-y-4 p-6 rounded-xl bg-[#F6F3F2] border transition-all",
+                            errors?.data_types ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent",
                             disabled && "pointer-events-none"
                         )}>
                             <Checkbox
@@ -124,6 +131,11 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                                 themeColor={primaryColor}
                             />
                         </div>
+                        {errors?.data_types && (
+                            <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {errors.data_types}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

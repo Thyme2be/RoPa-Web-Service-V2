@@ -114,8 +114,8 @@ export default function MultiSelect({
                 <div
                     onClick={() => !disabled && setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between px-4 py-3 bg-[#F6F3F2] border rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/20 shadow-sm",
-                        error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
+                        "flex items-center justify-between px-4 py-3 bg-white border border-[#E5E2E1] rounded-2xl cursor-pointer transition-all hover:border-[#CEC4C2] shadow-sm",
+                        error ? "border-red-500/50 bg-red-50/50" : "",
                         isOpen && "bg-white border-primary rounded-b-none shadow-sm",
                         disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
                     )}

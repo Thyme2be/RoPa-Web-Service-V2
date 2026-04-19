@@ -29,6 +29,7 @@ function ManagementFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const recordId = searchParams.get("id");
+    const snapshotId = searchParams.get("snapshot_id");
     const nameParam = searchParams.get("name");
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
@@ -45,6 +46,8 @@ function ManagementFormContent() {
         saveRiskAssessment,
         fetchFullOwnerRecord,
         fetchFullProcessorRecord,
+        createOwnerSnapshot,
+        fetchOwnerSnapshot,
         requestDelete
     } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
@@ -140,7 +143,14 @@ function ManagementFormContent() {
         const loadFullRecord = async () => {
             if (recordId) {
                 setIsLoadingFull(true);
-                const fullRecord = await fetchFullOwnerRecord(recordId);
+                
+                let fullRecord;
+                if (snapshotId) {
+                    fullRecord = await fetchOwnerSnapshot(snapshotId);
+                } else {
+                    fullRecord = await fetchFullOwnerRecord(recordId);
+                }
+                
                 if (fullRecord && isMounted) {
                     setForm(prev => ({ ...prev, ...fullRecord }));
                 }
@@ -184,15 +194,15 @@ function ManagementFormContent() {
 
     const validateField = (name: string, value: any) => {
         let error = "";
-        if (name === "email") {
+        if (name === "email" || name === "rights_email") {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (value && !emailRegex.test(value)) {
                 error = "รูปแบบอีเมลไม่ถูกต้อง";
             }
-        } else if (name === "phoneNumber") {
+        } else if (name === "phone" || name === "rights_phone") {
             const phoneRegex = /^[0-9]{10}$/;
             if (value && !phoneRegex.test(value)) {
-                error = "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 10 หลัก)";
+                error = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
             }
         }
         setErrors(prev => ({ ...prev, [name]: error }));
@@ -202,11 +212,43 @@ function ManagementFormContent() {
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
 
+        // Mapping fields to their respective tabs for auto-switching
+        const fieldToTabMap: Record<string, string> = {
+            document_name: "owner",
+            title_prefix: "owner",
+            first_name: "owner",
+            last_name: "owner",
+            address: "owner",
+            email: "owner",
+            phone: "owner",
+            rights_email: "activity",
+            rights_phone: "activity",
+            data_subject_name: "activity",
+            processing_activity: "activity",
+            purpose_of_processing: "activity",
+            data_categories: "stored",
+            personal_data_items: "stored",
+            data_types: "stored",
+            collection_method: "retention",
+            retention_value: "retention",
+            access_condition: "retention",
+            deletion_method: "retention",
+            legal_basis: "legal",
+            minor_consent: "legal",
+            has_cross_border_transfer: "legal",
+            transfer_country: "legal",
+            transfer_company: "legal",
+            transfer_method: "legal",
+            transfer_protection_standard: "legal",
+            transfer_exception: "legal",
+            exemption_usage: "legal",
+        };
+
         if (!form.document_name?.trim()) newErrors.document_name = "กรุณากรอกชื่อเอกสาร";
 
         // Section 1
         if (!form.title_prefix) newErrors.title_prefix = "กรุณาเลือกคำนำหน้า";
-        if (!form.first_name) newErrors.first_name = "กรุณากรอกชื่อ";
+        if (!form.first_name) newErrors.first_name = "กรุณากรอกชื่อจริง";
         if (!form.last_name) newErrors.last_name = "กรุณากรอกนามสกุล";
         if (!form.address) newErrors.address = "กรุณากรอกที่อยู่";
         if (!form.email) newErrors.email = "กรุณากรอกอีเมล";
@@ -215,49 +257,58 @@ function ManagementFormContent() {
         else if (!/^[0-9]{10}$/.test(form.phone)) newErrors.phone = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
 
         // Section 2
-        if (!form.rights_email) newErrors.rights_email = "กรุณากรอกอีเมลช่องทางใช้สิทธิ";
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.rights_email)) newErrors.rights_email = "รูปแบบอีเมลไม่ถูกต้อง";
-        if (!form.rights_phone) newErrors.rights_phone = "กรุณากรอกเบอร์โทรศัพท์ช่องทางใช้สิทธิ";
+        if (!form.rights_email) newErrors.rights_email = "กรุณากรอกอีเมลสำหรับขอใช้สิทธิ";
+        if (!form.rights_phone) newErrors.rights_phone = "กรุณากรอกเบอร์โทรศัพท์สำหรับขอใช้สิทธิ";
 
         // Section 3
         if (!form.data_subject_name) newErrors.data_subject_name = "กรุณากรอกชื่อเจ้าของข้อมูลส่วนบุคคล";
         if (!form.processing_activity) newErrors.processing_activity = "กรุณากรอกกิจกรรมประมวลผล";
-        if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณากรอกวัตถุประสงค์การประมวลผล";
+        if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณากรอกวัตถุประสงค์";
 
         // Section 4
-        if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาเลือกข้อมูลส่วนบุคคลอย่างน้อย 1 รายการ";
-        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ของข้อมูลอย่างน้อย 1 รายการ";
+        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ของข้อมูล";
+        if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาเลือกข้อมูลส่วนบุคคลที่จัดเก็บ";
         if (!form.data_types || (Array.isArray(form.data_types) && form.data_types.length === 0)) newErrors.data_types = "กรุณาเลือกประเภทของข้อมูล";
 
         // Section 5
         if (!form.collection_method) newErrors.collection_method = "กรุณาเลือกวิธีการได้มาซึ่งข้อมูล";
-        if (!form.retention_value || form.retention_value <= 0) newErrors.retention_value = "กรุณาระบุระยะเวลาการเก็บรักษาข้อมูล";
-        if (!form.access_condition) newErrors.access_condition = "กรุณาระบุสิทธิและวิธีการเข้าถึงข้อมูล";
-        if (!form.deletion_method) newErrors.deletion_method = "กรุณาระบุวิธีการลบหรือทำลายข้อมูล";
+        if (!form.retention_value || form.retention_value === 0) newErrors.retention_value = "กรุณาระบุระยะเวลจัดเก็บ";
+        if (!form.access_condition) newErrors.access_condition = "กรุณาระบุสิทธิและวิธีการเข้าถึง";
+        if (!form.deletion_method) newErrors.deletion_method = "กรุณาระบุวิธีการลบหรือทำลาย";
 
         // Section 6
-        if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานในการประมวลผล";
-        if (!form.minor_consent_under_10 && !form.minor_consent_10_to_20 && !form.minor_consent_none) newErrors.minor_consent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์อย่างน้อย 1 รายการ";
-        if (form.has_cross_border_transfer === undefined || form.has_cross_border_transfer === null) newErrors.has_cross_border_transfer = "กรุณาเลือกว่ามีการส่งข้อมูลไปต่างประเทศหรือไม่";
-
+        if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานทางกฎหมาย";
+        if (!form.minor_consent_under_10 && !form.minor_consent_10_to_20 && !form.minor_consent_none) {
+            newErrors.minor_consent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์";
+        }
+        if (form.has_cross_border_transfer === undefined || form.has_cross_border_transfer === null) {
+            newErrors.has_cross_border_transfer = "กรุณาเลือกว่ามีการเปิดเผยไปต่างประเทศหรือไม่";
+        }
         if (form.has_cross_border_transfer === true) {
             if (!form.transfer_country) newErrors.transfer_country = "กรุณาระบุประเทศปลายทาง";
-            if (!form.transfer_company) newErrors.transfer_company = "กรุณาระบุชื่อบริษัท";
             if (!form.transfer_method) newErrors.transfer_method = "กรุณาระบุวิธีการโอนข้อมูล";
-            if (!form.transfer_protection_standard) newErrors.transfer_protection_standard = "กรุณาระบุมาตรฐานการคุ้มครองข้อมูล";
-            if (!form.transfer_exception) newErrors.transfer_exception = "กรุณาระบุข้อยกเว้นตามมาตรา 28";
         }
-        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุการใช้หรือเปิดเผยข้อมูลที่ได้รับยกเว้น";
+        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุการยกเว้นการใช้งาน";
 
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
-            const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const targetTab = fieldToTabMap[firstErrorField] || "owner";
+
+            // 1. Auto-switch tab if necessary
+            if (activeTab !== targetTab) {
+                setActiveTab(targetTab);
             }
-            alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
+
+            // 2. Auto-scroll to the first error with a small delay for tab transition
+            setTimeout(() => {
+                const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }, 100);
+
             return false;
         }
         return true;
@@ -265,38 +316,71 @@ function ManagementFormContent() {
 
     const handleChange = (e: any) => {
         const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
+        const targetChecked = (e.target as any).checked;
 
         let val: any = value;
-        if (type === "number") {
+
+        // 1. Enforce Numeric-only and MaxLength for Phone fields
+        if (name === "phone" || name === "rights_phone") {
+            val = value.replace(/[^0-9]/g, "").slice(0, 10);
+            if (val.length === 10) validateField(name, val);
+        }
+        // 2. Enforce Numeric-only for Retention Value
+        else if (name === "retention_value") {
+            val = value.replace(/[^0-9]/g, "");
+            val = val === "" ? "" : Number(val);
+        }
+        // 3. Handle Standard Numeric Inputs
+        else if (type === "number") {
             val = value === "" ? "" : Math.max(0, Number(value));
         }
-        if (type === "checkbox") {
+        // 4. Handle Checkboxes
+        else if (type === "checkbox" || typeof value === "boolean") {
+            const isManualBoolean = typeof value === "boolean";
+            const checked = isManualBoolean ? value : targetChecked;
+
             if (!name.includes("[]")) {
-                val = (value && value !== "on") ? (checked ? value : "") : checked;
+                val = (value && value !== "on" && !isManualBoolean) ? (checked ? value : "") : checked;
             }
         }
 
+        // 5. General String Cleanups & Validation
         if (typeof val === "string") {
+            if (name === "email" || name === "rights_email") {
+                validateField(name, val);
+            }
             if (val.toLowerCase() === "true") val = true;
             else if (val.toLowerCase() === "false") val = false;
         }
 
-        if (name === "email" || name === "phone") {
-            validateField(name, val);
-        }
-
         setForm((prev: any) => {
+            const next = { ...prev };
+            
             if (name.endsWith("[]")) {
                 const arrayKey = name.replace("[]", "");
                 const currentArray = prev[arrayKey] || [];
+                const checked = (type === "checkbox") ? targetChecked : true;
                 const newArray = checked
                     ? [...currentArray, value]
                     : currentArray.filter((v: string) => v !== value);
-                return { ...prev, [arrayKey]: newArray };
+                next[arrayKey] = newArray;
+                return next;
             }
 
-            return { ...prev, [name]: val };
+            if (name.includes(".")) {
+                const keys = name.split(".");
+                let current = next;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    const key = keys[i];
+                    current[key] = { ...current[key] };
+                    current = current[key];
+                }
+                current[keys[keys.length - 1]] = val;
+                return next;
+            }
+
+            next[name] = val;
+            return next;
         });
     };
 
@@ -324,10 +408,10 @@ function ManagementFormContent() {
         router.push("/data-owner/management/processing");
     };
 
-    /** บันทึกฉบับร่าง → save Draft + กลับ processing */
+    /** บันทึกฉบับร่าง → save Snapshot + กลับ processing */
     const handleDraft = async () => {
-        const saved = await saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
-        localStorage.setItem("ropa_owner_draft", JSON.stringify({ ...form, id: saved.id }));
+        if (!recordId) return;
+        await createOwnerSnapshot(recordId, form);
         setErrors({}); // Clear errors on draft
         setIsDraftSuccessOpen(true);
     };

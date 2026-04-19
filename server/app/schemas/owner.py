@@ -101,6 +101,11 @@ class ProcessorCompaniesResponse(BaseModel):
     """Response สำหรับ dropdown บริษัท DP ในหน้าสร้างเอกสาร"""
     companies: List[str]
 
+class ProcessorAvailabilityResponse(BaseModel):
+    """Response สำหรับตรวจสอบว่าบริษัทมี DP หรือไม่"""
+    available: bool
+    message: Optional[str] = None
+
 
 # =============================================================================
 # Document Create (POST /owner/documents)
@@ -530,3 +535,29 @@ class OwnerDashboardResponse(BaseModel):
 
     # ── Card 11: เอกสารที่ถูกทำลายแล้ว ───────────────────────────────────
     deleted_count: int
+    model_config = {"from_attributes": True}
+
+
+# =============================================================================
+# Snapshots (Drafts)
+# =============================================================================
+
+class OwnerSnapshotRead(BaseModel):
+    """ข้อมูลฉบับร่าง (Snapshot) แบบเต็ม"""
+    id: UUID
+    document_id: UUID
+    document_number: Optional[str] = None
+    title: Optional[str] = None
+    data: dict
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+class OwnerSnapshotTableItem(BaseModel):
+    """รายชื่อในตารางฉบับร่าง (Snapshot)"""
+    id: UUID
+    document_id: UUID
+    document_number: Optional[str] = None
+    title: Optional[str] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+

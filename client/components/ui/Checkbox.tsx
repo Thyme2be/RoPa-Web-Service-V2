@@ -8,35 +8,41 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
 export default function Checkbox({ label, themeColor = "#ED393C", ...props }: Props) {
     return (
         <label className={cn(
-            "flex items-center gap-3 cursor-pointer group select-none",
-            props.disabled && "opacity-100 cursor-not-allowed pointer-events-none"
+            "flex items-center gap-3 cursor-pointer group select-none transition-all",
+            props.disabled && "opacity-80 cursor-not-allowed pointer-events-none"
         )}>
             <div className="relative flex items-center justify-center">
                 <input
                     type="checkbox"
                     {...props}
-                    className="peer appearance-none h-5 w-5 border border-[#CEC4C2] rounded-md focus:ring-4 checked:bg-white transition-all cursor-pointer bg-white shadow-sm disabled:opacity-100 disabled:cursor-not-allowed disabled:bg-gray-50"
-                    style={{ 
-                        borderColor: props.checked ? themeColor : "#CEC4C2",
-                        // @ts-ignore
-                        "--tw-ring-color": `${themeColor}1A` 
-                    }}
+                    className={cn(
+                        "peer appearance-none h-5 w-5 border rounded-md transition-all cursor-pointer shadow-sm disabled:opacity-100 disabled:cursor-not-allowed disabled:bg-gray-50",
+                        props.checked ? "bg-red-500 border-red-500" : "bg-white border-[#9CA3AF] hover:border-[#CEC4C2]"
+                    )}
+                    style={props.checked ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
                 />
                 <svg
-                    className="absolute h-3 w-3 pointer-events-none stroke-[4px] opacity-0 peer-checked:opacity-100 transition-opacity"
-                    xmlns="http://www.w3.org/2000/svg"
+                    className={cn(
+                        "absolute h-3.5 w-3.5 pointer-events-none stroke-[4px] opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100",
+                    )}
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke={themeColor}
+                    stroke="white"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 >
                     <polyline points="20 6 9 17 4 12" />
                 </svg>
             </div>
-            <span className="text-[13px] font-medium text-black leading-tight group-hover:text-on-surface transition-colors">
-                {label}
-            </span>
+            {label && (
+                <span className={cn(
+                    "text-[13px] font-bold transition-colors tracking-tight",
+                    props.checked ? "text-[#1B1C1C]" : "text-[#5C403D]",
+                    props.disabled && "text-gray-400 font-medium"
+                )}>
+                    {label}
+                </span>
+            )}
         </label>
     );
 }
