@@ -94,6 +94,15 @@ class StorageMethodOut(StorageMethodIn):
 
 
 # =============================================================================
+# Processor Companies (GET /owner/processors/companies)
+# =============================================================================
+
+class ProcessorCompaniesResponse(BaseModel):
+    """Response สำหรับ dropdown บริษัท DP ในหน้าสร้างเอกสาร"""
+    companies: List[str]
+
+
+# =============================================================================
 # Document Create (POST /owner/documents)
 # =============================================================================
 
@@ -102,14 +111,13 @@ class DocumentCreateOwner(BaseModel):
     Payload สำหรับสร้างเอกสารใหม่โดย Data Owner
     - หน้า: Modal "สร้างเอกสาร"
     - กด "สร้าง" → สร้าง ropa_documents + ropa_owner_sections + processor_assignments
+    - backend สุ่ม DP แบบ round robin จาก users ที่ role=PROCESSOR และ company_name ตรงกัน
     """
     title: str
     description: Optional[str] = None
     review_interval_days: int = 365
     due_date: Optional[datetime] = None
-    processor_company: Optional[str] = None
-    # DP user ที่ถูก assign ให้กรอก Processor Section
-    assigned_processor_id: int
+    processor_company: str  # ชื่อบริษัท DP ที่เลือกจาก dropdown → ใช้สุ่ม DP
 
 
 # =============================================================================
