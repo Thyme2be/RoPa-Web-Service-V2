@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { ListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
 import { useRopa } from "@/context/RopaContext";
@@ -35,7 +35,7 @@ export default function RopaApprovedPage() {
                         statusOptions={[{ label: "ตรวจสอบเสร็จสิ้น", value: "done" }]} 
                     />
 
-                    <ListCard title="เอกสารที่อนุมัติ" icon="task_alt" iconColor="#0D9488" bodyClassName="p-0">
+                    <DocumentListCard title="เอกสารที่อนุมัติ" icon="task_alt" iconColor="#0D9488" bodyClassName="p-0">
 
                         <DocumentTable>
                             <DocumentTableHead>
@@ -104,7 +104,7 @@ export default function RopaApprovedPage() {
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
-                    </ListCard>
+                    </DocumentListCard>
                 </div>
             </main>
         </div>
