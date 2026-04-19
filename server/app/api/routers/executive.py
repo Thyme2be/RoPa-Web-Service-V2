@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.rbac import Role, require_roles
-from app.models.assignment import AuditorAssignmentModel, ProcessorAssignmentModel
+from app.models.assignment import ProcessorAssignmentModel
 from app.models.document import RopaDocumentModel, RopaRiskAssessmentModel
 from app.models.section_owner import RopaOwnerSectionModel, OwnerDataTypeModel
 from app.models.section_processor import RopaProcessorSectionModel
+from app.models.user import UserModel
 from app.models.workflow import ReviewFeedbackModel
 from app.schemas.user import UserRead
 from app.schemas.executive import (
@@ -124,25 +125,26 @@ def executive_dashboard(
         total=len(all_docs),
     )
 
-    # Risk by department (from auditor_assignments.department)
+    # Risk by department (from users.department of the Data Owner who created the document)
     dept_q = (
         db.query(
-            AuditorAssignmentModel.department,
+            UserModel.department,
             RopaRiskAssessmentModel.risk_level,
             func.count(RopaRiskAssessmentModel.id).label("cnt"),
         )
-        .join(RopaDocumentModel, AuditorAssignmentModel.document_id == RopaDocumentModel.id)
+        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .join(UserModel, UserModel.id == RopaOwnerSectionModel.owner_id)
         .join(RopaRiskAssessmentModel, RopaRiskAssessmentModel.document_id == RopaDocumentModel.id)
         .filter(
-            AuditorAssignmentModel.department.isnot(None),
+            UserModel.department.isnot(None),
             RopaDocumentModel.id.in_(doc_ids),
         )
     )
     if department:
-        dept_q = dept_q.filter(AuditorAssignmentModel.department == department)
+        dept_q = dept_q.filter(UserModel.department == department)
 
     dept_rows = dept_q.group_by(
-        AuditorAssignmentModel.department,
+        UserModel.department,
         RopaRiskAssessmentModel.risk_level,
     ).all()
 
@@ -168,21 +170,21 @@ def executive_dashboard(
         for dept, v in risk_map.items()
     ]
 
-    # Sensitive documents by department
+    # Sensitive documents by department (from users.department of the Data Owner)
     sensitive_rows = (
         db.query(
-            AuditorAssignmentModel.department,
+            UserModel.department,
             func.count(func.distinct(RopaDocumentModel.id)).label("cnt"),
         )
-        .join(RopaDocumentModel, AuditorAssignmentModel.document_id == RopaDocumentModel.id)
         .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .join(UserModel, UserModel.id == RopaOwnerSectionModel.owner_id)
         .join(OwnerDataTypeModel, OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id)
         .filter(
-            AuditorAssignmentModel.department.isnot(None),
+            UserModel.department.isnot(None),
             OwnerDataTypeModel.is_sensitive == True,
             RopaDocumentModel.id.in_(doc_ids),
         )
-        .group_by(AuditorAssignmentModel.department)
+        .group_by(UserModel.department)
         .all()
     )
     sensitive_by_dept = [

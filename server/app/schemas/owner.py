@@ -427,32 +427,40 @@ class ActiveTableItem(BaseModel):
 class SentToDpoTableItem(BaseModel):
     """
     ตาราง 2 – เอกสารที่ส่ง DPO แล้ว (status = UNDER_REVIEW)
-    แสดง: เลขเอกสาร RP-YYYY-XX, ชื่อ, DPO name, สถานะ review cycle, วันที่ส่ง, วันที่ DPO ตรวจสอบ
+    ui_status 5 ค่า:
+      WAITING_REVIEW  = รอตรวจสอบ (DO ส่งให้ DPO ตรวจ cycle.status=IN_REVIEW ไม่มี feedback)
+      WAITING_DO_FIX  = รอ DO แก้ไข (DPO ส่ง feedback ให้ DO)
+      WAITING_DP_FIX  = รอ DP แก้ไข (DPO ส่ง feedback ให้ DP)
+      DO_DONE         = DO ดำเนินการเสร็จสิ้น (DO ส่งแก้ไขคืน DPO แล้ว)
+      DP_DONE         = DP ดำเนินการเสร็จสิ้น (DP ส่งแก้ไขคืน DPO แล้ว)
     """
     document_id: UUID
-    document_number: Optional[str]         # RP-YYYY-XX
+    document_number: Optional[str]
     title: Optional[str]
-    dpo_name: Optional[str]               # ชื่อ DPO ที่รับผิดชอบ review cycle นี้
-    review_status: ReviewStatusEnum
-    review_assignment_status: Optional[ReviewAssignmentStatusEnum]   # สถานะ review assignment ของ DO
-    sent_at: Optional[datetime]            # requested_at ของ review cycle
-    reviewed_at: Optional[datetime]        # วันที่ DPO ตรวจสอบ (reviewed_at ของ cycle)
+    dpo_name: Optional[str]
+    ui_status: str
+    ui_status_label: str
+    sent_at: Optional[datetime]
+    reviewed_at: Optional[datetime]
     due_date: Optional[datetime]
 
 class ApprovedTableItem(BaseModel):
     """
     ตาราง 3 – เอกสารที่ DPO อนุมัติแล้ว (status = COMPLETED)
-    แสดง: เลขเอกสาร, ชื่อ DO, ชื่อ DPO, วันอนุมัติ, วันต้องทำลาย (คำนวณ), วันทบทวนประจำปี
+    annual_review_status 2 ค่า:
+      NOT_REVIEWED = ครบกำหนดแล้วแต่ยังไม่ส่งตรวจ (next_review_due_at <= now)
+      REVIEWED     = ตรวจสอบเสร็จสิ้นแล้ว (ยังไม่ครบกำหนด หรือมี cycle APPROVED ในรอบนี้)
     """
     document_id: UUID
     document_number: Optional[str]
     title: Optional[str]
-    do_name: Optional[str]                 # ชื่อ Data Owner ที่สร้างเอกสาร
-    dpo_name: Optional[str]               # ชื่อ DPO ที่อนุมัติ
+    do_name: Optional[str]
+    dpo_name: Optional[str]
     last_approved_at: Optional[datetime]
     next_review_due_at: Optional[datetime]
-    destruction_date: Optional[datetime]   # คำนวณจาก last_approved_at + retention
-    annual_review_overdue: bool            # True ถ้าเลยกำหนด next_review_due_at
+    destruction_date: Optional[datetime]
+    annual_review_status: str              # NOT_REVIEWED | REVIEWED
+    annual_review_status_label: str
 
 class DestroyedTableItem(BaseModel):
     """
@@ -503,8 +511,8 @@ class OwnerDashboardResponse(BaseModel):
     # ── Card 7: เอกสารประเภทข้อมูลอ่อนไหว ────────────────────────────────
     sensitive_document_count: int    # มีการระบุ data_categories ใน owner section
 
-    # ── Card 8: เอกสารที่ล่าช้า (ครบกำหนดทำลายแล้วแต่ยังไม่ถูกทำลาย) ────
-    overdue_destruction_count: int
+    # ── Card 8: เอกสารที่ DP ส่งช้าเกินกำหนด (IN_PROGRESS ที่เลย due_date แล้ว DP ยังไม่ submit) ──
+    overdue_dp_count: int
 
     # ── Card 9: เอกสารที่ต้องเช็ครายปี (แยก ตรวจแล้ว / ยังไม่ตรวจ) ──────
     annual_reviewed_count: int       # COMPLETED ที่มี review cycle มากกว่า 1 รอบ

@@ -2,7 +2,7 @@
 
 Base URL: `/api/v1`  
 Authentication: ทุก request ต้องใส่ Header `Authorization: Bearer <access_token>`  
-Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว้น Processor routes ที่ใช้ role `PROCESSOR`)
+Role ที่ใช้ได้: `OWNER` เท่านั้น
 
 ---
 
@@ -10,23 +10,24 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 
 1. [สร้างเอกสาร](#1-post-ownerdocuments--สร้างเอกสาร)
 2. [Dashboard](#2-get-ownerdashboard--dashboard)
-3. [ตาราง Active](#3-get-ownertablesactive--ตาราง-active)
-4. [ตาราง Sent-to-DPO](#4-get-ownertablessent-to-dpo--ตาราง-sent-to-dpo)
-5. [ตาราง Approved](#5-get-ownertablesapproved--ตาราง-approved)
-6. [ตาราง Destroyed](#6-get-ownertablesdestroyed--ตาราง-destroyed)
+3. [ตาราง 1 — Active](#3-get-ownertablesactive--ตาราง-1-active)
+4. [ตาราง 2 — Sent-to-DPO](#4-get-ownertablessent-to-dpo--ตาราง-2-sent-to-dpo)
+5. [ตาราง 3 — Approved](#5-get-ownertablesapproved--ตาราง-3-approved)
+6. [ตาราง 4 — Destroyed](#6-get-ownertablesdestroyed--ตาราง-4-destroyed)
 7. [ดู Owner Section (Tab 1)](#7-get-ownerdocumentsiddocument_idsection--ดู-owner-section)
 8. [บันทึกฉบับร่าง](#8-patch-ownerdocumentsiddocument_idsection--บันทึกฉบับร่าง)
 9. [บันทึก (Submit)](#9-post-ownerdocumentsiddocument_idsectionsubmit--บันทึก-submit)
-10. [ส่งให้ DPO](#10-post-ownerdocumentsiddocument_idsend-to-dpo--ส่งให้-dpo)
-11. [ส่งแก้ไขคืน DPO](#11-post-ownerdocumentsiddocument_idsend-back-to-dpo--ส่งแก้ไขคืน-dpo)
-12. [ส่งตรวจสอบรายปี](#12-post-ownerdocumentsiddocument_idannual-review--ส่งตรวจสอบรายปี)
-13. [ดู Processor Section (Tab 2)](#13-get-ownerdocumentsiddocument_idprocessor-section--ดู-processor-section-tab-2)
-14. [แก้ไขคำแนะนำถึง DP](#14-patch-ownerdocumentsiddocument_idprocessor-sectionsuggestion--แก้ไขคำแนะนำถึง-dp)
-15. [ส่ง Feedback ให้ DP](#15-post-ownerdocumentsiddocument_idprocessor-sectionfeedback--ส่ง-feedback-ให้-dp)
-16. [ดู Risk Assessment (Tab 3)](#16-get-ownerdocumentsiddocument_idrisk--ดู-risk-assessment)
-17. [บันทึก Risk Assessment](#17-post-ownerdocumentsiddocument_idrisk--บันทึก-risk-assessment)
-18. [ดู Deletion Request (Tab 4)](#18-get-ownerdocumentsiddocument_iddeletion--ดู-deletion-request)
-19. [ยื่นคำร้องขอทำลาย](#19-post-ownerdocumentsiddocument_iddeletion--ยื่นคำร้องขอทำลาย)
+10. [ลบข้อมูลฉบับร่าง](#10-delete-ownerdocumentsiddocument_idsectiondraft--ลบฉบับร่าง)
+11. [ส่งให้ DPO](#11-post-ownerdocumentsiddocument_idsend-to-dpo--ส่งให้-dpo)
+12. [ส่งแก้ไขคืน DPO](#12-post-ownerdocumentsiddocument_idsend-back-to-dpo--ส่งแก้ไขคืน-dpo)
+13. [ส่งตรวจสอบรายปี](#13-post-ownerdocumentsiddocument_idannual-review--ส่งตรวจสอบรายปี)
+14. [ดู Processor Section (Tab 2)](#14-get-ownerdocumentsiddocument_idprocessor-section--ดู-processor-section-tab-2)
+15. [แก้ไขคำแนะนำถึง DP](#15-patch-ownerdocumentsiddocument_idprocessor-sectionsuggestion--แก้ไขคำแนะนำถึง-dp)
+16. [ส่ง Feedback ให้ DP](#16-post-ownerdocumentsiddocument_idprocessor-sectionfeedback--ส่ง-feedback-ให้-dp)
+17. [ดู Risk Assessment (Tab 3)](#17-get-ownerdocumentsiddocument_idrisk--ดู-risk-assessment)
+18. [บันทึก Risk Assessment](#18-post-ownerdocumentsiddocument_idrisk--บันทึก-risk-assessment)
+19. [ดู Deletion Request (Tab 4)](#19-get-ownerdocumentsiddocument_iddeletion--ดู-deletion-request)
+20. [ยื่นคำร้องขอทำลาย](#20-post-ownerdocumentsiddocument_iddeletion--ยื่นคำร้องขอทำลาย)
 
 ---
 
@@ -52,7 +53,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 | `title` | ✅ | ชื่อเอกสาร |
 | `assigned_processor_id` | ✅ | user.id ของ DP ที่จะ assign (ต้องมี role = PROCESSOR) |
 | `review_interval_days` | ❌ | default 365 (ทบทวนรายปี) |
-| `due_date` | ❌ | วันกำหนดส่ง |
+| `due_date` | ❌ | วันกำหนดส่งของ DP |
 | `processor_company` | ❌ | ชื่อบริษัทของ DP |
 
 ### Response `201 Created`
@@ -64,13 +65,14 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 }
 ```
 
-> หลังสร้างสำเร็จ → redirect ไปหน้าตาราง Active หรือเปิดฟอร์ม Owner Section
+> หลังสร้างสำเร็จ → เอกสารปรากฏใน ตาราง 1 (Active) ทันที  
+> `document_number` ขึ้นต้นด้วย `DFT-` (ฉบับร่าง) จนกว่าจะส่ง DPO จะเปลี่ยนเป็น `RP-`
 
 ---
 
 ## 2. GET /owner/dashboard — Dashboard
 
-**หน้า UI:** หน้าแดชบอร์ด  
+**หน้า UI:** หน้าแดชบอร์ด sidebar  
 **เรียกเมื่อ:** เข้าหน้าแดชบอร์ด
 
 ### Response `200`
@@ -88,7 +90,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
   "pending_dp_count": 5,
   "completed_count": 12,
   "sensitive_document_count": 6,
-  "overdue_destruction_count": 2,
+  "overdue_dp_count": 2,
   "annual_reviewed_count": 7,
   "annual_not_reviewed_count": 3,
   "destruction_due_count": 2,
@@ -96,32 +98,34 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 }
 ```
 
-| Field | Card UI | คำอธิบาย |
-|-------|---------|---------|
-| `total_documents` | Card รวมทั้งหมด | เอกสารทั้งหมดที่ DO นี้สร้าง |
-| `needs_fix_do_count` | Card ต้องแก้ไข (DO) | DPO ส่ง review กลับมาให้ DO แก้ไข (ReviewAssignment role=OWNER, FIX_IN_PROGRESS) |
-| `needs_fix_dp_count` | Card ต้องแก้ไข (DP) | DP ต้องแก้ไข ไม่ว่า feedback จะมาจาก **DO หรือ DPO** ก็ตาม (นับ distinct document) |
-| `risk_low_count` | Donut chart ความเสี่ยง | score < 8 |
-| `risk_medium_count` | Donut chart ความเสี่ยง | score 8–14 |
-| `risk_high_count` | Donut chart ความเสี่ยง | score ≥ 15 |
-| `under_review_storage_count` | Card รอ DPO (จัดเก็บ) | UNDER_REVIEW ปกติ |
-| `under_review_deletion_count` | Card รอ DPO (ทำลาย) | deletion_status = DELETE_PENDING |
-| `pending_do_count` | Card รอดำเนินการ (DO) | IN_PROGRESS + owner_section.status = DRAFT |
-| `pending_dp_count` | Card รอดำเนินการ (DP) | IN_PROGRESS + processor_section.status = DRAFT |
-| `completed_count` | Card อนุมัติแล้ว | status = COMPLETED |
-| `sensitive_document_count` | Card ข้อมูลอ่อนไหว | DO ติ๊กช่อง "ข้อมูลอ่อนไหว" ใน Section 4 ของฟอร์ม (owner_data_types มีอย่างน้อย 1 รายการที่ is_sensitive = true) |
-| `overdue_destruction_count` | Card ล่าช้า | เอกสาร IN_PROGRESS ที่เลย `due_date` (วันกำหนดส่งที่ DO ตั้งตอนสร้าง) แล้ว แต่ DP ยังไม่ submit |
-| `annual_reviewed_count` | Card รายปี (ตรวจแล้ว) | COMPLETED ที่ DO เคยกดส่งตรวจรายปีและ DPO อนุมัติแล้วอย่างน้อย 1 รอบ (review cycle_number > 1 และ APPROVED) |
-| `annual_not_reviewed_count` | Card รายปี (ยังไม่ตรวจ) | COMPLETED ที่ครบกำหนดทบทวนรายปีแล้ว (`วันที่ DPO อนุมัติ + review_interval_days ≤ วันนี้`) แต่ DO ยังไม่ได้กดส่งตรวจใหม่ |
-| `destruction_due_count` | Card ครบกำหนดทำลาย | COMPLETED ที่ retention period (จากฟอร์ม DO Section 5 หรือ DP Section 4) ครบกำหนดแล้ว แต่ยังไม่ยื่นขอทำลาย |
-| `deleted_count` | Card ถูกทำลายแล้ว | deletion_status = DELETED |
+| Field | Card UI | คำอธิบาย | แหล่งข้อมูล |
+|-------|---------|---------|------------|
+| `total_documents` | รวมทั้งหมด | เอกสารทั้งหมดที่ DO นี้สร้าง | `ropa_documents.created_by` |
+| `needs_fix_do_count` | ต้องแก้ไข (DO) | นับ distinct document ที่มี OPEN feedback ส่งมาถึง DO ใน review cycle (DPO ส่งให้แก้) | `review_feedbacks.to_user_id == uid AND status = OPEN` |
+| `needs_fix_dp_count` | ต้องแก้ไข (DP) | นับ distinct document ที่ DP ต้องแก้ ไม่ว่า feedback จะมาจาก DO หรือ DPO | OPEN feedback ถึง DP ใน cycle + OPEN feedback ตรงจาก DO |
+| `risk_low_count` | Donut chart | score < 8 | `ropa_risk_assessments.risk_level = LOW` |
+| `risk_medium_count` | Donut chart | score 8–14 | `risk_level = MEDIUM` |
+| `risk_high_count` | Donut chart | score ≥ 15 | `risk_level = HIGH` |
+| `under_review_storage_count` | รอ DPO (จัดเก็บ) | UNDER_REVIEW ที่ไม่ใช่คำร้องทำลาย | `status = UNDER_REVIEW AND deletion_status IS NULL` |
+| `under_review_deletion_count` | รอ DPO (ทำลาย) | รอ DPO อนุมัติการทำลาย | `deletion_status = DELETE_PENDING` |
+| `pending_do_count` | รอดำเนินการ (DO) | DO ยังไม่ submit | `IN_PROGRESS AND owner_section.status = DRAFT` |
+| `pending_dp_count` | รอดำเนินการ (DP) | DP ยังไม่ submit | `IN_PROGRESS AND processor_section.status = DRAFT` |
+| `completed_count` | อนุมัติแล้ว | DPO อนุมัติแล้ว | `status = COMPLETED` ⚠️ จะเป็น 0 จนกว่า DPO implement approve endpoint |
+| `sensitive_document_count` | ข้อมูลอ่อนไหว | DO ติ๊ก is_sensitive = true ใน Section 4 | `owner_data_types.is_sensitive = true` (distinct doc) |
+| `overdue_dp_count` | DP ส่งช้า | เอกสาร IN_PROGRESS ที่ DP ยังไม่ submit แต่เลย due_date แล้ว | `processor_assignments.due_date <= now AND status != SUBMITTED` |
+| `annual_reviewed_count` | รายปี (ตรวจแล้ว) | COMPLETED ที่ผ่าน annual review cycle แล้ว | `review_cycles.cycle_number > 1 AND status = APPROVED` ⚠️ ต้องรอ DPO |
+| `annual_not_reviewed_count` | รายปี (ยังไม่ตรวจ) | COMPLETED ที่ครบ 1 ปีแล้วแต่ยังไม่ส่งตรวจ | `next_review_due_at <= now` ⚠️ ต้องรอ DPO |
+| `destruction_due_count` | ครบกำหนดทำลาย | retention period หมดแล้ว ยังไม่ยื่นขอทำลาย | คำนวณจาก `last_approved_at + retention` ⚠️ ต้องรอ DPO |
+| `deleted_count` | ถูกทำลายแล้ว | ถูกทำลายแล้ว | `deletion_status = DELETED` |
+
+> ⚠️ `completed_count`, `annual_reviewed_count`, `annual_not_reviewed_count`, `destruction_due_count` จะเป็น 0 จนกว่า DPO team implement approve endpoint
 
 ---
 
-## 3. GET /owner/tables/active — ตาราง Active
+## 3. GET /owner/tables/active — ตาราง 1 Active
 
-**หน้า UI:** ตาราง 1 — เอกสาร Active (IN_PROGRESS)  
-**เรียกเมื่อ:** เข้าหน้าตารางเอกสาร tab "Active"
+**หน้า UI:** ตาราง 1 — เอกสาร Active (IN_PROGRESS) — แสดงทุกเอกสารที่ DO สร้าง ยกเว้น DELETED  
+**เรียกเมื่อ:** เข้าหน้าตาราง
 
 ### Response `200` — Array
 ```json
@@ -150,21 +154,28 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 ]
 ```
 
-**`owner_status.code` ที่เป็นไปได้:**
-| code | label | ความหมาย |
+**`owner_status.code` ที่เป็นไปได้ (2 ค่าเท่านั้น):**
+| code | label | เงื่อนไข |
 |------|-------|---------|
-| `WAITING_DO` | รอส่วนของ Data Owner | DO ยังไม่ submit |
-| `DO_DONE` | Data Owner ดำเนินการเสร็จสิ้น | DO submit แล้ว |
-| `NEEDS_FIX` | รอแก้ไขจาก Data Owner | DPO ส่ง review กลับมา |
-| `FIX_SENT` | ส่งการแก้ไขแล้ว | DO ส่งแก้ไขคืน DPO แล้ว |
+| `WAITING_DO` | รอส่วนของ Data Owner | `owner_section.status = DRAFT` หรือไม่มี section |
+| `DO_DONE` | Data Owner ดำเนินการเสร็จสิ้น | `owner_section.status = SUBMITTED` |
+
+**`processor_status.code` ที่เป็นไปได้ (2 ค่าเท่านั้น):**
+| code | label | เงื่อนไข |
+|------|-------|---------|
+| `WAITING_DP` | รอส่วนของ Data Processor | `processor_section.status = DRAFT` หรือไม่มี section |
+| `DP_DONE` | Data Processor ดำเนินการเสร็จสิ้น | `processor_section.status = SUBMITTED` |
 
 **Actions ในแถว:**
-- 👁️ ดูฟอร์ม → `GET /owner/documents/{document_id}/section`
-- ✈️ ส่ง DPO → `POST /owner/documents/{document_id}/send-to-dpo` (เปิดใช้ได้เมื่อ owner + processor ทั้งคู่ SUBMITTED และมี Risk Assessment)
+| ปุ่ม | Endpoint | เงื่อนไขแสดง |
+|------|----------|------------|
+| 👁️ ดูฟอร์ม | `GET /owner/documents/{id}/section` | แสดงทุกแถว |
+| ✈️ ส่ง DPO | `POST /owner/documents/{id}/send-to-dpo` | `owner_section_status = SUBMITTED` AND `processor_section_status = SUBMITTED` AND มี Risk Assessment |
+| ✈️❌ ยื่นขอทำลาย | `POST /owner/documents/{id}/deletion` | แสดงทุกแถว |
 
 ---
 
-## 4. GET /owner/tables/sent-to-dpo — ตาราง Sent-to-DPO
+## 4. GET /owner/tables/sent-to-dpo — ตาราง 2 Sent-to-DPO
 
 **หน้า UI:** ตาราง 2 — เอกสารที่ส่ง DPO แล้ว (UNDER_REVIEW)
 
@@ -176,8 +187,8 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
     "document_number": "RP-2025-01",
     "title": "string",
     "dpo_name": "string | null",
-    "review_status": "IN_REVIEW | APPROVED | CHANGES_REQUESTED",
-    "review_assignment_status": "FIX_IN_PROGRESS | FIX_SUBMITTED | null",
+    "ui_status": "WAITING_REVIEW",
+    "ui_status_label": "รอตรวจสอบ",
     "sent_at": "datetime | null",
     "reviewed_at": "datetime | null",
     "due_date": "datetime | null"
@@ -185,15 +196,29 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 ]
 ```
 
+**`ui_status` ที่เป็นไปได้ (5 ค่า):**
+| ui_status | ui_status_label | ความหมาย |
+|-----------|----------------|---------|
+| `WAITING_REVIEW` | รอตรวจสอบ | DO ส่งให้ DPO แล้ว ยังไม่มี feedback |
+| `WAITING_DO_FIX` | รอ DO แก้ไข | DPO ส่ง feedback OPEN มาถึง DO |
+| `WAITING_DP_FIX` | รอ DP แก้ไข | DPO ส่ง feedback OPEN มาถึง DP |
+| `DO_DONE` | DO ดำเนินการเสร็จสิ้น | DO กด send-back-to-dpo แล้ว (`ReviewAssignment.status = FIX_SUBMITTED`) |
+| `DP_DONE` | DP ดำเนินการเสร็จสิ้น | DP ส่งแก้ไขคืน DPO แล้ว |
+
 **Actions ในแถว:**
-- 👁️ ดูฟอร์ม
-- ✈️ ส่งแก้ไขคืน DPO → `POST /owner/documents/{document_id}/send-back-to-dpo` (เปิดได้เมื่อ review_assignment_status = `FIX_IN_PROGRESS`)
+| ปุ่ม | Endpoint | เงื่อนไขแสดง |
+|------|----------|------------|
+| 👁️ ดูฟอร์ม | `GET /owner/documents/{id}/section` | แสดงทุกแถว |
+| ✈️ ส่งแก้ไขคืน DPO | `POST /owner/documents/{id}/send-back-to-dpo` | `ui_status = "WAITING_DO_FIX"` |
+| ✈️❌ ยื่นขอทำลาย | `POST /owner/documents/{id}/deletion` | แสดงทุกแถว |
 
 ---
 
-## 5. GET /owner/tables/approved — ตาราง Approved
+## 5. GET /owner/tables/approved — ตาราง 3 Approved
 
-**หน้า UI:** ตาราง 3 — เอกสารที่ DPO อนุมัติแล้ว (COMPLETED)
+**หน้า UI:** ตาราง 3 — เอกสารที่ครบรอบ 1 ปีหลังอนุมัติ (COMPLETED + ครบ next_review_due_at)
+
+> ⚠️ ตารางนี้จะว่างจนกว่า DPO implement approve endpoint (ที่เซต `doc.status = COMPLETED` และ `next_review_due_at`)
 
 ### Response `200` — Array
 ```json
@@ -207,21 +232,31 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
     "last_approved_at": "datetime | null",
     "next_review_due_at": "datetime | null",
     "destruction_date": "datetime | null",
-    "annual_review_overdue": false
+    "annual_review_status": "NOT_REVIEWED",
+    "annual_review_status_label": "ยังไม่ตรวจสอบ"
   }
 ]
 ```
 
+**`annual_review_status` (1 ค่าในตอนนี้):**
+| annual_review_status | label | ความหมาย |
+|---------------------|-------|---------|
+| `NOT_REVIEWED` | ยังไม่ตรวจสอบ | ครบ 1 ปีแล้วแต่ยังไม่ส่ง DPO ตรวจรายปี |
+
+> ทุกแถวในตาราง 3 จะเป็น `NOT_REVIEWED` เสมอ เพราะ filter เฉพาะเอกสารที่ `next_review_due_at <= now`
+
 **Actions ในแถว:**
-- 👁️ ดูฟอร์ม
-- ✈️ ส่งตรวจสอบรายปี → `POST /owner/documents/{document_id}/annual-review` (เปิดเมื่อ `annual_review_overdue = true`)
-- ✈️❌ ยื่นขอทำลาย → `POST /owner/documents/{document_id}/deletion`
+| ปุ่ม | Endpoint | เงื่อนไขแสดง |
+|------|----------|------------|
+| 👁️ ดูฟอร์ม | `GET /owner/documents/{id}/section` | แสดงทุกแถว |
+| ✈️ ส่งตรวจสอบรายปี | `POST /owner/documents/{id}/annual-review` | `annual_review_status = "NOT_REVIEWED"` |
+| ✈️❌ ยื่นขอทำลาย | `POST /owner/documents/{id}/deletion` | แสดงทุกแถว |
 
 ---
 
-## 6. GET /owner/tables/destroyed — ตาราง Destroyed
+## 6. GET /owner/tables/destroyed — ตาราง 4 Destroyed
 
-**หน้า UI:** ตาราง 4 — เอกสารที่ถูกทำลายแล้ว
+**หน้า UI:** ตาราง 4 — เอกสารที่ถูกทำลายแล้ว (`deletion_status = DELETED`)
 
 ### Response `200` — Array
 ```json
@@ -242,8 +277,10 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 
 ## 7. GET /owner/documents/{document_id}/section — ดู Owner Section
 
-**หน้า UI:** ฟอร์มกรอก Tab 1 "ส่วนของผู้รับผิดชอบข้อมูล"  
-**เรียกเมื่อ:** เปิดฟอร์ม (โหลดข้อมูลที่บันทึกไว้)
+**หน้า UI:** กดรูปตา 👁️ → เปิดฟอร์ม Tab 1  
+**เรียกเมื่อ:** โหลดฟอร์มเพื่อแสดงข้อมูลที่บันทึกไว้
+
+> ถ้า DO เคยลบฉบับร่างไปแล้ว → API จะสร้าง owner section เปล่าใหม่อัตโนมัติ ไม่คืน 404
 
 ### Response `200`
 ```json
@@ -271,25 +308,13 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
   "personal_data_items": [
     { "id": "uuid", "type": "string", "other_description": "string | null" }
   ],
-  "data_categories": [
-    { "id": "uuid", "category": "string" }
-  ],
-  "data_types": [
-    { "id": "uuid", "type": "GENERAL | SENSITIVE", "is_sensitive": false }
-  ],
-  "collection_methods": [
-    { "id": "uuid", "method": "string" }
-  ],
-  "data_sources": [
-    { "id": "uuid", "source": "string", "other_description": "string | null" }
-  ],
+  "data_categories": [{ "id": "uuid", "category": "string" }],
+  "data_types": [{ "id": "uuid", "type": "string", "is_sensitive": false }],
+  "collection_methods": [{ "id": "uuid", "method": "string" }],
+  "data_sources": [{ "id": "uuid", "source": "string", "other_description": "string | null" }],
 
-  "storage_types": [
-    { "id": "uuid", "type": "string" }
-  ],
-  "storage_methods": [
-    { "id": "uuid", "method": "string", "other_description": "string | null" }
-  ],
+  "storage_types": [{ "id": "uuid", "type": "string" }],
+  "storage_methods": [{ "id": "uuid", "method": "string", "other_description": "string | null" }],
   "data_source_other": "string | null",
   "retention_value": 5,
   "retention_unit": "YEARS | MONTHS | DAYS | null",
@@ -321,113 +346,68 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 ## 8. PATCH /owner/documents/{document_id}/section — บันทึกฉบับร่าง
 
 **หน้า UI:** ปุ่ม "บันทึกฉบับร่าง"  
-**เรียกเมื่อ:** กดบันทึกโดยไม่ต้องกรอกครบ, `status` ยังเป็น DRAFT
+**ผล:** บันทึกข้อมูล, `status` ยังเป็น `DRAFT`
 
 ### Request Body
-> ส่งเฉพาะ field ที่ต้องการบันทึก ไม่จำเป็นต้องครบ (ทุก field เป็น optional)
+> ส่งเฉพาะ field ที่ต้องการบันทึก ทุก field เป็น optional
 
-```json
-{
-  "title_prefix": "นาย",
-  "first_name": "สมชาย",
-  "last_name": "ใจดี",
-  "address": "123 ถ.สุขุมวิท กรุงเทพ",
-  "email": "somchai@example.com",
-  "phone": "02-XXX-XXXX",
-
-  "contact_email": "contact@company.com",
-  "company_phone": "02-XXX-XXXX",
-
-  "data_owner_name": "บริษัท ABC จำกัด",
-  "processing_activity": "การรับสมัครพนักงาน",
-  "purpose_of_processing": "เพื่อพิจารณาจ้างงาน",
-
-  "personal_data_items": [
-    { "type": "ชื่อ-นามสกุล", "other_description": null },
-    { "type": "เบอร์โทรศัพท์", "other_description": null }
-  ],
-  "data_categories": [
-    { "category": "พนักงาน" }
-  ],
-  "data_types": [
-    { "type": "GENERAL", "is_sensitive": false },
-    { "type": "SENSITIVE", "is_sensitive": true }
-  ],
-  "collection_methods": [
-    { "method": "ข้อมูลอิเล็กทรอนิกส์" }
-  ],
-  "data_sources": [
-    { "source": "จากเจ้าของข้อมูลโดยตรง", "other_description": null }
-  ],
-
-  "storage_types": [
-    { "type": "ข้อมูลอิเล็กทรอนิกส์" }
-  ],
-  "storage_methods": [
-    { "method": "Cloud Storage", "other_description": null }
-  ],
-  "retention_value": 5,
-  "retention_unit": "YEARS",
-  "access_control_policy": "กำหนดสิทธิ์เฉพาะผู้มีสิทธิ์",
-  "deletion_method": "ลบถาวรจากระบบ",
-
-  "legal_basis": "ปฏิบัติตามสัญญา",
-  "has_cross_border_transfer": false,
-  "minor_consent_types": ["NONE"],
-
-  "org_measures": "มีนโยบาย PDPA",
-  "access_control_measures": "ใช้ MFA",
-  "technical_measures": "เข้ารหัสข้อมูล AES-256",
-  "responsibility_measures": "กำหนดผู้รับผิดชอบ",
-  "physical_measures": "ระบบ CCTV + keycard",
-  "audit_measures": "audit log ทุก 3 เดือน"
-}
-```
-
-> ⚠️ **Sub-tables (personal_data_items, data_categories, data_types, collection_methods, data_sources, storage_types, storage_methods, minor_consent_types):**  
-> - ถ้าส่ง field นั้นมา → **ลบของเก่าทั้งหมดแล้ว insert ใหม่** (replace-all pattern)  
-> - ถ้าไม่ส่ง field นั้น (`null` หรือไม่มี key) → ของเดิมยังคงอยู่ ไม่ถูกแตะ
+> ⚠️ **Sub-tables** (personal_data_items, data_categories, data_types, collection_methods, data_sources, storage_types, storage_methods, minor_consent_types):  
+> ถ้าส่ง array มา → **ลบของเก่าทั้งหมดแล้ว insert ใหม่** (replace-all)  
+> ถ้าไม่ส่ง key นั้น → ของเดิมยังคงอยู่
 
 ### Response `200`
-> คืน `OwnerSectionFullRead` เหมือน GET (ดูข้อ 7)
+> คืน `OwnerSectionFullRead` เหมือน GET (ข้อ 7)
 
 ---
 
 ## 9. POST /owner/documents/{document_id}/section/submit — บันทึก (Submit)
 
-**หน้า UI:** ปุ่ม "บันทึก" (สีแดง ปุ่มหลัก)  
-**เรียกเมื่อ:** DO กรอกครบแล้ว ต้องการ submit — `status` เปลี่ยนเป็น `SUBMITTED`
+**หน้า UI:** ปุ่ม "บันทึก" (ปุ่มหลัก)  
+**ผล:** บันทึกข้อมูล + เปลี่ยน `status` เป็น `SUBMITTED`  
+**หลัง submit:** badge ใน ตาราง 1 เปลี่ยนเป็น `DO_DONE`
 
 ### Request Body
-> เหมือนกับ PATCH ทุกอย่าง (ดูข้อ 8)
+> เหมือน PATCH (ข้อ 8) ทุกอย่าง
 
 ### Response `200`
 > คืน `OwnerSectionFullRead` ที่มี `status: "SUBMITTED"`
 
-> หลัง submit สำเร็จ → badge ใน Active Table จะเปลี่ยนเป็น "Data Owner ดำเนินการเสร็จสิ้น"
+---
+
+## 10. DELETE /owner/documents/{document_id}/section/draft — ลบฉบับร่าง
+
+**หน้า UI:** ปุ่ม "ลบ" ในตารางฉบับร่าง (ถ้า UI แยกตารางฉบับร่างไว้)  
+**ผล:** ลบข้อมูล owner section พร้อม sub-tables ทั้งหมด — เอกสารยังอยู่ใน ตาราง 1
+
+**เงื่อนไข:** `owner_section.status = DRAFT` เท่านั้น (ถ้า SUBMITTED จะ error)
+
+### Request Body
+> ไม่มี body
+
+### Response `204 No Content`
+
+### Error Cases
+| Status | Detail |
+|--------|--------|
+| `400` | `ลบได้เฉพาะ owner section ที่ยังเป็น DRAFT เท่านั้น` |
+| `404` | `ไม่พบข้อมูลฉบับร่าง` |
+
+> หลังลบ → GET section จะสร้าง section เปล่าใหม่ให้อัตโนมัติ ไม่ได้ 404
 
 ---
 
-## 10. POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO
+## 11. POST /owner/documents/{document_id}/send-to-dpo — ส่งให้ DPO
 
-**หน้า UI:** ปุ่ม ✈️ ในตาราง Active  
-**เรียกเมื่อ:** DO ต้องการส่งเอกสารให้ DPO review
-
+**หน้า UI:** ปุ่ม ✈️ ในตาราง 1  
 **เงื่อนไขก่อนกด (frontend ควร validate):**
 - `owner_section_status === "SUBMITTED"`
 - `processor_section_status === "SUBMITTED"`
-- มี Risk Assessment แล้ว (เรียก GET /risk ก่อน ถ้า 404 = ยังไม่มี)
+- มี Risk Assessment แล้ว (GET /risk ไม่คืน 404)
 
 ### Request Body
 ```json
-{
-  "dpo_id": 3
-}
+{ "dpo_id": 3 }
 ```
-
-| Field | Required | หมายเหตุ |
-|-------|----------|---------|
-| `dpo_id` | ✅ | user.id ของ DPO ที่จะ assign (ต้องมี role = DPO) |
 
 ### Response `200`
 ```json
@@ -438,7 +418,8 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 }
 ```
 
-> หลังสำเร็จ → document_number เปลี่ยนจาก `DFT-` เป็น `RP-` และเอกสารย้ายไป ตาราง Sent-to-DPO
+> `document_number` เปลี่ยนจาก `DFT-` เป็น `RP-`  
+> เอกสารย้ายจาก ตาราง 1 ไป ตาราง 2
 
 ### Error Cases
 | Status | Detail |
@@ -451,12 +432,11 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 
 ---
 
-## 11. POST /owner/documents/{document_id}/send-back-to-dpo — ส่งแก้ไขคืน DPO
+## 12. POST /owner/documents/{document_id}/send-back-to-dpo — ส่งแก้ไขคืน DPO
 
-**หน้า UI:** ปุ่ม ✈️ ในตาราง Sent-to-DPO  
-**เรียกเมื่อ:** DO แก้ไขตาม feedback ของ DPO แล้ว ต้องการแจ้ง DPO ว่าแก้เสร็จแล้ว
-
-**เงื่อนไข:** `review_assignment_status === "FIX_IN_PROGRESS"`
+**หน้า UI:** ปุ่ม ✈️ ในตาราง 2  
+**เรียกเมื่อ:** DO แก้ไขตาม feedback ของ DPO เสร็จแล้ว  
+**เงื่อนไขแสดงปุ่ม:** `ui_status === "WAITING_DO_FIX"`
 
 ### Request Body
 > ไม่มี body
@@ -466,23 +446,20 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 { "message": "ส่งการแก้ไขคืนให้ DPO สำเร็จ" }
 ```
 
+> หลังกด → `ui_status` ของแถวนั้นเปลี่ยนเป็น `DO_DONE`
+
 ---
 
-## 12. POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี
+## 13. POST /owner/documents/{document_id}/annual-review — ส่งตรวจสอบรายปี
 
-**หน้า UI:** ปุ่ม ✈️ ในตาราง Approved  
-**เรียกเมื่อ:** เอกสาร COMPLETED ครบรอบทบทวน (`annual_review_overdue = true`)
+**หน้า UI:** ปุ่ม ✈️ ในตาราง 3  
+**เรียกเมื่อ:** เอกสาร COMPLETED ครบ 1 ปีแล้ว (`annual_review_status = "NOT_REVIEWED"`)  
+**เงื่อนไขแสดงปุ่ม:** `annual_review_status === "NOT_REVIEWED"`
 
 ### Request Body
 ```json
-{
-  "dpo_id": 3
-}
+{ "dpo_id": 3 }
 ```
-
-| Field | Required | หมายเหตุ |
-|-------|----------|---------|
-| `dpo_id` | ✅ | user.id ของ DPO ที่จะ assign (ต้องมี role = DPO) |
 
 ### Response `200`
 ```json
@@ -492,6 +469,8 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 }
 ```
 
+> หลังกด → เอกสารย้ายไป ตาราง 2 (doc.status = UNDER_REVIEW)
+
 ### Error Cases
 | Status | Detail |
 |--------|--------|
@@ -500,10 +479,9 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 
 ---
 
-## 13. GET /owner/documents/{document_id}/processor-section — ดู Processor Section (Tab 2)
+## 14. GET /owner/documents/{document_id}/processor-section — ดู Processor Section (Tab 2)
 
-**หน้า UI:** Tab 2 "ส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล" (DO ดู read-only)  
-**เรียกเมื่อ:** เปิด Tab 2
+**หน้า UI:** Tab 2 "ส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล" (DO ดู read-only)
 
 ### Response `200`
 ```json
@@ -527,14 +505,13 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
   "processing_activity": "string | null",
   "purpose_of_processing": "string | null",
 
-  "personal_data_items": [...],
-  "data_categories": [...],
-  "data_types": [...],
-  "collection_methods": [...],
-  "data_sources": [...],
-
-  "storage_types": [...],
-  "storage_methods": [...],
+  "personal_data_items": [],
+  "data_categories": [],
+  "data_types": [],
+  "collection_methods": [],
+  "data_sources": [],
+  "storage_types": [],
+  "storage_methods": [],
   "data_source_other": "string | null",
   "retention_value": 3,
   "retention_unit": "YEARS | null",
@@ -558,20 +535,18 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 }
 ```
 
-> `do_suggestion` = คำแนะนำจาก DO ถึง DP แสดงที่ด้านบนสุดของ Tab 2 (text box ที่ DO แก้ไขได้)
+> `do_suggestion` = คำแนะนำจาก DO ถึง DP แสดงด้านบนสุดของ Tab 2
 
 ---
 
-## 14. PATCH /owner/documents/{document_id}/processor-section/suggestion — แก้ไขคำแนะนำถึง DP
+## 15. PATCH /owner/documents/{document_id}/processor-section/suggestion — แก้ไขคำแนะนำถึง DP
 
-**หน้า UI:** กล่องข้อความ "ระบุข้อเสนอแนะสำหรับผู้ประมวลผลข้อมูลส่วนบุคคล" ที่ด้านบน Tab 2  
-**เรียกเมื่อ:** DO พิมพ์คำแนะนำและกด save (debounce หรือ blur)
+**หน้า UI:** กล่องข้อความ "ระบุข้อเสนอแนะสำหรับผู้ประมวลผลข้อมูลส่วนบุคคล" บน Tab 2  
+**เรียกได้:** ตลอดเวลา ไม่จำกัดสถานะเอกสาร
 
 ### Request Body
 ```json
-{
-  "suggestion": "โปรดกรอกให้ครบทุก section และระบุมาตรการความปลอดภัยให้ชัดเจน"
-}
+{ "suggestion": "โปรดกรอกให้ครบทุก section..." }
 ```
 
 ### Response `200`
@@ -584,10 +559,10 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 
 ---
 
-## 15. POST /owner/documents/{document_id}/processor-section/feedback — ส่ง Feedback ให้ DP
+## 16. POST /owner/documents/{document_id}/processor-section/feedback — ส่ง Feedback ให้ DP
 
 **หน้า UI:** ปุ่ม "ส่งคำร้องขอเปลี่ยนแปลง" ล่างขวาของ Tab 2  
-**เรียกเมื่อ:** DO เขียน feedback หลายรายการแล้วกดส่งพร้อมกันทีเดียว
+**เรียกเมื่อ:** DO เขียน feedback ทุกรายการแล้วกดส่งพร้อมกันทีเดียว
 
 ### Request Body
 ```json
@@ -596,12 +571,12 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
     {
       "section_number": 2,
       "field_name": "processor_name",
-      "comment": "ชื่อ processor ไม่ถูกต้อง กรุณาระบุชื่อบริษัทให้ครบ"
+      "comment": "ชื่อ processor ไม่ถูกต้อง"
     },
     {
       "section_number": 4,
       "field_name": null,
-      "comment": "กรุณาระบุระยะเวลาการจัดเก็บข้อมูลให้ครบถ้วน"
+      "comment": "กรุณาระบุระยะเวลาการจัดเก็บข้อมูล"
     }
   ]
 }
@@ -610,7 +585,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 | Field | Required | หมายเหตุ |
 |-------|----------|---------|
 | `section_number` | ✅ | section ที่ต้องแก้ (1–6 สำหรับ DP) |
-| `field_name` | ❌ | ชื่อ field ที่ต้องแก้ (optional, เพื่อ highlight ใน UI) |
+| `field_name` | ❌ | ชื่อ field ที่ต้องแก้ (เพื่อ highlight ใน UI) |
 | `comment` | ✅ | คำอธิบายที่ต้องแก้ |
 
 ### Response `201`
@@ -633,12 +608,14 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 ]
 ```
 
+> `review_cycle_id` เป็น null ได้ ถ้า DO ส่ง feedback ก่อนที่จะมี review cycle  
+> feedback เหล่านี้จะถูก auto-resolved เมื่อ DP กด submit section
+
 ---
 
-## 16. GET /owner/documents/{document_id}/risk — ดู Risk Assessment
+## 17. GET /owner/documents/{document_id}/risk — ดู Risk Assessment
 
-**หน้า UI:** Tab 3 "การประเมินความเสี่ยงของเอกสาร"  
-**เรียกเมื่อ:** เปิด Tab 3
+**หน้า UI:** Tab 3 "การประเมินความเสี่ยงของเอกสาร"
 
 ### Response `200`
 ```json
@@ -661,21 +638,18 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 | `HIGH` | score ≥ 15 |
 
 ### Error
-- `404` — ยังไม่มี Risk Assessment (ให้ frontend แสดงฟอร์มสำหรับกรอกครั้งแรก)
+- `404` — ยังไม่มี (แสดงฟอร์มกรอกครั้งแรก)
 
 ---
 
-## 17. POST /owner/documents/{document_id}/risk — บันทึก Risk Assessment
+## 18. POST /owner/documents/{document_id}/risk — บันทึก Risk Assessment
 
 **หน้า UI:** Tab 3 — ปุ่ม "ยืนยันการประเมิน"  
-**เรียกเมื่อ:** DO เลือก likelihood + impact แล้วกดยืนยัน
+**ผล:** สร้างหรืออัปเดต Risk Assessment (upsert)
 
 ### Request Body
 ```json
-{
-  "likelihood": 3,
-  "impact": 4
-}
+{ "likelihood": 3, "impact": 4 }
 ```
 
 | Field | Required | Range |
@@ -683,19 +657,16 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 | `likelihood` | ✅ | 1–5 |
 | `impact` | ✅ | 1–5 |
 
-> `risk_score` = likelihood × impact คำนวณโดย backend อัตโนมัติ
+> `risk_score = likelihood × impact` คำนวณโดย backend
 
 ### Response `200`
-> คืน `RiskAssessmentRead` เหมือน GET (ดูข้อ 16)
-
-> หลัง submit → กลับไปหน้าตาราง Active (frontend จัดการ)
+> คืน `RiskAssessmentRead` เหมือน GET (ข้อ 17)
 
 ---
 
-## 18. GET /owner/documents/{document_id}/deletion — ดู Deletion Request
+## 19. GET /owner/documents/{document_id}/deletion — ดู Deletion Request
 
-**หน้า UI:** Tab 4 "ยื่นคำร้องขอทำลาย"  
-**เรียกเมื่อ:** เปิด Tab 4
+**หน้า UI:** Tab 4 "ยื่นคำร้องขอทำลาย"
 
 ### Response `200`
 ```json
@@ -714,26 +685,23 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 ```
 
 ### Error
-- `404` — ยังไม่มีคำร้อง (ให้ frontend แสดงฟอร์มสำหรับยื่นครั้งแรก)
+- `404` — ยังไม่มีคำร้อง (แสดงฟอร์มสำหรับยื่นครั้งแรก)
 
 ---
 
-## 19. POST /owner/documents/{document_id}/deletion — ยื่นคำร้องขอทำลาย
+## 20. POST /owner/documents/{document_id}/deletion — ยื่นคำร้องขอทำลาย
 
-**หน้า UI:** Tab 4 — ปุ่ม ✈️❌ "ยื่นคำร้องขอทำลาย"  
-**เรียกเมื่อ:** DO กรอกเหตุผลและกดยืนยัน (เข้าถึงได้จากทุกตาราง)
+**หน้า UI:** ปุ่ม ✈️❌ "ยื่นคำร้องขอทำลาย" (เข้าถึงได้จากทุกตาราง)
 
 ### Request Body
 ```json
-{
-  "owner_reason": "เอกสารครบกำหนดการจัดเก็บแล้ว 5 ปี"
-}
+{ "owner_reason": "เอกสารครบกำหนดการจัดเก็บแล้ว 5 ปี" }
 ```
 
 ### Response `201`
-> คืน `DeletionRequestRead` เหมือน GET (ดูข้อ 18)
+> คืน `DeletionRequestRead` เหมือน GET (ข้อ 19)
 
-> หลัง submit → `deletion_status = DELETE_PENDING` และเอกสารจะปรากฏใน Card "รอ DPO ตรวจสอบ (ทำลาย)" ของ dashboard
+> หลัง submit → `deletion_status = DELETE_PENDING`, dashboard Card "รอ DPO (ทำลาย)" +1
 
 ### Error Cases
 | Status | Detail |
@@ -744,7 +712,7 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 
 ## ข้อมูลอ้างอิง — Enum Values
 
-### `minor_consent_types` (ใน Owner Section)
+### `minor_consent_types`
 | ค่า | ความหมาย |
 |-----|---------|
 | `UNDER_10` | อายุไม่เกิน 10 ปี |
@@ -758,22 +726,16 @@ Role ที่ใช้ได้: `OWNER` เท่านั้น (ยกเว
 | `MONTHS` | เดือน |
 | `YEARS` | ปี |
 
-### `data_types[].type` + `is_sensitive`
-| type | is_sensitive | ความหมาย |
-|------|-------------|---------|
-| `GENERAL` | `false` | ข้อมูลทั่วไป (checkbox ข้อมูลทั่วไป) |
-| `SENSITIVE` | `true` | ข้อมูลอ่อนไหว (checkbox ข้อมูลอ่อนไหว) |
-
 ### Document `status`
-| ค่า | ความหมาย |
-|-----|---------|
-| `IN_PROGRESS` | กำลังดำเนินการ (ตาราง Active) |
-| `UNDER_REVIEW` | ส่ง DPO แล้ว (ตาราง Sent-to-DPO) |
-| `COMPLETED` | DPO อนุมัติแล้ว (ตาราง Approved) |
+| ค่า | ตาราง | ความหมาย |
+|-----|-------|---------|
+| `IN_PROGRESS` | ตาราง 1 | กำลังดำเนินการ |
+| `UNDER_REVIEW` | ตาราง 2 | ส่ง DPO แล้ว |
+| `COMPLETED` | ตาราง 3 (เฉพาะที่ครบ 1 ปี) | DPO อนุมัติแล้ว |
 
 ### Document `deletion_status`
 | ค่า | ความหมาย |
 |-----|---------|
-| `NULL` | ปกติ ยังไม่ขอทำลาย |
-| `DELETE_PENDING` | ยื่นขอทำลายแล้ว รอ DPO อนุมัติ |
-| `DELETED` | ถูกทำลายแล้ว (ตาราง Destroyed) |
+| `NULL` | ปกติ |
+| `DELETE_PENDING` | ยื่นขอทำลาย รอ DPO |
+| `DELETED` | ถูกทำลายแล้ว (ตาราง 4) |
