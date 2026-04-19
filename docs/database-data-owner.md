@@ -5,6 +5,35 @@
 
 ---
 
+## การเชื่อมกับ users table (Admin สร้างบัญชี)
+
+ระบบ assign DP ให้เอกสารใช้ข้อมูลจาก `users` table ที่ Admin สร้างไว้
+
+| Column | ใช้ทำอะไร |
+|--------|---------|
+| `users.id` | `processor_assignments.processor_id` — ผูก DP กับเอกสาร |
+| `users.role = 'PROCESSOR'` | กรอง user ที่เป็น DP เท่านั้น |
+| `users.company_name` | DO เลือกบริษัทจาก dropdown → backend หา DP ในบริษัทนั้น |
+| `users.status = 'ACTIVE'` | กรองเฉพาะ account ที่ยังใช้งานอยู่ |
+
+### Round Robin Logic
+```
+DO เลือก processor_company = "บริษัท A"
+        ↓
+ดึง users ที่ role=PROCESSOR, company_name="บริษัท A", status=ACTIVE
+เรียงตาม user.id น้อย → มาก: [id=3, id=7, id=12]
+        ↓
+ดู processor_assignments ล่าสุดในบริษัทนี้ → processor_id = 7
+        ↓
+7 อยู่ index 1 → เอา index 2 = id=12
+        ↓
+assign id=12 ให้เอกสารนี้
+```
+
+> ถ้ายังไม่มี assignment ในบริษัทนั้นเลย → เริ่มที่ user.id น้อยที่สุดก่อน
+
+---
+
 ## สิ่งที่ต้องแก้ไขจาก Schema เดิม (Migration)
 
 ### 1. `ropa_documents` — เพิ่ม column
