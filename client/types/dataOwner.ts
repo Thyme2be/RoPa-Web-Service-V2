@@ -1,102 +1,211 @@
-import { RopaStatus, DataType, CollectionMethod, RetentionUnit } from "./enums";
+import { RopaStatus, DataType, CollectionMethod, RetentionUnit, SectionStatus } from "./enums";
+
+export interface OwnerDashboardData {
+  total_documents: number;
+  needs_fix_do_count: number;
+  needs_fix_dp_count: number;
+  risk_low_count: number;
+  risk_medium_count: number;
+  risk_high_count: number;
+  under_review_storage_count: number;
+  under_review_deletion_count: number;
+  pending_do_count: number;
+  pending_dp_count: number;
+  completed_count: number;
+  sensitive_document_count: number;
+  overdue_dp_count: number;
+  annual_reviewed_count: number;
+  annual_not_reviewed_count: number;
+  destruction_due_count: number;
+  deleted_count: number;
+}
+
+
+export type ProcessingStatus = {
+  do_status: "pending" | "done";
+  dp_status: "pending" | "done";
+  do_submitted_date?: string;
+  dp_submitted_date?: string;
+};
+
+export type RiskAssessment = {
+  probability: number;  // 1-5
+  impact: number;       // 1-5
+  total: number;        // probability × impact
+  level: "ต่ำ" | "ปานกลาง" | "สูง";
+  submitted_date?: string;
+};
 
 export type OwnerRecord = {
-  documentName: string;
-  title: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  email: string;
-  phoneNumber: string; 
-  status?: RopaStatus;
-  dateCreated?: string;
-  
   id: string;
+  document_name: string;
+  title_prefix?: string;
+  first_name?: string;
+  last_name?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  rights_email?: string;
+  rights_phone?: string;
+  status?: RopaStatus;
+  date_created?: string;
 
-  // 1–4
-  dataSubjectName: string;
-  processingActivity: string;
-  purpose: string;
-  personalData: string;
+  // Workflow tracking
+  processing_status?: ProcessingStatus;
+  workflow?: "processing" | "sent_dpo" | "delete_pending" | "approved" | "destroyed";
+  processor_company?: string;
+  due_date?: string;
 
-  // 5–6
-  dataCategories: string[]; // Keep as string[] if the user wants flexibility, but DataCategory enum is available
-  dataType: DataType;
-  storedDataTypes: string[]; // For specific data types (e.g., Name, Address)
-  storedDataTypesOther?: string; // New field for "Other" data types
+  // Activity Info
+  data_subject_name?: string;
+  processing_activity?: string;
+  purpose_of_processing?: string;
+  
+  // Data Stored
+  personal_data_items: string[];
+  data_categories: string[];
+  data_types: string[]; 
+  stored_data_types_other?: string;
 
-  // 7–8
-  collectionMethod: CollectionMethod; // acquisition_mode in form
-  dataSource: {
-    direct: boolean;
-    indirect: boolean;
-  };
+  // Collection & Retention
+  collection_method: string;
+  data_source_direct: boolean;
+  data_source_indirect: boolean;
+  data_source_other?: string;
+  
+  retention_value: number;
+  retention_unit: RetentionUnit;
+  access_condition: string;
+  deletion_method: string;
 
-  // 9–10
-  legalBasis: string;
+  // Legal & Transfer
+  legal_basis: string;
+  minor_consent_under_10: boolean;
+  minor_consent_10_to_20: boolean;
+  minor_consent_none: boolean;
 
-  minorConsent: {
-    under10: boolean;
-    age10to20: boolean;
-    none: boolean;
-  };
+  has_cross_border_transfer: boolean;
+  transfer_country?: string;
+  transfer_company?: string;
+  transfer_method?: string;
+  transfer_protection_standard?: string;
+  transfer_exception?: string;
 
-  // 11 transfer
-  internationalTransfer: {
-    isTransfer: boolean;
-    country?: string;
-    companyName?: string;
-    transferMethod?: string;
-    protectionStandard?: string;
-    exception?: string;
-  };
+  exemption_usage: string;
+  rejection_note?: string;
 
-  // 12 retention
-  retention: {
-    storageType: CollectionMethod;
-    method: string[];
-    duration: number;
-    unit: RetentionUnit; // Added for unit support
-    accessControl: string;
-    deletionMethod: string;
-  };
+  // Security Measures (TOMs)
+  org_measures?: string;
+  technical_measures?: string;
+  physical_measures?: string;
+  access_control_measures?: string;
+  responsibility_measures?: string;
+  audit_measures?: string;
 
-  // 13–14
-  exemptionDisclosure: string;
-  rejectionNote?: string;
-
-  // 15 security
-  securityMeasures: {
-    organizational?: string;
-    technical?: string;
-    physical?: string;
-    accessControl?: string;
-    responsibility?: string;
-    audit?: string;
-  };
+  // Risk Assessment
+  risk_assessment?: RiskAssessment;
 
   suggestions?: {
     id: string;
     section: string;
-    sectionId: number;
+    section_id: number;
     comment: string;
     reviewer: string;
     date: string;
     status: "pending" | "fixed";
     role: "owner" | "processor";
-    statusLabel?: string;
+    status_label?: string;
   }[];
 
   // Processor assignment (for documents page)
-  assignedProcessor?: {
+  assigned_processor?: {
     name: string;
-    assignedDate: string;
-    documentTitle: string;
-    receivedDate?: string;
-    processorStatus?: "เสร็จสมบูรณ์" | "ไม่เสร็จสมบูรณ์" | "รอดำเนินการ";
+    assigned_date: string;
+    document_title: string;
+    received_date?: string;
+    processor_status?: "เสร็จสมบูรณ์" | "ไม่เสร็จสมบูรณ์" | "รอดำเนินการ";
   };
 
-  // Timestamps (backend-ready)
-  submittedDate?: string;
-  updatedDate?: string;
+  // Timestamps
+  submitted_date?: string;
+  updated_date?: string;
+  last_updated?: string;
+  department?: string;
+  deletion_reason?: string;
+  deletion_status?: "DELETE_PENDING" | "DELETED" | null;
+  deletion_request?: {
+      id: string;
+      status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+      owner_reason: string;
+      dpo_decision?: string;
+      dpo_reason?: string;
+      requested_at: string;
+      decided_at?: string;
+  };
+
+  // Additional fields for table/mapping compatibility
+  title?: string;
+  document_number?: string;
+  document_id?: string;
 };
+
+// --- Table Item Interfaces (Matching Backend Schemas) ---
+
+export interface StatusBadge {
+  label: string;
+  code: string;
+}
+
+export interface ActiveTableItem {
+  document_id: string;
+  document_number: string;
+  title: string;
+  dp_name: string;
+  dp_company: string;
+  owner_status: StatusBadge;
+  processor_status: StatusBadge;
+  due_date: string;
+  created_at: string;
+  owner_section_id: string;
+  owner_section_status: SectionStatus;
+  processor_section_id: string;
+  processor_section_status: SectionStatus;
+}
+
+export interface SentToDpoTableItem {
+  document_id: string;
+  document_number: string;
+  title: string;
+  dpo_name: string;
+  ui_status: string;
+  ui_status_label: string;
+  sent_at: string;
+  reviewed_at: string;
+  due_date: string;
+}
+
+export interface ApprovedTableItem {
+  document_id: string;
+  document_number: string;
+  title: string;
+  do_name: string;
+  dpo_name: string;
+  last_approved_at: string;
+  next_review_due_at: string;
+  destruction_date: string;
+  annual_review_status: "NOT_REVIEWED" | "REVIEWED";
+  annual_review_status_label: string;
+}
+
+export interface DestroyedTableItem {
+  document_id: string;
+  document_number: string;
+  title: string;
+  do_name: string;
+  dpo_name: string;
+  deletion_approved_at: string;
+  deletion_reason: string;
+}
+
+export type RopaRecord = OwnerRecord;
+

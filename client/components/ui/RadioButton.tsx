@@ -26,7 +26,7 @@ export default function RadioButton({ label, alignRight, ...props }: Props) {
         <label className={cn(
             "flex items-center gap-3 cursor-pointer group select-none py-3 px-4 bg-[#F6F3F2] border border-gray-100 rounded-xl transition-all hover:bg-white hover:border-primary/30 shadow-sm has-[:checked]:bg-white has-[:checked]:border-primary has-[:checked]:ring-4 has-[:checked]:ring-primary/5",
             alignRight ? "flex-row-reverse justify-between" : "",
-            props.disabled && "opacity-60 cursor-not-allowed pointer-events-none"
+            props.disabled && "opacity-100 cursor-not-allowed pointer-events-none"
         )}>
             <span className={cn(
                 "text-sm font-semibold text-black leading-tight group-hover:text-primary transition-colors peer-checked:text-black",

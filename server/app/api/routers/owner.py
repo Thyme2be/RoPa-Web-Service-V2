@@ -499,7 +499,7 @@ def get_owner_dashboard(
         .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
         .filter(
             RopaDocumentModel.created_by == uid,
-            OwnerDataTypeModel.is_sensitive == True,
+            OwnerDataTypeModel.type == "sensitive",
         )
         .scalar() or 0
     )

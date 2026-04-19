@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
+import { RopaProvider } from "@/context/RopaContext";
 
 const sarabun = Sarabun({
   variable: "--font-sarabun",
@@ -29,7 +31,13 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&display=block"
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="h-full">
+        <AuthProvider>
+          <RopaProvider>
+            {children}
+          </RopaProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

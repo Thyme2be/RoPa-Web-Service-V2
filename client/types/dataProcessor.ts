@@ -1,65 +1,77 @@
-import { RopaStatus, DataCategory, DataType, CollectionMethod } from "./enums";
+import { RopaStatus, SectionStatus } from "./enums";
 
-export type RopaProcessorRecord = {
-  documentName: string;
-  title: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  email: string;
-  phoneNumber: string;
-  status?: RopaStatus;
-
+export interface ProcessorSubItem {
   id: string;
+  type?: string;
+  category?: string;
+  method?: string;
+  source?: string;
+  other_description?: string;
+}
 
-  // 1–5
-  processorName: string;
-  controllerName: string; // Changed to string based on UI "ชื่อผู้ควบคุมข้อมูล"
-  processingActivity: string;
-  purpose: string;
-  personalData: string;
+export interface ProcessorDataTypeItem extends ProcessorSubItem {
+  is_sensitive: boolean;
+}
 
-  // 6–7
-  dataCategory: DataCategory;
-  dataType: DataType;
+export interface RopaProcessorRecord {
+  id: string;
+  document_id: string;
+  processor_id: number;
+  status: SectionStatus;
+  updated_at: string;
 
-  // 8–9
-  collectionMethod: CollectionMethod;
-  dataSource: {
-    fromControllerDirect: boolean;
-    fromOther: boolean;
-  };
+  // Personal Info
+  title_prefix?: string;
+  first_name?: string;
+  last_name?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
 
-  // 10
-  legalBasis: string;
+  // Activity Info
+  processor_name?: string;
+  controller_name?: string;
+  controller_address?: string;
+  processing_activity?: string;
+  purpose_of_processing?: string;
 
-  // 11 transfer............
-  internationalTransfer: {
-    isTransfer: boolean;
-    country?: string;
-    isInGroup?: boolean;
-    companyName?: string;
-    transferMethod?: string;
-    protectionStandard?: string;
-    exception?: string;
-  };
+  // Sub-tables
+  personal_data_items: ProcessorSubItem[];
+  data_categories: ProcessorSubItem[];
+  data_types: ProcessorDataTypeItem[];
+  collection_methods: ProcessorSubItem[];
+  data_sources: ProcessorSubItem[];
+  storage_types: ProcessorSubItem[];
+  storage_methods: ProcessorSubItem[];
 
-  // 12 retention
-  retention: {
-    storageType: CollectionMethod;
-    method: string;
-    duration: number; // Changed to number for consistency with Owner
-    accessCondition: string;
-    deletionMethod: string;
-  };
+  data_source_other?: string;
+  retention_value?: number;
+  retention_unit?: string;
+  access_condition?: string;
+  deletion_method?: string;
 
-  // 13 security
-  securityMeasures: {
-    organizational?: string;
-    technical?: string;
-    physical?: string;
-    accessControl?: string;
-    responsibility?: string;
-    audit?: string;
-  };
-};
+  legal_basis?: string;
+  has_cross_border_transfer?: boolean;
+  transfer_country?: string;
+  transfer_company?: string;
+  transfer_method?: string;
+  transfer_protection_standard?: string;
+  transfer_exception?: string;
+  in_group_transfer?: boolean;
+  exemption_usage?: string;
+
+  // TOMs
+  org_measures?: string;
+  access_control_measures?: string;
+  technical_measures?: string;
+  responsibility_measures?: string;
+  physical_measures?: string;
+  audit_measures?: string;
+
+  // Backward compatibility aliases if needed
+  document_name?: string;
+  title?: string;
+  document_number?: string;
+}
+
+export type ProcessorRecord = RopaProcessorRecord;

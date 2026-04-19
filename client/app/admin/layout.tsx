@@ -5,7 +5,7 @@ import AdminGuard from "@/components/auth/AdminGuard";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     return (
         <AdminGuard>
-            <div className="flex min-h-screen bg-surface-container-low">
+            <div className="flex min-h-screen bg-background">
                 {/* Sidebar */}
                 <AdminSidebar />
 
