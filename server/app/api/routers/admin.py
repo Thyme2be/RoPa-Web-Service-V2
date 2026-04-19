@@ -12,10 +12,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.core.rbac import Role, require_roles
 from app.core.security import get_password_hash
-from app.models.user import UserModel
-from app.schemas.user import UserCreate, UserRead, UserUpdate, PaginatedUserResponse, PaginatedUserReadItem
-from app.schemas.enums import UserRoleEnum, UserStatusEnum
+from app.schemas.enums import UserRoleEnum, UserStatusEnum, DocumentStatusEnum
 from app.schemas.auth import RegisterRequest
+from app.schemas.admin_docs import AdminDocumentTableItem, PaginatedAdminDocumentResponse
+from app.models.document import RopaDocumentModel
+from app.models.workflow import ReviewDpoAssignmentModel, DocumentReviewCycleModel
+from sqlalchemy.orm import aliased
 
 router = APIRouter(prefix="/admin", tags=["Admin — User Management"])
 
@@ -150,3 +152,70 @@ def deactivate_user(
         raise HTTPException(status_code=404, detail="User not found.")
     user.status = 'INACTIVE'
     db.commit()
+@router.get("/documents", response_model=PaginatedAdminDocumentResponse, summary="Admin: List All Documents")
+def list_all_documents(
+    search: Optional[str] = Query(None, description="Search by title or document_number"),
+    status: Optional[DocumentStatusEnum] = Query(None, description="Filter by document status"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: UserRead = AdminOnly
+):
+    # Aliased for DPO joins
+    DpoUser = aliased(UserModel)
+    
+    # Base Query: Documents joined with Owner (creator)
+    query = db.query(
+        RopaDocumentModel,
+        UserModel.first_name.label("owner_first"),
+        UserModel.last_name.label("owner_last"),
+        UserModel.department.label("owner_dept"),
+        DpoUser.first_name.label("dpo_first"),
+        DpoUser.last_name.label("dpo_last")
+    ).join(UserModel, RopaDocumentModel.created_by == UserModel.id)\
+     .outerjoin(ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == (
+         db.query(DocumentReviewCycleModel.id)
+           .filter(DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+           .order_by(DocumentReviewCycleModel.requested_at.desc())
+           .limit(1).correlate(RopaDocumentModel).as_scalar()
+     ))\
+     .outerjoin(DpoUser, ReviewDpoAssignmentModel.dpo_id == DpoUser.id)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                RopaDocumentModel.title.ilike(search_term),
+                RopaDocumentModel.document_number.ilike(search_term)
+            )
+        )
+    
+    if status:
+        query = query.filter(RopaDocumentModel.status == status)
+
+    total = query.count()
+    skip = (page - 1) * limit
+    results = query.order_by(RopaDocumentModel.updated_at.desc()).offset(skip).limit(limit).all()
+
+    items = []
+    for row in results:
+        doc, o_f, o_l, o_d, d_f, d_l = row
+        items.append(
+            AdminDocumentTableItem(
+                id=doc.id,
+                document_number=doc.document_number,
+                title=doc.title or "Untitled Document",
+                owner_name=f"{o_f} {o_l}" if o_f else "Unknown",
+                department=o_d,
+                dpo_name=f"{d_f} {d_l}" if d_f else "Not Assigned",
+                updated_at=doc.updated_at,
+                status=doc.status
+            )
+        )
+
+    return PaginatedAdminDocumentResponse(
+        total=total,
+        page=page,
+        limit=limit,
+        items=items
+    )
