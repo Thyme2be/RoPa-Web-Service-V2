@@ -94,7 +94,7 @@ export default function RopaDestroyedPage() {
                     <DocumentListCard title="เอกสารที่ถูกทำลาย" icon="delete_outline" iconColor="#ED393C" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[30%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[30%]" align="left" className="whitespace-nowrap !text-[12px] pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">ชื่อผู้รับผิดชอบข้อมูล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">วันที่อนุมัติทำลาย</DocumentTableHeader>
@@ -111,12 +111,13 @@ export default function RopaDestroyedPage() {
                                     paginatedRecords.map((record) => (
                                         <DocumentTableRow key={record.document_id}>
                                             <DocumentTableCell align="left">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell className="whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell align="left">
+                                            <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {record.deletion_approved_at ? new Date(record.deletion_approved_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>

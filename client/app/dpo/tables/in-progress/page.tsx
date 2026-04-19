@@ -238,11 +238,11 @@ function InProgressTableContent() {
                             <table className="w-full text-center border-collapse">
                                 <thead className="relative z-20">
                                     <tr className="border-b border-[#E5E2E1]/40">
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อเอกสาร</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อผู้รับผิดชอบข้อมูล</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ตรวจสอบ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase overflow-visible">
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">ชื่อเอกสาร</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อผู้รับผิดชอบข้อมูล</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">วันที่ได้รับ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">วันที่ตรวจสอบ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase overflow-visible text-center">
                                             <div className="flex items-center justify-center gap-1 overflow-visible">
                                                 <span>สถานะ</span>
                                                 <CustomTooltip content={tooltipContent}>
@@ -250,7 +250,7 @@ function InProgressTableContent() {
                                                 </CustomTooltip>
                                             </div>
                                         </th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">การดำเนินการ</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
@@ -267,12 +267,12 @@ function InProgressTableContent() {
                                             <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
-                                                    <span className="text-[#1B1C1C] font-medium tracking-tight">{doc.document_name}</span>
+                                                    <span className="text-[#5F5E5E] font-medium tracking-tight">{doc.document_name}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{doc.owner_name}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{formatThaiDate(doc.received_date)}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{formatThaiDate(doc.dpo_reviewed_date)}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.owner_name}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.received_date)}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.dpo_reviewed_date)}</td>
                                             <td className="py-4">
                                                 <div className="flex flex-col gap-1 items-center justify-center py-1">
                                                     {doc.status === "WAITING_FOR_DPO" || doc.status === "DPO_APPROVED" ? (

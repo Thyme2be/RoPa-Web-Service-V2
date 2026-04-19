@@ -131,7 +131,7 @@ export default function ManagementProcessingPage() {
                     <DocumentListCard title="เอกสารที่ได้รับมอบหมาย" icon="assignment" iconColor="#00666E" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[25%] text-center">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[25%]" align="left" className="pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[20%]">ชื่อผู้รับผิดชอบข้อมูล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[12%]">วันที่ได้รับ</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[13%]">วันที่กำหนดส่ง</DocumentTableHeader>
@@ -158,12 +158,17 @@ export default function ManagementProcessingPage() {
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.title_prefix}{record.first_name} {record.last_name}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.assigned_processor?.assigned_date || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="text-[#1B1C1C]">{record.due_date || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">{record.title_prefix}{record.first_name} {record.last_name}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
+                                                {record.assigned_processor?.assigned_date ? new Date(record.assigned_processor.assigned_date).toLocaleDateString("th-TH") : "—"}
+                                            </DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
+                                                {record.due_date ? new Date(record.due_date).toLocaleDateString("th-TH") : "—"}
+                                            </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
                                                     <StatusBadge done={record.processing_status?.do_status === "done"} label={getDoLabel(record)} />
@@ -203,7 +208,7 @@ export default function ManagementProcessingPage() {
                     <DocumentListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[50%] text-center">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[50%]" align="left" className="pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">บันทึกล่าสุด</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
@@ -218,11 +223,12 @@ export default function ManagementProcessingPage() {
                                     paginatedDrafts.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number || record.document_id}</div>
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number || record.document_id} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell className="text-[#5F5E5E] font-medium">
-                                                {record.updated_at || "—"}
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
+                                                {record.updated_at ? new Date(record.updated_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-4">

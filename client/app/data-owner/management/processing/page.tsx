@@ -200,7 +200,7 @@ export default function ManagementProcessingPage() {
                     <DocumentListCard title="เอกสารที่ดำเนินการ" icon="check_circle" iconColor="#0D9488" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[16%]" align="left" className="whitespace-nowrap !text-[12px] pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[16%]" className="whitespace-nowrap !text-[12px]">ชื่อบริษัท</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">วันที่กำหนดส่ง</DocumentTableHeader>
@@ -228,14 +228,15 @@ export default function ManagementProcessingPage() {
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.document_id}>
                                             <DocumentTableCell align="left" className="pl-6">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell align="left">
-                                                <div className="text-[#1B1C1C]">{record.dp_name || "—"}</div>
+                                            <DocumentTableCell>
+                                                <div className="text-[#5C403D]">{record.dp_name || "—"}</div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell align="left" className="text-[#1B1C1C]">{record.dp_company || "—"}</DocumentTableCell>
-                                            <DocumentTableCell align="left" className="text-[#1B1C1C]">
+                                            <DocumentTableCell className="text-[#5C403D]">{record.dp_company || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D]">
                                                 {record.due_date ? new Date(record.due_date).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
@@ -284,7 +285,7 @@ export default function ManagementProcessingPage() {
                     <DocumentListCard title="ฉบับร่าง" icon="edit_note" iconColor="#5C403D" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[50%] text-center">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[50%]" align="left" className="pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">บันทึกล่าสุด</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[25%]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
@@ -299,8 +300,9 @@ export default function ManagementProcessingPage() {
                                     paginatedDrafts.map((record) => (
                                         <DocumentTableRow key={record.id}>
                                             <DocumentTableCell align="left" className="pl-6 font-medium">
-                                                <div className="text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                                <div className="text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5F5E5E] font-medium text-center">
                                                 {record.created_at ? new Date(record.created_at).toLocaleDateString("th-TH") : "—"}

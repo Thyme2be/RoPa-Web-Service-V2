@@ -170,12 +170,12 @@ function DocumentsPageContent() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อเอกสาร</th>
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อผู้รับผิดชอบข้อมูล</th>
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">สังกัด /แผนก</th>
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</th>
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">สถานะเอกสาร</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">ชื่อเอกสาร</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อผู้รับผิดชอบข้อมูล</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">สังกัด /แผนก</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">การดำเนินการ</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">สถานะเอกสาร</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E2E1]/10">

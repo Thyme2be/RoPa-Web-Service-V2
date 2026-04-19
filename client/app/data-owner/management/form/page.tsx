@@ -143,14 +143,14 @@ function ManagementFormContent() {
         const loadFullRecord = async () => {
             if (recordId) {
                 setIsLoadingFull(true);
-                
+
                 let fullRecord;
                 if (snapshotId) {
                     fullRecord = await fetchOwnerSnapshot(snapshotId);
                 } else {
                     fullRecord = await fetchFullOwnerRecord(recordId);
                 }
-                
+
                 if (fullRecord && isMounted) {
                     setForm(prev => ({ ...prev, ...fullRecord }));
                 }
@@ -178,7 +178,7 @@ function ManagementFormContent() {
 
         loadFullRecord();
         return () => { isMounted = false; };
-    }, [recordId]);
+    }, [recordId, snapshotId]);
 
     const [dpForm, setDpForm] = useState<Partial<ProcessorRecord>>({
         processor_name: "", controller_name: "", controller_address: "",
@@ -355,7 +355,7 @@ function ManagementFormContent() {
 
         setForm((prev: any) => {
             const next = { ...prev };
-            
+
             if (name.endsWith("[]")) {
                 const arrayKey = name.replace("[]", "");
                 const currentArray = prev[arrayKey] || [];
@@ -403,17 +403,26 @@ function ManagementFormContent() {
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
-    /** ยกเลิก → กลับหน้า processing */
+    /** ยกเลิก → ถอยกลับ หรือไปหน้า processing */
     const handleCancel = () => {
-        router.push("/data-owner/management/processing");
+        if (typeof window !== "undefined" && window.history.length > 1) {
+            router.back();
+        } else {
+            router.push("/data-owner/management/processing");
+        }
     };
 
-    /** บันทึกฉบับร่าง → save Snapshot + กลับ processing */
+    /** บันทึกฉบับร่าง → save Snapshot + กลับหน้า management */
     const handleDraft = async () => {
         if (!recordId) return;
-        await createOwnerSnapshot(recordId, form);
-        setErrors({}); // Clear errors on draft
-        setIsDraftSuccessOpen(true);
+        try {
+            await createOwnerSnapshot(recordId, form);
+            setErrors({}); // ล้าง error เมื่อบันทึกร่าง
+            // ย้ายไปหน้าจัดการเอกสารทันที
+            router.push("/data-owner/management/processing");
+        } catch (error) {
+            console.error("Failed to save draft:", error);
+        }
     };
 
     /** กดบันทึก → validate → review mode */
@@ -689,36 +698,62 @@ function ManagementFormContent() {
                 )}
 
                 {/* ─── Bottom Action Bar ────────────────────────────────────── */}
-                {activeTab === "owner" && !viewMode && (
+                {activeTab === "owner" && (
                     !isReviewMode ? (
-                        /* Normal form mode */
-                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
-                            {/* Left: Cancellation */}
-                            <button
-                                onClick={handleCancel}
-                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                            >
-                                ยกเลิก
-                            </button>
-
-                            {/* Right Group: Draft + Save */}
-                            <div className="flex items-center gap-4">
+                        /* Feedback Bar takes priority in viewMode if comments are being drafted */
+                        (viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "")) ? (
+                            <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
                                 <button
-                                    onClick={handleDraft}
-                                    className="bg-white border-2 border-[#ED393C] text-[#ED393C] font-bold text-base h-[52px] px-10 rounded-full hover:bg-[#ED393C]/5 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
+                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                                 >
-                                    บันทึกฉบับร่าง
+                                    ยกเลิกการแก้ไข
                                 </button>
+
                                 <button
-                                    onClick={handleSave}
+                                    onClick={() => setFeedbackModal({ open: true, section: "all" })}
                                     className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
                                 >
-                                    บันทึก
+                                    ส่งคำร้องขอเปลี่ยนแปลง
                                 </button>
                             </div>
-                        </div>
+                        ) : (
+                            /* Normal form mode or view mode (Now always visible as requested) */
+                            <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                                {/* Left: Cancellation */}
+                                <button
+                                    onClick={handleCancel}
+                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                >
+                                    ยกเลิก
+                                </button>
+
+                                {/* Right Group: Draft + Save */}
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={handleDraft}
+                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                        บันทึกฉบับร่าง
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                    >
+                                        บันทึก
+                                    </button>
+                                </div>
+                            </div>
+                        )
                     ) : (
+                        /* Review Confirmation mode */
                         <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            <button
+                                onClick={() => setIsReviewMode(false)}
+                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                            >
+                                กลับไปแก้ไข
+                            </button>
                             <button
                                 onClick={handleFinalConfirm}
                                 className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
@@ -727,25 +762,6 @@ function ManagementFormContent() {
                             </button>
                         </div>
                     )
-                )}
-
-                {/* ─── Review Mode Action Bar (Sending Feedback) ───────────── */}
-                {viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "") && (
-                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                        <button
-                            onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
-                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                        >
-                            ยกเลิก
-                        </button>
-
-                        <button
-                            onClick={() => setFeedbackModal({ open: true, section: "all" })}
-                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                        >
-                            ส่งคำร้องขอเปลี่ยนแปลง
-                        </button>
-                    </div>
                 )}
 
 

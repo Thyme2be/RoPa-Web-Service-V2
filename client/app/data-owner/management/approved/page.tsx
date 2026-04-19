@@ -95,7 +95,7 @@ export default function RopaApprovedPage() {
 
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[20%]" align="left" className="whitespace-nowrap !text-[12px] pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeaderWithTooltip
                                     width="w-[14%]"
                                     className="whitespace-nowrap !text-[12px]"
@@ -124,15 +124,16 @@ export default function RopaApprovedPage() {
                                     paginatedRecords.map((record) => (
                                         <DocumentTableRow key={record.document_id}>
                                             <DocumentTableCell align="left">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell className="whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell className="whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell align="left">
+                                            <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {record.last_approved_at ? new Date(record.last_approved_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
-                                            <DocumentTableCell align="left">
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {record.destruction_date ? new Date(record.destruction_date).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>

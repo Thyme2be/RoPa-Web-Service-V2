@@ -8,6 +8,7 @@ import {
     SentToDpoTableItem,
     ApprovedTableItem,
     DestroyedTableItem,
+    OwnerSnapshotTableItem,
     StatusBadge
 } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
@@ -97,6 +98,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                     setSentRecords(sent);
                     setApprovedRecords(approved);
                     setDestroyedRecords(destroyed);
+                    setOwnerSnapshots(snapshots);
 
                     // Legacy records mapping for screens that still use unified list
                     const legacyMapping = active.map(item => ({
@@ -387,6 +389,17 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         if (!record.id) throw new Error("Document ID required for saving");
 
         // Re-mapping frontend back to backend expected format for saveOwnerDraft
+        // Build minor_consent_types array from individual boolean fields
+        const minorConsentTypes: string[] = [];
+        if (record.minor_consent_under_10) minorConsentTypes.push("UNDER_10");
+        if (record.minor_consent_10_to_20) minorConsentTypes.push("10_TO_20");
+        if (record.minor_consent_none) minorConsentTypes.push("NONE");
+
+        // Build data_sources array from boolean flags
+        const dataSources: { source: string }[] = [];
+        if (record.data_source_direct) dataSources.push({ source: "DIRECT" });
+        if (record.data_source_indirect) dataSources.push({ source: "INDIRECT" });
+
         const payload = {
             title_prefix: record.title_prefix,
             first_name: record.first_name,
@@ -402,7 +415,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             personal_data_items: record.personal_data_items?.map(t => ({ type: t })),
             data_categories: record.data_categories?.map(c => ({ category: c })),
             data_types: record.data_types?.map(t => ({ type: t })),
+            collection_methods: record.collection_method ? [{ method: record.collection_method }] : [],
+            data_sources: dataSources.length > 0 ? dataSources : undefined,
+            minor_consent_types: minorConsentTypes.length > 0 ? minorConsentTypes : undefined,
             legal_basis: record.legal_basis,
+            exemption_usage: record.exemption_usage,
             has_cross_border_transfer: record.has_cross_border_transfer,
             transfer_country: record.transfer_country,
             transfer_in_group: record.transfer_company,
@@ -464,6 +481,17 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const createOwnerSnapshot = async (id: string, record: any) => {
         // Re-mapping frontend back to backend expected format
+        // Build minor_consent_types array from individual boolean fields
+        const snapshotMinorConsent: string[] = [];
+        if (record.minor_consent_under_10) snapshotMinorConsent.push("UNDER_10");
+        if (record.minor_consent_10_to_20) snapshotMinorConsent.push("10_TO_20");
+        if (record.minor_consent_none) snapshotMinorConsent.push("NONE");
+
+        // Build data_sources array from boolean flags
+        const snapshotDataSources: { source: string }[] = [];
+        if (record.data_source_direct) snapshotDataSources.push({ source: "DIRECT" });
+        if (record.data_source_indirect) snapshotDataSources.push({ source: "INDIRECT" });
+
         const payload = {
             title_prefix: record.title_prefix,
             first_name: record.first_name,
@@ -479,7 +507,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             personal_data_items: record.personal_data_items?.map((t: string) => ({ type: t })),
             data_categories: record.data_categories?.map((c: string) => ({ category: c })),
             data_types: record.data_types?.map((t: string) => ({ type: t })),
+            collection_methods: record.collection_method ? [{ method: record.collection_method }] : [],
+            data_sources: snapshotDataSources.length > 0 ? snapshotDataSources : undefined,
+            minor_consent_types: snapshotMinorConsent.length > 0 ? snapshotMinorConsent : undefined,
             legal_basis: record.legal_basis,
+            exemption_usage: record.exemption_usage,
             has_cross_border_transfer: record.has_cross_border_transfer,
             transfer_country: record.transfer_country,
             transfer_in_group: record.transfer_company,

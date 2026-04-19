@@ -133,7 +133,7 @@ export default function CreateDocumentModal({ isOpen, onClose, onCreate }: Creat
                     <div className="flex items-end gap-6 w-full pt-1">
                         {/* Date Picker */}
                         <div className="flex-1">
-                            <label className="text-sm font-black text-[#5C403D] block mb-1.5">วันครบกำหนด</label>
+                            <label className="text-sm font-black text-[#5C403D] block mb-1.5">วันที่กำหนดส่ง</label>
                             <ThaiDatePicker
                                 value={dueDate}
                                 onChange={setDueDate}

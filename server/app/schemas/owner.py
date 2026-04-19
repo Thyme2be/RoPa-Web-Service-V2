@@ -121,7 +121,7 @@ class DocumentCreateOwner(BaseModel):
     title: str
     description: Optional[str] = None
     review_interval_days: int = 365
-    due_date: Optional[datetime] = None
+    due_date: Optional[str] = None
     processor_company: str  # ชื่อบริษัท DP ที่เลือกจาก dropdown → ใช้สุ่ม DP
 
 

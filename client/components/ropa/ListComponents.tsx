@@ -385,18 +385,21 @@ export function DocumentTableHead({ children }: { children: React.ReactNode }) {
     );
 }
 
-export function DocumentTableHeader({ children, width, className = "" }: { children: React.ReactNode, width?: string, className?: string }) {
+export function DocumentTableHeader({ children, width, className = "", align = "center" }: { children: React.ReactNode, width?: string, className?: string, align?: "left" | "center" | "right" }) {
+    const alignClass = align === "left" ? "text-left" : align === "right" ? "text-right" : "text-center";
     return (
-        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${className}`}>
+        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${alignClass} ${className}`}>
             {children}
         </th>
     );
 }
 
-export function DocumentTableHeaderWithTooltip({ title, tooltipText, width, className = "" }: { title: React.ReactNode, tooltipText: React.ReactNode, width?: string, className?: string }) {
+export function DocumentTableHeaderWithTooltip({ title, tooltipText, width, className = "", align = "center" }: { title: React.ReactNode, tooltipText: React.ReactNode, width?: string, className?: string, align?: "left" | "center" | "right" }) {
+    const alignClass = align === "left" ? "text-left" : align === "right" ? "text-right" : "text-center";
+    const justifyClass = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
     return (
-        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${className}`}>
-            <div className="flex items-center justify-center gap-1 group relative cursor-help">
+        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${alignClass} ${className}`}>
+            <div className={`flex items-center ${justifyClass} gap-1 group relative cursor-help`}>
                 {title}
                 <span className="material-symbols-rounded text-[16px] text-[#5C403D]">info</span>
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-max opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[60]">

@@ -44,6 +44,7 @@ from typing import List, Optional
 from uuid import UUID
 import logging
 import random
+import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
@@ -132,20 +133,24 @@ router = APIRouter(prefix="/owner", tags=["Data Owner"])
 # Helper: Generate Document Number
 # =============================================================================
 
-def _generate_document_number(db: Session, year: int, prefix: str = "DFT") -> str:
+def _generate_document_number(db: Session, prefix: str = "RP") -> str:
     """
-    สร้างเลขเอกสารรูปแบบ DFT-YYYY-XX หรือ RP-YYYY-XX
-    - DFT-YYYY-XX = ฉบับร่าง (ยังอยู่ใน IN_PROGRESS)
-    - RP-YYYY-XX  = ฉบับจริง (ส่ง DPO แล้ว → UNDER_REVIEW ขึ้นไป)
-    นับจำนวนเอกสารทั้งหมดในปีนั้น + 1
+    สร้างเลขเอกสารรูปแบบ RP-XXXXXX โดยที่ XXXXXX เป็นเลขสุ่ม 6 หลัก
+    และตรวจสอบว่าไม่ซ้ำในฐานข้อมูล
     """
-    count = (
-        db.query(func.count(RopaDocumentModel.id))
-        .filter(func.extract("year", RopaDocumentModel.created_at) == year)
-        .scalar()
-        or 0
-    )
-    return f"{prefix}-{year}-{count + 1:02d}"
+    while True:
+        # สุ่มเลข 4 หลัก และ 2 หลัก คั่นด้วยขีด
+        part1 = "".join(random.choices(string.digits, k=4))
+        part2 = "".join(random.choices(string.digits, k=2))
+        doc_number = f"{prefix}-{part1}-{part2}"
+        
+        # ตรวจสอบความซ้ำซ้อน
+        exists = db.query(RopaDocumentModel.id).filter(
+            RopaDocumentModel.document_number == doc_number
+        ).first()
+        
+        if not exists:
+            return doc_number
 
 
 def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
@@ -397,7 +402,7 @@ def create_document(
     parsed_due_date = None
     if payload.due_date:
         try:
-            d_str = payload.due_date
+            d_str = str(payload.due_date)  # Ensure it's treated as a string
             if "T" not in d_str and len(d_str) == 10:
                 parsed_due_date = datetime.fromisoformat(d_str)
             else:
@@ -426,7 +431,7 @@ def create_document(
     if existing_count > 0:
         logger.info(f"User {current_user.id} is creating a document with a duplicate title: {payload.title}")
 
-    doc_number = _generate_document_number(db, year, "DFT")
+    doc_number = _generate_document_number(db, "RP")
     doc = RopaDocumentModel(
         document_number=doc_number,
         title=payload.title,
@@ -499,13 +504,25 @@ def create_owner_snapshot(
     if not doc:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
 
-    # บันทึกลง snapshot table
-    snapshot = RopaOwnerSnapshotModel(
-        document_id=id,
-        user_id=current_user.id,
-        data=payload.model_dump(exclude_none=True),
-    )
-    db.add(snapshot)
+    # ตรวจสอบว่ามี snapshot เดิมสำหรับเอกสารนี้และ user นี้หรือไม่
+    snapshot = db.query(RopaOwnerSnapshotModel).filter_by(
+        document_id=id, 
+        user_id=current_user.id
+    ).first()
+
+    if snapshot:
+        # ถ้ามีอยู่แล้วให้ทับข้อมูลเดิมและอัปเดตเวลา
+        snapshot.data = payload.model_dump(exclude_none=True)
+        snapshot.created_at = datetime.now(timezone.utc)
+    else:
+        # ถ้ายังไม่มีให้สร้างใหม่
+        snapshot = RopaOwnerSnapshotModel(
+            document_id=id,
+            user_id=current_user.id,
+            data=payload.model_dump(exclude_none=True),
+        )
+        db.add(snapshot)
+
     db.commit()
     db.refresh(snapshot)
 
@@ -1427,9 +1444,7 @@ def send_to_dpo(
     if not risk:
         raise HTTPException(status_code=400, detail="ยังไม่ได้ยืนยันการประเมินความเสี่ยง")
 
-    # เปลี่ยน document_number จาก DFT → RP
-    if doc.document_number and doc.document_number.startswith("DFT-"):
-        doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
+    # เอกสารทั้งหมดใช้ RP- อยู่แล้ว ไม่ต้องเปลี่ยน prefix
 
     doc.status = "UNDER_REVIEW"
 

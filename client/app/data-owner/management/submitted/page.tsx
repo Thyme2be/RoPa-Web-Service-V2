@@ -112,7 +112,7 @@ export default function RopaSubmittedPage() {
                     <DocumentListCard title="เอกสารที่ส่งให้กับเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" icon="assignment" iconColor="#FF9800" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[18%]" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[18%]" align="left" className="whitespace-nowrap !text-[12px]">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[27%]" className="whitespace-nowrap !text-[12px]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันที่ส่งข้อมูล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันที่ตรวจสอบ</DocumentTableHeader>
@@ -139,15 +139,16 @@ export default function RopaSubmittedPage() {
                                 ) : (
                                     paginatedRecords.map((record) => (
                                         <DocumentTableRow key={record.document_id}>
-                                            <DocumentTableCell align="left">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                            <DocumentTableCell align="left" className="pl-6">
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.dpo_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell align="left">
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {record.sent_at ? new Date(record.sent_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
-                                            <DocumentTableCell align="left">
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {record.reviewed_at ? new Date(record.reviewed_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
