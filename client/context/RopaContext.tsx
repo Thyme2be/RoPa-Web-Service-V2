@@ -147,21 +147,23 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                         document_name: item.title || item.document_name,
                         title: item.title || item.document_name,
                         document_number: item.document_number,
-                        title_prefix: item.owner_title || "คุณ",
-                        first_name: item.owner_first_name || item.owner_name || "—",
+                        // ใช้ do_name ที่ backend format มาให้แล้ว (นางสาวพรรษชล บุญมาก)
+                        full_name: item.do_name,
+                        title_prefix: item.owner_title || "",
+                        first_name: item.owner_first_name || "",
                         last_name: item.owner_last_name || "",
-                        due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
-                        updated_at: item.updated_at ? new Date(item.updated_at).toLocaleDateString("th-TH") : "—",
+                        due_date: item.due_date, // เก็บเป็น raw date เพื่อให้มา format ที่ frontend
+                        updated_at: item.updated_at,
                         assigned_processor: {
-                            assigned_date: item.assigned_at ? new Date(item.assigned_at).toLocaleDateString("th-TH") : "—"
+                            assigned_date: item.received_at
                         },
                         processing_status: {
                             do_status: item.owner_status?.code === "DO_DONE" ? "done" : "pending",
-                            dp_status: item.processor_status?.code === "DP_DONE" ? "done" : "pending"
+                            dp_status: item.status?.code === "DP_DONE" ? "done" : "pending"
                         },
-                        processor_status: item.processor_status,
+                        processor_status: item.status,
                         owner_status: item.owner_status,
-                        status: isDraft ? SectionStatus.DRAFT : (item.processor_status?.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
+                        status: isDraft ? SectionStatus.DRAFT : (item.status?.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
                     });
 
                     const normalizedActive = activeDocs.map(item => mapItem(item, false));

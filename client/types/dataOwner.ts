@@ -54,6 +54,7 @@ export type RiskAssessment = {
 export type OwnerRecord = {
   id: string;
   document_name: string;
+  full_name?: string;     // ชื่อ-นามสกุล รูปแบบพร้อมแสดงผล (backend format)
   title_prefix?: string;
   first_name?: string;
   last_name?: string;

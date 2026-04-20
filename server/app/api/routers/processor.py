@@ -95,11 +95,24 @@ def _processor_status_badge(
 
 
 def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
+    """
+    Format: [Title][FirstName] [LastName]
+    Example: นางสาวพรรษชล บุญมาก
+    """
     if not user:
         return None
-    parts = [user.first_name, user.last_name]
-    name = " ".join(p for p in parts if p)
-    return name or user.username or None
+    
+    # Combined title and first name (no space)
+    title_first = (user.title or "") + (user.first_name or "")
+    
+    if not title_first and not user.last_name:
+        return user.username or None
+        
+    full_name = title_first
+    if user.last_name:
+        full_name += f" {user.last_name}"
+        
+    return full_name.strip() or user.username or None
 
 
 # =============================================================================
@@ -362,6 +375,7 @@ def get_assigned_table(
                 RopaDocumentModel.deletion_status != "DELETED",
             ),
         )
+        .order_by(ProcessorAssignmentModel.created_at.desc())
         .all()
     )
 
@@ -384,6 +398,15 @@ def get_assigned_table(
 
         # หา DO name
         do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
+
+        # หา Owner Status (DO Status)
+        owner_section = db.query(RopaOwnerSectionModel).filter(RopaOwnerSectionModel.document_id == doc.id).first()
+        owner_status = None
+        if owner_section:
+            if owner_section.status == "SUBMITTED":
+                owner_status = ProcessorStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
+            else:
+                owner_status = ProcessorStatusBadge(label="รอส่วนของ Data Owner", code="WAITING_DO")
 
         # feedback ที่ยังเปิดอยู่ (จาก DO หรือ DPO)
         has_open_feedback = False
@@ -420,7 +443,11 @@ def get_assigned_table(
             assignment_status=assignment.status,
             due_date=assignment.due_date,
             received_at=assignment.created_at,
+            owner_title=do_user.title if do_user else None,
+            owner_first_name=do_user.first_name if do_user else None,
+            owner_last_name=do_user.last_name if do_user else None,
             status=_processor_status_badge(proc_section),
+            owner_status=owner_status,
             has_open_feedback=has_open_feedback,
             created_at=doc.created_at,
         ))

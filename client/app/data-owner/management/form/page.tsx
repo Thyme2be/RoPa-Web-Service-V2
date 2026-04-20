@@ -584,6 +584,10 @@ function ManagementFormContent() {
                                         doStatus={doStatus}
                                         dpStatus={dpStatus}
                                         existingRisk={form.risk_assessment}
+                                        dpoSuggestion={(() => {
+                                            const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK");
+                                            return riskSuggestion ? { comment: riskSuggestion.comment, date: riskSuggestion.date } : undefined;
+                                        })()}
                                         activeView={riskDocView}
                                         onViewDoSection={() => setRiskDocView(v => v === "owner" ? "none" : "owner")}
                                         onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}

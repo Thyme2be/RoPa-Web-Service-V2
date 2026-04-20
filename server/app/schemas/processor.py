@@ -197,7 +197,11 @@ class ProcessorAssignedTableItem(BaseModel):
     assignment_status: AssignmentStatusEnum
     due_date: Optional[datetime]
     received_at: Optional[datetime]     # วันที่ได้รับ = created_at ของ assignment
+    owner_title: Optional[str] = None   # คำนำหน้าชื่อ DO
+    owner_first_name: Optional[str] = None
+    owner_last_name: Optional[str] = None
     status: ProcessorStatusBadge        # badge สถานะ DP เอง
+    owner_status: Optional[ProcessorStatusBadge] = None # badge สถานะ DO
     has_open_feedback: bool
     created_at: datetime
 

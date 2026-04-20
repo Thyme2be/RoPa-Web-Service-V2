@@ -55,7 +55,7 @@ export default function InlineFeedbackWrapper({
 
             {/* Submitted Feedback Display */}
             {existingSuggestion && !isDraftingFeedback && (
-                <div className="bg-white rounded-2xl p-4 pl-6 flex flex-col gap-2 relative overflow-hidden shadow-sm">
+                <div className="bg-[#F6F3F2] rounded-2xl p-4 pl-6 flex flex-col gap-2 relative overflow-hidden">
                     <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", primaryColorClass)} />
                     <div className="flex items-center gap-2">
                         <span className={cn("material-symbols-outlined text-[18px]", isProcessor ? "text-[#00666E]" : "text-[#ED393C]")}>

@@ -80,9 +80,9 @@ export const ropaService = {
         return response.data;
     },
 
-    sendToDpo: async (id: string, payload: { dpo_id: number }) => {
+    sendToDpo: async (id: string, payload?: { dpo_id?: number }) => {
         // Updated payload to match backend schema (SendToDpoPayload)
-        const response = await api.post(`/owner/documents/${id}/send-to-dpo`, payload);
+        const response = await api.post(`/owner/documents/${id}/send-to-dpo`, payload || {});
         return response.data;
     },
 
@@ -91,8 +91,8 @@ export const ropaService = {
         return response.data;
     },
 
-    annualReview: async (id: string, payload: { dpo_id: number }) => {
-        const response = await api.post(`/owner/documents/${id}/annual-review`, payload);
+    annualReview: async (id: string, payload?: { dpo_id?: number }) => {
+        const response = await api.post(`/owner/documents/${id}/annual-review`, payload || {});
         return response.data;
     },
 

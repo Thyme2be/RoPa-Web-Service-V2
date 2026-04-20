@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
+import InlineFeedbackWrapper from "./InlineFeedbackWrapper";
 
 interface RiskAssessmentProps {
     doStatus: "pending" | "done";
@@ -11,6 +12,10 @@ interface RiskAssessmentProps {
         impact: number;
         total: number;
         level: string;
+    };
+    dpoSuggestion?: {
+        comment: string;
+        date: string;
     };
     activeView?: "none" | "owner" | "processor";
     onViewDoSection: () => void;
@@ -71,6 +76,7 @@ export default function RiskAssessment({
     doStatus,
     dpStatus,
     existingRisk,
+    dpoSuggestion,
     activeView = "none",
     onViewDoSection,
     onViewDpSection,
@@ -110,90 +116,103 @@ export default function RiskAssessment({
     }
 
     // ─── Ready: Both done ─────────────────────────────────────────────────────
-    return (
-        <div className="space-y-8 pb-32">
-            <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary p-8 space-y-8">
+    const content = (
+        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary p-8 space-y-8">
+            <div className="flex items-center gap-4">
+                <div className="bg-primary/5 p-2.5 rounded-xl">
+                    <span className="material-symbols-outlined text-primary text-2xl">assessment</span>
+                </div>
+                <h2 className="font-black text-xl text-[#1B1C1C] tracking-tight">
+                    ความเสี่ยงที่ผู้รับผิดชอบข้อมูลจำเป็นต้องประเมิน
+                </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
+                <ScaleSelector
+                    label="ประเมินโอกาสที่จะเกิดเหตุ"
+                    value={probability}
+                    onChange={setProbability}
+                />
+                <ScaleSelector
+                    label="ความเสียหายที่อาจจะขึ้น"
+                    value={impact}
+                    onChange={setImpact}
+                />
+            </div>
+
+            <div className="space-y-6 pt-4 border-t border-[#F6F3F2]">
                 <div className="flex items-center gap-4">
-                    <div className="bg-primary/5 p-2.5 rounded-xl">
-                        <span className="material-symbols-outlined text-primary text-2xl">assessment</span>
+                    <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[280px]">
+                        ความเสี่ยงโดยรวมจากการประเมิน
+                    </label>
+                    <div className="h-12 w-[180px] bg-white border border-[#E5E2E1] rounded-lg px-4 flex items-center shadow-sm">
+                        <span className="text-[17px] font-bold text-[#1B1C1C]">
+                            {total > 0 ? total : ""}
+                        </span>
                     </div>
-                    <h2 className="font-black text-xl text-[#1B1C1C] tracking-tight">
-                        ความเสี่ยงที่ผู้รับผิดชอบข้อมูลจำเป็นต้องประเมิน
-                    </h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
-                    <ScaleSelector
-                        label="ประเมินโอกาสที่จะเกิดเหตุ"
-                        value={probability}
-                        onChange={setProbability}
-                    />
-                    <ScaleSelector
-                        label="ความเสียหายที่อาจจะขึ้น"
-                        value={impact}
-                        onChange={setImpact}
-                    />
-                </div>
-
-                <div className="space-y-6 pt-4 border-t border-[#F6F3F2]">
-                    <div className="flex items-center gap-4">
-                        <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[280px]">
-                            ความเสี่ยงโดยรวมจากการประเมิน
-                        </label>
-                        <div className="h-12 w-[180px] bg-white border border-[#E5E2E1] rounded-lg px-4 flex items-center shadow-sm">
-                            <span className="text-[17px] font-bold text-[#1B1C1C]">
-                                {total > 0 ? total : ""}
+                <div className="flex items-center gap-4">
+                    <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[150px]">
+                        ระดับความเสี่ยง
+                    </label>
+                    <div className="h-12 w-[250px] bg-white border border-[#E5E2E1] rounded-lg px-4 flex items-center shadow-sm">
+                        {total > 0 && (
+                            <span className={cn(
+                                "text-[17px] font-black",
+                                level === "ต่ำ" ? "text-green-600" : level === "ปานกลาง" ? "text-amber-600" : "text-red-600"
+                            )}>
+                                {level}
                             </span>
-                        </div>
+                        )}
                     </div>
+                </div>
 
+                <div className="flex items-center gap-4 pt-4">
+                    <p className="text-[17px] font-black text-[#1B1C1C] tracking-tight">
+                        ดูข้อมูลในเอกสาร เพื่อประกอบการประเมินความเสี่ยง
+                    </p>
                     <div className="flex items-center gap-4">
-                        <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[150px]">
-                            ระดับความเสี่ยง
-                        </label>
-                        <div className="h-12 w-[250px] bg-white border border-[#E5E2E1] rounded-lg px-4 flex items-center shadow-sm">
-                            {total > 0 && (
-                                <span className={cn(
-                                    "text-[17px] font-black",
-                                    level === "ต่ำ" ? "text-green-600" : level === "ปานกลาง" ? "text-amber-600" : "text-red-600"
-                                )}>
-                                    {level}
-                                </span>
+                        <button
+                            onClick={onViewDoSection}
+                            className={cn(
+                                "px-6 py-2.5 rounded-md font-bold text-sm transition-all border shadow-sm",
+                                activeView === "owner" 
+                                    ? "bg-primary text-white border-primary" 
+                                    : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white"
                             )}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 pt-4">
-                        <p className="text-[17px] font-black text-[#1B1C1C] tracking-tight">
-                            ดูข้อมูลในเอกสาร เพื่อประกอบการประเมินความเสี่ยง
-                        </p>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={onViewDoSection}
-                                className={cn(
-                                    "px-6 py-2.5 rounded-md font-bold text-sm transition-all border shadow-sm",
-                                    activeView === "owner" 
-                                        ? "bg-primary text-white border-primary" 
-                                        : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white"
-                                )}
-                            >
-                                ส่วนของผู้รับผิดชอบข้อมูล
-                            </button>
-                            <button
-                                onClick={onViewDpSection}
-                                className={cn(
-                                    "px-6 py-2.5 rounded-md font-bold text-sm transition-all border shadow-sm",
-                                    activeView === "processor" 
-                                        ? "bg-primary text-white border-primary" 
-                                        : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white"
-                                )}
-                            >
-                                ส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล
-                            </button>
-                        </div>
+                        >
+                            ส่วนของผู้รับผิดชอบข้อมูล
+                        </button>
+                        <button
+                            onClick={onViewDpSection}
+                            className={cn(
+                                "px-6 py-2.5 rounded-md font-bold text-sm transition-all border shadow-sm",
+                                activeView === "processor" 
+                                    ? "bg-primary text-white border-primary" 
+                                    : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white"
+                            )}
+                        >
+                            ส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
+    );
+
+    return (
+        <div className="space-y-8 pb-32">
+            <InlineFeedbackWrapper
+                title="ส่วนที่ 3 : การประเมินความเสี่ยง"
+                isDraftingFeedback={false}
+                onFeedbackChange={() => {}}
+                feedbackText=""
+                existingSuggestion={dpoSuggestion ? { text: dpoSuggestion.comment, date: dpoSuggestion.date } : undefined}
+                canReview={false}
+            >
+                {content}
+            </InlineFeedbackWrapper>
 
             {/* Footer Actions */}
             <div className="flex items-center justify-between pt-8">

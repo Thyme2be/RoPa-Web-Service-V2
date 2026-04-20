@@ -77,12 +77,7 @@ export default function RopaDestroyedPage() {
                         onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         statusOptions={[
                             { label: "ทั้งหมด", value: "all" },
-                            { label: "รอดำเนินการ", value: "pending" },
-                            { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
-                            { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
-                            { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
-                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" },
-                            { label: "ถูกทำลายเสร็จสิ้น", value: "destroyed" }
+                            { label: "ทำลายเสร็จสิ้น", value: "destroyed" }
                         ]}
                         dateValue={dateFilter}
                         onDateChange={(val) => { setDateFilter(val); setPage(1); }}

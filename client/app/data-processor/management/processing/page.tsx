@@ -163,7 +163,9 @@ export default function ManagementProcessingPage() {
                                                     {record.document_number} {record.title}
                                                 </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell className="text-[#5C403D] font-medium">{record.title_prefix}{record.first_name} {record.last_name}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
+                                                {record.full_name || `${record.title_prefix}${record.first_name} ${record.last_name}`}
+                                            </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {record.assigned_processor?.assigned_date ? new Date(record.assigned_processor.assigned_date).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>

@@ -335,7 +335,7 @@ class DeletionRequestRead(BaseModel):
 
 class SendToDpoPayload(BaseModel):
     """Payload สำหรับ DO ส่งเอกสารให้ DPO review (ทั้ง send-to-dpo และ annual-review)"""
-    dpo_id: int
+    dpo_id: Optional[int] = None
 
 
 class MessageResponse(BaseModel):

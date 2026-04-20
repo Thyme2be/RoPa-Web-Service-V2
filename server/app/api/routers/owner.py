@@ -1332,6 +1332,10 @@ def save_owner_section_draft(
         if value is not None:
             setattr(section, field, value)
 
+    # หากมีการแก้ไข (save draft) ให้เปลี่ยนสถานะกลับเป็น DRAFT เพื่อให้ Processor เห็นว่า "รอ" (ถ้าเคย SUBMIT แล้ว)
+    if section.status == RopaSectionEnum.SUBMITTED:
+        section.status = RopaSectionEnum.DRAFT
+
     _replace_owner_sub_tables(section.id, payload, db)
 
     db.commit()
@@ -1417,9 +1421,21 @@ def send_to_dpo(
     """
     check_document_access(document_id, current_user, db)
 
-    dpo_user = db.query(UserModel).filter(UserModel.id == payload.dpo_id).first()
-    if not dpo_user or dpo_user.role != "DPO":
-        raise HTTPException(status_code=400, detail="dpo_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ DPO")
+    if payload.dpo_id:
+        dpo_user = db.query(UserModel).filter(UserModel.id == payload.dpo_id).first()
+        if not dpo_user or dpo_user.role != "DPO":
+            raise HTTPException(status_code=400, detail="dpo_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ DPO")
+    else:
+        # สุ่มเลือก DPO (Random Assignment)
+        dpo_candidates = db.query(UserModel).filter(
+            UserModel.role == "DPO",
+            UserModel.status == "ACTIVE"
+        ).all()
+        if not dpo_candidates:
+            raise HTTPException(status_code=400, detail="ไม่พบ DPO ที่พร้อมใช้งานในระบบ")
+        dpo_user = random.choice(dpo_candidates)
+        logger.info(f"Automatically assigned DPO {dpo_user.email} (Random) for initial submission of doc {document_id}")
+
 
     doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
     if not doc:
@@ -1600,9 +1616,21 @@ def request_annual_review(
     """
     check_document_access(document_id, current_user, db)
 
-    dpo_user = db.query(UserModel).filter(UserModel.id == payload.dpo_id).first()
-    if not dpo_user or dpo_user.role != "DPO":
-        raise HTTPException(status_code=400, detail="dpo_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ DPO")
+    if payload.dpo_id:
+        dpo_user = db.query(UserModel).filter(UserModel.id == payload.dpo_id).first()
+        if not dpo_user or dpo_user.role != "DPO":
+            raise HTTPException(status_code=400, detail="dpo_id ไม่ถูกต้องหรือ user ที่เลือกไม่ใช่ DPO")
+    else:
+        # สุ่มเลือก DPO (Random Assignment)
+        dpo_candidates = db.query(UserModel).filter(
+            UserModel.role == "DPO",
+            UserModel.status == "ACTIVE"
+        ).all()
+        if not dpo_candidates:
+            raise HTTPException(status_code=400, detail="ไม่พบ DPO ที่พร้อมใช้งานในระบบ")
+        dpo_user = random.choice(dpo_candidates)
+        logger.info(f"Automatically assigned DPO {dpo_user.email} (Random) for annual review of doc {document_id}")
+
 
     doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
     if not doc or doc.status != "COMPLETED":
