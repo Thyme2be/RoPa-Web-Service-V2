@@ -168,7 +168,7 @@ export default function TopBar({
                         <span className="text-[15px] font-black text-black">
                             {userName}
                         </span>
-                        <span className="text-[12px] font-bold text-black whitespace-nowrap">
+                        <span className="text-[12px] font-bold text-[#737373] whitespace-nowrap">
                             {userRole}
                         </span>
                     </div>

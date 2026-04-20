@@ -35,27 +35,34 @@ export default function FormTabs({ activeTab, onTabChange, doComplete, dpComplet
     ];
 
     return (
-        <div className="flex items-center gap-2 w-full overflow-x-auto no-scrollbar bg-[#F6F6F6] p-2 rounded-xl">
-            {tabs.map((tab) => (
-                <button
-                    key={tab.id}
-                    onClick={() => onTabChange(tab.id)}
-                    className={cn(
-                        "h-11 px-6 rounded-lg font-bold text-[14px] transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-1",
-                        activeTab === tab.id
-                            ? "bg-[#ED393C] text-white shadow-md"
-                            : "bg-white text-[#1B1C1C] border border-[#E5E2E1] hover:bg-gray-50"
-                    )}
-                >
-                    {tab.label}
-                    {tab.complete && (
-                        <div className={cn(
-                            "w-2 h-2 rounded-full",
-                            activeTab === tab.id ? "bg-[#ED393C]" : "bg-green-500"
-                        )} />
-                    )}
-                </button>
-            ))}
+        <div className="flex items-center gap-4 w-full overflow-x-auto no-scrollbar mb-6">
+            {tabs.map((tab) => {
+                const isDestruction = tab.id === "destruction";
+                const isActive = activeTab === tab.id;
+
+                return (
+                    <button
+                        key={tab.id}
+                        onClick={() => onTabChange(tab.id)}
+                        className={cn(
+                            "h-[42px] px-6 rounded-md font-bold text-[14px] transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm",
+                            isDestruction
+                                ? "bg-[#ED393C] text-white hover:bg-[#D62828] border border-[#ED393C]" // Always red or distinct
+                                : isActive
+                                    ? "bg-[#ED393C] text-white border border-[#ED393C]"
+                                    : "bg-white text-[#5C403D] border border-[#E5E2E1] hover:bg-gray-50"
+                        )}
+                    >
+                        {tab.label}
+                        {tab.complete && (
+                            <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                isActive ? "bg-white" : "bg-green-500"
+                            )} />
+                        )}
+                    </button>
+                );
+            })}
         </div>
     );
 }

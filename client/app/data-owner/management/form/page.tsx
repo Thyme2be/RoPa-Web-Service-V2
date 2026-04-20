@@ -48,7 +48,8 @@ function ManagementFormContent() {
         fetchFullProcessorRecord,
         createOwnerSnapshot,
         fetchOwnerSnapshot,
-        requestDelete
+        requestDelete,
+        submitFeedbackBatch
     } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
@@ -57,6 +58,7 @@ function ManagementFormContent() {
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
+    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [feedbackModal, setFeedbackModal] = useState<{ open: boolean; section: string }>({ open: false, section: "" });
 
     // Feedback states
@@ -399,8 +401,8 @@ function ManagementFormContent() {
     };
 
     const completedSteps = getCompletedSteps();
-    const doStatus = "done"; // Mocked to 'done' so Risk Assessment unlocks
-    const dpStatus = "done"; // Mocked to 'done' so Risk Assessment unlocks
+    const doStatus = form.status === RopaStatus.Processing ? "done" : "pending";
+    const dpStatus = dpForm.status === RopaStatus.Processing ? "done" : "pending";
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -448,9 +450,30 @@ function ManagementFormContent() {
     };
 
     /** ส่งคำร้องขอเปลี่ยนแปลง DP section */
-    const handleFeedbackConfirm = () => {
+    const handleFeedbackConfirm = async () => {
         setFeedbackModal({ open: false, section: "" });
-        // In real app: call API to notify DP
+        if (!recordId) return;
+
+        try {
+            const items = Object.entries(draftFeedbacks).map(([key, comment]) => {
+                // key is format like dp-1, dp-2 ...
+                const sectionNumberStr = key.split('-')[1];
+                const sectionNumber = sectionNumberStr ? parseInt(sectionNumberStr, 10) : 1;
+                return {
+                    section_number: sectionNumber,
+                    comment: comment.trim()
+                };
+            }).filter(item => item.comment !== "");
+
+            if (items.length > 0) {
+                await submitFeedbackBatch(recordId, items);
+            }
+            setDraftFeedbacks({});
+            setActiveFeedbacks({});
+            router.push("/data-owner/management/processing");
+        } catch (error) {
+            console.error("Failed to send feedback batch:", error);
+        }
     };
 
     /** Risk Assessment submitted */
@@ -606,46 +629,29 @@ function ManagementFormContent() {
 
                             {/* ─── Tab: ยื่นคำร้องขอทำลาย ──────────────────────────── */}
                             {activeTab === "destruction" && (
-                                <div className="bg-white rounded-[32px] p-12 border border-[#E5E2E1] mt-8 animate-in slide-in-from-bottom-4 duration-500">
-                                    <div className="max-w-3xl mx-auto space-y-8">
-                                        <div className="flex flex-col items-center text-center">
-                                            <div className="bg-red-50 p-6 rounded-3xl mb-6">
-                                                <span className="material-symbols-outlined text-[48px] text-[#B90A1E]">delete_forever</span>
-                                            </div>
-                                            <h3 className="text-2xl font-black text-[#1B1C1C]">ยื่นคำร้องขอทำลายเอกสาร</h3>
-                                            <p className="text-[#5F5E5E] font-bold mt-2">
-                                                กรุณากรอกเหตุผลที่ต้องการทำลายเอกสาร RoPA ฉบับนี้ <br />
-                                                เพื่อให้ผู้ดูแลระบบ (DPO) พิจารณาอนุมัติ
-                                            </p>
-                                        </div>
+                                <div className="mt-8 animate-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full px-4 border-none shadow-none">
+                                    <div className="space-y-4">
+                                        <h3 className="text-[18px] font-black text-[#1B1C1C] mb-4">เหตุผลในการขอทำลายเอกสาร</h3>
+                                        
+                                        <textarea
+                                            value={form.deletion_reason || ""}
+                                            onChange={(e) => setForm(prev => ({ ...prev, deletion_reason: e.target.value }))}
+                                            rows={4}
+                                            className="w-full bg-white border border-[#E5E2E1] rounded-xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-[14px]"
+                                            placeholder="ระบุเหตุผลในการขอทำลายเอกสาร เพื่อส่งคำขอไปยังเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
+                                        />
 
-                                        <div className="bg-[#F6F3F2] p-8 rounded-[24px] space-y-4">
-                                            <label className="block text-base font-black text-[#1B1C1C]">เหตุผลการขอทำลาย</label>
-                                            <textarea
-                                                value={form.deletion_reason || ""}
-                                                onChange={(e) => setForm(prev => ({ ...prev, deletion_reason: e.target.value }))}
-                                                rows={6}
-                                                className="w-full bg-white border border-[#E5E2E1] rounded-2xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-base font-bold"
-                                                placeholder="ระบุเหตุผล เช่น สิ้นสุดระยะเวลาเก็บรักษาตามกฎหมาย, กิจกรรมไม่มีการดำเนินการแล้ว..."
-                                            />
-                                        </div>
-
-                                        <div className="flex items-center gap-4 justify-center">
+                                        <div className="flex items-center justify-between mt-8 pt-4">
                                             <button
                                                 onClick={() => setActiveTab("owner")}
-                                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95"
+                                                className="bg-white border text-[#1B1C1C] border-[#E5E2E1] h-[48px] px-8 rounded-full font-bold hover:bg-gray-50 transition-all"
                                             >
                                                 ยกเลิก
                                             </button>
                                             <button
                                                 disabled={!form.deletion_reason || form.deletion_request?.status === "PENDING" || viewMode}
-                                                onClick={async () => {
-                                                    if (recordId && form.deletion_reason) {
-                                                        await requestDelete(recordId, form.deletion_reason);
-                                                        setIsSuccessModalOpen(true);
-                                                    }
-                                                }}
-                                                className="bg-logout-gradient text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                                                onClick={() => setIsConfirmDeleteOpen(true)}
+                                                className="bg-logout-gradient text-white h-[48px] px-8 rounded-full font-bold shadow-sm hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
                                             >
                                                 {form.deletion_request?.status === "PENDING" ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
                                             </button>
@@ -699,67 +705,65 @@ function ManagementFormContent() {
                 )}
 
                 {/* ─── Bottom Action Bar ────────────────────────────────────── */}
-                {activeTab === "owner" && (
-                    !isReviewMode ? (
-                        /* Feedback Bar takes priority in viewMode if comments are being drafted */
-                        (viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "")) ? (
-                            <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                                <button
-                                    onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
-                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                >
-                                    ยกเลิกการแก้ไข
-                                </button>
+                {viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "") ? (
+                    /* Feedback Bar takes priority in viewMode if comments are being drafted */
+                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                        <button
+                            onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
+                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                        >
+                            ยกเลิกการแก้ไข
+                        </button>
 
-                                <button
-                                    onClick={() => setFeedbackModal({ open: true, section: "all" })}
-                                    className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                >
-                                    ส่งคำร้องขอเปลี่ยนแปลง
-                                </button>
-                            </div>
-                        ) : (
-                            /* Normal form mode or view mode (Conditional buttons based on lock state) */
-                            <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                                {viewMode && isLocked ? (
-                                    /* Single Centered Back Button in Locked View Mode */
-                                    <div className="flex justify-center w-full">
+                        <button
+                            onClick={() => setFeedbackModal({ open: true, section: "all" })}
+                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                        >
+                            ส่งคำร้องขอเปลี่ยนแปลง
+                        </button>
+                    </div>
+                ) : activeTab === "owner" && (
+                    !isReviewMode ? (
+                        /* Normal form mode or view mode (Conditional buttons based on lock state) */
+                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            {viewMode && isLocked ? (
+                                /* Single Centered Back Button in Locked View Mode */
+                                <div className="flex justify-center w-full">
+                                    <button
+                                        onClick={handleCancel}
+                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-20 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                        กลับ
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Left: Cancellation */}
+                                    <button
+                                        onClick={handleCancel}
+                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                        ยกเลิก
+                                    </button>
+
+                                    {/* Right Group: Draft + Save */}
+                                    <div className="flex items-center gap-4">
                                         <button
-                                            onClick={handleCancel}
-                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-20 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                            onClick={handleDraft}
+                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                                         >
-                                            กลับ
+                                            บันทึกฉบับร่าง
+                                        </button>
+                                        <button
+                                            onClick={handleSave}
+                                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                        >
+                                            บันทึก
                                         </button>
                                     </div>
-                                ) : (
-                                    <>
-                                        {/* Left: Cancellation */}
-                                        <button
-                                            onClick={handleCancel}
-                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                        >
-                                            ยกเลิก
-                                        </button>
-
-                                        {/* Right Group: Draft + Save */}
-                                        <div className="flex items-center gap-4">
-                                            <button
-                                                onClick={handleDraft}
-                                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                            >
-                                                บันทึกฉบับร่าง
-                                            </button>
-                                            <button
-                                                onClick={handleSave}
-                                                className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                            >
-                                                บันทึก
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )
+                                </>
+                            )}
+                        </div>
                     ) : (
                         /* Review Confirmation mode */
                         <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
@@ -819,6 +823,38 @@ function ManagementFormContent() {
                 onClose={() => setIsSuccessModalOpen(false)}
                 onConfirm={() => router.push("/data-owner/management/processing")}
             />
+
+            {/* ─── Confirm Delete Request Modal ───────────────────────────────── */}
+            {isConfirmDeleteOpen && (
+                <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-[400px] rounded-[32px] shadow-2xl p-8 relative flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+                        <button 
+                            onClick={() => setIsConfirmDeleteOpen(false)}
+                            className="absolute right-6 top-6 text-[#1B1C1C] hover:bg-gray-100 p-2 rounded-full transition-all"
+                        >
+                            <span className="material-symbols-outlined text-[28px]">close</span>
+                        </button>
+                        
+                        <h2 className="text-[24px] font-black text-[#1B1C1C] tracking-tight mt-4 mb-2">ส่งคำร้องขอทำลายเอกสาร</h2>
+                        <p className="text-[16px] text-[#5F5E5E] font-medium mb-8">
+                            โปรดตรวจสอบข้อมูลให้ครบถ้วน
+                        </p>
+                        
+                        <button
+                            onClick={async () => {
+                                setIsConfirmDeleteOpen(false);
+                                if (recordId && form.deletion_reason) {
+                                    await requestDelete(recordId, form.deletion_reason);
+                                    setIsSuccessModalOpen(true);
+                                }
+                            }}
+                            className="bg-logout-gradient leading-none text-white w-full max-w-[200px] h-[48px] rounded-full font-black text-[16px] shadow-sm hover:brightness-110 transition-all active:scale-95"
+                        >
+                            ยืนยันการส่งคำร้อง
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

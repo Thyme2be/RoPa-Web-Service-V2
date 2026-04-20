@@ -42,6 +42,7 @@ interface RopaContextType {
     createOwnerSnapshot: (id: string, data: any) => Promise<any>;
     fetchOwnerSnapshot: (snapshotId: string) => Promise<OwnerRecord | null>;
     assignProcessor: (recordId: string, name: string, title: string) => Promise<void>;
+    submitFeedbackBatch: (id: string, items: { section_number: number; field_name?: string; comment: string }[]) => Promise<any>;
 
     // Data Processor Actions
     saveProcessorRecord: (record: Partial<RopaProcessorRecord>) => Promise<RopaProcessorRecord>;
@@ -347,7 +348,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             access_control_measures: data.access_control_measures,
             responsibility_measures: data.responsibility_measures,
             audit_measures: data.audit_measures,
-            status: data.status === "DONE" ? RopaStatus.Processing : RopaStatus.Draft,
+            status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             workflow: "processing"
         };
     };
@@ -496,6 +497,12 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         await refresh();
     };
 
+    const submitFeedbackBatch = async (id: string, items: { section_number: number; field_name?: string; comment: string }[]) => {
+        const result = await ropaService.submitFeedbackBatch(id, items);
+        await refresh();
+        return result;
+    };
+
     const deleteRecord = async (id: string) => {
         console.warn("deleteRecord API integration pending");
     };
@@ -592,7 +599,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                 id: data.document_id,
                 ropaId: data.document_id,
                 documentName: data.title || "",
-                status: data.status === "DONE" ? RopaStatus.Processing : RopaStatus.Draft,
+                status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             };
             return normalized;
         } catch (error) {
@@ -640,6 +647,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             saveRiskAssessment,
             deleteRecord,
             assignProcessor,
+            submitFeedbackBatch,
             saveProcessorRecord,
             getProcessorById,
             fetchFullProcessorRecord,
