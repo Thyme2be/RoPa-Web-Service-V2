@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 const PUBLIC_FILE = /\.(.*)$/; // Regex for static files
 const publicRoutes = ["/login"];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // 1. Skip static files (images, fonts, etc.)
