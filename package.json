@@ -1,0 +1,26 @@
+{
+  "name": "ropa-web-service-v2",
+  "version": "1.0.0",
+  "description": "This repository contains the source code for the CN334 ROPA project, a collaboration with Netbay. The project is split into a **FastAPI** backend and a **Next.js** frontend.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Thyme2be/RoPa-Web-Service-V2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Thyme2be/RoPa-Web-Service-V2/issues"
+  },
+  "homepage": "https://github.com/Thyme2be/RoPa-Web-Service-V2#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0"
+  }
+}
