@@ -1338,7 +1338,7 @@ def list_dpo_documents(
         )
 
         status_enum_val = str(getattr(cycle.status, "value", cycle.status))
-        reviewed_dt = cycle.updated_at if status_enum_val != "IN_REVIEW" else None
+        reviewed_dt = cycle.reviewed_at if status_enum_val != "IN_REVIEW" else None
 
         items.append(
             DpoDocumentTableItem(

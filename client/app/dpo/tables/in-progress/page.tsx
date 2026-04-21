@@ -54,8 +54,7 @@ function InProgressTableContent() {
         statusFilter = "ACTION_REQUIRED_DO";
       else if (selectedStatus === "รอส่วนของ Data processor")
         statusFilter = "ACTION_REQUIRED_DP";
-      else if (selectedStatus === "ตรวจสอบเสร็จสิ้น")
-        statusFilter = "DPO_APPROVED";
+      else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "APPROVED";
 
       const queryParams = new URLSearchParams({
         page: currentPage.toString(),
@@ -107,7 +106,7 @@ function InProgressTableContent() {
         return "ต้องแก้ไข"; // Simplified for StatusBadge
       case "ACTION_REQUIRED_DP":
         return "ต้องแก้ไข";
-      case "DPO_APPROVED":
+      case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
       default:
         return "ฉบับร่าง";
@@ -122,7 +121,7 @@ function InProgressTableContent() {
         return "รอส่วนของ Data Owner";
       case "ACTION_REQUIRED_DP":
         return "รอส่วนของ Data processor";
-      case "DPO_APPROVED":
+      case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
       default:
         return "ฉบับร่าง";
@@ -137,7 +136,7 @@ function InProgressTableContent() {
         return "edit";
       case "ACTION_REQUIRED_DP":
         return "edit";
-      case "DPO_APPROVED":
+      case "APPROVED":
         return "success";
       default:
         return "draft";
@@ -372,12 +371,12 @@ function InProgressTableContent() {
                           {formatThaiDate(doc.assigned_at)}
                         </td>
                         <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">
-                          {formatThaiDate(doc.dpo_reviewed_date)}
+                          {formatThaiDate(doc.reviewed_at)}
                         </td>
                         <td className="py-4">
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
                             {doc.review_status === "IN_REVIEW" ||
-                            doc.review_status === "DPO_APPROVED" ? (
+                            doc.review_status === "APPROVED" ? (
                               <StatusBadge
                                 status={getUIStatus(doc.review_status) as any}
                               />
