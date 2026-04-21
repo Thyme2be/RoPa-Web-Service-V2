@@ -1237,7 +1237,7 @@ def save_document_comments(
 def list_documents_from_dpo(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    status: Optional[str] = Query(None, description="FILTER: WAITING_FOR_DPO, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED"),
+    status: Optional[str] = Query(None, description="FILTER: IN_REVIEW, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED"),
     search: Optional[str] = Query(None, description="Search by title or doc number"),
     date_range: Optional[str] = Query(None),
     db: Session = Depends(get_db),
@@ -1345,7 +1345,7 @@ def list_documents_from_dpo(
         
         # Calculate UI Status
         internal_status = cycle.status if cycle else 'IN_PROGRESS'
-        ui_status = "WAITING_FOR_DPO"
+        ui_status = "IN_REVIEW"
         ui_label = "รอตรวจสอบ"
 
         if internal_status == 'APPROVED':
@@ -1374,7 +1374,7 @@ def list_documents_from_dpo(
                 elif has_dp_comments:
                     ui_status = "WAITING_FOR_DP" # DO is waiting for DP
                 else:
-                    ui_status = "WAITING_FOR_DPO"
+                    ui_status = "IN_REVIEW"
 
         # Filter by Status if requested
         if status and ui_status != status:

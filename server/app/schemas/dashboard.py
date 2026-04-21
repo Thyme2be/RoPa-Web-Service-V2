@@ -192,7 +192,7 @@ class OwnerDpoReviewedDocumentTableItem(BaseModel):
     received_date: Optional[datetime] # Date DPO assigned
     review_date: Optional[datetime]   # Date DPO approved/sent feedback
     due_date: Optional[datetime]
-    status: str                  # WAITING_FOR_DPO, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED
+    status: str                  # IN_REVIEW, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED
     is_overdue: bool
     assignment_id: Optional[UUID] = None
 
