@@ -56,7 +56,7 @@ class RopaOwnerSectionModel(Base):
     status = Column(ropa_section, default='DRAFT')
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    document = relationship("RopaDocumentModel")
+    document = relationship("RopaDocumentModel", back_populates="owner_section")
 
 class OwnerPersonalDataItemModel(Base):
     __tablename__ = "owner_personal_data_items"

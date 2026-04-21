@@ -1,4 +1,19 @@
-import { RopaStatus, DataType, CollectionMethod, RetentionUnit, SectionStatus } from "./enums";
+import { RopaStatus, DataType, CollectionMethod, RetentionUnit, SectionStatus, UserRole } from "./enums";
+
+export interface UserRead {
+    id: number;
+    title?: string;
+    first_name?: string;
+    last_name?: string;
+    email: string;
+    username?: string;
+    role: UserRole;
+    department?: string;
+    company_name?: string;
+    status: string;
+    created_at: string;
+    is_active: boolean;
+}
 
 export interface OwnerDashboardData {
   total_documents: number;
@@ -39,6 +54,7 @@ export type RiskAssessment = {
 export type OwnerRecord = {
   id: string;
   document_name: string;
+  full_name?: string;     // ชื่อ-นามสกุล รูปแบบพร้อมแสดงผล (backend format)
   title_prefix?: string;
   first_name?: string;
   last_name?: string;
@@ -150,6 +166,9 @@ export type OwnerRecord = {
   storage_method?: string;
   storage_methods?: string;
   storage_type?: string;
+  is_sent?: boolean;
+  owner_status?: { code: string; label: string };
+  processor_status?: { code: string; label: string };
 };
 
 // --- Table Item Interfaces (Matching Backend Schemas) ---
@@ -173,6 +192,8 @@ export interface ActiveTableItem {
   owner_section_status: SectionStatus;
   processor_section_id: string;
   processor_section_status: SectionStatus;
+  is_risk_complete: boolean;
+  deletion_status?: string | null;
 }
 
 export interface SentToDpoTableItem {
@@ -185,6 +206,7 @@ export interface SentToDpoTableItem {
   sent_at: string;
   reviewed_at: string;
   due_date: string;
+  deletion_status?: string | null;
 }
 
 export interface ApprovedTableItem {
@@ -198,6 +220,7 @@ export interface ApprovedTableItem {
   destruction_date: string;
   annual_review_status: "NOT_REVIEWED" | "REVIEWED";
   annual_review_status_label: string;
+  deletion_status?: string | null;
 }
 
 export interface DestroyedTableItem {
@@ -208,6 +231,14 @@ export interface DestroyedTableItem {
   dpo_name: string;
   deletion_approved_at: string;
   deletion_reason: string;
+}
+
+export interface OwnerSnapshotTableItem {
+  id: string;
+  document_id: string;
+  document_number: string;
+  title: string;
+  created_at: string;
 }
 
 export type RopaRecord = OwnerRecord;

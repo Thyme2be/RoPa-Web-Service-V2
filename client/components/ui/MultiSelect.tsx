@@ -29,10 +29,10 @@ export default function MultiSelect({
     variant = "owner",
 }: MultiSelectProps) {
     const isProcessor = variant === "processor";
-    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
-    const tagBg = isProcessor ? "bg-[#00666E]/5" : "bg-[#FFF1F1]";
-    const tagBorder = isProcessor ? "border-[#00666E]/20" : "border-[#FFD9D9]";
-    const tagHover = isProcessor ? "hover:bg-[#00666E]/10" : "hover:bg-red-50";
+    const primaryColor = "#ED393C";
+    const tagBg = "bg-[#FFF1F1]";
+    const tagBorder = "border-[#FFD9D9]";
+    const tagHover = "hover:bg-red-50";
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
@@ -86,9 +86,9 @@ export default function MultiSelect({
             )}
 
             <div className="grid grid-cols-3 gap-2 mb-3">
-                {selectedValues.map((val) => (
+                {Array.from(new Set(selectedValues)).map((val, idx) => (
                     <div
-                        key={val}
+                        key={`${val}-${idx}`}
                         className={cn(
                             "flex items-center justify-between px-4 py-1.5 text-[#1B1C1C] rounded-full text-xs font-bold transition-all border",
                             tagBg,
@@ -114,8 +114,8 @@ export default function MultiSelect({
                 <div
                     onClick={() => !disabled && setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center justify-between px-4 py-3 bg-[#F6F3F2] border rounded-2xl cursor-pointer transition-all hover:bg-white hover:border-primary/20 shadow-sm",
-                        error ? "border-red-500/50 bg-red-50/50" : "border-transparent",
+                        "flex items-center justify-between px-4 py-3 bg-white border border-[#E5E2E1] rounded-2xl cursor-pointer transition-all hover:border-[#CEC4C2] shadow-sm",
+                        error ? "border-red-500/50 bg-red-50/50" : "",
                         isOpen && "bg-white border-primary rounded-b-none shadow-sm",
                         disabled && "opacity-60 cursor-not-allowed bg-gray-100 border-gray-200 pointer-events-none"
                     )}

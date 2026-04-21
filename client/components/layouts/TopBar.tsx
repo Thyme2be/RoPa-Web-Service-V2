@@ -4,19 +4,19 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
-export default function TopBar({ 
-    documentName, 
-    handleChange, 
-    status, 
-    isProcessor, 
-    isExecutive, 
-    pageTitle, 
-    showBack, 
-    backUrl, 
-    hideSearch, 
-    hasError, 
-    minimal, 
-    formMode 
+export default function TopBar({
+    documentName,
+    handleChange,
+    status,
+    isProcessor,
+    isExecutive,
+    pageTitle,
+    showBack,
+    backUrl,
+    hideSearch,
+    hasError,
+    minimal,
+    formMode
 }: any) {
     const { user } = useAuth();
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
@@ -24,12 +24,12 @@ export default function TopBar({
     const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
 
     // Standardized role display based on real user data
-    const userRole = user?.role === "EXECUTIVE" ? "ผู้บริหารระดับสูง" : 
-                    user?.role === "PROCESSOR" ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : 
-                    user?.role === "AUDITOR" ? "ผู้ตรวจสอบ" :
-                    user?.role === "DPO" ? "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" :
+    const userRole = user?.role === "EXECUTIVE" ? "ผู้บริหารระดับสูง" :
+        user?.role === "PROCESSOR" ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" :
+            user?.role === "AUDITOR" ? "ผู้ตรวจสอบ" :
+                user?.role === "DPO" ? "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" :
                     user?.role === "ADMIN" ? "ผู้ดูแลระบบ" :
-                    "ผู้รับผิดชอบข้อมูล";
+                        "ผู้รับผิดชอบข้อมูล";
     const userName = user ? (user.first_name ? `${user.first_name} ${user.last_name || ""}` : user.username) : "Unknown User";
 
     const handleBack = () => {
@@ -165,10 +165,10 @@ export default function TopBar({
                     )}
 
                     <div className="flex flex-col items-end">
-                        <span className="text-[15px] font-black text-[#1B1C1C]">
+                        <span className="text-[15px] font-black text-black">
                             {userName}
                         </span>
-                        <span className="text-[12px] text-neutral-400 font-bold whitespace-nowrap">
+                        <span className="text-[12px] font-bold text-[#737373] whitespace-nowrap">
                             {userRole}
                         </span>
                     </div>

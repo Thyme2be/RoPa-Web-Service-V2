@@ -8,6 +8,7 @@ import {
     SentToDpoTableItem,
     ApprovedTableItem,
     DestroyedTableItem,
+    OwnerSnapshotTableItem,
     StatusBadge
 } from "@/types/dataOwner";
 import { RopaProcessorRecord } from "@/types/dataProcessor";
@@ -23,7 +24,9 @@ interface RopaContextType {
     sentRecords: SentToDpoTableItem[];
     approvedRecords: ApprovedTableItem[];
     destroyedRecords: DestroyedTableItem[];
+    ownerSnapshots: OwnerSnapshotTableItem[];
     processorRecords: RopaProcessorRecord[];
+    processorSnapshots: OwnerSnapshotTableItem[];
     executiveDashboardData: ExecutiveDashboardResponse | null;
     ownerDashboardData: OwnerDashboardData | null;
 
@@ -33,22 +36,31 @@ interface RopaContextType {
     getById: (id: string) => OwnerRecord | undefined;
     fetchFullOwnerRecord: (id: string) => Promise<OwnerRecord | null>;
     submitDoSection: (id: string) => Promise<void>;
-    sendToDpo: (id: string) => Promise<void>;
+    sendToDpo: (id: string, payload?: any) => Promise<void>;
     saveRiskAssessment: (id: string, risk: any) => Promise<void>;
-    deleteRecord: (id: string) => Promise<void>;
+    deleteRecord: (id: string, status?: string) => Promise<void>;
     requestDelete: (id: string, reason: string) => Promise<void>;
+    createOwnerSnapshot: (id: string, data: any) => Promise<any>;
+    fetchOwnerSnapshot: (snapshotId: string) => Promise<OwnerRecord | null>;
+    deleteOwnerSnapshot: (snapshotId: string) => Promise<void>;
     assignProcessor: (recordId: string, name: string, title: string) => Promise<void>;
+    submitFeedbackBatch: (id: string, items: { section_number: number; field_name?: string; comment: string }[]) => Promise<any>;
+    sendBackToDpo: (id: string) => Promise<void>;
 
     // Data Processor Actions
-    saveProcessorRecord: (record: Partial<RopaProcessorRecord>) => Promise<RopaProcessorRecord>;
+    saveProcessorRecord: (record: Partial<RopaProcessorRecord>, idOverride?: string) => Promise<RopaProcessorRecord>;
     getProcessorById: (id: string) => RopaProcessorRecord | undefined;
     fetchFullProcessorRecord: (id: string) => Promise<RopaProcessorRecord | null>;
-    submitDpSection: (id: string) => Promise<void>;
-    deleteProcessorRecord: (id: string) => Promise<void>;
+    submitDpSection: (id: string, data?: any) => Promise<void>;
+    dispatchDpSection: (id: string) => Promise<void>;
+    deleteProcessorRecord: (snapshotId: string) => Promise<void>;
+    fetchProcessorSnapshot: (snapshotId: string) => Promise<RopaProcessorRecord | null>;
 
     // Data Fetching
     refresh: () => Promise<void>;
     fetchExecutiveData: (period?: string, department?: string) => Promise<void>;
+    fetchOwnerDashboard: (period?: string) => Promise<void>;
+    annualReview: (id: string, payload?: any) => Promise<void>;
 
     isLoading: boolean;
     stats: {
@@ -70,7 +82,9 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const [sentRecords, setSentRecords] = useState<SentToDpoTableItem[]>([]);
     const [approvedRecords, setApprovedRecords] = useState<ApprovedTableItem[]>([]);
     const [destroyedRecords, setDestroyedRecords] = useState<DestroyedTableItem[]>([]);
+    const [ownerSnapshots, setOwnerSnapshots] = useState<OwnerSnapshotTableItem[]>([]);
     const [processorRecords, setProcessorRecords] = useState<RopaProcessorRecord[]>([]);
+    const [processorSnapshots, setProcessorSnapshots] = useState<OwnerSnapshotTableItem[]>([]);
     const [executiveDashboardData, setExecutiveDashboardData] = useState<any | null>(null);
     const [ownerDashboardData, setOwnerDashboardData] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -81,17 +95,19 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         try {
             if (user.role === "OWNER") {
                 try {
-                    const [active, sent, approved, destroyed] = await Promise.all([
+                    const [active, sent, approved, destroyed, snapshots] = await Promise.all([
                         ropaService.getOwnerActiveTable(),
                         ropaService.getOwnerSentTable(),
                         ropaService.getOwnerApprovedTable(),
-                        ropaService.getOwnerDestroyedTable()
+                        ropaService.getOwnerDestroyedTable(),
+                        ropaService.getOwnerSnapshots()
                     ]);
 
                     setActiveRecords(active);
                     setSentRecords(sent);
                     setApprovedRecords(approved);
                     setDestroyedRecords(destroyed);
+                    setOwnerSnapshots(snapshots);
 
                     // Legacy records mapping for screens that still use unified list
                     const legacyMapping = active.map(item => ({
@@ -110,8 +126,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
                     const ownerStats = await ropaService.getOwnerDashboard();
                     setOwnerDashboardData(ownerStats);
-                } catch (err) {
+                } catch (err: any) {
                     console.error("Owner data fetch failed:", err);
+                    if (err.response?.status === 401) {
+                        console.warn("Session expired (401). Redirecting via interceptor...");
+                    }
                 }
             }
 
@@ -136,28 +155,32 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                         document_name: item.title || item.document_name,
                         title: item.title || item.document_name,
                         document_number: item.document_number,
-                        title_prefix: item.owner_title || "คุณ",
-                        first_name: item.owner_first_name || item.owner_name || "—",
+                        // ใช้ do_name ที่ backend format มาให้แล้ว (นางสาวพรรษชล บุญมาก)
+                        full_name: item.do_name,
+                        title_prefix: item.owner_title || "",
+                        first_name: item.owner_first_name || "",
                         last_name: item.owner_last_name || "",
-                        due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
-                        updated_at: item.updated_at ? new Date(item.updated_at).toLocaleDateString("th-TH") : "—",
+                        due_date: item.due_date, // เก็บเป็น raw date เพื่อให้มา format ที่ frontend
+                        updated_at: item.updated_at,
                         assigned_processor: {
-                            assigned_date: item.assigned_at ? new Date(item.assigned_at).toLocaleDateString("th-TH") : "—"
+                            assigned_date: item.received_at
                         },
                         processing_status: {
-                            do_status: item.owner_status?.code === "DO_DONE" ? "done" : "pending",
-                            dp_status: item.processor_status?.code === "DP_DONE" ? "done" : "pending"
+                            do_status: "pending", // Owner status hidden from DP
+                            dp_status: item.status?.code === "CHECK_DONE" ? "done" : "pending"
                         },
-                        processor_status: item.processor_status,
-                        owner_status: item.owner_status,
-                        status: isDraft ? SectionStatus.DRAFT : (item.processor_status?.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
+                        processor_status: item.status,
+                        is_sent: item.is_sent,
+                        status: isDraft ? SectionStatus.DRAFT : (item.status?.code === "CHECK_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
                     });
 
                     const normalizedActive = activeDocs.map(item => mapItem(item, false));
                     const normalizedDrafts = draftDocs.map(item => mapItem(item, true));
+                    const snapshots = await ropaService.getProcessorSnapshots();
 
                     const allNormalized = [...normalizedActive, ...normalizedDrafts];
                     setProcessorRecords(allNormalized as any);
+                    setProcessorSnapshots(snapshots);
                     setRecords(allNormalized as any);
                 } catch (err) {
                     console.error("Processor data fetch failed:", err);
@@ -287,57 +310,66 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     };
 
 
+
     // ─── Data Owner Handlers ──────────────────────────────────────────────────
+
+
+    /**
+     * Helper to map raw backend snapshot/section data to OwnerRecord frontend type
+     */
+    const mapToOwnerRecord = (data: any): OwnerRecord => {
+        return {
+            id: data.document_id,
+            document_name: data.title || data.title_prefix || "",
+            title_prefix: data.title_prefix || "",
+            first_name: data.first_name || "",
+            last_name: data.last_name || "",
+            address: data.address || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            rights_email: data.contact_email || "",
+            rights_phone: data.company_phone || "",
+            data_subject_name: data.data_owner_name || "",
+            processing_activity: data.processing_activity || "",
+            purpose_of_processing: data.purpose_of_processing || "",
+            personal_data_items: data.personal_data_items?.map((i: any) => i.type) || [],
+            data_categories: data.data_categories?.map((i: any) => i.category) || [],
+            data_types: data.data_types?.map((i: any) => i.type) || [],
+            stored_data_types_other: data.personal_data_items?.find((i: any) => i.other_description)?.other_description || "",
+            collection_method: (data.collection_methods?.[0]?.method as any) || CollectionMethod.OnlineForm,
+            data_source_direct: data.data_sources?.some((i: any) => i.source === "DIRECT") || false,
+            data_source_indirect: data.data_sources?.some((i: any) => i.source === "INDIRECT") || false,
+            legal_basis: data.legal_basis || "",
+            minor_consent_under_10: data.minor_consent_types?.includes("UNDER_10") || false,
+            minor_consent_10_to_20: data.minor_consent_types?.includes("10_TO_20") || false,
+            minor_consent_none: data.minor_consent_types?.includes("NONE") || false,
+            has_cross_border_transfer: data.has_cross_border_transfer || false,
+            transfer_country: data.transfer_country,
+            transfer_company: data.transfer_in_group,
+            transfer_method: data.transfer_method,
+            transfer_protection_standard: data.transfer_protection_standard,
+            transfer_exception: data.transfer_exception,
+            retention_value: data.retention_value || 0,
+            retention_unit: data.retention_unit || RetentionUnit.YEARS,
+            access_condition: data.access_control_policy || "",
+            deletion_method: data.deletion_method || "",
+            exemption_usage: data.exemption_usage || "",
+            org_measures: data.org_measures,
+            technical_measures: data.technical_measures,
+            physical_measures: data.physical_measures,
+            access_control_measures: data.access_control_measures,
+            responsibility_measures: data.responsibility_measures,
+            audit_measures: data.audit_measures,
+            status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
+            workflow: "processing"
+        };
+    };
+
     const fetchFullOwnerRecord = async (id: string): Promise<OwnerRecord | null> => {
         setIsLoading(true);
         try {
             const data = await ropaService.getOwnerDocumentSection(id);
-            // Normalization mapping
-            const normalized: OwnerRecord = {
-                id: data.document_id,
-                document_name: data.title_prefix || "",
-                title_prefix: data.title_prefix || "",
-                first_name: data.first_name || "",
-                last_name: data.last_name || "",
-                address: data.address || "",
-                email: data.email || "",
-                phone: data.phone || "",
-                rights_email: data.contact_email || "",
-                rights_phone: data.company_phone || "",
-                data_subject_name: data.data_owner_name || "",
-                processing_activity: data.processing_activity || "",
-                purpose_of_processing: data.purpose_of_processing || "",
-                personal_data_items: data.personal_data_items?.map((i: any) => i.type) || [],
-                data_categories: data.data_categories?.map((i: any) => i.category) || [],
-                data_types: data.data_types?.map((i: any) => i.type) || [],
-                stored_data_types_other: data.personal_data_items?.find((i: any) => i.other_description)?.other_description || "",
-                collection_method: (data.collection_methods?.[0]?.method as any) || CollectionMethod.OnlineForm,
-                data_source_direct: data.data_sources?.some((i: any) => i.source === "DIRECT") || false,
-                data_source_indirect: data.data_sources?.some((i: any) => i.source === "INDIRECT") || false,
-                legal_basis: data.legal_basis || "",
-                minor_consent_under_10: data.minor_consent_types?.includes("UNDER_10") || false,
-                minor_consent_10_to_20: data.minor_consent_types?.includes("10_TO_20") || false,
-                minor_consent_none: data.minor_consent_types?.includes("NONE") || false,
-                has_cross_border_transfer: data.has_cross_border_transfer || false,
-                transfer_country: data.transfer_country,
-                transfer_company: data.transfer_in_group,
-                transfer_method: data.transfer_method,
-                transfer_protection_standard: data.transfer_protection_standard,
-                transfer_exception: data.transfer_exception,
-                retention_value: data.retention_value || 0,
-                retention_unit: data.retention_unit || RetentionUnit.YEARS,
-                access_condition: data.access_control_policy || "",
-                deletion_method: data.deletion_method || "",
-                exemption_usage: data.exemption_usage || "",
-                org_measures: data.org_measures,
-                technical_measures: data.technical_measures,
-                physical_measures: data.physical_measures,
-                access_control_measures: data.access_control_measures,
-                responsibility_measures: data.responsibility_measures,
-                audit_measures: data.audit_measures,
-                status: data.status === "DONE" ? RopaStatus.Processing : RopaStatus.Draft,
-                workflow: "processing"
-            };
+            const normalized = mapToOwnerRecord(data);
 
             // Fetch deletion info
             try {
@@ -370,7 +402,19 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         if (!record.id) throw new Error("Document ID required for saving");
 
         // Re-mapping frontend back to backend expected format for saveOwnerDraft
+        // Build minor_consent_types array from individual boolean fields
+        const minorConsentTypes: string[] = [];
+        if (record.minor_consent_under_10) minorConsentTypes.push("UNDER_10");
+        if (record.minor_consent_10_to_20) minorConsentTypes.push("10_TO_20");
+        if (record.minor_consent_none) minorConsentTypes.push("NONE");
+
+        // Build data_sources array from boolean flags
+        const dataSources: { source: string }[] = [];
+        if (record.data_source_direct) dataSources.push({ source: "DIRECT" });
+        if (record.data_source_indirect) dataSources.push({ source: "INDIRECT" });
+
         const payload = {
+            title: record.document_name,
             title_prefix: record.title_prefix,
             first_name: record.first_name,
             last_name: record.last_name,
@@ -385,7 +429,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             personal_data_items: record.personal_data_items?.map(t => ({ type: t })),
             data_categories: record.data_categories?.map(c => ({ category: c })),
             data_types: record.data_types?.map(t => ({ type: t })),
+            collection_methods: record.collection_method ? [{ method: record.collection_method }] : [],
+            data_sources: dataSources.length > 0 ? dataSources : undefined,
+            minor_consent_types: minorConsentTypes.length > 0 ? minorConsentTypes : undefined,
             legal_basis: record.legal_basis,
+            exemption_usage: record.exemption_usage,
             has_cross_border_transfer: record.has_cross_border_transfer,
             transfer_country: record.transfer_country,
             transfer_in_group: record.transfer_company,
@@ -405,6 +453,14 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         };
 
         const response = await ropaService.saveOwnerDraft(record.id, payload);
+        
+        // ลิงก์ข้อมูล: บันทึก snapshot (ฉบับร่าง) ไปพร้อมกันเพื่อให้สองตารางเหมือนกันเสมอ
+        try {
+            await ropaService.saveOwnerSnapshot(record.id, payload);
+        } catch (e) {
+            console.warn("Failed to sync snapshot during saveRecord:", e);
+        }
+
         await refresh();
         return record as OwnerRecord;
     };
@@ -418,11 +474,44 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const submitDoSection = async (id: string) => {
         await ropaService.submitOwnerSection(id);
+        
+        // ลิงก์สถานะ: เมื่อบันทึกสมบูรณ์ (Submit) ให้ลบฉบับร่างออกเพื่อความสะอาดของตาราง
+        try {
+            const snapshots = await ropaService.getOwnerSnapshots();
+            const snap = snapshots.find((s: any) => s.document_id === id);
+            if (snap) {
+                await ropaService.deleteOwnerSnapshot(snap.id);
+            }
+        } catch (e) {
+            console.warn("Snapshot cleanup skipped or failed:", e);
+        }
+
         await refresh();
     };
 
     const sendToDpo = async (id: string, payload: any = {}) => {
         await ropaService.sendToDpo(id, payload);
+        await refresh();
+    };
+
+    const fetchOwnerDashboard = useCallback(async (period: string = "all") => {
+        if (!isAuthenticated || user?.role !== "OWNER") return;
+        try {
+            console.log("Fetching owner dashboard with period:", period);
+            const data = await ropaService.getOwnerDashboard(period);
+            setOwnerDashboardData(data);
+        } catch (err) {
+            console.error("Failed to fetch owner dashboard:", err);
+        }
+    }, [isAuthenticated, user]);
+
+    const annualReview = async (id: string, payload: any = {}) => {
+        await ropaService.annualReview(id, payload);
+        await refresh();
+    };
+
+    const sendBackToDpo = async (id: string) => {
+        await ropaService.sendBackToDpo(id);
         await refresh();
     };
 
@@ -441,22 +530,136 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         await refresh();
     };
 
-    const deleteRecord = async (id: string) => {
-        console.warn("deleteRecord API integration pending");
+    const submitFeedbackBatch = async (id: string, items: { section_number: number; field_name?: string; comment: string }[]) => {
+        const result = await ropaService.submitFeedbackBatch(id, items);
+        await refresh();
+        return result;
+    };
+
+    const deleteRecord = async (id: string, status?: string) => {
+        try {
+            if (status === "IN_PROGRESS") {
+                // Hard delete สำหรับฉบับร่าง
+                await ropaService.hardDeleteDocument(id);
+            } else {
+                // ยื่นคำร้องขอลบสำหรับสถานะอื่น
+                await ropaService.requestDeletion(id, "Delete request from management table");
+            }
+            await refresh();
+        } catch (error) {
+            console.error("Failed to delete record:", error);
+            throw error;
+        }
+    };
+
+    const createOwnerSnapshot = async (id: string, record: any) => {
+        // Re-mapping frontend back to backend expected format
+        // Build minor_consent_types array from individual boolean fields
+        const snapshotMinorConsent: string[] = [];
+        if (record.minor_consent_under_10) snapshotMinorConsent.push("UNDER_10");
+        if (record.minor_consent_10_to_20) snapshotMinorConsent.push("10_TO_20");
+        if (record.minor_consent_none) snapshotMinorConsent.push("NONE");
+
+        // Build data_sources array from boolean flags
+        const snapshotDataSources: { source: string }[] = [];
+        if (record.data_source_direct) snapshotDataSources.push({ source: "DIRECT" });
+        if (record.data_source_indirect) snapshotDataSources.push({ source: "INDIRECT" });
+
+        const payload = {
+            title: record.document_name,
+            title_prefix: record.title_prefix,
+            first_name: record.first_name,
+            last_name: record.last_name,
+            address: record.address,
+            email: record.email,
+            phone: record.phone,
+            contact_email: record.rights_email,
+            company_phone: record.rights_phone,
+            data_owner_name: record.data_subject_name,
+            processing_activity: record.processing_activity,
+            purpose_of_processing: record.purpose_of_processing,
+            personal_data_items: record.personal_data_items?.map((t: string) => ({ type: t })),
+            data_categories: record.data_categories?.map((c: string) => ({ category: c })),
+            data_types: record.data_types?.map((t: string) => ({ type: t })),
+            collection_methods: record.collection_method ? [{ method: record.collection_method }] : [],
+            data_sources: snapshotDataSources.length > 0 ? snapshotDataSources : undefined,
+            minor_consent_types: snapshotMinorConsent.length > 0 ? snapshotMinorConsent : undefined,
+            legal_basis: record.legal_basis,
+            exemption_usage: record.exemption_usage,
+            has_cross_border_transfer: record.has_cross_border_transfer,
+            transfer_country: record.transfer_country,
+            transfer_in_group: record.transfer_company,
+            transfer_method: record.transfer_method,
+            transfer_protection_standard: record.transfer_protection_standard,
+            transfer_exception: record.transfer_exception,
+            retention_value: record.retention_value,
+            retention_unit: record.retention_unit,
+            access_control_policy: record.access_condition,
+            deletion_method: record.deletion_method,
+            org_measures: record.org_measures,
+            technical_measures: record.technical_measures,
+            physical_measures: record.physical_measures,
+            access_control_measures: record.access_control_measures,
+            responsibility_measures: record.responsibility_measures,
+            audit_measures: record.audit_measures,
+        };
+
+        const response = await ropaService.saveOwnerSnapshot(id, payload);
+        await refresh();
+        return response;
+    };
+
+    const fetchOwnerSnapshot = async (snapshotId: string): Promise<OwnerRecord | null> => {
+        setIsLoading(true);
+        try {
+            const snapshot = await ropaService.getOwnerSnapshot(snapshotId);
+            // ข้อมูลที่บันทึกไว้จะอยู่ใน snapshot.data เราต้องดึงออกมาและรวมกับ metadata พื้นฐาน
+            const combinedData = {
+                ...snapshot.data,
+                document_id: snapshot.document_id,
+                title: snapshot.title, // ใช้ชื่อเอกสารล่าสุดจาก metadata
+            };
+            return mapToOwnerRecord(combinedData);
+        } catch (error) {
+            console.error("Failed to fetch owner snapshot:", error);
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const deleteOwnerSnapshot = async (snapshotId: string) => {
+        await ropaService.deleteOwnerSnapshot(snapshotId);
+        await refresh();
     };
 
     // ─── Data Processor Handlers ──────────────────────────────────────────────
     const fetchFullProcessorRecord = async (id: string): Promise<RopaProcessorRecord | null> => {
+        if (!id) return null;
+        
+        // Wait until user role is available to avoid 403 by calling wrong endpoint
+        if (!user || !user.role) {
+            console.warn("User role not yet loaded, postpone fetchFullProcessorRecord");
+            return null;
+        }
+
         setIsLoading(true);
         try {
-            const data = await ropaService.getProcessorSection(id);
+            // Data Owners call /owner/.../processor-section
+            // Processors call /processor/.../section
+            const data = user.role === "OWNER"
+                ? await ropaService.getOwnerProcessorSection(id)
+                : await ropaService.getProcessorSection(id);
+
+            const normalizedData = normalizeProcessorData(data);
+
             // Simpler mapping for processor for now
             const normalized: RopaProcessorRecord = {
-                ...data,
-                id: data.document_id,
-                ropaId: data.document_id,
-                documentName: data.title || "",
-                status: data.status === "DONE" ? RopaStatus.Processing : RopaStatus.Draft,
+                ...normalizedData,
+                id: normalizedData.document_id,
+                ropaId: normalizedData.document_id,
+                documentName: normalizedData.title || "",
+                status: normalizedData.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             };
             return normalized;
         } catch (error) {
@@ -467,22 +670,135 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const saveProcessorRecord = async (record: Partial<RopaProcessorRecord>): Promise<RopaProcessorRecord> => {
-        const saved = await ropaService.saveProcessorDraft(record.id!, record);
+    const normalizeProcessorData = (data: any) => {
+        if (!data) return data;
+        
+        // Map feedbacks to suggestions format used by the form sections
+        const suggestions = (data.feedbacks || []).map((f: any) => ({
+            section_id: `dp-${f.section_number}`,
+            comment: f.comment,
+            date: f.created_at
+        }));
+
+        return {
+            ...data,
+            suggestions,
+            personal_data_items: data.personal_data_items?.map((item: any) => 
+                typeof item === 'object' ? item.type : item
+            ),
+            data_categories: data.data_categories?.map((item: any) => 
+                typeof item === 'object' ? item.category : item
+            ),
+            data_types: data.data_types?.map((item: any) => 
+                typeof item === 'object' ? item.type : item
+            ),
+            collection_methods: data.collection_methods?.map((item: any) => 
+                typeof item === 'object' ? item.method : item
+            ),
+            data_sources: data.data_sources?.map((item: any) => 
+                typeof item === 'object' ? item.source : item
+            ),
+            storage_methods: data.storage_methods?.map((item: any) => 
+                typeof item === 'object' ? item.method : item
+            ),
+            storage_types: data.storage_types?.map((item: any) => 
+                typeof item === 'object' ? item.type : item
+            ),
+        };
+    };
+
+    const mapToProcessorPayload = (data: any) => {
+        return {
+            ...data,
+            personal_data_items: data.personal_data_items?.map((item: any) => 
+                typeof item === 'string' ? { type: item } : item
+            ),
+            data_categories: data.data_categories?.map((item: any) => 
+                typeof item === 'string' ? { category: item } : item
+            ),
+            data_types: data.data_types?.map((item: any) => 
+                typeof item === 'string' ? { type: item } : item
+            ),
+            collection_methods: data.collection_methods?.map((item: any) => 
+                typeof item === 'string' ? { method: item } : item
+            ),
+            data_sources: data.data_sources?.map((item: any) => 
+                typeof item === 'string' ? { source: item } : item
+            ),
+            storage_methods: data.storage_methods?.map((item: any) => 
+                typeof item === 'string' ? { method: item } : item
+            ),
+            storage_types: data.storage_types?.map((item: any) => 
+                typeof item === 'string' ? { type: item } : item
+            ),
+        };
+    };
+
+    const saveProcessorRecord = async (record: Partial<RopaProcessorRecord>, idOverride?: string): Promise<RopaProcessorRecord> => {
+        const targetId = idOverride || record.id;
+        if (!targetId) {
+            throw new Error("Cannot save processor record: Missing ID");
+        }
+
+        const payload = mapToProcessorPayload(record);
+        const saved = await ropaService.saveProcessorDraft(targetId, payload);
+        
+        // Sync draft as a snapshot for tracking (matching Data Owner pattern)
+        try {
+            await ropaService.saveProcessorSnapshot(targetId, payload);
+        } catch (e) {
+            console.warn("Failed to sync processor snapshot during saveProcessorRecord:", e);
+        }
+
         await refresh();
-        return saved;
+        return normalizeProcessorData(saved);
     };
 
     const getProcessorById = (id: string) => processorRecords.find(r => r.id === id);
 
-    const submitDpSection = async (id: string) => {
-        await ropaService.submitProcessorSection(id, {});
+    const submitDpSection = async (id: string, data: any = {}) => {
+        const payload = mapToProcessorPayload(data);
+        await ropaService.submitProcessorSection(id, payload);
         await refresh();
     };
 
-    const deleteProcessorRecord = async (id: string) => {
-        // delete logic
+    const dispatchDpSection = async (id: string) => {
+        await ropaService.dispatchProcessorSection(id);
         await refresh();
+    };
+
+    const deleteProcessorRecord = async (snapshotId: string) => {
+        await ropaService.deleteProcessorSnapshot(snapshotId);
+        await refresh();
+    };
+
+    const fetchProcessorSnapshot = async (id: string): Promise<RopaProcessorRecord | null> => {
+        setIsLoading(true);
+        try {
+            const snapshot = await ropaService.getProcessorSnapshot(id);
+            // Snapshot data is in snapshot.data, merge with metadata
+            const combinedData = {
+                ...snapshot.data,
+                document_id: snapshot.document_id,
+                title: snapshot.title,
+            };
+            
+            const normalizedData = normalizeProcessorData(combinedData);
+            
+            // Re-use mapToOwnerRecord logic simplified for processor if needed, 
+            // or just return the combined data. The form expects ProcessorRecord.
+            return {
+                ...normalizedData,
+                id: normalizedData.document_id,
+                ropaId: normalizedData.document_id,
+                status: SectionStatus.DRAFT,
+            } as any;
+        } catch (error) {
+            console.error("Failed to fetch processor snapshot:", error);
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -492,6 +808,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             sentRecords,
             approvedRecords,
             destroyedRecords,
+            ownerSnapshots,
             processorRecords,
             executiveDashboardData,
             ownerDashboardData,
@@ -500,21 +817,31 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             fetchFullOwnerRecord,
             submitDoSection,
             sendToDpo,
+            sendBackToDpo,
             saveRiskAssessment,
             deleteRecord,
             assignProcessor,
+            submitFeedbackBatch,
             saveProcessorRecord,
             getProcessorById,
             fetchFullProcessorRecord,
             submitDpSection,
+            dispatchDpSection,
             deleteProcessorRecord,
+            deleteOwnerSnapshot,
+            fetchProcessorSnapshot,
             requestDelete,
+            createOwnerSnapshot,
+            fetchOwnerSnapshot,
+            processorSnapshots,
             refresh,
             fetchExecutiveData,
+            fetchOwnerDashboard,
             isLoading,
             stats,
             getDashboardStats,
-            getExecutiveStats
+            getExecutiveStats,
+            annualReview
         }}>
             {children}
         </RopaContext.Provider>

@@ -29,13 +29,18 @@ export default function Input({
             )}
             <input
                 {...props}
+                value={props.value ?? ""}
                 className={cn(
-                    "w-full h-11 border-none rounded-xl px-4 py-2 text-sm bg-[#F6F3F2] text-[#1B1C1C] focus:outline-none transition-all placeholder:text-[#9CA3AF] font-medium disabled:opacity-100 disabled:cursor-not-allowed disabled:bg-[#F6F3F2] disabled:text-[#1B1C1C] disabled:font-bold",
-                    error ? "ring-2 ring-red-500/10" : "focus:ring-4",
+                    "w-full h-11 border border-[#E5E2E1] rounded-xl px-4 py-2 text-sm bg-white text-[#1B1C1C] focus:outline-none transition-all placeholder:text-[#9CA3AF] font-bold focus:border-current focus:bg-white",
+                    error ? "border-red-500 ring-2 ring-red-500/10" : "focus:ring-4",
+                    props.disabled ? "bg-[#F6F3F2] border-[#E5E2E1] opacity-100 placeholder:text-transparent text-[#1B1C1C]" : "hover:border-[#CEC4C2]",
                     className
                 )}
                 style={{ 
-                    ...(focusColor ? { "--tw-ring-color": `${focusColor}1A` } as any : {}) 
+                    ...(focusColor ? { 
+                        "--tw-ring-color": `${focusColor}1A`,
+                        borderColor: props.disabled ? undefined : (error ? undefined : undefined) 
+                    } as any : {}) 
                 }}
             />
             {error && (

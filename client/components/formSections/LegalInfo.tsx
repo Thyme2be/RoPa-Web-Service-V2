@@ -15,7 +15,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
 
     return (
         <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
             borderLColor
         )}>
             {/* Header: Legal Basis and Transfer */}
@@ -25,7 +25,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         verified_user
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     {sectionTitle}
                 </h2>
             </div>
@@ -46,11 +46,14 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                     />
 
                     {!isProcessor && (
-                        <div className="space-y-4">
+                        <div className="space-y-4" id="minor_consent">
                             <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                                 การขอความยินยอมของผู้เยาว์ <span className="font-bold" style={{ color: markerColor }}>*</span>
                             </label>
-                            <div className="bg-[#F6F3F2] p-6 rounded-xl space-y-3">
+                            <div className={cn(
+                                "bg-[#F6F3F2] p-6 rounded-xl space-y-3 border transition-all",
+                                errors?.minor_consent ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                            )}>
                                 <Checkbox
                                     label="อายุไม่เกิน 10 ปี"
                                     checked={!!form?.minorConsent?.under10}
@@ -72,15 +75,23 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                                     themeColor={primaryColor}
                                 />
                             </div>
+                            {errors?.minor_consent && (
+                                <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    {errors.minor_consent}
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {/* Nested Box: International Transfer */}
-                <div className="bg-[#F6F6F6] p-8 rounded-2xl relative space-y-8">
+                <div className={cn(
+                    "bg-[#F6F6F6] p-8 rounded-2xl relative space-y-8 border transition-all",
+                    errors?.has_cross_border_transfer ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                )} id="has_cross_border_transfer">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <h3 className="font-extrabold text-[#1B1C1C] text-[15px] tracking-tight">
-                            ส่งหรือโอนข้อมูลส่วนบุคคลไปยังต่างประเทศ
+                        <h3 className="font-extrabold text-[#5F5E5E] text-[15px] tracking-tight">
+                            ส่งหรือโอนข้อมูลส่วนบุคคลไปยังต่างประเทศ <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </h3>
 
                         {/* Radio Selection: มี / ไม่มี to match image */}
@@ -105,14 +116,19 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                             >
                                 <div className={cn(
                                     "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
-                                    !form?.has_cross_border_transfer ? "border-gray-400" : "border-gray-300"
-                                )} style={!form?.has_cross_border_transfer ? { borderColor: primaryColor } : {}}>
-                                    {!form?.has_cross_border_transfer && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
+                                    form?.has_cross_border_transfer === false ? "border-gray-400" : "border-gray-300"
+                                )} style={form?.has_cross_border_transfer === false ? { borderColor: primaryColor } : {}}>
+                                    {form?.has_cross_border_transfer === false && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
                                 </div>
-                                <span className={cn("text-sm font-bold transition-all", !form?.has_cross_border_transfer ? "text-[#1B1C1C]" : "text-gray-400")}>ไม่มี</span>
+                                <span className={cn("text-sm font-bold transition-all", form?.has_cross_border_transfer === false ? "text-[#1B1C1C]" : "text-gray-400")}>ไม่มี</span>
                             </button>
                         </div>
                     </div>
+                    {errors?.has_cross_border_transfer && (
+                        <p className="text-[11px] text-red-500 font-medium px-1 mt-[-20px] animate-in fade-in slide-in-from-top-1 duration-200">
+                            {errors.has_cross_border_transfer}
+                        </p>
+                    )}
 
                     <div className={cn(
                         "grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 transition-all duration-300",
@@ -125,6 +141,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                             value={form?.transfer_country || ""}
                             placeholder="ระบุประเทศปลายทาง (เช่น จีน)"
                             onChange={handleChange}
+                            error={errors?.transfer_country}
                             disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
@@ -136,6 +153,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                             value={form?.transfer_company || ""}
                             placeholder="หากใช่ระบุชื่อบริษัท (เช่น บริษัท B)"
                             onChange={handleChange}
+                            error={errors?.transfer_company}
                             disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
@@ -147,6 +165,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                             value={form?.transfer_method || ""}
                             placeholder="ระบุวิธีการโอนข้อมูล (เช่น โอนทางอิเล็กทรอนิกส์)"
                             onChange={handleChange}
+                            error={errors?.transfer_method}
                             disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
@@ -158,6 +177,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                             value={form?.transfer_protection_standard || ""}
                             placeholder="ระบุมาตรฐานการคุ้มครองข้อมูลส่วนบุคคล"
                             onChange={handleChange}
+                            error={errors?.transfer_protection_standard}
                             disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}
@@ -175,6 +195,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                             value={form?.transfer_exception || ""}
                             placeholder="ระบุข้อยกเว้นตามมาตรา 28 (เช่น ปฏิบัติตามกฎหมาย ความยินยอม ปฏิบัติตามสัญญา ป้องกันอันตรายต่อชีวิต)"
                             onChange={handleChange}
+                            error={errors?.transfer_exception}
                             disabled={disabled || !form?.has_cross_border_transfer}
                             requiredColor={markerColor}
                             focusColor={primaryColor}

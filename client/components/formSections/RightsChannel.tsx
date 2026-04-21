@@ -1,18 +1,28 @@
 "use client";
 
 import Input from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
 
-export default function RightsChannel({ form, handleChange, errors, disabled }: any) {
+export default function RightsChannel({ form, handleChange, errors, disabled, variant = "owner" }: any) {
+    const isProcessor = variant === "processor";
+    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
+    const lightBg = isProcessor ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
+    const borderLColor = isProcessor ? "border-l-[#00666E]" : "border-l-[#ED393C]";
+    const markerColor = "#ED393C";
+
     return (
-        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-[#ED393C] overflow-hidden">
+        <div className={cn(
+            "bg-white rounded-2xl shadow-sm border-l-[6px]",
+            borderLColor
+        )}>
             {/* Header: Rights Channel Icon */}
             <div className="flex items-center gap-4 px-8 py-6">
-                <div className="bg-[#ED393C]/10 p-2.5 rounded-xl flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#ED393C] text-2xl font-bold">
+                <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
+                    <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
                         chat_bubble
                     </span>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
+                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
                     ส่วนที่ 2 : ช่องทางการใช้สิทธิของเจ้าของข้อมูล
                 </h2>
             </div>
@@ -28,16 +38,21 @@ export default function RightsChannel({ form, handleChange, errors, disabled }: 
                         onChange={handleChange}
                         error={errors?.rights_email}
                         disabled={disabled}
+                        focusColor={primaryColor}
+                        requiredColor={markerColor}
                     />
                     <Input
                         label="เบอร์โทรศัพท์บริษัท"
                         required
                         name="rights_phone"
                         value={form?.rights_phone || ""}
-                        placeholder="02-XXX-XXXX"
+                        placeholder="0XXXXXXXXX (10 หลัก)"
                         onChange={handleChange}
                         error={errors?.rights_phone}
                         disabled={disabled}
+                        maxLength={10}
+                        focusColor={primaryColor}
+                        requiredColor={markerColor}
                     />
                 </div>
             </div>

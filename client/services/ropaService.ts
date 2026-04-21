@@ -4,9 +4,11 @@ import {
   ActiveTableItem, 
   SentToDpoTableItem, 
   ApprovedTableItem, 
-  DestroyedTableItem 
+  DestroyedTableItem,
+  OwnerSnapshotTableItem
 } from "@/types/dataOwner";
 import { ExecutiveDashboardResponse } from "@/types/executive";
+import { UserRead } from "@/types/dataOwner";
 
 export const ropaService = {
     // ─── Executive ───────────────────────────────────────────────────────────
@@ -18,8 +20,8 @@ export const ropaService = {
     },
 
     // ─── Data Owner ──────────────────────────────────────────────────────────
-    getOwnerDashboard: async (): Promise<OwnerDashboardData> => {
-        const response = await api.get("/owner/dashboard");
+    getOwnerDashboard: async (period: string = "all"): Promise<OwnerDashboardData> => {
+        const response = await api.get(`/dashboard/owner?period=${period}`);
         return response.data;
     },
 
@@ -43,6 +45,21 @@ export const ropaService = {
         return response.data;
     },
 
+    getOwnerSnapshots: async (): Promise<OwnerSnapshotTableItem[]> => {
+        const response = await api.get("/owner/snapshots");
+        return response.data;
+    },
+
+    getOwnerSnapshot: async (id: string) => {
+        const response = await api.get(`/owner/snapshots/${id}`);
+        return response.data;
+    },
+
+    deleteOwnerSnapshot: async (id: string) => {
+        const response = await api.delete(`/owner/snapshots/${id}`);
+        return response.data;
+    },
+
     getOwnerDocumentSection: async (id: string) => {
         const response = await api.get(`/owner/documents/${id}/section`);
         return response.data;
@@ -53,14 +70,19 @@ export const ropaService = {
         return response.data;
     },
 
+    saveOwnerSnapshot: async (id: string, data: any) => {
+        const response = await api.post(`/owner/documents/${id}/snapshot`, data);
+        return response.data;
+    },
+
     submitOwnerSection: async (id: string) => {
         const response = await api.post(`/owner/documents/${id}/section/submit`);
         return response.data;
     },
 
-    sendToDpo: async (id: string, payload: { dpo_id: number }) => {
+    sendToDpo: async (id: string, payload?: { dpo_id?: number }) => {
         // Updated payload to match backend schema (SendToDpoPayload)
-        const response = await api.post(`/owner/documents/${id}/send-to-dpo`, payload);
+        const response = await api.post(`/owner/documents/${id}/send-to-dpo`, payload || {});
         return response.data;
     },
 
@@ -69,24 +91,40 @@ export const ropaService = {
         return response.data;
     },
 
-    annualReview: async (id: string, payload: { dpo_id: number }) => {
-        const response = await api.post(`/owner/documents/${id}/annual-review`, payload);
+    annualReview: async (id: string, payload?: { dpo_id?: number }) => {
+        const response = await api.post(`/owner/documents/${id}/annual-review`, payload || {});
         return response.data;
     },
 
     createDocument: async (data: { 
         title: string; 
-        assigned_processor_id: number; 
-        due_date: string; 
-        processor_company: string; 
-        description?: string 
+        due_date?: string; 
+        processor_company?: string; 
+        description?: string;
+        assigned_processor_id?: number;
     }) => {
         const response = await api.post("/owner/documents", data);
+        return response.data;
+    },
+
+    getProcessorCompanies: async (): Promise<string[]> => {
+        const response = await api.get("/owner/processors/companies");
+        // Ensure returning list of strings
+        return response.data.companies || [];
+    },
+
+    checkProcessorAvailability: async (companyName: string): Promise<{ available: boolean; message?: string }> => {
+        const response = await api.get(`/owner/processors/check-availability`, { params: { company_name: companyName } });
         return response.data;
     },
     
     requestDeletion: async (id: string, reason: string) => {
         const response = await api.post(`/owner/documents/${id}/deletion`, { owner_reason: reason });
+        return response.data;
+    },
+
+    hardDeleteDocument: async (id: string) => {
+        const response = await api.delete(`/owner/documents/${id}`);
         return response.data;
     },
 
@@ -104,6 +142,12 @@ export const ropaService = {
         const response = await api.post(`/owner/documents/${id}/processor-section/feedback`, { items });
         return response.data;
     },
+
+    getOwnerProcessorSection: async (documentId: string) => {
+        const response = await api.get(`/owner/documents/${documentId}/processor-section`);
+        return response.data;
+    },
+
 
     // ─── Data Processor ──────────────────────────────────────────────────────
     getProcessorAssignedTable: async () => {
@@ -126,9 +170,34 @@ export const ropaService = {
         return response.data;
     },
 
-    submitProcessorSection: async (documentId: string, data: any) => {
-        const response = await api.post(`/processor/documents/${documentId}/section/submit`, data);
+    async submitProcessorSection(documentId: string, payload: any) {
+        const response = await api.post(`/processor/documents/${documentId}/section/submit`, payload);
         return response.data;
-    }
-};
+    },
 
+    async dispatchProcessorSection(documentId: string) {
+        const response = await api.post(`/processor/documents/${documentId}/section/dispatch`);
+        return response.data;
+    },
+
+    // ─── Data Processor Snapshots ──────────────────────────────────────────
+    getProcessorSnapshots: async (): Promise<any[]> => {
+        const response = await api.get("/processor/snapshots");
+        return response.data;
+    },
+
+    getProcessorSnapshot: async (snapshotId: string) => {
+        const response = await api.get(`/processor/snapshots/${snapshotId}`);
+        return response.data;
+    },
+
+    saveProcessorSnapshot: async (documentId: string, data: any) => {
+        const response = await api.post(`/processor/documents/${documentId}/snapshot`, data);
+        return response.data;
+    },
+
+    deleteProcessorSnapshot: async (snapshotId: string) => {
+        const response = await api.delete(`/processor/snapshots/${snapshotId}`);
+        return response.data;
+    },
+};

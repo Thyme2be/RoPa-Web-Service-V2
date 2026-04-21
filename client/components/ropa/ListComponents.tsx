@@ -108,7 +108,7 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
     };
 
     return (
-        <span className={`${styles[status] || styles["ฉบับร่าง"]} px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center min-w-[100px] shadow-sm`}>
+        <span className={`${styles[status] || styles["ฉบับร่าง"]} px-4 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[100px] shadow-sm whitespace-nowrap`}>
             {status}
         </span>
     );
@@ -252,7 +252,7 @@ export function DocumentFilterBar({
 }) {
     return (
         <div className="bg-[#EAE4E3] rounded-xl p-5 flex flex-wrap md:flex-nowrap items-end gap-6 border border-[#E5E2E1] overflow-visible">
-            <div className="w-full md:w-[300px] shrink-0">
+            <div className="w-full md:w-[340px] shrink-0">
                 <Select
                     label="สถานะ"
                     labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
@@ -260,8 +260,10 @@ export function DocumentFilterBar({
                     value={statusValue || "all"}
                     options={statusOptions || [
                         { label: "ทั้งหมด", value: "all" },
-                        { label: "รอส่วนของ Data Owner", value: "wait_owner" },
-                        { label: "รอส่วนของ Data Processor", value: "wait_processor" },
+                        { label: "รอดำเนินการ", value: "wait_all" },
+                        { label: "เสร็จสิ้นทั้งหมด", value: "done_all" },
+                        { label: "รอ Data Owner", value: "wait_owner" },
+                        { label: "รอ Data Processor", value: "wait_processor" },
                         { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "done_owner" },
                         { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "done_processor" }
                     ]}
@@ -308,10 +310,10 @@ export function DocumentFilterBar({
     );
 }
 
-export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = "", buttonClassName = "" }: { icon: string, tooltipText: React.ReactNode, onClick?: () => void, className?: string, buttonClassName?: string }) {
+export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = "", buttonClassName = "", disabled = false }: { icon: string, tooltipText: React.ReactNode, onClick?: () => void, className?: string, buttonClassName?: string, disabled?: boolean }) {
     return (
         <div className={`group/tooltip relative flex items-center justify-center ${className}`}>
-            <button onClick={onClick} className={`w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#CCCCCC]/40 transition-colors cursor-pointer ${buttonClassName}`}>
+            <button onClick={disabled ? undefined : onClick} disabled={disabled} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-[#CCCCCC]/40 cursor-pointer'} ${buttonClassName}`}>
                 <span className="material-symbols-rounded text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? { fontVariationSettings: "'FILL' 1" } : {}}>
                     {icon}
                 </span>
@@ -383,18 +385,21 @@ export function DocumentTableHead({ children }: { children: React.ReactNode }) {
     );
 }
 
-export function DocumentTableHeader({ children, width, className = "" }: { children: React.ReactNode, width?: string, className?: string }) {
+export function DocumentTableHeader({ children, width, className = "", align = "center" }: { children: React.ReactNode, width?: string, className?: string, align?: "left" | "center" | "right" }) {
+    const alignClass = align === "left" ? "text-left" : align === "right" ? "text-right" : "text-center";
     return (
-        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${className}`}>
+        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${alignClass} ${className}`}>
             {children}
         </th>
     );
 }
 
-export function DocumentTableHeaderWithTooltip({ title, tooltipText, width, className = "" }: { title: React.ReactNode, tooltipText: React.ReactNode, width?: string, className?: string }) {
+export function DocumentTableHeaderWithTooltip({ title, tooltipText, width, className = "", align = "center" }: { title: React.ReactNode, tooltipText: React.ReactNode, width?: string, className?: string, align?: "left" | "center" | "right" }) {
+    const alignClass = align === "left" ? "text-left" : align === "right" ? "text-right" : "text-center";
+    const justifyClass = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
     return (
-        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${className}`}>
-            <div className="flex items-center justify-center gap-1 group relative cursor-help">
+        <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${alignClass} ${className}`}>
+            <div className={`flex items-center ${justifyClass} gap-1 group relative cursor-help`}>
                 {title}
                 <span className="material-symbols-rounded text-[16px] text-[#5C403D]">info</span>
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-max opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[60]">

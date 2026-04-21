@@ -31,7 +31,15 @@ api.interceptors.response.use(
             // Token expired or invalid
             if (typeof window !== "undefined") {
                 localStorage.removeItem("token");
-                // window.location.href = "/login";
+                localStorage.removeItem("refreshToken");
+                localStorage.removeItem("userRole");
+                
+                // Clear cookies for middleware
+                document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                
+                window.location.href = "/login";
             }
         }
         return Promise.reject(error);

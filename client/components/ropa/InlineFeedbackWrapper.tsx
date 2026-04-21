@@ -14,7 +14,7 @@ interface InlineFeedbackWrapperProps {
     isDraftingFeedback: boolean;
     onFeedbackChange: (text: string) => void;
     feedbackText: string;
-    existingSuggestion?: Suggestion;
+    existingSuggestions?: Suggestion[];
     isProcessor?: boolean;
     canReview?: boolean;
     onReviewClick?: () => void;
@@ -26,7 +26,7 @@ export default function InlineFeedbackWrapper({
     isDraftingFeedback,
     onFeedbackChange,
     feedbackText,
-    existingSuggestion,
+    existingSuggestions,
     isProcessor = false,
     canReview = false,
     onReviewClick
@@ -38,14 +38,14 @@ export default function InlineFeedbackWrapper({
         <div className="space-y-4">
             {/* Feedback Input Mode */}
             {isDraftingFeedback && (
-                <div className="bg-[#F6F3F2] rounded-2xl p-4 flex pl-6 relative overflow-hidden">
-                    <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", primaryColorClass)} />
+                <div className="bg-[#FFFFFF] rounded-2xl p-6 flex relative overflow-hidden ring-1 ring-black/[0.02] shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
+                    <div className={cn("absolute left-0 top-0 bottom-0 w-[6px]", isProcessor ? "bg-[#00666E]" : "bg-[#ED393C]")} />
                     <textarea
                         className={cn(
-                            "w-full bg-[#F6F3F2] border-none px-4 py-3 min-h-[60px] text-sm font-bold text-[#1B1C1C] placeholder:text-[#9CA3AF] outline-none transition-all resize-none",
-                            "hover:bg-[#E5E2E1]/30",
-                            borderFocusClass
+                            "w-full bg-transparent border-none px-4 py-2 min-h-[80px] text-[15px] font-bold text-[#1B1C1C] placeholder:text-[#9CA3AF] outline-none transition-all resize-none",
+                            "placeholder:font-medium"
                         )}
+                        autoFocus
                         placeholder={`ระบุข้อเสนอแนะสำหรับ${isProcessor ? "ผู้ประมวลผลข้อมูลส่วนบุคคล" : "ผู้รับผิดชอบข้อมูล"}`}
                         value={feedbackText}
                         onChange={(e) => onFeedbackChange(e.target.value)}
@@ -53,19 +53,20 @@ export default function InlineFeedbackWrapper({
                 </div>
             )}
 
-            {/* Submitted Feedback Display */}
-            {existingSuggestion && !isDraftingFeedback && (
-                <div className="bg-white rounded-2xl p-4 pl-6 flex flex-col gap-2 relative overflow-hidden shadow-sm">
-                    <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", primaryColorClass)} />
-                    <div className="flex items-center gap-2">
-                        <span className={cn("material-symbols-outlined text-[18px]", isProcessor ? "text-[#00666E]" : "text-[#ED393C]")}>
-                            edit_note
-                        </span>
-                        <span className="text-sm font-black text-[#1B1C1C]">{title}</span>
-                    </div>
-                    <p className="text-sm font-bold text-[#5F5E5E] leading-relaxed ml-7">
-                        "{existingSuggestion.text}"
-                    </p>
+            {/* Submitted Feedback Display (For Data Processors/Owners) - Stacks if multiple */}
+            {existingSuggestions && existingSuggestions.length > 0 && !isDraftingFeedback && (
+                <div className="space-y-4">
+                    {existingSuggestions.map((suggestion, index) => (
+                        <div key={index} className="bg-white rounded-2xl p-6 flex flex-col gap-1.5 relative overflow-hidden ring-1 ring-black/[0.01] shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
+                            <div className={cn("absolute left-0 top-0 bottom-0 w-[6px]", isProcessor ? "bg-[#00666E]" : "bg-[#ED393C]")} />
+                            <span className="text-[14px] font-bold text-[#9CA3AF] px-4 tracking-tight">
+                                {title}
+                            </span>
+                            <p className="text-[15px] font-bold text-[#1B1C1C] leading-relaxed px-4">
+                                "{suggestion.text}"
+                            </p>
+                        </div>
+                    ))}
                 </div>
             )}
 
@@ -73,12 +74,12 @@ export default function InlineFeedbackWrapper({
                 {canReview && !isDraftingFeedback && (
                     <button
                         onClick={onReviewClick}
-                        className="absolute top-6 right-8 w-10 h-10 rounded-full flex items-center justify-center transition-all z-10 bg-[#F6F3F2] hover:bg-[#E5E2E1]/80"
+                        className="absolute top-6 right-8 w-10 h-10 rounded-full flex items-center justify-center transition-all z-10 bg-[#F6F3F2] hover:bg-[#E5E2E1] active:scale-95 shadow-sm group-hover:shadow"
                         title="เพิ่มข้อเสนอแนะ"
                     >
-                        <span className="material-symbols-outlined text-[20px] text-[#5C403D]">
-                            chat
-                        </span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16ZM7 9H17V11H7V9ZM7 12H14V14H7V12ZM7 6H17V8H7V6Z" fill="#5C403D" />
+                        </svg>
                     </button>
                 )}
                 {children}

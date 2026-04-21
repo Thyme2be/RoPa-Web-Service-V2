@@ -14,13 +14,17 @@ import FeedbackModal from "@/components/ropa/FeedbackModal";
 import InlineFeedbackWrapper from "@/components/ropa/InlineFeedbackWrapper";
 import RiskAssessment from "@/components/ropa/RiskAssessment";
 import FormTabs from "@/components/ropa/FormTabs";
+import ConfirmModal from "@/components/ropa/ConfirmModal";
+import DestructionConfirmModal from "@/components/ropa/DestructionConfirmModal";
+
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
-import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
+import { RopaStatus, SectionStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 // ─── Dummy mockDpSections removed ─────────────
@@ -28,11 +32,14 @@ import { cn } from "@/lib/utils";
 function ManagementFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user } = useAuth();
     const recordId = searchParams.get("id");
+    const snapshotId = searchParams.get("snapshot_id");
     const nameParam = searchParams.get("name");
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
     const viewMode = searchParams.get("mode") === "view";
+    const isNewEdit = searchParams.get("mode") === "edit";
 
     const [activeTab, setActiveTab] = useState("owner");
     const {
@@ -44,14 +51,21 @@ function ManagementFormContent() {
         saveRiskAssessment,
         fetchFullOwnerRecord,
         fetchFullProcessorRecord,
-        requestDelete
+        createOwnerSnapshot,
+        fetchOwnerSnapshot,
+        requestDelete,
+        submitFeedbackBatch
     } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
-    const [isLocked, setIsLocked] = useState(true);
+    // ปลดล็อก form ทันทีถ้าเป็นการเปิดแบบ mode=edit หรือกำลังแก้ไขฉบับร่าง (snapshotId)
+    const [isLocked, setIsLocked] = useState(!isNewEdit && !snapshotId);
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
+    const [isConfirmDeletionOpen, setIsConfirmDeletionOpen] = useState(false);
+    const [deletionReason, setDeletionReason] = useState("");
+    const [isSubmittingDeletion, setIsSubmittingDeletion] = useState(false);
     const [feedbackModal, setFeedbackModal] = useState<{ open: boolean; section: string }>({ open: false, section: "" });
 
     // Feedback states
@@ -61,33 +75,61 @@ function ManagementFormContent() {
     const handleFeedbackChange = (sectionId: string, text: string) => setDraftFeedbacks(prev => ({ ...prev, [sectionId]: text }));
     const handleReviewClick = (sectionId: string) => setActiveFeedbacks(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
 
+    const handleFeedbackConfirm = async () => {
+        if (!recordId) return;
+        
+        const feedbackItems = Object.entries(draftFeedbacks)
+            .filter(([_, text]) => text.trim() !== "")
+            .map(([sectionId, text]) => ({
+                section_number: parseInt(sectionId.replace("dp-", "")),
+                comment: text
+            }));
+
+        try {
+            await submitFeedbackBatch(recordId, feedbackItems);
+            // Refresh record to get new status
+            const procRecord = await fetchFullProcessorRecord(recordId);
+            if (procRecord) {
+                setDpForm(prev => ({ ...prev, ...procRecord }));
+            }
+            setDraftFeedbacks({});
+            setActiveFeedbacks({});
+            setFeedbackModal({ open: false, section: "" }); // Important: Close the modal
+            alert("ส่งคำร้องขอเปลี่ยนแปลงสำเร็จ เอกสารถูกตีกลับไปที่ผู้ประมวลผลแล้ว");
+        } catch (e) {
+            console.error("Failed to submit feedback batch", e);
+            alert("เกิดข้อผิดพลาดในการส่งคำร้อง");
+        }
+    };
+
     const renderDOSection = (id: string, title: string, Component: any) => {
-        const suggestion = form.suggestions?.find(s => s.section_id.toString() === id);
+        const suggestions = form.suggestions?.filter(s => s.section_id.toString() === id) || [];
         return (
             <InlineFeedbackWrapper
                 title={title}
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestion={suggestion ? { text: suggestion.comment, date: suggestion.date } : undefined}
+                existingSuggestions={suggestions.length > 0 ? [suggestions.map(s => ({ text: s.comment, date: s.date })).reverse()[0]!] : undefined}
                 canReview={false}
                 onReviewClick={() => handleReviewClick(id)}
             >
-                <Component form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                <Component form={form} handleChange={handleChange} errors={errors} disabled={effectiveIsLocked || isReviewMode} />
             </InlineFeedbackWrapper>
         );
     };
 
     const renderDPSection = (id: string, title: string, Component: any) => {
-        const suggestion = form.suggestions?.find(s => s.section_id.toString() === id);
+        const sectionNo = parseInt(id.replace("dp-", ""), 10);
+        const feedbacks = dpForm.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
         return (
             <InlineFeedbackWrapper
                 title={title}
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestion={suggestion ? { text: suggestion.comment, date: suggestion.date } : undefined}
-                canReview={dpStatus === "done" && viewMode}
+                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at })).reverse()[0]!] : undefined}
+                canReview={viewMode}
                 onReviewClick={() => handleReviewClick(id)}
                 isProcessor={true}
             >
@@ -130,6 +172,10 @@ function ManagementFormContent() {
         workflow: "processing",
     });
 
+    const isWaitingDpoApproval = form.status === RopaStatus.UNDER_REVIEW || form.status === RopaStatus.COMPLETED;
+    const isLockedByDeletion = form.deletion_status === "DELETE_PENDING";
+    const effectiveIsLocked = isLocked || isLockedByDeletion || isWaitingDpoApproval;
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Load existing record if id is provided
@@ -139,7 +185,14 @@ function ManagementFormContent() {
         const loadFullRecord = async () => {
             if (recordId) {
                 setIsLoadingFull(true);
-                const fullRecord = await fetchFullOwnerRecord(recordId);
+
+                let fullRecord;
+                if (snapshotId) {
+                    fullRecord = await fetchOwnerSnapshot(snapshotId);
+                } else {
+                    fullRecord = await fetchFullOwnerRecord(recordId);
+                }
+
                 if (fullRecord && isMounted) {
                     setForm(prev => ({ ...prev, ...fullRecord }));
                 }
@@ -166,8 +219,13 @@ function ManagementFormContent() {
         };
 
         loadFullRecord();
+
+        if (searchParams.get("mode") === "deletion") {
+            setActiveTab("destruction");
+        }
+
         return () => { isMounted = false; };
-    }, [recordId]);
+    }, [recordId, snapshotId, user?.role, searchParams]);
 
     const [dpForm, setDpForm] = useState<Partial<ProcessorRecord>>({
         processor_name: "", controller_name: "", controller_address: "",
@@ -183,15 +241,15 @@ function ManagementFormContent() {
 
     const validateField = (name: string, value: any) => {
         let error = "";
-        if (name === "email") {
+        if (name === "email" || name === "rights_email") {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (value && !emailRegex.test(value)) {
                 error = "รูปแบบอีเมลไม่ถูกต้อง";
             }
-        } else if (name === "phoneNumber") {
+        } else if (name === "phone" || name === "rights_phone") {
             const phoneRegex = /^[0-9]{10}$/;
             if (value && !phoneRegex.test(value)) {
-                error = "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 10 หลัก)";
+                error = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
             }
         }
         setErrors(prev => ({ ...prev, [name]: error }));
@@ -201,11 +259,43 @@ function ManagementFormContent() {
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
 
+        // Mapping fields to their respective tabs for auto-switching
+        const fieldToTabMap: Record<string, string> = {
+            document_name: "owner",
+            title_prefix: "owner",
+            first_name: "owner",
+            last_name: "owner",
+            address: "owner",
+            email: "owner",
+            phone: "owner",
+            rights_email: "activity",
+            rights_phone: "activity",
+            data_subject_name: "activity",
+            processing_activity: "activity",
+            purpose_of_processing: "activity",
+            data_categories: "stored",
+            personal_data_items: "stored",
+            data_types: "stored",
+            collection_method: "retention",
+            retention_value: "retention",
+            access_condition: "retention",
+            deletion_method: "retention",
+            legal_basis: "legal",
+            minor_consent: "legal",
+            has_cross_border_transfer: "legal",
+            transfer_country: "legal",
+            transfer_company: "legal",
+            transfer_method: "legal",
+            transfer_protection_standard: "legal",
+            transfer_exception: "legal",
+            exemption_usage: "legal",
+        };
+
         if (!form.document_name?.trim()) newErrors.document_name = "กรุณากรอกชื่อเอกสาร";
 
         // Section 1
         if (!form.title_prefix) newErrors.title_prefix = "กรุณาเลือกคำนำหน้า";
-        if (!form.first_name) newErrors.first_name = "กรุณากรอกชื่อ";
+        if (!form.first_name) newErrors.first_name = "กรุณากรอกชื่อจริง";
         if (!form.last_name) newErrors.last_name = "กรุณากรอกนามสกุล";
         if (!form.address) newErrors.address = "กรุณากรอกที่อยู่";
         if (!form.email) newErrors.email = "กรุณากรอกอีเมล";
@@ -214,49 +304,58 @@ function ManagementFormContent() {
         else if (!/^[0-9]{10}$/.test(form.phone)) newErrors.phone = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
 
         // Section 2
-        if (!form.rights_email) newErrors.rights_email = "กรุณากรอกอีเมลช่องทางใช้สิทธิ";
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.rights_email)) newErrors.rights_email = "รูปแบบอีเมลไม่ถูกต้อง";
-        if (!form.rights_phone) newErrors.rights_phone = "กรุณากรอกเบอร์โทรศัพท์ช่องทางใช้สิทธิ";
+        if (!form.rights_email) newErrors.rights_email = "กรุณากรอกอีเมลสำหรับขอใช้สิทธิ";
+        if (!form.rights_phone) newErrors.rights_phone = "กรุณากรอกเบอร์โทรศัพท์สำหรับขอใช้สิทธิ";
 
         // Section 3
         if (!form.data_subject_name) newErrors.data_subject_name = "กรุณากรอกชื่อเจ้าของข้อมูลส่วนบุคคล";
         if (!form.processing_activity) newErrors.processing_activity = "กรุณากรอกกิจกรรมประมวลผล";
-        if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณากรอกวัตถุประสงค์การประมวลผล";
+        if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณากรอกวัตถุประสงค์";
 
         // Section 4
-        if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาเลือกข้อมูลส่วนบุคคลอย่างน้อย 1 รายการ";
-        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ของข้อมูลอย่างน้อย 1 รายการ";
+        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ของข้อมูล";
+        if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาเลือกข้อมูลส่วนบุคคลที่จัดเก็บ";
         if (!form.data_types || (Array.isArray(form.data_types) && form.data_types.length === 0)) newErrors.data_types = "กรุณาเลือกประเภทของข้อมูล";
 
         // Section 5
         if (!form.collection_method) newErrors.collection_method = "กรุณาเลือกวิธีการได้มาซึ่งข้อมูล";
-        if (!form.retention_value || form.retention_value <= 0) newErrors.retention_value = "กรุณาระบุระยะเวลาการเก็บรักษาข้อมูล";
-        if (!form.access_condition) newErrors.access_condition = "กรุณาระบุสิทธิและวิธีการเข้าถึงข้อมูล";
-        if (!form.deletion_method) newErrors.deletion_method = "กรุณาระบุวิธีการลบหรือทำลายข้อมูล";
+        if (!form.retention_value || form.retention_value === 0) newErrors.retention_value = "กรุณาระบุระยะเวลจัดเก็บ";
+        if (!form.access_condition) newErrors.access_condition = "กรุณาระบุสิทธิและวิธีการเข้าถึง";
+        if (!form.deletion_method) newErrors.deletion_method = "กรุณาระบุวิธีการลบหรือทำลาย";
 
         // Section 6
-        if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานในการประมวลผล";
-        if (!form.minor_consent_under_10 && !form.minor_consent_10_to_20 && !form.minor_consent_none) newErrors.minor_consent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์อย่างน้อย 1 รายการ";
-        if (form.has_cross_border_transfer === undefined || form.has_cross_border_transfer === null) newErrors.has_cross_border_transfer = "กรุณาเลือกว่ามีการส่งข้อมูลไปต่างประเทศหรือไม่";
-
+        if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานทางกฎหมาย";
+        if (!form.minor_consent_under_10 && !form.minor_consent_10_to_20 && !form.minor_consent_none) {
+            newErrors.minor_consent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์";
+        }
+        if (form.has_cross_border_transfer === undefined || form.has_cross_border_transfer === null) {
+            newErrors.has_cross_border_transfer = "กรุณาเลือกว่ามีการเปิดเผยไปต่างประเทศหรือไม่";
+        }
         if (form.has_cross_border_transfer === true) {
             if (!form.transfer_country) newErrors.transfer_country = "กรุณาระบุประเทศปลายทาง";
-            if (!form.transfer_company) newErrors.transfer_company = "กรุณาระบุชื่อบริษัท";
             if (!form.transfer_method) newErrors.transfer_method = "กรุณาระบุวิธีการโอนข้อมูล";
-            if (!form.transfer_protection_standard) newErrors.transfer_protection_standard = "กรุณาระบุมาตรฐานการคุ้มครองข้อมูล";
-            if (!form.transfer_exception) newErrors.transfer_exception = "กรุณาระบุข้อยกเว้นตามมาตรา 28";
         }
-        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุการใช้หรือเปิดเผยข้อมูลที่ได้รับยกเว้น";
+        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุการยกเว้นการใช้งาน";
 
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
-            const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const targetTab = fieldToTabMap[firstErrorField] || "owner";
+
+            // 1. Auto-switch tab if necessary
+            if (activeTab !== targetTab) {
+                setActiveTab(targetTab);
             }
-            alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
+
+            // 2. Auto-scroll to the first error with a small delay for tab transition
+            setTimeout(() => {
+                const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }, 100);
+
             return false;
         }
         return true;
@@ -264,38 +363,71 @@ function ManagementFormContent() {
 
     const handleChange = (e: any) => {
         const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
+        const targetChecked = (e.target as any).checked;
 
         let val: any = value;
-        if (type === "number") {
+
+        // 1. Enforce Numeric-only and MaxLength for Phone fields
+        if (name === "phone" || name === "rights_phone") {
+            val = value.replace(/[^0-9]/g, "").slice(0, 10);
+            if (val.length === 10) validateField(name, val);
+        }
+        // 2. Enforce Numeric-only for Retention Value
+        else if (name === "retention_value") {
+            val = value.replace(/[^0-9]/g, "");
+            val = val === "" ? "" : Number(val);
+        }
+        // 3. Handle Standard Numeric Inputs
+        else if (type === "number") {
             val = value === "" ? "" : Math.max(0, Number(value));
         }
-        if (type === "checkbox") {
+        // 4. Handle Checkboxes
+        else if (type === "checkbox" || typeof value === "boolean") {
+            const isManualBoolean = typeof value === "boolean";
+            const checked = isManualBoolean ? value : targetChecked;
+
             if (!name.includes("[]")) {
-                val = (value && value !== "on") ? (checked ? value : "") : checked;
+                val = (value && value !== "on" && !isManualBoolean) ? (checked ? value : "") : checked;
             }
         }
 
+        // 5. General String Cleanups & Validation
         if (typeof val === "string") {
+            if (name === "email" || name === "rights_email") {
+                validateField(name, val);
+            }
             if (val.toLowerCase() === "true") val = true;
             else if (val.toLowerCase() === "false") val = false;
         }
 
-        if (name === "email" || name === "phone") {
-            validateField(name, val);
-        }
-
         setForm((prev: any) => {
+            const next = { ...prev };
+
             if (name.endsWith("[]")) {
                 const arrayKey = name.replace("[]", "");
                 const currentArray = prev[arrayKey] || [];
+                const checked = (type === "checkbox") ? targetChecked : true;
                 const newArray = checked
                     ? [...currentArray, value]
                     : currentArray.filter((v: string) => v !== value);
-                return { ...prev, [arrayKey]: newArray };
+                next[arrayKey] = newArray;
+                return next;
             }
 
-            return { ...prev, [name]: val };
+            if (name.includes(".")) {
+                const keys = name.split(".");
+                let current = next;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    const key = keys[i];
+                    current[key] = { ...current[key] };
+                    current = current[key];
+                }
+                current[keys[keys.length - 1]] = val;
+                return next;
+            }
+
+            next[name] = val;
+            return next;
         });
     };
 
@@ -313,22 +445,31 @@ function ManagementFormContent() {
     };
 
     const completedSteps = getCompletedSteps();
-    const doStatus = "done"; // Mocked to 'done' so Risk Assessment unlocks
-    const dpStatus = "done"; // Mocked to 'done' so Risk Assessment unlocks
+    const doStatus = form.status === SectionStatus.SUBMITTED ? "done" : "pending";
+    const dpStatus = (dpForm.status === SectionStatus.SUBMITTED && dpForm.is_sent) ? "done" : "pending";
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
-    /** ยกเลิก → กลับหน้า processing */
+    /** ยกเลิก → ถอยกลับ หรือไปหน้า processing */
     const handleCancel = () => {
-        router.push("/data-owner/management/processing");
+        if (typeof window !== "undefined" && window.history.length > 1) {
+            router.back();
+        } else {
+            router.push("/data-owner/management/processing");
+        }
     };
 
-    /** บันทึกฉบับร่าง → save Draft + กลับ processing */
+    /** บันทึกฉบับร่าง → save Snapshot + กลับหน้า management */
     const handleDraft = async () => {
-        const saved = await saveRecord({ ...form, status: RopaStatus.Draft } as OwnerRecord);
-        localStorage.setItem("ropa_owner_draft", JSON.stringify({ ...form, id: saved.id }));
-        setErrors({}); // Clear errors on draft
-        setIsDraftSuccessOpen(true);
+        if (!recordId) return;
+        try {
+            // saveRecord จัดการบันทึกทั้งตารางหลัก (Live) และตารางร่าง (Snapshot) ให้ลิงก์กันอัตโนมัติ
+            await saveRecord(form);
+            setErrors({}); // ล้าง error เมื่อบันทึกร่าง
+            setIsDraftSuccessOpen(true); // แสดง modal บันทึกร่างสำเร็จ
+        } catch (error) {
+            console.error("Failed to save draft:", error);
+        }
     };
 
     /** กดบันทึก → validate → review mode */
@@ -352,11 +493,7 @@ function ManagementFormContent() {
         setIsSuccessModalOpen(true);
     };
 
-    /** ส่งคำร้องขอเปลี่ยนแปลง DP section */
-    const handleFeedbackConfirm = () => {
-        setFeedbackModal({ open: false, section: "" });
-        // In real app: call API to notify DP
-    };
+
 
     /** Risk Assessment submitted */
     const handleRiskSubmit = async (likelihood: number, impact: number) => {
@@ -368,6 +505,27 @@ function ManagementFormContent() {
             } catch (error) {
                 console.error("Failed to submit risk assessment:", error);
             }
+        }
+    };
+
+    /** ยืนยันการส่งคำขอลบ */
+    const handleFinalDeletionRequest = async () => {
+        if (!recordId || !deletionReason) return;
+        setIsSubmittingDeletion(true);
+        try {
+            await requestDelete(recordId, deletionReason);
+            setIsConfirmDeletionOpen(false);
+            // Refresh to update locked state
+            const fullRecord = await fetchFullOwnerRecord(recordId);
+            if (fullRecord) {
+                setForm(prev => ({ ...prev, ...fullRecord }));
+            }
+            alert("ส่งคำร้องขอทำลายเอกสารสำเร็จ");
+        } catch (error) {
+            console.error("Failed to submit deletion request:", error);
+            alert("เกิดข้อผิดพลาดในการส่งคำร้อง");
+        } finally {
+            setIsSubmittingDeletion(false);
         }
     };
 
@@ -407,15 +565,18 @@ function ManagementFormContent() {
                                     dpComplete={dpStatus === "done"}
                                 />
                             </div>
-                            {activeTab === "owner" && (
+                            {activeTab === "owner" && !isNewEdit && (
                                 <button
+                                    disabled={isLockedByDeletion || isWaitingDpoApproval}
                                     onClick={() => setIsLocked(!isLocked)}
                                     className={cn(
                                         "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0",
                                         isLocked
                                             ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
-                                            : "text-[#5C403D] border-none hover:bg-black/5"
+                                            : "text-[#5C403D] border-none hover:bg-black/5",
+                                        (isLockedByDeletion || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
                                     )}
+                                    title={isLockedByDeletion ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ" : isWaitingDpoApproval ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO" : ""}
                                 >
                                     <span className="material-symbols-outlined text-[20px]">
                                         {isLocked ? "edit" : "done_all"}
@@ -450,12 +611,16 @@ function ManagementFormContent() {
                             {/* ─── Tab: DP (ส่วนของผู้ประมวลผล) ───────────────────── */}
                             {activeTab === "processor" && (
                                 <div className="space-y-8 mt-4">
+
+
                                     {renderDPSection("dp-1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
                                     {renderDPSection("dp-2", "ส่วนที่ 2 : รายละเอียดกิจกรรม", ActivityDetails)}
                                     {renderDPSection("dp-3", "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
                                     {renderDPSection("dp-4", "ส่วนที่ 4 : การเก็บรักษาข้อมูล", RetentionInfo)}
                                     {renderDPSection("dp-5", "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
                                     {renderDPSection("dp-6", "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
+
+                                    {/* ─── Buttons removed from here and moved to fixed footer ─── */}
                                 </div>
                             )}
 
@@ -466,11 +631,16 @@ function ManagementFormContent() {
                                         doStatus={doStatus}
                                         dpStatus={dpStatus}
                                         existingRisk={form.risk_assessment}
+                                        dpoSuggestion={(() => {
+                                            const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK");
+                                            return riskSuggestion ? { comment: riskSuggestion.comment, date: riskSuggestion.date } : undefined;
+                                        })()}
                                         activeView={riskDocView}
                                         onViewDoSection={() => setRiskDocView(v => v === "owner" ? "none" : "owner")}
                                         onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}
                                         onSubmit={handleRiskSubmit}
                                         onCancel={() => setActiveTab("owner")}
+                                        disabled={effectiveIsLocked || viewMode}
                                     />
 
                                     {/* Render view forms below the Risk Assessment UI without switching tabs */}
@@ -491,7 +661,7 @@ function ManagementFormContent() {
                                         </div>
                                     )}
 
-                                    {riskDocView === "processor" && (
+                                     {riskDocView === "processor" && (
                                         <div className="space-y-8 pb-32 animate-in slide-in-from-top-4 duration-500">
                                             <hr className="border-[#E5E2E1] my-8" />
                                             <h2 className="text-xl font-black text-[#1B1C1C] flex items-center gap-3">
@@ -511,88 +681,76 @@ function ManagementFormContent() {
 
                             {/* ─── Tab: ยื่นคำร้องขอทำลาย ──────────────────────────── */}
                             {activeTab === "destruction" && (
-                                <div className="bg-white rounded-[32px] p-12 border border-[#E5E2E1] mt-8 animate-in slide-in-from-bottom-4 duration-500">
-                                    <div className="max-w-3xl mx-auto space-y-8">
-                                        <div className="flex flex-col items-center text-center">
-                                            <div className="bg-red-50 p-6 rounded-3xl mb-6">
-                                                <span className="material-symbols-outlined text-[48px] text-[#B90A1E]">delete_forever</span>
-                                            </div>
-                                            <h3 className="text-2xl font-black text-[#1B1C1C]">ยื่นคำร้องขอทำลายเอกสาร</h3>
-                                            <p className="text-[#5F5E5E] font-bold mt-2">
-                                                กรุณากรอกเหตุผลที่ต้องการทำลายเอกสาร RoPA ฉบับนี้ <br />
-                                                เพื่อให้ผู้ดูแลระบบ (DPO) พิจารณาอนุมัติ
-                                            </p>
-                                        </div>
+                                <div className="mt-8 animate-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto w-full px-4 border-none shadow-none">
+                                    <div className="space-y-4">
+                                        <h3 className="text-[18px] font-black text-[#1B1C1C] mb-4">เหตุผลในการขอทำลายเอกสาร</h3>
+                                        
+                                        <textarea
+                                            value={deletionReason}
+                                            onChange={(e) => setDeletionReason(e.target.value)}
+                                            rows={4}
+                                            disabled={isLockedByDeletion || viewMode}
+                                            className="w-full bg-white border border-[#E5E2E1] rounded-xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-[14px]"
+                                            placeholder="ระบุเหตุผลในการขอทำลายเอกสาร เพื่อส่งคำขอไปยังเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
+                                        />
 
-                                        <div className="bg-[#F6F3F2] p-8 rounded-[24px] space-y-4">
-                                            <label className="block text-base font-black text-[#1B1C1C]">เหตุผลการขอทำลาย</label>
-                                            <textarea
-                                                value={form.deletion_reason || ""}
-                                                onChange={(e) => setForm(prev => ({ ...prev, deletion_reason: e.target.value }))}
-                                                rows={6}
-                                                className="w-full bg-white border border-[#E5E2E1] rounded-2xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-base font-bold"
-                                                placeholder="ระบุเหตุผล เช่น สิ้นสุดระยะเวลาเก็บรักษาตามกฎหมาย, กิจกรรมไม่มีการดำเนินการแล้ว..."
-                                            />
-                                        </div>
 
-                                        <div className="flex items-center gap-4 justify-center">
+                                        <div className="flex items-center justify-between mt-8 pt-4">
                                             <button
                                                 onClick={() => setActiveTab("owner")}
-                                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95"
+                                                className="bg-white border text-[#1B1C1C] border-[#E5E2E1] h-[48px] px-8 rounded-full font-bold hover:bg-gray-50 transition-all"
                                             >
                                                 ยกเลิก
                                             </button>
                                             <button
-                                                disabled={!form.deletion_reason || form.deletion_request?.status === "PENDING" || viewMode}
-                                                onClick={async () => {
-                                                    if (recordId && form.deletion_reason) {
-                                                        await requestDelete(recordId, form.deletion_reason);
-                                                        setIsSuccessModalOpen(true);
-                                                    }
-                                                }}
-                                                className="bg-logout-gradient text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                                                disabled={!deletionReason || isLockedByDeletion || viewMode}
+                                                onClick={() => setIsConfirmDeletionOpen(true)}
+                                                className="bg-logout-gradient text-white h-[48px] px-8 rounded-full font-bold shadow-sm hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
                                             >
-                                                {form.deletion_request?.status === "PENDING" ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
+                                                {isLockedByDeletion ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
                                             </button>
                                         </div>
 
-                                        {/* ─── Deletion Request Status Section (Screenshots) ────────────────── */}
+                                        {/* ─── Deletion Request Status Section (Refined UI) ────────────────── */}
                                         {form.deletion_request && (
-                                            <div className="pt-8 border-t border-[#E5E2E1] space-y-6">
-                                                <h4 className="text-lg font-black text-[#1B1C1C]">ตรวจสอบสถานะคำร้องปัจจุบัน</h4>
-
-                                                <div className="flex flex-col items-start gap-4">
+                                            <div className="pt-10 border-t border-[#E5E2E1] space-y-6 mt-10 animate-in fade-in slide-in-from-top-4 duration-700">
+                                                <div className="flex items-center justify-start gap-4">
+                                                    <h4 className="text-[18px] font-black text-[#1B1C1C]">ตรวจสอบสถานะคำร้องปัจจุบัน</h4>
+                                                    
                                                     {form.deletion_request.status === "APPROVED" && (
-                                                        <span className="bg-[#108548] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        <div className="bg-[#108548] text-white px-6 py-2 rounded-xl font-bold shadow-sm scale-110 active:scale-100 transition-all cursor-default">
                                                             อนุมัติคำร้อง
-                                                        </span>
+                                                        </div>
                                                     )}
                                                     {form.deletion_request.status === "REJECTED" && (
-                                                        <span className="bg-[#B90A1E] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        <div className="bg-[#B90A1E] text-white px-6 py-2 rounded-xl font-bold shadow-sm cursor-default">
                                                             ไม่อนุมัติคำร้อง
-                                                        </span>
+                                                        </div>
                                                     )}
                                                     {form.deletion_request.status === "PENDING" && (
-                                                        <span className="bg-[#EAB308] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        <div className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-sm cursor-default">
                                                             รอการตรวจสอบ
-                                                        </span>
+                                                        </div>
                                                     )}
+                                                </div>
 
-                                                    <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl">
-                                                        <p className="text-[#1B1C1C] font-bold text-lg">
-                                                            {form.deletion_request.status === "APPROVED"
-                                                                ? "ครบกำหนดเวลาในการทำลาย"
-                                                                : form.deletion_request.status === "REJECTED"
-                                                                    ? "ยังไม่ครบกำหนดเวลาในการทำลาย"
-                                                                    : "คำร้องของคุณอยู่ในระหว่างการพิจารณาโดย DPO"
-                                                            }
-                                                        </p>
-                                                        {form.deletion_request.dpo_reason && (
-                                                            <p className="text-[#5F5E5E] font-medium mt-2">
-                                                                เหตุผล: {form.deletion_request.dpo_reason}
+                                                <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl border border-transparent hover:border-[#E5E2E1] transition-all group shadow-sm">
+                                                    <p className="text-[#1B1C1C] font-bold text-[18px] leading-relaxed">
+                                                        {form.deletion_request.status === "APPROVED"
+                                                            ? "ครบกำหนดเวลาในการทำลาย"
+                                                            : form.deletion_request.status === "REJECTED"
+                                                                ? "ยังไม่ครบกำหนดเวลาในการทำลาย"
+                                                                : "คำร้องของคุณอยู่ในระหว่างการพิจารณาโดย DPO"
+                                                        }
+                                                    </p>
+                                                    {form.deletion_request.dpo_reason && (
+                                                        <div className="mt-3 flex items-start gap-2 text-[#5F5E5E]">
+                                                            <span className="material-symbols-outlined text-[20px] mt-0.5">info</span>
+                                                            <p className="font-medium text-[14px]">
+                                                                {form.deletion_request.dpo_reason}
                                                             </p>
-                                                        )}
-                                                    </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -604,36 +762,77 @@ function ManagementFormContent() {
                 )}
 
                 {/* ─── Bottom Action Bar ────────────────────────────────────── */}
-                {activeTab === "owner" && !viewMode && (
-                    !isReviewMode ? (
-                        /* Normal form mode */
-                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
-                            {/* Left: Cancellation */}
-                            <button
-                                onClick={handleCancel}
-                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                            >
-                                ยกเลิก
-                            </button>
+                {activeTab === "processor" && viewMode ? (
+                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                        <button
+                            onClick={() => {
+                                setDraftFeedbacks({});
+                                setActiveFeedbacks({});
+                            }}
+                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                        >
+                            ยกเลิก
+                        </button>
 
-                            {/* Right Group: Draft + Save */}
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={handleDraft}
-                                    className="bg-white border-2 border-[#ED393C] text-[#ED393C] font-bold text-base h-[52px] px-10 rounded-full hover:bg-[#ED393C]/5 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                >
-                                    บันทึกฉบับร่าง
-                                </button>
-                                <button
-                                    onClick={handleSave}
-                                    className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                >
-                                    บันทึก
-                                </button>
-                            </div>
+                        <button
+                            onClick={() => setFeedbackModal({ open: true, section: "all" })}
+                            disabled={!Object.values(draftFeedbacks).some(v => v.trim() !== "")}
+                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-2xl font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale-[0.5]"
+                        >
+                            ส่งคำร้องขอเปลี่ยนแปลง
+                        </button>
+                    </div>
+                ) : activeTab === "owner" && (
+                    !isReviewMode ? (
+                        /* Normal form mode or view mode (Conditional buttons based on lock state) */
+                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            {viewMode && isLocked ? (
+                                /* Single Centered Back Button in Locked View Mode */
+                                <div className="flex justify-center w-full">
+                                    <button
+                                        onClick={handleCancel}
+                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-20 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                        กลับ
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Left: Cancellation */}
+                                    <button
+                                        onClick={handleCancel}
+                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                        ยกเลิก
+                                    </button>
+
+                                    {/* Right Group: Draft + Save */}
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            onClick={handleDraft}
+                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                        >
+                                            บันทึกฉบับร่าง
+                                        </button>
+                                        <button
+                                            onClick={handleSave}
+                                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                        >
+                                            บันทึก
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     ) : (
+                        /* Review Confirmation mode */
                         <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            <button
+                                onClick={() => setIsReviewMode(false)}
+                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                            >
+                                กลับไปแก้ไข
+                            </button>
                             <button
                                 onClick={handleFinalConfirm}
                                 className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
@@ -642,25 +841,6 @@ function ManagementFormContent() {
                             </button>
                         </div>
                     )
-                )}
-
-                {/* ─── Review Mode Action Bar (Sending Feedback) ───────────── */}
-                {viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "") && (
-                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                        <button
-                            onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
-                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                        >
-                            ยกเลิก
-                        </button>
-
-                        <button
-                            onClick={() => setFeedbackModal({ open: true, section: "all" })}
-                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                        >
-                            ส่งคำร้องขอเปลี่ยนแปลง
-                        </button>
-                    </div>
                 )}
 
 
@@ -703,6 +883,15 @@ function ManagementFormContent() {
                 onClose={() => setIsSuccessModalOpen(false)}
                 onConfirm={() => router.push("/data-owner/management/processing")}
             />
+
+            {/* ─── Confirm Delete Request Modal ───────────────────────────────── */}
+            <DestructionConfirmModal
+                isOpen={isConfirmDeletionOpen}
+                isLoading={isSubmittingDeletion}
+                onConfirm={handleFinalDeletionRequest}
+                onClose={() => setIsConfirmDeletionOpen(false)}
+            />
+
         </div>
     );
 }

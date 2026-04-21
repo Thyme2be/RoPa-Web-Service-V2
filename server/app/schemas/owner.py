@@ -101,6 +101,11 @@ class ProcessorCompaniesResponse(BaseModel):
     """Response สำหรับ dropdown บริษัท DP ในหน้าสร้างเอกสาร"""
     companies: List[str]
 
+class ProcessorAvailabilityResponse(BaseModel):
+    """Response สำหรับตรวจสอบว่าบริษัทมี DP หรือไม่"""
+    available: bool
+    message: Optional[str] = None
+
 
 # =============================================================================
 # Document Create (POST /owner/documents)
@@ -116,7 +121,7 @@ class DocumentCreateOwner(BaseModel):
     title: str
     description: Optional[str] = None
     review_interval_days: int = 365
-    due_date: Optional[datetime] = None
+    due_date: Optional[str] = None
     processor_company: str  # ชื่อบริษัท DP ที่เลือกจาก dropdown → ใช้สุ่ม DP
 
 
@@ -136,10 +141,16 @@ class OwnerSectionSave(BaseModel):
       Section 4 (ข้อมูลส่วนบุคคล): personal_data_items, data_categories, data_types,
                                      collection_methods, data_sources
       Section 5 (การจัดเก็บ): storage_types, storage_methods, data_source_other,
-                               retention_value, retention_unit, access_control_policy, deletion_method
+                                retention_value, retention_unit, access_control_policy, deletion_method
       Section 6 (สิทธิ์/ความยินยอม): legal_basis, has_cross_border_transfer, ...
       Section 7 (มาตรการ TOMs): org_measures, access_control_measures, ...
     """
+    # Meta fields (optional)
+    status: Optional[str] = None
+    is_sent: Optional[bool] = None
+
+    # Section 0 - Document Info
+    title: Optional[str] = None
 
     # Section 1 – ผู้บันทึก (ข้อมูลส่วนตัว DO)
     title_prefix: Optional[str] = None
@@ -327,7 +338,7 @@ class DeletionRequestRead(BaseModel):
 
 class SendToDpoPayload(BaseModel):
     """Payload สำหรับ DO ส่งเอกสารให้ DPO review (ทั้ง send-to-dpo และ annual-review)"""
-    dpo_id: int
+    dpo_id: Optional[int] = None
 
 
 class MessageResponse(BaseModel):
@@ -430,6 +441,8 @@ class ActiveTableItem(BaseModel):
     owner_section_status: Optional[RopaSectionEnum]
     processor_section_id: Optional[UUID]
     processor_section_status: Optional[RopaSectionEnum]
+    is_risk_complete: bool
+    deletion_status: Optional[str] = None
 
 class SentToDpoTableItem(BaseModel):
     """
@@ -450,6 +463,7 @@ class SentToDpoTableItem(BaseModel):
     sent_at: Optional[datetime]
     reviewed_at: Optional[datetime]
     due_date: Optional[datetime]
+    deletion_status: Optional[str] = None
 
 class ApprovedTableItem(BaseModel):
     """
@@ -468,6 +482,7 @@ class ApprovedTableItem(BaseModel):
     destruction_date: Optional[datetime]
     annual_review_status: str              # NOT_REVIEWED | REVIEWED
     annual_review_status_label: str
+    deletion_status: Optional[str] = None
 
 class DestroyedTableItem(BaseModel):
     """
@@ -478,7 +493,7 @@ class DestroyedTableItem(BaseModel):
     document_number: Optional[str]
     title: Optional[str]
     do_name: Optional[str]                 # ชื่อ Data Owner ที่สร้างเอกสาร
-    dpo_name: Optional[str]               # ชื่อ DPO ที่อนุมัติการทำลาย
+    dpo_name: Optional[str]                # ชื่อ DPO ที่อนุมัติการทำลาย
     deletion_approved_at: Optional[datetime]   # วันที่ DPO อนุมัติ (decided_at)
     deletion_reason: Optional[str]
 
@@ -530,3 +545,28 @@ class OwnerDashboardResponse(BaseModel):
 
     # ── Card 11: เอกสารที่ถูกทำลายแล้ว ───────────────────────────────────
     deleted_count: int
+    model_config = {"from_attributes": True}
+
+
+# =============================================================================
+# Snapshots (Drafts)
+# =============================================================================
+
+class OwnerSnapshotRead(BaseModel):
+    """ข้อมูลฉบับร่าง (Snapshot) แบบเต็ม"""
+    id: UUID
+    document_id: UUID
+    document_number: Optional[str] = None
+    title: Optional[str] = None
+    data: dict
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+class OwnerSnapshotTableItem(BaseModel):
+    """รายชื่อในตารางฉบับร่าง (Snapshot)"""
+    id: UUID
+    document_id: UUID
+    document_number: Optional[str] = None
+    title: Optional[str] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}

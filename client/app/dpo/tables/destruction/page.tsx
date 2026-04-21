@@ -19,7 +19,7 @@ function DestructionTableContent() {
     const [selectedStatus, setSelectedStatus] = useState("ทั้งหมด");
     const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
 
-    const ITEMS_PER_PAGE = 5;
+    const ITEMS_PER_PAGE = 3;
 
     const fetchDestructionRequests = async () => {
         setLoading(true);
@@ -162,12 +162,12 @@ function DestructionTableContent() {
                             <table className="w-full text-center border-collapse">
                                 <thead className="relative z-20">
                                     <tr className="border-b border-[#E5E2E1]/40">
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อเอกสาร</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">ชื่อผู้รับผิดชอบข้อมูล</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ได้รับ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">วันที่ตรวจสอบ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">สถานะ</th>
-                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase">การดำเนินการ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">ชื่อเอกสาร</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อผู้รับผิดชอบข้อมูล</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">วันที่ได้รับ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">วันที่ตรวจสอบ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">สถานะ</th>
+                                        <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">การดำเนินการ</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
@@ -184,12 +184,12 @@ function DestructionTableContent() {
                                             <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
-                                                    <span className="text-[#1B1C1C] font-medium tracking-tight">{doc.name}</span>
+                                                    <span className="text-[#5F5E5E] font-medium tracking-tight">{doc.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{doc.owner}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{formatThaiDate(doc.received_date)}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5F5E5E] text-center">{formatThaiDate(doc.destruction_date)}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.owner}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.received_date)}</td>
+                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.destruction_date)}</td>
                                             <td className="py-4">
                                                 <div className="flex justify-center py-1">
                                                     <span className={`px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center shadow-sm ${getStatusColor(getStatusType(doc.status))}`}>

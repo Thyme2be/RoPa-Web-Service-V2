@@ -1,21 +1,105 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
+import { cn } from "@/lib/utils";
 
 import { useRopa } from "@/context/RopaContext";
+import ConfirmModal from "@/components/ropa/ConfirmModal";
+
+// ─── Formatting ────────────────────────────────────────────────────────────────
+function formatDate(dateStr: string | undefined | null) {
+    if (!dateStr || dateStr === "—") return "—";
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear(); // Use AD (2026) as per sketch yyyy
+    return `${day}/${month}/${year}`;
+}
+
 
 export default function RopaApprovedPage() {
-    const { approvedRecords: contextApprovedRecords } = useRopa();
+    const { approvedRecords: contextApprovedRecords, requestDelete, annualReview, refresh } = useRopa();
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
     const router = useRouter();
+
     const [page, setPage] = useState(1);
-    
-    const ITEMS_PER_PAGE = 5;
-    const paginatedRecords = contextApprovedRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [customDate, setCustomDate] = useState("");
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+
+    const handleRequestDelete = (id: string) => {
+        router.push(`/data-owner/management/form?id=${id}&mode=deletion`);
+    };
+
+    const handleAnnualReview = async (id: string) => {
+        if (confirm("ต้องการส่งเอกสารนี้ให้ DPO ตรวจสอบรอบปีใช่หรือไม่?")) {
+            setIsSubmitting(true);
+            try {
+                await annualReview(id);
+                alert("ส่งตรวจสอบรายปีสำเร็จ เอกสารถูกย้ายไปที่ตารางรอดำเนินการ (Submitted)");
+            } catch (error) {
+                console.error("Failed to submit annual review:", error);
+                alert("เกิดข้อผิดพลาดในการส่งตรวจสอบรายปี");
+            } finally {
+                setIsSubmitting(false);
+            }
+        }
+    };
+
+    const handleClearFilters = () => {
+        setStatusFilter("all");
+        setDateFilter("all");
+        setCustomDate("");
+        setPage(1);
+    };
+
+    const filteredRecords = contextApprovedRecords.filter(record => {
+        // Status Filter
+        let matchStatus = true;
+        if (statusFilter !== "all") {
+            // In Approved table, everything is already finished
+            const isDoneFilter = ["done", "done_all", "done_owner", "done_processor"].includes(statusFilter);
+            matchStatus = isDoneFilter;
+        }
+
+        // Date Filter
+        let matchDate = true;
+        if (dateFilter !== "all" && record.last_approved_at) {
+            const approvedDate = new Date(record.last_approved_at);
+            const now = new Date();
+            if (dateFilter === "7days") {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = approvedDate >= sevenDaysAgo;
+            } else if (dateFilter === "30days") {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = approvedDate >= thirtyDaysAgo;
+            } else if (dateFilter === "custom" && customDate) {
+                const cDate = new Date(customDate);
+                cDate.setHours(0, 0, 0, 0);
+                const aDate = new Date(record.last_approved_at);
+                aDate.setHours(0, 0, 0, 0);
+                matchDate = cDate.getTime() === aDate.getTime();
+            }
+        } else if (dateFilter !== "all" && !record.last_approved_at) {
+            matchDate = false; // If filtering by date but no date available, hide it
+        }
+
+        return matchStatus && matchDate;
+    });
+
+    const ITEMS_PER_PAGE = 3;
+    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -31,29 +115,46 @@ export default function RopaApprovedPage() {
                         </h1>
                     </div>
 
-                    <DocumentFilterBar 
-                        statusOptions={[{ label: "ตรวจสอบเสร็จสิ้น", value: "done" }]} 
+                    <DocumentFilterBar
+                        statusValue={statusFilter}
+                        onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
+                        statusOptions={[
+                            { label: "ทั้งหมด", value: "all" },
+                            { label: "รอดำเนินการ", value: "pending" },
+                            { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
+                            { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
+                            { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
+                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" },
+                            { label: "ตรวจสอบเสร็จสิ้น", value: "done" }
+                        ]}
+                        dateValue={dateFilter}
+                        onDateChange={(val) => { setDateFilter(val); setPage(1); }}
+                        customDate={customDate}
+                        onCustomDateChange={(val) => { setCustomDate(val); setPage(1); }}
+                        onClear={handleClearFilters}
                     />
 
                     <DocumentListCard title="เอกสารที่อนุมัติ" icon="task_alt" iconColor="#0D9488" bodyClassName="p-0">
 
                         <DocumentTable>
                             <DocumentTableHead>
-                                <DocumentTableHeader width="w-[20%]">ชื่อเอกสาร</DocumentTableHeader>
-                                <DocumentTableHeaderWithTooltip 
-                                    width="w-[14%]" 
-                                    title="ชื่อ DO" 
+                                <DocumentTableHeader width="w-[20%]" align="left" className="whitespace-nowrap !text-[12px] pl-6">ชื่อเอกสาร</DocumentTableHeader>
+                                <DocumentTableHeaderWithTooltip
+                                    width="w-[14%]"
+                                    className="whitespace-nowrap !text-[12px]"
+                                    title="ชื่อ DO"
                                     tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Owner</span> หมายถึง ผู้รับผิดชอบข้อมูล</p>}
                                 />
-                                <DocumentTableHeaderWithTooltip 
-                                    width="w-[16%]" 
-                                    title="ชื่อ DPO" 
-                                    tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Protection Officer</span> หมายถึง<br/>เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</p>}
+                                <DocumentTableHeaderWithTooltip
+                                    width="w-[16%]"
+                                    className="whitespace-nowrap !text-[12px]"
+                                    title="ชื่อ DPO"
+                                    tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Protection Officer</span> หมายถึง<br />เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</p>}
                                 />
-                                <DocumentTableHeader width="w-[12%]">วันที่อนุมัติ</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[14%]">วันครบกำหนดทำลาย</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[14%]">ตรวจสอบรายปี</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[10%]">การดำเนินการ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">วันที่อนุมัติ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">วันครบกำหนดทำลาย</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">ตรวจสอบรายปี</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedRecords.length === 0 ? (
@@ -66,29 +167,44 @@ export default function RopaApprovedPage() {
                                     paginatedRecords.map((record) => (
                                         <DocumentTableRow key={record.document_id}>
                                             <DocumentTableCell align="left">
-                                                <div className="font-medium text-[#1B1C1C]">{record.title}</div>
-                                                <div className="text-xs text-gray-400">ID: {record.document_number}</div>
+                                                <div className="font-medium text-[#5F5E5E]">
+                                                    {record.document_number} {record.title}
+                                                </div>
                                             </DocumentTableCell>
-                                            <DocumentTableCell>{record.do_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell>{record.dpo_name || "—"}</DocumentTableCell>
-                                            <DocumentTableCell align="left">
-                                                {record.last_approved_at ? new Date(record.last_approved_at).toLocaleDateString("th-TH") : "—"}
+                                            <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
+                                                {formatDate(record.last_approved_at)}
                                             </DocumentTableCell>
-                                            <DocumentTableCell align="left">
-                                                {record.destruction_date ? new Date(record.destruction_date).toLocaleDateString("th-TH") : "—"}
+                                            <DocumentTableCell className="text-[#5C403D] font-medium">
+                                                {formatDate(record.destruction_date)}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : "bg-[#FF9800]"}`}>
+                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white whitespace-nowrap ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : (record.annual_review_status === "NOT_REVIEWED" ? "bg-[#ED393C]" : "bg-[#FF9800]")}`}>
                                                     {record.annual_review_status_label}
                                                 </span>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip 
-                                                        icon="visibility" 
-                                                        tooltipText="ดูเอกสาร" 
+                                                    <ActionIconWithTooltip
+                                                        icon="visibility"
+                                                        tooltipText="ดูเอกสาร"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                                         onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                    />
+                                                    <ActionIconWithTooltip
+                                                        icon="published_with_changes"
+                                                        disabled={record.annual_review_status !== "NOT_REVIEWED" || isSubmitting}
+                                                        tooltipText={record.annual_review_status === "NOT_REVIEWED" ? "ส่งทบทวนรายปี" : "ตรวจสอบรายปีแล้ว"}
+                                                        buttonClassName={record.annual_review_status === "NOT_REVIEWED" ? "text-blue-600 hover:text-blue-800" : "text-gray-300 cursor-not-allowed"}
+                                                        onClick={() => record.annual_review_status === "NOT_REVIEWED" && handleAnnualReview(record.document_id)}
+                                                    />
+                                                    <ActionIconWithTooltip
+                                                        icon="cancel_schedule_send"
+                                                        disabled={record.deletion_status === "DELETE_PENDING" || isSubmitting}
+                                                        tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"}
+                                                        buttonClassName={record.deletion_status === "DELETE_PENDING" ? "text-amber-500 cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#ED393C]"}
+                                                        onClick={() => record.deletion_status !== "DELETE_PENDING" && handleRequestDelete(record.document_id)}
                                                     />
                                                 </div>
                                             </DocumentTableCell>
@@ -97,12 +213,12 @@ export default function RopaApprovedPage() {
                                 )}
                             </DocumentTableBody>
                         </DocumentTable>
-                        <DocumentPagination 
-                            current={page} 
-                            totalPages={Math.max(1, Math.ceil(contextApprovedRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={contextApprovedRecords.length}
+                        <DocumentPagination
+                            current={page}
+                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
+                            totalItems={filteredRecords.length}
                             itemsPerPage={ITEMS_PER_PAGE}
-                            onChange={setPage} 
+                            onChange={setPage}
                         />
                     </DocumentListCard>
                 </div>
@@ -110,5 +226,3 @@ export default function RopaApprovedPage() {
         </div>
     );
 }
-
-

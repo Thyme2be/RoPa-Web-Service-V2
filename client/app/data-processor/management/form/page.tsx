@@ -11,6 +11,7 @@ import LegalInfo from "@/components/formSections/LegalInfo";
 import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
+import InlineFeedbackWrapper from "@/components/ropa/InlineFeedbackWrapper";
 import { ProcessorRecord } from "@/types/dataProcessor";
 import { SectionStatus } from "@/types/enums";
 import { useState, useEffect, Suspense, useMemo } from "react";
@@ -22,15 +23,18 @@ function DataProcessorFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const recordId = searchParams.get("id");
+    const snapshotId = searchParams.get("snapshot_id");
     const nameParam = searchParams.get("name");
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
 
-    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord } = useRopa();
+    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord, fetchProcessorSnapshot } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [form, setForm] = useState<Partial<ProcessorRecord>>({
         processor_name: "",
@@ -57,17 +61,26 @@ function DataProcessorFormContent() {
         physical_measures: "",
         access_control_measures: "",
         responsibility_measures: "",
-        audit_measures: ""
+        audit_measures: "",
+        suggestions: []
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Load existing record
+    // Load existing record or snapshot
     useEffect(() => {
         let isMounted = true;
 
         const loadFullRecord = async () => {
-            if (recordId) {
+            if (snapshotId) {
+                setIsLoadingFull(true);
+                const snapshotData = await fetchProcessorSnapshot(snapshotId);
+                if (snapshotData && isMounted) {
+                    setForm(prev => ({ ...prev, ...snapshotData }));
+                    setIsLocked(false); // Snapshots are typically loaded for editing
+                }
+                setIsLoadingFull(false);
+            } else if (recordId) {
                 setIsLoadingFull(true);
                 const fullRecord = await fetchFullProcessorRecord(recordId);
                 if (fullRecord && isMounted) {
@@ -79,61 +92,18 @@ function DataProcessorFormContent() {
 
         loadFullRecord();
         return () => { isMounted = false; };
-    }, [recordId]);
+    }, [recordId, snapshotId]);
 
-    const handleChange = (e: any) => {
-        const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
-
-        let val: any = value;
-        if (type === "number") {
-            val = value === "" ? "" : Math.max(0, Number(value));
-        }
-        if (type === "checkbox") {
-            if (!name.includes("[]")) {
-                val = (value && value !== "on") ? (checked ? value : "") : checked;
+    const validateField = (name: string, value: any) => {
+        let error = "";
+        if (name === "phone") {
+            if (value && value.length !== 10) {
+                error = "กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก";
             }
         }
-
-        setForm((prev: any) => {
-            const keys = name.split(".");
-
-            if (name.endsWith("[]")) {
-                const arrayKey = name.replace("[]", "");
-                const currentArray = prev[arrayKey] || [];
-                const newArray = checked
-                    ? [...currentArray, value]
-                    : currentArray.filter((v: string) => v !== value);
-                return { ...prev, [arrayKey]: newArray };
-            }
-
-            if (keys.length === 1) return { ...prev, [name]: val };
-            // Note: In the new flattened structure, keys.length should mostly be 1.
-            // Keeping nested support for backward compat if any component still uses it temporarily
-            if (keys.length === 2) {
-                const [p, c] = keys;
-                return { ...prev, [p]: { ...prev[p], [c]: val } };
-            }
-            return prev;
-        });
+        setErrors(prev => ({ ...prev, [name]: error }));
+        return error === "";
     };
-
-    const completedSteps = useMemo(() => {
-        const completed = [];
-        // Step 1: General
-        if (form.controller_name && form.processor_name && form.title_prefix && form.first_name && form.last_name) completed.push(1);
-        // Step 2: Activity
-        if (form.processor_name && form.controller_address && form.processing_activity && form.purpose_of_processing) completed.push(2);
-        // Step 3: Stored Info
-        if (form.data_categories && form.data_categories.length > 0 && form.personal_data_items && form.personal_data_items.length > 0) completed.push(3);
-        // Step 4: Retention
-        if (form.collection_methods && form.collection_methods.length > 0 && form.retention_value && form.access_condition) completed.push(4);
-        // Step 5: Legal
-        if (form.legal_basis && form.exemption_usage) completed.push(5);
-        // Step 6: Security
-        if (form.org_measures && form.access_control_measures && form.technical_measures) completed.push(6);
-        return completed;
-    }, [form]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -153,41 +123,137 @@ function DataProcessorFormContent() {
         // Step 3: Stored Info
         if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ข้อมูล";
         if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาประเภทข้อมูล";
+        if (!form.data_types || form.data_types.length === 0) newErrors.data_types = "กรุณาเลือกประเภทข้อมูล";
 
         // Step 4: Retention
-        if (!form.retention_value) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.collection_methods || form.collection_methods.length === 0) newErrors.collection_methods = "กรุณาเลือกวิธีการได้มา";
+        if (!form.data_sources || form.data_sources.length === 0) newErrors.data_sources = "กรุณาเลือกแหล่งที่มา";
+        if (!form.retention_value || Number(form.retention_value) <= 0) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.phone || form.phone.length !== 10) newErrors.phone = "กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก";
         if (!form.access_condition) newErrors.access_condition = "กรุณาระบุการควบคุมการเข้าถึง";
 
         // Step 5: Legal
         if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานการประมวลผล";
-        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุข้อยกเว้น";
 
-        // Step 6: Security
-        if (!form.org_measures) newErrors.org_measures = "กรุณาระบุมาตรการด้านบริหารจัดการ";
-        if (!form.access_control_measures) newErrors.access_control_measures = "กรุณาระบุการควบคุมการเข้าถึง";
-        if (!form.technical_measures) newErrors.technical_measures = "กรุณาระบุมาตรการด้านเทคนิค";
+        // Step 6: Security (Optional)
+        // All fields in Section 6 are now optional as per request
 
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
+            const firstErrorField = Object.keys(newErrors)[0];
+
+            // Auto-scroll to the first error with a small delay
+            setTimeout(() => {
+                const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }, 100);
+
             return false;
         }
         return true;
     };
 
-    const handleSaveDraft = () => {
-        saveProcessorRecord(form as ProcessorRecord);
-        setIsDraftSuccessOpen(true);
+    const handleSaveDraft = async () => {
+        setIsSaving(true);
+        try {
+            await saveProcessorRecord(form as ProcessorRecord, recordId || undefined);
+            setIsDraftSuccessOpen(true);
+        } catch (error) {
+            console.error("Save draft failed:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกฉบับร่าง กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleFinalConfirm = () => {
-        if (!validateForm()) return;
-
-        saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
-        if (recordId) {
-            submitDpSection(recordId);
+    const handleFinalConfirm = async () => {
+        if (!validateForm()) {
+            setIsLocked(false); // Automatically unlock to allow fixing errors
+            return;
         }
         setIsSuccessModalOpen(true);
+    };
+
+    const handleActualSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            if (recordId) {
+                // Perform the final submit (saves data + updates status)
+                await submitDpSection(recordId, form);
+            } else {
+                // New draft save if no recordId (shouldn't happen for DP assignments)
+                await saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
+            }
+
+            // Note: refresh() is called inside submitDpSection/saveProcessorRecord
+            setIsSuccessModalOpen(false);
+            router.push("/data-processor/management/processing");
+        } catch (error) {
+            console.error("Submit failed:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleChange = (e: any) => {
+        const { name, value, type } = e.target;
+        const targetChecked = (e.target as any).checked;
+
+        let val: any = value;
+
+        // 1. Enforce Numeric-only and MaxLength for Phone
+        if (name === "phone") {
+            val = value.replace(/[^0-9]/g, "").slice(0, 10);
+            if (val.length === 10) validateField(name, val);
+        }
+        // 2. Enforce Numeric-only for Retention Value
+        else if (name === "retention_value") {
+            val = value.replace(/[^0-9]/g, "");
+            val = val === "" ? "" : Number(val);
+        }
+        // 3. Handle Standard Numeric Inputs
+        else if (type === "number") {
+            val = value === "" ? "" : Math.max(0, Number(value));
+        }
+        // 4. Handle Checkboxes
+        else if (type === "checkbox") {
+            if (!name.includes("[]")) {
+                val = (value && value !== "on") ? (targetChecked ? value : "") : targetChecked;
+            }
+        }
+
+        setForm((prev: any) => {
+            const next = { ...prev };
+
+            if (name.endsWith("[]")) {
+                const arrayKey = name.replace("[]", "");
+                const currentArray = prev[arrayKey] || [];
+                const newArray = targetChecked
+                    ? [...currentArray, value]
+                    : currentArray.filter((v: string) => v !== value);
+                next[arrayKey] = newArray;
+                return next;
+            }
+
+            if (name.includes(".")) {
+                const keys = name.split(".");
+                let curr = next;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    const key = keys[i];
+                    curr[key] = { ...curr[key] };
+                    curr = curr[key];
+                }
+                curr[keys[keys.length - 1]] = val;
+                return next;
+            }
+
+            next[name] = val;
+            return next;
+        });
     };
 
     return (
@@ -220,24 +286,54 @@ function DataProcessorFormContent() {
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
                                     isLocked
-                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
-                                        : "text-[#5C403D] border-none hover:bg-black/5"
+                                        ? "text-[#ED393C] border-none hover:bg-[#ED393C]/5"
+                                        : "text-[#00666E] border-none hover:bg-[#00666E]/5"
                                 )}
                             >
-                                <span className="material-symbols-outlined text-[20px]">
-                                    {isLocked ? "edit" : "done_all"}
+                                <span className={cn("material-symbols-outlined text-[22px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
+                                    {isLocked ? "edit_square" : "check_circle"}
                                 </span>
-                                {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
+                                <span className="text-[15px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
                             </button>
                         </div>
 
                         <div className="px-10 space-y-8">
-                            <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            {(() => {
+                                const renderSection = (id: string, title: string, Component: any) => {
+                                    // key is format like dp-1, dp-2 ...
+                                    const sectionNo = parseInt(id.replace("dp-", ""), 10);
+                                    const sectionFeedbacks = form.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
+                                    
+                                    return (
+                                        <InlineFeedbackWrapper
+                                            key={id}
+                                            title={title}
+                                            isDraftingFeedback={false}
+                                            onFeedbackChange={() => { }}
+                                            feedbackText=""
+                                            existingSuggestions={sectionFeedbacks.map((f: any) => ({
+                                                text: f.comment,
+                                                date: f.created_at
+                                            }))}
+                                            isProcessor={true}
+                                            canReview={false}
+                                        >
+                                            <Component form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                                        </InlineFeedbackWrapper>
+                                    );
+                                };
+
+                                return (
+                                    <>
+                                        {renderSection("dp-1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
+                                        {renderSection("dp-2", "ส่วนที่ 2 : รายละเอียดกิจกรรม", ActivityDetails)}
+                                        {renderSection("dp-3", "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
+                                        {renderSection("dp-4", "ส่วนที่ 4 : การเก็บรักษาข้อมูล", RetentionInfo)}
+                                        {renderSection("dp-5", "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
+                                        {renderSection("dp-6", "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 )}
@@ -254,15 +350,33 @@ function DataProcessorFormContent() {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handleSaveDraft}
-                            className="bg-white border-2 border-[#ED393C] text-[#ED393C] font-bold text-base h-[52px] px-10 rounded-full hover:bg-[#ED393C]/5 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                            disabled={isSaving || isSubmitting}
+                            className={cn(
+                                "bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap flex items-center gap-2",
+                                (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
+                            )}
                         >
-                            บันทึกฉบับร่าง
+                            {isSaving ? (
+                                <>
+                                    <span className="w-4 h-4 border-2 border-[#5C403D]/30 border-t-[#5C403D] rounded-full animate-spin" />
+                                    กำลังบันทึก...
+                                </>
+                            ) : "บันทึกฉบับร่าง"}
                         </button>
                         <button
                             onClick={handleFinalConfirm}
-                            className="bg-gradient-to-r from-[#ED393C] to-[#8C0E10] text-white px-20 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                            disabled={isSaving || isSubmitting}
+                            className={cn(
+                                "bg-logout-gradient text-white px-20 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2",
+                                (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
+                            )}
                         >
-                            บันทึก
+                            {isSubmitting ? (
+                                <>
+                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    กำลังดำเนินการ...
+                                </>
+                            ) : "บันทึก"}
                         </button>
                     </div>
                 </div>
@@ -280,7 +394,7 @@ function DataProcessorFormContent() {
                             onClick={() => router.push("/data-processor/management/processing")}
                             className="bg-logout-gradient leading-none text-white w-full h-[52px] rounded-2xl font-black text-base mt-4 shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
                         >
-                            กลับสู่หน้าหลัก
+                            กลับสู่ตารางเอกสาร
                         </button>
                     </div>
                 </div>
@@ -289,8 +403,12 @@ function DataProcessorFormContent() {
             {/* Success Modal (Standardized Red for DP) */}
             <SaveSuccessModal
                 isOpen={isSuccessModalOpen}
-                onClose={() => setIsSuccessModalOpen(false)}
-                onConfirm={() => router.push("/data-processor/management/processing")}
+                onClose={() => !isSubmitting && setIsSuccessModalOpen(false)}
+                title="บันทึกรายการ RoPA เสร็จสิ้น"
+                subtitle="สามารถดูเอกสารได้ที่ตารางแสดงเอกสารที่ดำเนินการ"
+                buttonText="ยืนยันการบันทึก"
+                isLoading={isSubmitting}
+                onConfirm={handleActualSubmit}
             />
         </div>
     );

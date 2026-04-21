@@ -65,6 +65,16 @@ class AuditorAssignmentRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class DeletionRequestRead(BaseModel):
+    id: UUID
+    owner_reason: str
+    dpo_reason: Optional[str]
+    status: str
+    requested_at: datetime
+    decided_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}
+
 # ---------------------------------------------------------------------------
 # Documents
 # ---------------------------------------------------------------------------
@@ -91,6 +101,8 @@ class DocumentDetailRead(DocumentRead):
     processor_sections: List[ProcessorSectionRead] = []
     processor_assignments: List[ProcessorAssignmentRead] = []
     auditor_assignments: List[AuditorAssignmentRead] = []
+    deletion_requests: List[DeletionRequestRead] = []
+
 
 # ---------------------------------------------------------------------------
 # Assignment Requests

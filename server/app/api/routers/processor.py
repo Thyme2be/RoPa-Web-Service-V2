@@ -12,9 +12,11 @@ Routes:
   PATCH  /processor/documents/{id}/section         บันทึกฉบับร่าง (ไม่เปลี่ยน status)
   POST   /processor/documents/{id}/section/submit  บันทึก = เปลี่ยน status เป็น SUBMITTED
 
-  Feedback ที่ได้รับจาก DO หรือ DPO (DP รับ ไม่ใช่ส่ง):
-  GET    /processor/documents/{id}/feedbacks       ดู feedback ที่ได้รับ (แสดง inline ในฟอร์ม)
-  หมายเหตุ: DP ไม่ต้อง resolve feedback เอง — แก้ไขฟอร์มแล้วกดบันทึกใหม่ได้เลย
+  Snapshots (Draft management):
+  POST   /processor/documents/{id}/snapshot        บันทึกฉบับร่างแยก (Snapshot)
+  GET    /processor/snapshots                     รายการฉบับร่างทั้งหมด
+  GET    /processor/snapshots/{id}                 ดูเนื้อหาฉบับร่าง
+  DELETE /processor/snapshots/{id}                 ลบฉบับร่าง
 """
 
 from datetime import datetime, timezone
@@ -23,7 +25,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, contains_eager
 
 from app.api.deps import get_current_user, get_db
 from app.core.rbac import Role, check_document_access, require_roles
@@ -43,6 +45,8 @@ from app.models.section_processor import (
     ProcessorStorageTypeModel,
     RopaProcessorSectionModel,
 )
+from app.models.section_snapshots import RopaProcessorSnapshotModel
+
 from app.schemas.enums import RopaSectionEnum
 from app.schemas.owner import (
     DataCategoryOut,
@@ -64,7 +68,10 @@ from app.schemas.processor import (
     ProcessorFeedbackResponse,
     DpoCommentForDpRead,
     MessageResponse,
+    ProcessorSnapshotRead,
+    ProcessorSnapshotTableItem,
 )
+
 from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/processor", tags=["Data Processor"])
@@ -76,52 +83,108 @@ router = APIRouter(prefix="/processor", tags=["Data Processor"])
 
 def _processor_status_badge(
     proc_section: Optional[RopaProcessorSectionModel],
+    doc_status: str,
+    has_open_feedback: bool
 ) -> ProcessorStatusBadge:
     """
-    badge สถานะ DP ใน ตาราง 1 — 2 ค่า:
-      DP_DONE    = กดบันทึกเสร็จแล้ว (SUBMITTED)
-      WAITING_DP = ยังไม่ได้กรอก หรือ บันทึกฉบับร่างไว้ (DRAFT / ไม่มี section)
+    Unified status badge for Data Processor based on the document lifecycle:
+    1. CHECK_DONE   = Document is COMPLETED
+    2. DP_NEED_FIX  = DP submitted (SUBMITTED) but has open feedback
+    3. WAITING_CHECK = DP submitted (SUBMITTED) and waiting for verification
+    4. WAITING_DP   = DP hasn't submitted (DRAFT or no section)
     """
+    if doc_status == "COMPLETED":
+        return ProcessorStatusBadge(label="ตรวจสอบเสร็จสิ้น", code="CHECK_DONE")
+    
     if proc_section and proc_section.status == "SUBMITTED":
-        return ProcessorStatusBadge(label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE")
+        if has_open_feedback:
+            return ProcessorStatusBadge(label="รอ Data Processor แก้ไข", code="DP_NEED_FIX")
+        return ProcessorStatusBadge(label="รอตรวจสอบ", code="WAITING_CHECK")
+    
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 
 
 def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
+    """
+    Format: [Title][FirstName] [LastName]
+    Example: นางสาวพรรษชล บุญมาก
+    """
     if not user:
         return None
-    parts = [user.first_name, user.last_name]
-    name = " ".join(p for p in parts if p)
-    return name or user.username or None
+    
+    # Combined title and first name (no space)
+    title_first = (user.title or "") + (user.first_name or "")
+    
+    if not title_first and not user.last_name:
+        return user.username or None
+        
+    full_name = title_first
+    if user.last_name:
+        full_name += f" {user.last_name}"
+        
+    return full_name.strip() or user.username or None
 
 
 # =============================================================================
 # Helper: Load ProcessorSectionFullRead with sub-tables
 # =============================================================================
 
-def _load_processor_section_full(
-    section: RopaProcessorSectionModel,
-    db: Session,
-) -> ProcessorSectionFullRead:
+def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session, requester_role: Optional[Role] = None) -> ProcessorSectionFullRead:
     """
     โหลด Processor Section พร้อม sub-tables ทั้งหมด
-    (เรียกใช้จาก owner.py ด้วยเมื่อ DO ต้องการดู Processor Section)
+    - requester_role: หากเป็น Role.OWNER และ section.is_sent=False จะคืนข้อมูลเปล่า
     """
     sid = section.id
 
-    personal_data_items = db.query(ProcessorPersonalDataItemModel).filter_by(processor_section_id=sid).all()
-    data_categories     = db.query(ProcessorDataCategoryModel).filter_by(processor_section_id=sid).all()
-    data_types          = db.query(ProcessorDataTypeModel).filter_by(processor_section_id=sid).all()
-    collection_methods  = db.query(ProcessorCollectionMethodModel).filter_by(processor_section_id=sid).all()
-    data_sources        = db.query(ProcessorDataSourceModel).filter_by(processor_section_id=sid).all()
-    storage_types       = db.query(ProcessorStorageTypeModel).filter_by(processor_section_id=sid).all()
-    storage_methods     = db.query(ProcessorStorageMethodModel).filter_by(processor_section_id=sid).all()
+    # Check isolation for Data Owner
+    is_isolated = requester_role == Role.OWNER and not section.is_sent
+
+    if is_isolated:
+        return ProcessorSectionFullRead(
+            id=section.id,
+            document_id=section.document_id,
+            processor_id=section.processor_id,
+            status=section.status,
+            is_sent=section.is_sent,
+            updated_at=section.updated_at,
+            do_suggestion=section.do_suggestion,
+            # Ensure scalar fields are None for isolation
+            # Relationships default to [] in the schema, but we can be explicit
+            personal_data_items=[],
+            data_categories=[],
+            data_types=[],
+            collection_methods=[],
+            data_sources=[],
+            storage_types=[],
+            storage_methods=[],
+            feedbacks=[],
+        )
+
+    # Fetch feedbacks related to this processor section
+    feedbacks = (
+        db.query(ReviewFeedbackModel)
+        .filter(
+            ReviewFeedbackModel.target_type == "PROCESSOR_SECTION",
+            ReviewFeedbackModel.target_id == section.id
+        )
+        .all()
+    )
+
+    # relationships are now eagerly loaded
+    personal_data_items = section.personal_data_items
+    data_categories     = section.data_categories
+    data_types          = section.data_types
+    collection_methods  = section.collection_methods
+    data_sources        = section.data_sources
+    storage_types       = section.storage_types
+    storage_methods     = section.storage_methods
 
     return ProcessorSectionFullRead(
         id=section.id,
         document_id=section.document_id,
         processor_id=section.processor_id,
         status=section.status,
+        is_sent=section.is_sent,
         updated_at=section.updated_at,
         do_suggestion=section.do_suggestion,
         title_prefix=section.title_prefix,
@@ -131,6 +194,7 @@ def _load_processor_section_full(
         email=section.email,
         phone=section.phone,
         processor_name=section.processor_name,
+        controller_name=section.controller_name,
         controller_address=section.controller_address,
         processing_activity=section.processing_activity,
         purpose_of_processing=section.purpose_of_processing,
@@ -144,12 +208,13 @@ def _load_processor_section_full(
         data_source_other=section.data_source_other,
         retention_value=section.retention_value,
         retention_unit=section.retention_unit,
-        access_policy=section.access_policy,
+        storage_methods_other=section.storage_methods_other,
+        access_condition=section.access_condition,
         deletion_method=section.deletion_method,
         legal_basis=section.legal_basis,
         has_cross_border_transfer=section.has_cross_border_transfer,
         transfer_country=section.transfer_country,
-        transfer_in_group=section.transfer_in_group,
+        transfer_company=section.transfer_company,
         transfer_method=section.transfer_method,
         transfer_protection_standard=section.transfer_protection_standard,
         transfer_exception=section.transfer_exception,
@@ -159,6 +224,7 @@ def _load_processor_section_full(
         responsibility_measures=section.responsibility_measures,
         physical_measures=section.physical_measures,
         audit_measures=section.audit_measures,
+        feedbacks=feedbacks
     )
 
 
@@ -209,6 +275,134 @@ def _replace_processor_sub_tables(
 
 
 # =============================================================================
+# Snapshots (Drafts) — บันทึกสแนปชอตแยกจากงานหลัก
+# =============================================================================
+
+@router.post(
+    "/documents/{id}/snapshot",
+    response_model=ProcessorSnapshotRead,
+    summary="บันทึกสแนปชอต (Save as Draft) ของ Processor Section",
+)
+def create_processor_snapshot(
+    id: UUID,
+    payload: ProcessorSectionSave,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    """
+    บันทึกข้อมูลฟอร์มปัจจุบันเป็นสแนปชอตแยกต่างหาก (ฉบับร่าง)
+    - ไม่กระทบข้อมูลในตารางหลัก
+    """
+    doc = db.query(RopaDocumentModel).filter_by(id=id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+
+    existing_snapshot = db.query(RopaProcessorSnapshotModel).filter_by(
+        document_id=id,
+        user_id=current_user.id
+    ).first()
+
+    if existing_snapshot:
+        existing_snapshot.data = payload.model_dump(exclude_none=True)
+        # Update timestamp to reflect latest save
+        existing_snapshot.created_at = datetime.utcnow()
+        snapshot = existing_snapshot
+    else:
+        snapshot = RopaProcessorSnapshotModel(
+            document_id=id,
+            user_id=current_user.id,
+            data=payload.model_dump(exclude_none=True),
+        )
+        db.add(snapshot)
+    
+    db.commit()
+    db.refresh(snapshot)
+
+    return ProcessorSnapshotRead(
+        id=snapshot.id,
+        document_id=snapshot.document_id,
+        document_number=doc.document_number,
+        title=doc.title,
+        data=snapshot.data,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.get(
+    "/snapshots",
+    response_model=List[ProcessorSnapshotTableItem],
+    summary="ดึงรายการฉบับร่าง (Snapshots) ทั้งหมดของ Data Processor",
+)
+def list_processor_snapshots(
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    rows = (
+        db.query(RopaProcessorSnapshotModel, RopaDocumentModel.document_number, RopaDocumentModel.title)
+        .join(RopaDocumentModel, RopaProcessorSnapshotModel.document_id == RopaDocumentModel.id)
+        .filter(RopaProcessorSnapshotModel.user_id == current_user.id)
+        .order_by(RopaProcessorSnapshotModel.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for snapshot, doc_num, title in rows:
+        result.append(ProcessorSnapshotTableItem(
+            id=snapshot.id,
+            document_id=snapshot.document_id,
+            document_number=doc_num,
+            title=title,
+            created_at=snapshot.created_at
+        ))
+    return result
+
+
+@router.get(
+    "/snapshots/{snapshot_id}",
+    response_model=ProcessorSnapshotRead,
+    summary="ดึงข้อมูลสแนปชอตที่ระบุ (Processor)",
+)
+def get_processor_snapshot(
+    snapshot_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    snapshot = db.query(RopaProcessorSnapshotModel).filter_by(id=snapshot_id, user_id=current_user.id).first()
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="ไม่พบฉบับร่าง")
+    
+    doc = db.query(RopaDocumentModel).filter_by(id=snapshot.document_id).first()
+    
+    return ProcessorSnapshotRead(
+        id=snapshot.id,
+        document_id=snapshot.document_id,
+        document_number=doc.document_number if doc else None,
+        title=doc.title if doc else None,
+        data=snapshot.data,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.delete(
+    "/snapshots/{snapshot_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="ลบฉบับร่าง (Snapshot) (Processor)",
+)
+def delete_processor_snapshot(
+    snapshot_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    snapshot = db.query(RopaProcessorSnapshotModel).filter_by(id=snapshot_id, user_id=current_user.id).first()
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="ไม่พบฉบับร่าง")
+    
+    db.delete(snapshot)
+    db.commit()
+    return None
+
+
+# =============================================================================
 # GET /processor/tables/assigned — ตารางเอกสารที่ DP ถูก assign
 # =============================================================================
 
@@ -229,9 +423,15 @@ def get_assigned_table(
     """
     uid = current_user.id
 
+    # 1. Fetch assignments with related data in one go
     assignments = (
         db.query(ProcessorAssignmentModel)
         .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
+        .options(
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.creator),
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.processor_sections),
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.owner_section)
+        )
         .filter(
             ProcessorAssignmentModel.processor_id == uid,
             or_(
@@ -239,54 +439,59 @@ def get_assigned_table(
                 RopaDocumentModel.deletion_status != "DELETED",
             ),
         )
+        .order_by(ProcessorAssignmentModel.created_at.desc())
         .all()
     )
+
+    # 2. Prepare for bulk fetching feedbacks and DPO comments
+    doc_ids = [a.document_id for a in assignments]
+    proc_section_ids = []
+    for a in assignments:
+        for s in a.document.processor_sections:
+            if s.processor_id == uid:
+                proc_section_ids.append(s.id)
+
+    # Dictionaries for O(1) status check
+    open_feedbacks_sections = set()
+    if proc_section_ids:
+        fbs = db.query(ReviewFeedbackModel.target_id).filter(
+            ReviewFeedbackModel.to_user_id == uid,
+            ReviewFeedbackModel.target_id.in_(proc_section_ids),
+            ReviewFeedbackModel.status == "OPEN"
+        ).all()
+        open_feedbacks_sections = {fb.target_id for fb in fbs}
+
+    open_dpo_comments_docs = set()
+    if doc_ids:
+        comms = db.query(DpoSectionCommentModel.document_id).filter(
+            DpoSectionCommentModel.document_id.in_(doc_ids),
+            DpoSectionCommentModel.section_key.like("DP_SEC_%")
+        ).all()
+        open_dpo_comments_docs = {c.document_id for c in comms}
 
     active_items = []
     draft_items = []
 
+    # 3. Build response using pre-loaded data
     for assignment in assignments:
-        doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == assignment.document_id).first()
+        doc = assignment.document
         if not doc:
             continue
 
-        proc_section = (
-            db.query(RopaProcessorSectionModel)
-            .filter(
-                RopaProcessorSectionModel.document_id == doc.id,
-                RopaProcessorSectionModel.processor_id == uid,
-            )
-            .first()
-        )
+        # Find the specific processor section for this current_user
+        proc_section = next((s for s in doc.processor_sections if s.processor_id == uid), None)
+        owner_section = doc.owner_section
+        do_user = doc.creator
 
-        # หา DO name
-        do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
 
-        # feedback ที่ยังเปิดอยู่ (จาก DO หรือ DPO)
+        # Check for open feedback
         has_open_feedback = False
         if proc_section:
-            has_open_do_feedback = (
-                db.query(ReviewFeedbackModel)
-                .filter(
-                    ReviewFeedbackModel.to_user_id == uid,
-                    ReviewFeedbackModel.target_id == proc_section.id,
-                    ReviewFeedbackModel.status == "OPEN",
-                )
-                .first()
-                is not None
-            )
-            has_open_dpo_comment = (
-                db.query(DpoSectionCommentModel)
-                .filter(
-                    DpoSectionCommentModel.document_id == doc.id,
-                    DpoSectionCommentModel.section_key.like("DP_SEC_%"),
-                )
-                .first()
-                is not None
-            )
+            has_open_do_feedback = proc_section.id in open_feedbacks_sections
+            has_open_dpo_comment = doc.id in open_dpo_comments_docs
             has_open_feedback = has_open_do_feedback or has_open_dpo_comment
 
-        # ทุกเอกสารขึ้นในตารางดำเนินการ
+        # Add to active items
         active_items.append(ProcessorAssignedTableItem(
             document_id=doc.id,
             document_number=doc.document_number,
@@ -297,19 +502,23 @@ def get_assigned_table(
             assignment_status=assignment.status,
             due_date=assignment.due_date,
             received_at=assignment.created_at,
-            status=_processor_status_badge(proc_section),
+            is_sent=proc_section.is_sent if proc_section else False,
+            owner_title=do_user.title if do_user else None,
+            owner_first_name=do_user.first_name if do_user else None,
+            owner_last_name=do_user.last_name if do_user else None,
+            status=_processor_status_badge(proc_section, doc.status, has_open_feedback),
             has_open_feedback=has_open_feedback,
             created_at=doc.created_at,
         ))
 
-        # เฉพาะ DRAFT เท่านั้นที่ขึ้นในตารางฉบับร่าง
-        if proc_section and proc_section.status == "DRAFT":
+        # Add to draft items if applicable
+        if proc_section and proc_section.status == "DRAFT" and proc_section.updated_by is not None:
             draft_items.append(ProcessorDraftTableItem(
                 document_id=doc.id,
                 document_number=doc.document_number,
                 title=doc.title,
-                processor_section_id=proc_section.id if proc_section else None,
-                last_saved_at=proc_section.updated_at if proc_section else None,
+                processor_section_id=proc_section.id,
+                last_saved_at=proc_section.updated_at,
             ))
 
     return {
@@ -341,14 +550,23 @@ def get_processor_section(
 
     section = (
         db.query(RopaProcessorSectionModel)
+        .options(
+            joinedload(RopaProcessorSectionModel.personal_data_items),
+            joinedload(RopaProcessorSectionModel.data_categories),
+            joinedload(RopaProcessorSectionModel.data_types),
+            joinedload(RopaProcessorSectionModel.collection_methods),
+            joinedload(RopaProcessorSectionModel.data_sources),
+            joinedload(RopaProcessorSectionModel.storage_types),
+            joinedload(RopaProcessorSectionModel.storage_methods),
+        )
         .filter(
             RopaProcessorSectionModel.document_id == document_id,
             RopaProcessorSectionModel.processor_id == current_user.id,
         )
         .first()
     )
-    if not section:
-        raise HTTPException(status_code=404, detail="ไม่พบ Processor Section สำหรับเอกสารนี้")
+    if section:
+        pass
 
     return _load_processor_section_full(section, db)
 
@@ -387,11 +605,11 @@ def save_processor_section_draft(
 
     scalar_fields = [
         "title_prefix", "first_name", "last_name", "address", "email", "phone",
-        "processor_name", "controller_address", "processing_activity", "purpose_of_processing",
+        "processor_name", "controller_name", "controller_address", "processing_activity", "purpose_of_processing",
         "data_source_other", "retention_value", "retention_unit",
-        "access_policy", "deletion_method",
+        "storage_methods_other", "access_condition", "deletion_method",
         "legal_basis", "has_cross_border_transfer", "transfer_country",
-        "transfer_in_group", "transfer_method", "transfer_protection_standard",
+        "transfer_company", "transfer_method", "transfer_protection_standard",
         "transfer_exception",
         "org_measures", "access_control_measures", "technical_measures",
         "responsibility_measures", "physical_measures", "audit_measures",
@@ -402,7 +620,10 @@ def save_processor_section_draft(
             setattr(section, field, value)
 
     _replace_processor_sub_tables(section.id, payload, db)
-
+    
+    # บันทึกว่าใครเป็นคนอัปเดตล่าสุด (เพื่อระบุว่าเป็นดราฟท์ที่เริ่มดำเนินการแล้ว)
+    section.updated_by = current_user.id
+    
     db.commit()
     db.refresh(section)
     return _load_processor_section_full(section, db)
@@ -425,7 +646,8 @@ def submit_processor_section(
 ):
     """
     ปุ่ม "บันทึก" — บันทึกข้อมูล + เปลี่ยน status เป็น SUBMITTED
-    badge ในตารางจะแสดง "Data Processor ดำเนินการเสร็จสิ้น"
+    แต่ยังไม่ส่งให้ DO (is_sent=False)
+    badge ในตาราง DP จะแสดง "Data Processor ดำเนินการเสร็จสิ้น"
     """
     check_document_access(document_id, current_user, db)
 
@@ -442,11 +664,11 @@ def submit_processor_section(
 
     scalar_fields = [
         "title_prefix", "first_name", "last_name", "address", "email", "phone",
-        "processor_name", "controller_address", "processing_activity", "purpose_of_processing",
+        "processor_name", "controller_name", "controller_address", "processing_activity", "purpose_of_processing",
         "data_source_other", "retention_value", "retention_unit",
-        "access_policy", "deletion_method",
+        "storage_methods_other", "access_condition", "deletion_method",
         "legal_basis", "has_cross_border_transfer", "transfer_country",
-        "transfer_in_group", "transfer_method", "transfer_protection_standard",
+        "transfer_company", "transfer_method", "transfer_protection_standard",
         "transfer_exception",
         "org_measures", "access_control_measures", "technical_measures",
         "responsibility_measures", "physical_measures", "audit_measures",
@@ -458,8 +680,10 @@ def submit_processor_section(
 
     _replace_processor_sub_tables(section.id, payload, db)
 
-    section.status = "SUBMITTED"
-
+    section.status = RopaSectionEnum.SUBMITTED
+    section.updated_by = current_user.id
+    
+    db.commit()
     # ปิด open feedbacks ทั้งหมดที่ DO ส่งมาให้ DP (เมื่อ DP submit = แก้ไขแล้ว)
     db.query(ReviewFeedbackModel).filter(
         ReviewFeedbackModel.to_user_id == current_user.id,
@@ -478,10 +702,48 @@ def submit_processor_section(
     )
     if assignment:
         assignment.status = "SUBMITTED"
-
+    section.is_sent = False  # บันทึกฟอร์มเสร็จเฉยๆ ยังไม่ส่งให้ DO
     db.commit()
     db.refresh(section)
-    return _load_processor_section_full(section, db)
+    return _load_processor_section_full(section, db, Role.PROCESSOR)
+
+
+# =============================================================================
+# POST /processor/documents/{document_id}/section/send — ส่งให้ DO (is_sent=True)
+# =============================================================================
+
+@router.post(
+    "/documents/{document_id}/section/send",
+    response_model=MessageResponse,
+    summary="ส่ง Processor Section ให้ Data Owner (เปลี่ยน is_sent เป็น True)",
+)
+def send_processor_section(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
+):
+    """
+    ปุ่ม "ส่ง" ในตาราง — เปลี่ยน is_sent เป็น True เพื่อให้ Data Owner เห็นข้อมูล
+    """
+    check_document_access(document_id, current_user, db)
+
+    section = (
+        db.query(RopaProcessorSectionModel)
+        .filter(
+            RopaProcessorSectionModel.document_id == document_id,
+            RopaProcessorSectionModel.processor_id == current_user.id,
+        )
+        .first()
+    )
+    if not section:
+        raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
+
+    if section.status != "SUBMITTED":
+        raise HTTPException(status_code=400, detail="กรุณากรอกข้อมูลและกดบันทึกในฟอร์มให้เสร็จสิ้นก่อนส่ง")
+
+    section.is_sent = True
+    db.commit()
+    return MessageResponse(message="ส่งข้อมูลให้ Data Owner เรียบร้อยแล้ว")
 
 
 # =============================================================================
@@ -543,8 +805,6 @@ def get_received_feedbacks(
     return ProcessorFeedbackResponse(from_do=from_do, from_dpo=from_dpo)
 
 
-
-
 # =============================================================================
 # DELETE /processor/documents/{document_id}/section/draft — ล้างข้อมูลฉบับร่าง
 # =============================================================================
@@ -589,11 +849,11 @@ def delete_processor_section_draft(
 # =============================================================================
 
 @router.post(
-    "/documents/{document_id}/send-to-do",
+    "/documents/{document_id}/section/dispatch",
     response_model=MessageResponse,
     summary="DP ส่งเอกสารให้ DO (หลัง submit แล้ว)",
 )
-def send_to_do(
+def dispatch_processor_section(
     document_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
@@ -619,6 +879,9 @@ def send_to_do(
     if section.status != "SUBMITTED":
         raise HTTPException(status_code=400, detail="ต้องบันทึกฟอร์มให้สมบูรณ์ก่อนส่ง (กด 'บันทึก' ในฟอร์มก่อน)")
 
+    # Mark as sent for visibility
+    section.is_sent = True
+
     assignment = (
         db.query(ProcessorAssignmentModel)
         .filter(
@@ -631,4 +894,4 @@ def send_to_do(
         assignment.status = "SUBMITTED"
 
     db.commit()
-    return {"message": "ส่งเอกสารให้ผู้รับผิดชอบข้อมูลสำเร็จ"}
+    return MessageResponse(message="ส่งเอกสารให้ผู้รับผิดชอบข้อมูลสำเร็จ")

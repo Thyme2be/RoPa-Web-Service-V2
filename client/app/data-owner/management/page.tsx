@@ -1,16 +1,40 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Link from "next/link";
+import { useRopa } from "@/context/RopaContext";
+import { cn } from "@/lib/utils";
 
 export default function RopaSelectionPage() {
+    const { activeRecords, sentRecords, approvedRecords, destroyedRecords, refresh } = useRopa();
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
+
     const menus = [
-        { title: "ตารางแสดงเอกสารที่ดำเนินการ", href: "/data-owner/management/processing" },
-        { title: "ตารางแสดงเอกสารที่ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", href: "/data-owner/management/submitted" },
-        { title: "ตารางแสดงเอกสารที่ได้รับการอนุมัติจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", href: "/data-owner/management/approved" },
-        { title: "ตารางแสดงเอกสารที่ถูกทำลายเสร็จสิ้น", href: "/data-owner/management/destroyed" },
+        { 
+            title: "ตารางแสดงเอกสารที่ดำเนินการ", 
+            href: "/data-owner/management/processing",
+            icon: "format_list_bulleted"
+        },
+        { 
+            title: "ตารางแสดงเอกสารที่ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", 
+            href: "/data-owner/management/submitted",
+            icon: "format_list_bulleted"
+        },
+        { 
+            title: "ตารางแสดงเอกสารที่ได้รับการอนุมัติจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", 
+            href: "/data-owner/management/approved",
+            icon: "format_list_bulleted"
+        },
+        { 
+            title: "ตารางแสดงเอกสารที่ถูกทำลายเสร็จสิ้น", 
+            href: "/data-owner/management/destroyed",
+            icon: "format_list_bulleted"
+        },
     ];
 
     return (
@@ -26,7 +50,7 @@ export default function RopaSelectionPage() {
                             <h1 className="text-3xl font-black text-[#1B1C1C] tracking-tight">
                                 ตารางเอกสาร
                             </h1>
-                            <p className="text-[#5F5E5E] text-base font-medium">
+                            <p className="text-[#5C403D] text-base font-medium">
                                 ตารางแสดงรายละเอียดเอกสารและสถานะการดำเนินการปัจจุบัน
                             </p>
                         </div>
@@ -34,10 +58,12 @@ export default function RopaSelectionPage() {
                         <div className="flex flex-col gap-4">
                             {menus.map((menu, idx) => (
                                 <Link href={menu.href} key={idx} className="block group">
-                                    <div className="flex items-center justify-between p-4 bg-white border border-[#BA1A1A] rounded-xl hover:shadow-md transition-all cursor-pointer">
+                                    <div className="flex items-center justify-between p-5 bg-white border border-[#ED393C] rounded-xl hover:shadow-md transition-shadow cursor-pointer">
                                         <div className="flex items-center gap-6">
-                                            <div className="w-12 h-12 bg-[#ED393C] rounded-lg flex items-center justify-center shadow-sm">
-                                                <span className="material-symbols-rounded text-white text-3xl">list</span>
+                                            <div className="w-12 h-10 bg-[#ED393C] rounded-lg flex items-center justify-center shadow-sm">
+                                                <span className="material-symbols-rounded text-2xl text-white">
+                                                    {menu.icon}
+                                                </span>
                                             </div>
                                             <h2 className="text-xl font-bold text-[#1B1C1C] tracking-tight">{menu.title}</h2>
                                         </div>
