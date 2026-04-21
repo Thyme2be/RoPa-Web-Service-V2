@@ -32,6 +32,7 @@ export default function RightsChannel({ form, handleChange, errors, disabled, va
                     <Input
                         label="อีเมล"
                         required
+                        id="rights_email"
                         name="rights_email"
                         value={form?.rights_email || ""}
                         placeholder="example@netbay.co.th"
@@ -44,6 +45,7 @@ export default function RightsChannel({ form, handleChange, errors, disabled, va
                     <Input
                         label="เบอร์โทรศัพท์บริษัท"
                         required
+                        id="rights_phone"
                         name="rights_phone"
                         value={form?.rights_phone || ""}
                         placeholder="0XXXXXXXXX (10 หลัก)"

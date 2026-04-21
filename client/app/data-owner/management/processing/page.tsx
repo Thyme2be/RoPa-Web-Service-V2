@@ -316,7 +316,7 @@ export default function ManagementProcessingPage() {
                                                                 onClick={() => !isSendToDpoDisabled && setDpoConfirm({ open: true, id: record.document_id })}
                                                             />
                                                             <ActionIconWithTooltip
-                                                                icon="delete"
+                                                                icon="cancel_schedule_send"
                                                                 tooltipText="ลบเอกสารออกจากระบบ"
                                                                 buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
                                                                 onClick={() => setDeleteConfirm({ open: true, id: record.document_id })}

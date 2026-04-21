@@ -75,8 +75,8 @@ export const ropaService = {
         return response.data;
     },
 
-    submitOwnerSection: async (id: string) => {
-        const response = await api.post(`/owner/documents/${id}/section/submit`);
+    submitOwnerSection: async (id: string, data: any) => {
+        const response = await api.post(`/owner/documents/${id}/section/submit`, data);
         return response.data;
     },
 

@@ -35,6 +35,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                     <Input
                         label="ฐานในการประมวลผล"
                         required
+                        id="legal_basis"
                         name="legal_basis"
                         value={form?.legal_basis || ""}
                         placeholder="ระบุฐานในการประมวลผล (เช่น ฐานปฏิบัติตามสัญญา)"
@@ -46,38 +47,60 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                     />
 
                     {!isProcessor && (
-                        <div className="space-y-4" id="minor_consent">
+                        <div className="space-y-4" id="minor_consent_types">
                             <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                                 การขอความยินยอมของผู้เยาว์ <span className="font-bold" style={{ color: markerColor }}>*</span>
                             </label>
                             <div className={cn(
                                 "bg-[#F6F3F2] p-6 rounded-xl space-y-3 border transition-all",
-                                errors?.minor_consent ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                                errors?.minor_consent_types ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
                             )}>
                                 <Checkbox
                                     label="อายุไม่เกิน 10 ปี"
-                                    checked={!!form?.minorConsent?.under10}
-                                    onChange={(e: any) => handleChange({ target: { name: "minorConsent.under10", value: e.target.checked } })}
+                                    checked={form?.minor_consent_types?.includes("UNDER_10")}
+                                    onChange={(e: any) => {
+                                        const checked = e.target.checked;
+                                        let newTypes = [...(form.minor_consent_types || [])];
+                                        if (checked) {
+                                            newTypes = [...newTypes.filter(t => t !== "NONE"), "UNDER_10"];
+                                        } else {
+                                            newTypes = newTypes.filter(t => t !== "UNDER_10");
+                                        }
+                                        handleChange({ target: { name: "minor_consent_types", value: newTypes } });
+                                    }}
                                     disabled={disabled}
                                 />
                                 <Checkbox
                                     label="อายุ 10 - 20 ปี"
-                                    checked={!!form?.minorConsent?.age10to20}
-                                    onChange={(e: any) => handleChange({ target: { name: "minorConsent.age10to20", value: e.target.checked } })}
+                                    checked={form?.minor_consent_types?.includes("AGE_10_20")}
+                                    onChange={(e: any) => {
+                                        const checked = e.target.checked;
+                                        let newTypes = [...(form.minor_consent_types || [])];
+                                        if (checked) {
+                                            newTypes = [...newTypes.filter(t => t !== "NONE"), "AGE_10_20"];
+                                        } else {
+                                            newTypes = newTypes.filter(t => t !== "AGE_10_20");
+                                        }
+                                        handleChange({ target: { name: "minor_consent_types", value: newTypes } });
+                                    }}
                                     disabled={disabled}
                                     themeColor={primaryColor}
                                 />
                                 <Checkbox
                                     label="ไม่มีการขอความยินยอมของผู้เยาว์"
-                                    checked={!!form?.minorConsent?.none}
-                                    onChange={(e: any) => handleChange({ target: { name: "minorConsent.none", value: e.target.checked } })}
+                                    checked={form?.minor_consent_types?.includes("NONE")}
+                                    onChange={(e: any) => {
+                                        const checked = e.target.checked;
+                                        const newTypes = checked ? ["NONE"] : [];
+                                        handleChange({ target: { name: "minor_consent_types", value: newTypes } });
+                                    }}
                                     disabled={disabled}
                                     themeColor={primaryColor}
                                 />
                             </div>
-                            {errors?.minor_consent && (
+                            {errors?.minor_consent_types && (
                                 <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    {errors.minor_consent}
+                                    {errors.minor_consent_types}
                                 </p>
                             )}
                         </div>
@@ -137,6 +160,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="หากมีการส่งหรือโอนข้อมูลโปรดระบุประเทศปลายทาง"
                             required
+                            id="transfer_country"
                             name="transfer_country"
                             value={form?.transfer_country || ""}
                             placeholder="ระบุประเทศปลายทาง (เช่น จีน)"
@@ -149,6 +173,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="ส่งข้อมูลไปยังต่างประเทศของกลุ่มบริษัทในเครือหรือไม่"
                             required
+                            id="transfer_company"
                             name="transfer_company"
                             value={form?.transfer_company || ""}
                             placeholder="หากใช่ระบุชื่อบริษัท (เช่น บริษัท B)"
@@ -161,6 +186,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="วิธีการโอนข้อมูล"
                             required
+                            id="transfer_method"
                             name="transfer_method"
                             value={form?.transfer_method || ""}
                             placeholder="ระบุวิธีการโอนข้อมูล (เช่น โอนทางอิเล็กทรอนิกส์)"
@@ -173,6 +199,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="มาตรฐานการคุ้มครองข้อมูลส่วนบุคคลของประเทศปลายทาง"
                             required
+                            id="transfer_protection_standard"
                             name="transfer_protection_standard"
                             value={form?.transfer_protection_standard || ""}
                             placeholder="ระบุมาตรฐานการคุ้มครองข้อมูลส่วนบุคคล"
@@ -191,6 +218,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="ข้อยกเว้นตามมาตรา 28"
                             required
+                            id="transfer_exception"
                             name="transfer_exception"
                             value={form?.transfer_exception || ""}
                             placeholder="ระบุข้อยกเว้นตามมาตรา 28 (เช่น ปฏิบัติตามกฎหมาย ความยินยอม ปฏิบัติตามสัญญา ป้องกันอันตรายต่อชีวิต)"
@@ -208,6 +236,7 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
                         <Input
                             label="การใช้หรือเปิดเผยข้อมูลส่วนบุคคลที่ได้รับยกเว้นไม่ต้องขอความยินยอม"
                             required
+                            id="exemption_usage"
                             name="exemption_usage"
                             value={form?.exemption_usage || ""}
                             placeholder="ระบุกรณียกเว้นตามกฎหมาย (ระบุให้สอดคล้องกับฐานในการประมวลผล)"

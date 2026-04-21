@@ -48,6 +48,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                             <div className="flex items-center gap-4">
                                 <div className="w-[130px] shrink-0">
                                     <Select
+                                        id="title_prefix"
                                         name="title_prefix"
                                         value={form?.title_prefix || ""}
                                         options={titleOptions}
@@ -61,6 +62,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                                 </div>
                                 <div className="flex-1">
                                     <Input
+                                        id="first_name"
                                         name="first_name"
                                         value={form?.first_name || ""}
                                         placeholder="ระบุชื่อจริง"
@@ -73,6 +75,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                                 </div>
                                 <div className="flex-1">
                                     <Input
+                                        id="last_name"
                                         name="last_name"
                                         value={form?.last_name || ""}
                                         placeholder="ระบุนามสกุล"
@@ -90,6 +93,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                         <Input
                             label="อีเมล"
                             required
+                            id="email"
                             name="email"
                             value={form?.email || ""}
                             placeholder="example@netbay.co.th"
@@ -107,6 +111,7 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                         <Input
                             label="ที่อยู่"
                             required
+                            id="address"
                             name="address"
                             value={form?.address || ""}
                             placeholder="ระบุที่อยู่"
@@ -116,10 +121,11 @@ export default function GeneralInfo({ form, handleChange, errors, disabled, vari
                             requiredColor={markerColor}
                             focusColor={primaryColor}
                         />
-
+ 
                         <Input
                             label="เบอร์โทรศัพท์"
                             required
+                            id="phone"
                             name="phone"
                             value={form?.phone || ""}
                             placeholder="0XXXXXXXXX (10 หลัก)"

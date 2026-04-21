@@ -1548,8 +1548,8 @@ def send_to_dpo(
 
     db.add(ReviewDpoAssignmentModel(
         review_cycle_id=cycle.id,
-        dpo_id=payload.dpo_id,
-        assignment_method="MANUAL",
+        dpo_id=dpo_user.id,
+        assignment_method= "MANUAL" if payload.dpo_id else "AUTO" ,
     ))
 
     db.commit()
@@ -1710,8 +1710,8 @@ def request_annual_review(
 
     db.add(ReviewDpoAssignmentModel(
         review_cycle_id=cycle.id,
-        dpo_id=payload.dpo_id,
-        assignment_method="MANUAL",
+        dpo_id=dpo_user.id,
+        assignment_method= "MANUAL" if payload.dpo_id else "AUTO" ,
     ))
 
     doc.status = "UNDER_REVIEW"

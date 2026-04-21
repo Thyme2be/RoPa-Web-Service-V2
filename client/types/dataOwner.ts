@@ -96,9 +96,10 @@ export type OwnerRecord = {
 
   // Legal & Transfer
   legal_basis: string;
-  minor_consent_under_10: boolean;
-  minor_consent_10_to_20: boolean;
-  minor_consent_none: boolean;
+  minor_consent_types: string[];
+  minor_consent_under_10?: boolean;
+  minor_consent_10_to_20?: boolean;
+  minor_consent_none?: boolean;
 
   has_cross_border_transfer: boolean;
   transfer_country?: string;
@@ -165,7 +166,9 @@ export type OwnerRecord = {
   document_id?: string;
   storage_method?: string;
   storage_methods?: string;
+  storage_methods_other?: string;
   storage_type?: string;
+  storage_types: string[];
   is_sent?: boolean;
   owner_status?: { code: string; label: string };
   processor_status?: { code: string; label: string };
