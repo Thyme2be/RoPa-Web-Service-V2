@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
@@ -11,42 +11,8 @@ import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord, ActiveTableItem } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
 import { ropaService } from "@/services/ropaService";
+import ConfirmModal from "@/components/ropa/ConfirmModal";
 
-// ─── Confirm Modal ─────────────────────────────────────────────────────────────
-function ConfirmModal({
-    isOpen, title, description, confirmText, onConfirm, onCancel
-}: {
-    isOpen: boolean;
-    title: string;
-    description: string;
-    confirmText: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-}) {
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-[#1C1B1F]/40 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-[420px] rounded-[32px] shadow-2xl p-10 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
-                <h2 className="text-[22px] font-black text-[#1B1C1C] mb-3">{title}</h2>
-                <p className="text-sm font-bold text-[#5F5E5E] mb-8">{description}</p>
-                <div className="flex gap-4 w-full">
-                    <button
-                        onClick={onCancel}
-                        className="flex-1 h-12 rounded-xl border border-[#E5E2E1] font-bold text-[#5C403D] hover:bg-[#F6F3F2] transition-all"
-                    >
-                        ยกเลิก
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        className="flex-1 h-12 rounded-xl bg-logout-gradient text-white font-black shadow-lg shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all"
-                    >
-                        {confirmText}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 // ─── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ done, label }: { done: boolean; label: string }) {
@@ -64,7 +30,12 @@ function StatusBadge({ done, label }: { done: boolean; label: string }) {
 
 export default function ManagementProcessingPage() {
     const router = useRouter();
-    const { activeRecords, ownerSnapshots, sendToDpo, requestDelete, refresh } = useRopa();
+    const { activeRecords, ownerSnapshots, sendToDpo, requestDelete, deleteOwnerSnapshot, refresh } = useRopa();
+    
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
+
     const [page, setPage] = useState(1);
     const [draftPage, setDraftPage] = useState(1);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -72,6 +43,7 @@ export default function ManagementProcessingPage() {
     // Confirm modals
     const [dpoConfirm, setDpoConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
     const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+    const [deleteDraftConfirm, setDeleteDraftConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
     // Filter State
     const [statusFilter, setStatusFilter] = useState("all");
@@ -195,15 +167,24 @@ export default function ManagementProcessingPage() {
         return matchDate;
     });
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     // ─── Action Handlers ────────────────────────────────────────────────────────
-    const handleSendToDpo = (id: string) => {
-        sendToDpo(id);
-        setDpoConfirm({ open: false, id: "" });
+    const handleSendToDpo = async (id: string) => {
+        setIsSubmitting(true);
+        try {
+            await sendToDpo(id);
+            setDpoConfirm({ open: false, id: "" });
+        } catch (error) {
+            console.error("Failed to send to DPO:", error);
+            alert("เกิดข้อผิดพลาดในการส่งให้ DPO");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleRequestDelete = (id: string) => {
-        requestDelete(id, "ยื่นคำร้องขอทำลายเอกสารจากหน้าตารางรายการ");
-        setDeleteConfirm({ open: false, id: "" });
+        router.push(`/data-owner/management/form?id=${id}&mode=deletion`);
     };
 
     const getDoLabel = (r: ActiveTableItem) =>
@@ -298,26 +279,42 @@ export default function ManagementProcessingPage() {
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip
-                                                        icon="visibility"
-                                                        tooltipText="ดูเอกสาร"
-                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
-                                                    />
-                                                    <ActionIconWithTooltip
-                                                        icon="send"
-                                                        tooltipText="ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
-                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => setDpoConfirm({ open: true, id: record.document_id })}
-                                                    />
-                                                    <ActionIconWithTooltip
-                                                        icon="cancel_schedule_send"
-                                                        tooltipText="ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
-                                                        buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
-                                                        onClick={() => setDeleteConfirm({ open: true, id: record.document_id })}
-                                                    />
-                                                </div>
+                                                {(() => {
+                                                    const isSendToDpoDisabled = record.owner_status?.code !== "DO_DONE" || record.processor_status?.code !== "DP_DONE" || !record.is_risk_complete;
+                                                    let dpoTooltip = "ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ";
+                                                    if (isSendToDpoDisabled) {
+                                                        const missing = [];
+                                                        if (record.owner_status?.code !== "DO_DONE") missing.push("ส่วนของ DO");
+                                                        if (record.processor_status?.code !== "DP_DONE") missing.push("ส่วนของ DP");
+                                                        if (!record.is_risk_complete) missing.push("การประเมินความเสี่ยง");
+                                                        dpoTooltip = `ต้องดำเนินการ${missing.join(", ")}ให้เสร็จก่อน`;
+                                                    }
+
+                                                    return (
+                                                        <div className="flex items-center justify-center gap-3">
+                                                            <ActionIconWithTooltip
+                                                                icon="visibility"
+                                                                tooltipText="ดูเอกสาร"
+                                                                buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+                                                                onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                            />
+                                                            <ActionIconWithTooltip
+                                                                icon="send"
+                                                                disabled={isSendToDpoDisabled}
+                                                                tooltipText={dpoTooltip}
+                                                                buttonClassName={isSendToDpoDisabled ? "text-[#9CA3AF] cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#1B1C1C]"}
+                                                                onClick={() => !isSendToDpoDisabled && setDpoConfirm({ open: true, id: record.document_id })}
+                                                            />
+                                                            <ActionIconWithTooltip
+                                                                icon="cancel_schedule_send"
+                                                                disabled={record.deletion_status === "DELETE_PENDING"}
+                                                                tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"}
+                                                                buttonClassName={record.deletion_status === "DELETE_PENDING" ? "text-amber-500 cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#ED393C]"}
+                                                                onClick={() => record.deletion_status !== "DELETE_PENDING" && handleRequestDelete(record.document_id)}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })()}
                                             </DocumentTableCell>
                                         </DocumentTableRow>
                                     ))
@@ -372,9 +369,7 @@ export default function ManagementProcessingPage() {
                                                         tooltipText="ลบฉบับร่าง"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
                                                         onClick={() => {
-                                                            if (confirm("ต้องการลบฉบับร่างนี้ใช่หรือไม่?")) {
-                                                                ropaService.deleteOwnerSnapshot(record.id).then(() => refresh());
-                                                            }
+                                                            setDeleteDraftConfirm({ open: true, id: record.id });
                                                         }}
                                                     />
                                                 </div>
@@ -404,6 +399,7 @@ export default function ManagementProcessingPage() {
             {/* ─── Confirm: ส่ง DPO ─────────────────────────────────────────── */}
             <ConfirmModal
                 isOpen={dpoConfirm.open}
+                isLoading={isSubmitting}
                 title="ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
                 description="เอกสารนี้จะถูกส่งให้ DPO ตรวจสอบ และจะย้ายออกจากตารางเอกสารที่ดำเนินการ"
                 confirmText="ยืนยันการส่ง"
@@ -414,11 +410,31 @@ export default function ManagementProcessingPage() {
             {/* ─── Confirm: ขอลบ ────────────────────────────────────────────── */}
             <ConfirmModal
                 isOpen={deleteConfirm.open}
+                isLoading={isSubmitting}
                 title="ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
                 description="คำขอลบจะถูกส่งให้ DPO พิจารณา เอกสารจะย้ายไปอยู่ในตารางเอกสารที่ส่งให้ DPO แล้ว"
                 confirmText="ยืนยันการขอลบ"
                 onConfirm={() => handleRequestDelete(deleteConfirm.id)}
                 onCancel={() => setDeleteConfirm({ open: false, id: "" })}
+            />
+
+            {/* ─── Confirm: ลบฉบับร่าง ─────────────────────────────────────────── */}
+            <ConfirmModal
+                isOpen={deleteDraftConfirm.open}
+                isLoading={isSubmitting}
+                title="ลบฉบับร่าง"
+                description="ต้องการลบฉบับร่างนี้ใช่หรือไม่? การลบจะไม่กระทบข้อมูลปัจจุบันในตารางหลัก"
+                confirmText="ลบ"
+                onConfirm={async () => {
+                    setIsSubmitting(true);
+                    try {
+                        await deleteOwnerSnapshot(deleteDraftConfirm.id);
+                        setDeleteDraftConfirm({ open: false, id: "" });
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                }}
+                onCancel={() => setDeleteDraftConfirm({ open: false, id: "" })}
             />
         </div>
     );

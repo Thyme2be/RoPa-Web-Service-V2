@@ -30,6 +30,7 @@ from app.schemas.document import (
     ProcessorSectionRead,
     DpoAssignRequest,
     AuditorAssignRequest,
+    DeletionRequestRead,
 )
 from app.schemas.user import UserRead
 from pydantic import BaseModel
@@ -72,7 +73,11 @@ def _build_document_detail(
         auditor_assignments=[
             AuditorAssignmentRead.model_validate(a) for a in doc.auditor_assignments
         ] if role in (Role.ADMIN, Role.AUDITOR, Role.DPO) else [],
+        deletion_requests=[
+            DeletionRequestRead.model_validate(r) for r in doc.deletion_requests
+        ] if role in (Role.ADMIN, Role.DPO, Role.OWNER) else [],
     )
+
 
 
 @router.get("", response_model=List[DocumentRead], summary="List Documents", tags=["Documents (Shared)"])

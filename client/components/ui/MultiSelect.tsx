@@ -86,9 +86,9 @@ export default function MultiSelect({
             )}
 
             <div className="grid grid-cols-3 gap-2 mb-3">
-                {selectedValues.map((val) => (
+                {Array.from(new Set(selectedValues)).map((val, idx) => (
                     <div
-                        key={val}
+                        key={`${val}-${idx}`}
                         className={cn(
                             "flex items-center justify-between px-4 py-1.5 text-[#1B1C1C] rounded-full text-xs font-bold transition-all border",
                             tagBg,

@@ -14,6 +14,9 @@ import FeedbackModal from "@/components/ropa/FeedbackModal";
 import InlineFeedbackWrapper from "@/components/ropa/InlineFeedbackWrapper";
 import RiskAssessment from "@/components/ropa/RiskAssessment";
 import FormTabs from "@/components/ropa/FormTabs";
+import ConfirmModal from "@/components/ropa/ConfirmModal";
+import DestructionConfirmModal from "@/components/ropa/DestructionConfirmModal";
+
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
@@ -60,7 +63,9 @@ function ManagementFormContent() {
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
-    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [isConfirmDeletionOpen, setIsConfirmDeletionOpen] = useState(false);
+    const [deletionReason, setDeletionReason] = useState("");
+    const [isSubmittingDeletion, setIsSubmittingDeletion] = useState(false);
     const [feedbackModal, setFeedbackModal] = useState<{ open: boolean; section: string }>({ open: false, section: "" });
 
     // Feedback states
@@ -109,7 +114,7 @@ function ManagementFormContent() {
                 canReview={false}
                 onReviewClick={() => handleReviewClick(id)}
             >
-                <Component form={form} handleChange={handleChange} errors={errors} disabled={isLocked || isReviewMode} />
+                <Component form={form} handleChange={handleChange} errors={errors} disabled={effectiveIsLocked || isReviewMode} />
             </InlineFeedbackWrapper>
         );
     };
@@ -167,6 +172,10 @@ function ManagementFormContent() {
         workflow: "processing",
     });
 
+    const isWaitingDpoApproval = form.status === RopaStatus.UNDER_REVIEW || form.status === RopaStatus.COMPLETED;
+    const isLockedByDeletion = form.deletion_status === "DELETE_PENDING";
+    const effectiveIsLocked = isLocked || isLockedByDeletion || isWaitingDpoApproval;
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Load existing record if id is provided
@@ -210,8 +219,13 @@ function ManagementFormContent() {
         };
 
         loadFullRecord();
+
+        if (searchParams.get("mode") === "deletion") {
+            setActiveTab("destruction");
+        }
+
         return () => { isMounted = false; };
-    }, [recordId, snapshotId, user?.role]);
+    }, [recordId, snapshotId, user?.role, searchParams]);
 
     const [dpForm, setDpForm] = useState<Partial<ProcessorRecord>>({
         processor_name: "", controller_name: "", controller_address: "",
@@ -494,6 +508,27 @@ function ManagementFormContent() {
         }
     };
 
+    /** ยืนยันการส่งคำขอลบ */
+    const handleFinalDeletionRequest = async () => {
+        if (!recordId || !deletionReason) return;
+        setIsSubmittingDeletion(true);
+        try {
+            await requestDelete(recordId, deletionReason);
+            setIsConfirmDeletionOpen(false);
+            // Refresh to update locked state
+            const fullRecord = await fetchFullOwnerRecord(recordId);
+            if (fullRecord) {
+                setForm(prev => ({ ...prev, ...fullRecord }));
+            }
+            alert("ส่งคำร้องขอทำลายเอกสารสำเร็จ");
+        } catch (error) {
+            console.error("Failed to submit deletion request:", error);
+            alert("เกิดข้อผิดพลาดในการส่งคำร้อง");
+        } finally {
+            setIsSubmittingDeletion(false);
+        }
+    };
+
     // ─── Render ────────────────────────────────────────────────────────────────
 
     return (
@@ -532,13 +567,16 @@ function ManagementFormContent() {
                             </div>
                             {activeTab === "owner" && !isNewEdit && (
                                 <button
+                                    disabled={isLockedByDeletion || isWaitingDpoApproval}
                                     onClick={() => setIsLocked(!isLocked)}
                                     className={cn(
                                         "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0",
                                         isLocked
                                             ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
-                                            : "text-[#5C403D] border-none hover:bg-black/5"
+                                            : "text-[#5C403D] border-none hover:bg-black/5",
+                                        (isLockedByDeletion || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
                                     )}
+                                    title={isLockedByDeletion ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ" : isWaitingDpoApproval ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO" : ""}
                                 >
                                     <span className="material-symbols-outlined text-[20px]">
                                         {isLocked ? "edit" : "done_all"}
@@ -622,7 +660,7 @@ function ManagementFormContent() {
                                         </div>
                                     )}
 
-                                    {riskDocView === "processor" && (
+                                     {riskDocView === "processor" && (
                                         <div className="space-y-8 pb-32 animate-in slide-in-from-top-4 duration-500">
                                             <hr className="border-[#E5E2E1] my-8" />
                                             <h2 className="text-xl font-black text-[#1B1C1C] flex items-center gap-3">
@@ -647,12 +685,14 @@ function ManagementFormContent() {
                                         <h3 className="text-[18px] font-black text-[#1B1C1C] mb-4">เหตุผลในการขอทำลายเอกสาร</h3>
                                         
                                         <textarea
-                                            value={form.deletion_reason || ""}
-                                            onChange={(e) => setForm(prev => ({ ...prev, deletion_reason: e.target.value }))}
+                                            value={deletionReason}
+                                            onChange={(e) => setDeletionReason(e.target.value)}
                                             rows={4}
+                                            disabled={isLockedByDeletion || viewMode}
                                             className="w-full bg-white border border-[#E5E2E1] rounded-xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-[14px]"
                                             placeholder="ระบุเหตุผลในการขอทำลายเอกสาร เพื่อส่งคำขอไปยังเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
                                         />
+
 
                                         <div className="flex items-center justify-between mt-8 pt-4">
                                             <button
@@ -662,51 +702,54 @@ function ManagementFormContent() {
                                                 ยกเลิก
                                             </button>
                                             <button
-                                                disabled={!form.deletion_reason || form.deletion_request?.status === "PENDING" || viewMode}
-                                                onClick={() => setIsConfirmDeleteOpen(true)}
+                                                disabled={!deletionReason || isLockedByDeletion || viewMode}
+                                                onClick={() => setIsConfirmDeletionOpen(true)}
                                                 className="bg-logout-gradient text-white h-[48px] px-8 rounded-full font-bold shadow-sm hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
                                             >
-                                                {form.deletion_request?.status === "PENDING" ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
+                                                {isLockedByDeletion ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
                                             </button>
                                         </div>
 
-                                        {/* ─── Deletion Request Status Section (Screenshots) ────────────────── */}
+                                        {/* ─── Deletion Request Status Section (Refined UI) ────────────────── */}
                                         {form.deletion_request && (
-                                            <div className="pt-8 border-t border-[#E5E2E1] space-y-6">
-                                                <h4 className="text-lg font-black text-[#1B1C1C]">ตรวจสอบสถานะคำร้องปัจจุบัน</h4>
-
-                                                <div className="flex flex-col items-start gap-4">
+                                            <div className="pt-10 border-t border-[#E5E2E1] space-y-6 mt-10 animate-in fade-in slide-in-from-top-4 duration-700">
+                                                <div className="flex items-center justify-start gap-4">
+                                                    <h4 className="text-[18px] font-black text-[#1B1C1C]">ตรวจสอบสถานะคำร้องปัจจุบัน</h4>
+                                                    
                                                     {form.deletion_request.status === "APPROVED" && (
-                                                        <span className="bg-[#108548] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        <div className="bg-[#108548] text-white px-6 py-2 rounded-xl font-bold shadow-sm scale-110 active:scale-100 transition-all cursor-default">
                                                             อนุมัติคำร้อง
-                                                        </span>
+                                                        </div>
                                                     )}
                                                     {form.deletion_request.status === "REJECTED" && (
-                                                        <span className="bg-[#B90A1E] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        <div className="bg-[#B90A1E] text-white px-6 py-2 rounded-xl font-bold shadow-sm cursor-default">
                                                             ไม่อนุมัติคำร้อง
-                                                        </span>
+                                                        </div>
                                                     )}
                                                     {form.deletion_request.status === "PENDING" && (
-                                                        <span className="bg-[#EAB308] text-white px-8 py-2.5 rounded-xl font-bold text-lg">
+                                                        <div className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-sm cursor-default">
                                                             รอการตรวจสอบ
-                                                        </span>
+                                                        </div>
                                                     )}
+                                                </div>
 
-                                                    <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl">
-                                                        <p className="text-[#1B1C1C] font-bold text-lg">
-                                                            {form.deletion_request.status === "APPROVED"
-                                                                ? "ครบกำหนดเวลาในการทำลาย"
-                                                                : form.deletion_request.status === "REJECTED"
-                                                                    ? "ยังไม่ครบกำหนดเวลาในการทำลาย"
-                                                                    : "คำร้องของคุณอยู่ในระหว่างการพิจารณาโดย DPO"
-                                                            }
-                                                        </p>
-                                                        {form.deletion_request.dpo_reason && (
-                                                            <p className="text-[#5F5E5E] font-medium mt-2">
-                                                                เหตุผล: {form.deletion_request.dpo_reason}
+                                                <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl border border-transparent hover:border-[#E5E2E1] transition-all group shadow-sm">
+                                                    <p className="text-[#1B1C1C] font-bold text-[18px] leading-relaxed">
+                                                        {form.deletion_request.status === "APPROVED"
+                                                            ? "ครบกำหนดเวลาในการทำลาย"
+                                                            : form.deletion_request.status === "REJECTED"
+                                                                ? "ยังไม่ครบกำหนดเวลาในการทำลาย"
+                                                                : "คำร้องของคุณอยู่ในระหว่างการพิจารณาโดย DPO"
+                                                        }
+                                                    </p>
+                                                    {form.deletion_request.dpo_reason && (
+                                                        <div className="mt-3 flex items-start gap-2 text-[#5F5E5E]">
+                                                            <span className="material-symbols-outlined text-[20px] mt-0.5">info</span>
+                                                            <p className="font-medium text-[14px]">
+                                                                {form.deletion_request.dpo_reason}
                                                             </p>
-                                                        )}
-                                                    </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -841,36 +884,13 @@ function ManagementFormContent() {
             />
 
             {/* ─── Confirm Delete Request Modal ───────────────────────────────── */}
-            {isConfirmDeleteOpen && (
-                <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#1B1C1C]/40 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-[400px] rounded-[32px] shadow-2xl p-8 relative flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
-                        <button 
-                            onClick={() => setIsConfirmDeleteOpen(false)}
-                            className="absolute right-6 top-6 text-[#1B1C1C] hover:bg-gray-100 p-2 rounded-full transition-all"
-                        >
-                            <span className="material-symbols-outlined text-[28px]">close</span>
-                        </button>
-                        
-                        <h2 className="text-[24px] font-black text-[#1B1C1C] tracking-tight mt-4 mb-2">ส่งคำร้องขอทำลายเอกสาร</h2>
-                        <p className="text-[16px] text-[#5F5E5E] font-medium mb-8">
-                            โปรดตรวจสอบข้อมูลให้ครบถ้วน
-                        </p>
-                        
-                        <button
-                            onClick={async () => {
-                                setIsConfirmDeleteOpen(false);
-                                if (recordId && form.deletion_reason) {
-                                    await requestDelete(recordId, form.deletion_reason);
-                                    setIsSuccessModalOpen(true);
-                                }
-                            }}
-                            className="bg-logout-gradient leading-none text-white w-full max-w-[200px] h-[48px] rounded-full font-black text-[16px] shadow-sm hover:brightness-110 transition-all active:scale-95"
-                        >
-                            ยืนยันการส่งคำร้อง
-                        </button>
-                    </div>
-                </div>
-            )}
+            <DestructionConfirmModal
+                isOpen={isConfirmDeletionOpen}
+                isLoading={isSubmittingDeletion}
+                onConfirm={handleFinalDeletionRequest}
+                onClose={() => setIsConfirmDeletionOpen(false)}
+            />
+
         </div>
     );
 }

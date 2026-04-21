@@ -192,6 +192,8 @@ export interface ActiveTableItem {
   owner_section_status: SectionStatus;
   processor_section_id: string;
   processor_section_status: SectionStatus;
+  is_risk_complete: boolean;
+  deletion_status?: string | null;
 }
 
 export interface SentToDpoTableItem {
@@ -204,6 +206,7 @@ export interface SentToDpoTableItem {
   sent_at: string;
   reviewed_at: string;
   due_date: string;
+  deletion_status?: string | null;
 }
 
 export interface ApprovedTableItem {
@@ -217,6 +220,7 @@ export interface ApprovedTableItem {
   destruction_date: string;
   annual_review_status: "NOT_REVIEWED" | "REVIEWED";
   annual_review_status_label: string;
+  deletion_status?: string | null;
 }
 
 export interface DestroyedTableItem {

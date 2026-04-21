@@ -1,22 +1,51 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
+import { cn } from "@/lib/utils";
 
 import { useRopa } from "@/context/RopaContext";
+import ConfirmModal from "@/components/ropa/ConfirmModal";
+
 
 export default function RopaApprovedPage() {
-    const { approvedRecords: contextApprovedRecords } = useRopa();
+    const { approvedRecords: contextApprovedRecords, requestDelete, annualReview, refresh } = useRopa();
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
     const router = useRouter();
 
     const [page, setPage] = useState(1);
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+
+    const handleRequestDelete = (id: string) => {
+        router.push(`/data-owner/management/form?id=${id}&mode=deletion`);
+    };
+
+    const handleAnnualReview = async (id: string) => {
+        if (confirm("ต้องการส่งเอกสารนี้ให้ DPO ตรวจสอบรอบปีใช่หรือไม่?")) {
+            setIsSubmitting(true);
+            try {
+                await annualReview(id);
+                alert("ส่งตรวจสอบรายปีสำเร็จ เอกสารถูกย้ายไปที่ตารางรอดำเนินการ (Submitted)");
+            } catch (error) {
+                console.error("Failed to submit annual review:", error);
+                alert("เกิดข้อผิดพลาดในการส่งตรวจสอบรายปี");
+            } finally {
+                setIsSubmitting(false);
+            }
+        }
+    };
 
     const handleClearFilters = () => {
         setStatusFilter("all");
@@ -149,6 +178,20 @@ export default function RopaApprovedPage() {
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                                         onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
                                                     />
+                                                    <ActionIconWithTooltip
+                                                        icon="published_with_changes"
+                                                        disabled={record.annual_review_status !== "NOT_REVIEWED" || isSubmitting}
+                                                        tooltipText={record.annual_review_status === "NOT_REVIEWED" ? "ส่งทบทวนรายปี" : "ตรวจสอบรายปีแล้ว"}
+                                                        buttonClassName={record.annual_review_status === "NOT_REVIEWED" ? "text-blue-600 hover:text-blue-800" : "text-gray-300 cursor-not-allowed"}
+                                                        onClick={() => record.annual_review_status === "NOT_REVIEWED" && handleAnnualReview(record.document_id)}
+                                                    />
+                                                    <ActionIconWithTooltip
+                                                        icon="cancel_schedule_send"
+                                                        disabled={record.deletion_status === "DELETE_PENDING" || isSubmitting}
+                                                        tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"}
+                                                        buttonClassName={record.deletion_status === "DELETE_PENDING" ? "text-amber-500 cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#ED393C]"}
+                                                        onClick={() => record.deletion_status !== "DELETE_PENDING" && handleRequestDelete(record.document_id)}
+                                                    />
                                                 </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
@@ -169,5 +212,3 @@ export default function RopaApprovedPage() {
         </div>
     );
 }
-
-

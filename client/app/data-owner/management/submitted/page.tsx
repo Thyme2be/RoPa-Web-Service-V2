@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
@@ -8,11 +8,19 @@ import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable,
 import Select from "@/components/ui/Select";
 
 import { useRopa } from "@/context/RopaContext";
+import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 export default function RopaSubmittedPage() {
-    const { sentRecords } = useRopa();
+    const { sentRecords, sendBackToDpo, refresh } = useRopa();
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
     const router = useRouter();
     
+    // Action State
+    const [sendBackConfirm, setSendBackConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [page, setPage] = useState(1);
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
@@ -64,6 +72,19 @@ export default function RopaSubmittedPage() {
 
     const ITEMS_PER_PAGE = 3;
     const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+    const handleSendBackToDpo = async (id: string) => {
+        setIsSubmitting(true);
+        try {
+            await sendBackToDpo(id);
+            setSendBackConfirm({ open: false, id: "" });
+        } catch (error) {
+            console.error("Failed to send back to DPO:", error);
+            alert("เกิดข้อผิดพลาดในการส่งคืน DPO");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -166,6 +187,14 @@ export default function RopaSubmittedPage() {
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                                         onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
                                                     />
+                                                    {record.ui_status === "WAITING_DO_FIX" && (
+                                                        <ActionIconWithTooltip 
+                                                            icon="send" 
+                                                            tooltipText="ส่งแก้ไขคืน DPO" 
+                                                            buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+                                                            onClick={() => setSendBackConfirm({ open: true, id: record.document_id })}
+                                                        />
+                                                    )}
                                                 </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
@@ -183,6 +212,16 @@ export default function RopaSubmittedPage() {
                     </DocumentListCard>
                 </div>
             </main>
+
+            <ConfirmModal
+                isOpen={sendBackConfirm.open}
+                isLoading={isSubmitting}
+                title="ส่งการแก้ไขคืนให้ DPO"
+                description="เอกสารนี้จะถูกส่งคืนให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบอีกครั้ง"
+                confirmText="ยืนยันการส่ง"
+                onConfirm={() => handleSendBackToDpo(sendBackConfirm.id)}
+                onCancel={() => setSendBackConfirm({ open: false, id: "" })}
+            />
         </div>
     );
 }

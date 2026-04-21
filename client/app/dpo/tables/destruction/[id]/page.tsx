@@ -230,6 +230,10 @@ function DpoDestructionDetailContent() {
                 // Map Owner Section
                 if (docData.owner_sections && docData.owner_sections.length > 0) {
                     const os = docData.owner_sections[0];
+                    const req = docData.deletion_requests && docData.deletion_requests.length > 0
+                        ? docData.deletion_requests[docData.deletion_requests.length - 1]
+                        : null;
+
                     setForm({
                         ...os,
                         id: recordId,
@@ -237,9 +241,11 @@ function DpoDestructionDetailContent() {
                         data_subject_name: `${os.first_name || ""} ${os.last_name || ""}`.trim(),
                         status: docData.status as RopaStatus,
                         risk_assessment: docData.risk_assessment,
-                        processing_status: { do_status: "done", dp_status: "done" }
+                        processing_status: { do_status: "done", dp_status: "done" },
+                        deletion_request: req
                     });
                 }
+
 
                 // Map Processor Section
                 if (docData.processor_sections && docData.processor_sections.length > 0) {
@@ -405,9 +411,10 @@ function DpoDestructionDetailContent() {
                             <h3 className="text-[20px] font-headline font-black text-[#1B1C1C] tracking-tight">เหตุผลในการขอทำลายเอกสาร</h3>
                             <div className="bg-[#F1F1F1] rounded-[16px] p-6 border border-[#E5E2E1]/40">
                                 <p className="text-[17px] font-bold text-[#1B1C1C]/80">
-                                    ครบกำหนดเวลาในการทำลาย
+                                    {form?.deletion_request?.owner_reason || "ครบกำหนดเวลาในการทำลาย"}
                                 </p>
                             </div>
+
                         </div>
 
                         {/* Approval Status */}

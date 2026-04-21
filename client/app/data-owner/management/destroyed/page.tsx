@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
@@ -10,7 +10,11 @@ import Select from "@/components/ui/Select";
 import { useRopa } from "@/context/RopaContext";
 
 export default function RopaDestroyedPage() {
-    const { destroyedRecords: contextDestroyedRecords } = useRopa();
+    const { destroyedRecords: contextDestroyedRecords, refresh } = useRopa();
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
     const router = useRouter();
     
     const [page, setPage] = useState(1);

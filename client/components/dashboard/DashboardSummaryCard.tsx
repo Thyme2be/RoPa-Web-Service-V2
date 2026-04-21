@@ -23,7 +23,7 @@ export default function DashboardSummaryCard({
     splitValues,
 }: SummaryCardProps) {
     const borderColors = {
-        danger: "border-b-[#BA1A1A]",
+        danger: "border-b-[#ED393C]",
         warning: "border-b-[#ED393C]",
         info: "border-b-[#3B82F6]",
         success: "border-b-[#2C8C00]",

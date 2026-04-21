@@ -20,8 +20,8 @@ export const ropaService = {
     },
 
     // ─── Data Owner ──────────────────────────────────────────────────────────
-    getOwnerDashboard: async (): Promise<OwnerDashboardData> => {
-        const response = await api.get("/owner/dashboard");
+    getOwnerDashboard: async (period: string = "all"): Promise<OwnerDashboardData> => {
+        const response = await api.get(`/dashboard/owner?period=${period}`);
         return response.data;
     },
 

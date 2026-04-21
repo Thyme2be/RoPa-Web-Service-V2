@@ -42,8 +42,10 @@ interface RopaContextType {
     requestDelete: (id: string, reason: string) => Promise<void>;
     createOwnerSnapshot: (id: string, data: any) => Promise<any>;
     fetchOwnerSnapshot: (snapshotId: string) => Promise<OwnerRecord | null>;
+    deleteOwnerSnapshot: (snapshotId: string) => Promise<void>;
     assignProcessor: (recordId: string, name: string, title: string) => Promise<void>;
     submitFeedbackBatch: (id: string, items: { section_number: number; field_name?: string; comment: string }[]) => Promise<any>;
+    sendBackToDpo: (id: string) => Promise<void>;
 
     // Data Processor Actions
     saveProcessorRecord: (record: Partial<RopaProcessorRecord>, idOverride?: string) => Promise<RopaProcessorRecord>;
@@ -51,12 +53,14 @@ interface RopaContextType {
     fetchFullProcessorRecord: (id: string) => Promise<RopaProcessorRecord | null>;
     submitDpSection: (id: string, data?: any) => Promise<void>;
     dispatchDpSection: (id: string) => Promise<void>;
-    deleteProcessorRecord: (id: string) => Promise<void>;
+    deleteProcessorRecord: (snapshotId: string) => Promise<void>;
     fetchProcessorSnapshot: (snapshotId: string) => Promise<RopaProcessorRecord | null>;
 
     // Data Fetching
     refresh: () => Promise<void>;
     fetchExecutiveData: (period?: string, department?: string) => Promise<void>;
+    fetchOwnerDashboard: (period?: string) => Promise<void>;
+    annualReview: (id: string, payload?: any) => Promise<void>;
 
     isLoading: boolean;
     stats: {
@@ -490,6 +494,27 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         await refresh();
     };
 
+    const fetchOwnerDashboard = useCallback(async (period: string = "all") => {
+        if (!isAuthenticated || user?.role !== "OWNER") return;
+        try {
+            console.log("Fetching owner dashboard with period:", period);
+            const data = await ropaService.getOwnerDashboard(period);
+            setOwnerDashboardData(data);
+        } catch (err) {
+            console.error("Failed to fetch owner dashboard:", err);
+        }
+    }, [isAuthenticated, user]);
+
+    const annualReview = async (id: string, payload: any = {}) => {
+        await ropaService.annualReview(id, payload);
+        await refresh();
+    };
+
+    const sendBackToDpo = async (id: string) => {
+        await ropaService.sendBackToDpo(id);
+        await refresh();
+    };
+
     const saveRiskAssessment = async (id: string, risk: any) => {
         try {
             await api.post(`/owner/documents/${id}/risk`, risk);
@@ -589,6 +614,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const deleteOwnerSnapshot = async (snapshotId: string) => {
+        await ropaService.deleteOwnerSnapshot(snapshotId);
+        await refresh();
     };
 
     // ─── Data Processor Handlers ──────────────────────────────────────────────
@@ -725,8 +755,8 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         await refresh();
     };
 
-    const deleteProcessorRecord = async (id: string) => {
-        await ropaService.deleteProcessorSnapshot(id);
+    const deleteProcessorRecord = async (snapshotId: string) => {
+        await ropaService.deleteProcessorSnapshot(snapshotId);
         await refresh();
     };
 
@@ -775,6 +805,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             fetchFullOwnerRecord,
             submitDoSection,
             sendToDpo,
+            sendBackToDpo,
             saveRiskAssessment,
             deleteRecord,
             assignProcessor,
@@ -785,6 +816,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             submitDpSection,
             dispatchDpSection,
             deleteProcessorRecord,
+            deleteOwnerSnapshot,
             fetchProcessorSnapshot,
             requestDelete,
             createOwnerSnapshot,
@@ -792,10 +824,12 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             processorSnapshots,
             refresh,
             fetchExecutiveData,
+            fetchOwnerDashboard,
             isLoading,
             stats,
             getDashboardStats,
-            getExecutiveStats
+            getExecutiveStats,
+            annualReview
         }}>
             {children}
         </RopaContext.Provider>

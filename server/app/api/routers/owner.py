@@ -916,6 +916,18 @@ def get_active_table(
             .first()
         )
 
+        # ตรวจสอบความสมบูรณ์ของการประเมินความเสี่ยง
+        risk = (
+            db.query(RopaRiskAssessmentModel)
+            .filter(
+                RopaRiskAssessmentModel.document_id == doc.id,
+                RopaRiskAssessmentModel.likelihood != None,
+                RopaRiskAssessmentModel.impact != None
+            )
+            .first()
+        )
+        is_risk_complete = risk is not None
+
         # ชื่อ DP
         dp_user = None
         if proc_assignment:
@@ -958,6 +970,8 @@ def get_active_table(
             owner_section_status=owner_section.status if owner_section else None,
             processor_section_id=processor_section.id if processor_section else None,
             processor_section_status=processor_section.status if processor_section else None,
+            is_risk_complete=is_risk_complete,
+            deletion_status=doc.deletion_status,
         ))
 
     return result
@@ -1100,6 +1114,7 @@ def get_sent_to_dpo_table(
             sent_at=cycle.requested_at if cycle else None,
             reviewed_at=cycle.reviewed_at if cycle else None,
             due_date=doc.due_date,
+            deletion_status=doc.deletion_status,
         ))
 
     return result
@@ -1195,6 +1210,7 @@ def get_approved_table(
             destruction_date=destruction_date,
             annual_review_status=annual_review_status,
             annual_review_status_label=annual_review_status_label,
+            deletion_status=doc.deletion_status,
         ))
 
     return result
@@ -2043,10 +2059,59 @@ def create_deletion_request(
     if existing_pending:
         raise HTTPException(status_code=400, detail="มีคำร้องขอทำลายที่รอการอนุมัติอยู่แล้ว")
 
+    # --- Step 1: Assign DPO ---
+    # Find the most recently assigned DPO for this document
+    assigned_dpo_id = None
+    last_cycle = (
+        db.query(DocumentReviewCycleModel)
+        .filter(DocumentReviewCycleModel.document_id == document_id)
+        .order_by(DocumentReviewCycleModel.requested_at.desc())
+        .first()
+    )
+    if last_cycle:
+        last_assignment = (
+            db.query(ReviewDpoAssignmentModel)
+            .filter(ReviewDpoAssignmentModel.review_cycle_id == last_cycle.id)
+            .first()
+        )
+        if last_assignment:
+            assigned_dpo_id = last_assignment.dpo_id
+
+    # If no previous assignment, prioritize DPO กิตติพงศ์ (DPO01) for testing
+    if not assigned_dpo_id:
+        priority_dpo = db.query(UserModel).filter(
+            UserModel.role == "DPO",
+            UserModel.status == "ACTIVE",
+            or_(
+                UserModel.first_name.like("%กิตติพงศ์%"),
+                UserModel.username == "DPO01",
+                UserModel.email == "DPO01"
+            )
+        ).first()
+        
+        if priority_dpo:
+            assigned_dpo_id = priority_dpo.id
+            logger.info(f"Assigned Priority DPO {priority_dpo.email} for deletion of doc {document_id}")
+        else:
+            # Fallback to random DPO
+            dpo_candidates = db.query(UserModel).filter(
+                UserModel.role == "DPO",
+                UserModel.status == "ACTIVE"
+            ).all()
+            if not dpo_candidates:
+                raise HTTPException(status_code=400, detail="ไม่พบ DPO ที่พร้อมใช้งานในระบบเพื่อรับผิดชอบการทำลาย")
+            
+            assigned_dpo_user = random.choice(dpo_candidates)
+            assigned_dpo_id = assigned_dpo_user.id
+            logger.info(f"Automatically assigned fallback DPO {assigned_dpo_user.email} (Random) for deletion of doc {document_id}")
+    else:
+        logger.info(f"Assigned previous DPO id {assigned_dpo_id} for deletion of doc {document_id}")
+
     req = DocumentDeletionRequestModel(
         document_id=document_id,
         requested_by=current_user.id,
         owner_reason=payload.owner_reason,
+        dpo_id=assigned_dpo_id,
         status="PENDING",
     )
     db.add(req)
@@ -2056,6 +2121,7 @@ def create_deletion_request(
     db.commit()
     db.refresh(req)
     return req
+
 
 
 # =============================================================================

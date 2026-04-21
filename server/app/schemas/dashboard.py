@@ -147,18 +147,25 @@ class PaginatedDpoDocumentTableResponse(BaseModel):
 
 class DpoDestructionTableItem(BaseModel):
     request_id: str
+    raw_document_id: UUID
     document_id: str
-    title: str
-    data_owner_name: str
-    requested_at: datetime
-    reviewed_at: Optional[datetime] = None
-    review_status: str
+    name: str
+    owner: str
+    received_date: datetime
+    destruction_date: Optional[datetime] = None
+    status: str
+
 
 class PaginatedDpoDestructionTableResponse(BaseModel):
     total: int
     page: int
     limit: int
     items: List[DpoDestructionTableItem]
+
+class DpoDestructionReviewRequest(BaseModel):
+    status: str  # APPROVED, REJECTED
+    rejection_reason: Optional[str] = None
+
 
 class DpoAuditorAssignmentTableItem(BaseModel):
     assignment_id: str

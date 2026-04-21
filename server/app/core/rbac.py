@@ -78,13 +78,23 @@ def check_document_access(
         return
 
     if role == Role.DPO:
+        # Check participants
         in_participants = db.query(DocumentParticipantModel).filter(
             DocumentParticipantModel.document_id == document_id,
             DocumentParticipantModel.user_id == user_id,
         ).first() is not None
-        if str(doc.created_by) != str(user_id) and not in_participants:
+        
+        # Check if assigned for destruction
+        from app.models.document import DocumentDeletionRequestModel
+        is_assigned_for_destruction = db.query(DocumentDeletionRequestModel).filter(
+            DocumentDeletionRequestModel.document_id == document_id,
+            DocumentDeletionRequestModel.dpo_id == user_id
+        ).first() is not None
+
+        if str(doc.created_by) != str(user_id) and not in_participants and not is_assigned_for_destruction:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
         return
+
 
     if role == Role.AUDITOR:
         has_access = db.query(AuditorAssignmentModel).filter(
@@ -140,6 +150,7 @@ def build_document_filter(current_user: UserRead, db: Session):
         )
 
     if role == Role.DPO:
+        from app.models.document import DocumentDeletionRequestModel
         return or_(
             RopaDocumentModel.created_by == user_id,
             exists().where(
@@ -148,7 +159,14 @@ def build_document_filter(current_user: UserRead, db: Session):
                     DocumentParticipantModel.user_id == user_id,
                 )
             ),
+            exists().where(
+                and_(
+                    DocumentDeletionRequestModel.document_id == RopaDocumentModel.id,
+                    DocumentDeletionRequestModel.dpo_id == user_id
+                )
+            )
         )
+
 
     if role == Role.AUDITOR:
         return exists().where(

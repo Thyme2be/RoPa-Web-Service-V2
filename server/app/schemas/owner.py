@@ -441,6 +441,8 @@ class ActiveTableItem(BaseModel):
     owner_section_status: Optional[RopaSectionEnum]
     processor_section_id: Optional[UUID]
     processor_section_status: Optional[RopaSectionEnum]
+    is_risk_complete: bool
+    deletion_status: Optional[str] = None
 
 class SentToDpoTableItem(BaseModel):
     """
@@ -461,6 +463,7 @@ class SentToDpoTableItem(BaseModel):
     sent_at: Optional[datetime]
     reviewed_at: Optional[datetime]
     due_date: Optional[datetime]
+    deletion_status: Optional[str] = None
 
 class ApprovedTableItem(BaseModel):
     """
@@ -479,6 +482,7 @@ class ApprovedTableItem(BaseModel):
     destruction_date: Optional[datetime]
     annual_review_status: str              # NOT_REVIEWED | REVIEWED
     annual_review_status_label: str
+    deletion_status: Optional[str] = None
 
 class DestroyedTableItem(BaseModel):
     """

@@ -46,8 +46,10 @@ from app.schemas.dashboard import (
     DocumentStatusFlags,
     PaginatedDpoDestructionTableResponse,
     DpoDestructionTableItem,
+    DpoDestructionReviewRequest,
     PaginatedDpoAuditorAssignmentTableResponse,
     DpoAuditorAssignmentTableItem,
+
     PaginatedOwnerDpoReviewedDocumentResponse,
     OwnerDpoReviewedDocumentTableItem,
     AuditorDashboardResponse,
@@ -189,8 +191,8 @@ def _get_org_metrics_internal(db: Session, period: str, custom_date: Optional[st
     )
     
 # --- Metric Helpers ---
-
-def _get_owner_metrics_internal(db: Session, user_id: int):
+ 
+def _get_owner_metrics_internal(db: Session, user_id: int, period: str = "all"):
     """
     Robust version of Data Owner metrics calculation 
     """
@@ -198,6 +200,17 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
         now = datetime.now(timezone.utc)
         uid = user_id
         base_q = db.query(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid)
+
+        if period == 'weekly':
+            base_q = base_q.filter(RopaDocumentModel.created_at >= now - timedelta(days=7))
+        elif period == 'monthly':
+            base_q = base_q.filter(RopaDocumentModel.created_at >= now - timedelta(days=30))
+        elif period == '6months':
+            base_q = base_q.filter(RopaDocumentModel.created_at >= now - timedelta(days=180))
+        elif period == 'yearly':
+            base_q = base_q.filter(RopaDocumentModel.created_at >= now - timedelta(days=365))
+        
+        doc_ids_q = base_q.with_entities(RopaDocumentModel.id)
 
         # 1. Total
         total = base_q.count()
@@ -208,7 +221,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
             .join(ReviewFeedbackModel, ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id)
             .join(RopaDocumentModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id)
             .filter(
-                RopaDocumentModel.created_by == uid,
+                RopaDocumentModel.id.in_(doc_ids_q),
                 ReviewFeedbackModel.to_user_id == uid,
                 ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
             )
@@ -222,7 +235,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
                 .join(ProcessorAssignmentModel, ProcessorAssignmentModel.document_id == DocumentReviewCycleModel.document_id)
                 .join(RopaDocumentModel, RopaDocumentModel.id == DocumentReviewCycleModel.document_id)
                 .filter(
-                    RopaDocumentModel.created_by == uid,
+                    RopaDocumentModel.id.in_(doc_ids_q),
                     ReviewFeedbackModel.to_user_id == ProcessorAssignmentModel.processor_id,
                     ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
                 )
@@ -235,7 +248,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
                 .join(RopaProcessorSectionModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
                 .join(ReviewFeedbackModel, ReviewFeedbackModel.target_id == RopaProcessorSectionModel.id)
                 .filter(
-                    RopaDocumentModel.created_by == uid,
+                    RopaDocumentModel.id.in_(doc_ids_q),
                     ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
                 )
                 .all()
@@ -247,7 +260,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
         _risk_base = (
             db.query(RopaRiskAssessmentModel)
             .join(RopaDocumentModel, RopaRiskAssessmentModel.document_id == RopaDocumentModel.id)
-            .filter(RopaDocumentModel.created_by == uid)
+            .filter(RopaDocumentModel.id.in_(doc_ids_q))
         )
         risk_low    = _risk_base.filter(RopaRiskAssessmentModel.risk_level == RiskLevelEnum.LOW).count()
         risk_medium = _risk_base.filter(RopaRiskAssessmentModel.risk_level == RiskLevelEnum.MEDIUM).count()
@@ -267,7 +280,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
             db.query(func.count(RopaOwnerSectionModel.id))
             .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
             .filter(
-                RopaDocumentModel.created_by == uid,
+                RopaDocumentModel.id.in_(doc_ids_q),
                 RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
                 RopaOwnerSectionModel.status == RopaSectionEnum.DRAFT,
             )
@@ -277,7 +290,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
             db.query(func.count(RopaProcessorSectionModel.id))
             .join(RopaDocumentModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
             .filter(
-                RopaDocumentModel.created_by == uid,
+                RopaDocumentModel.id.in_(doc_ids_q),
                 RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
                 RopaProcessorSectionModel.status == RopaSectionEnum.DRAFT,
             )
@@ -294,7 +307,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
             .join(OwnerDataTypeModel, OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id)
             .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
             .filter(
-                RopaDocumentModel.created_by == uid,
+                RopaDocumentModel.id.in_(doc_ids_q),
                 OwnerDataTypeModel.is_sensitive == True,
             )
             .scalar() or 0
@@ -305,7 +318,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
             db.query(func.count(ProcessorAssignmentModel.id))
             .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
             .filter(
-                RopaDocumentModel.created_by == uid,
+                RopaDocumentModel.id.in_(doc_ids_q),
                 RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
                 ProcessorAssignmentModel.due_date != None,
                 ProcessorAssignmentModel.due_date <= now,
@@ -326,7 +339,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int):
             db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
             .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
             .filter(
-                RopaDocumentModel.created_by == uid,
+                RopaDocumentModel.id.in_(doc_ids_q),
                 RopaDocumentModel.status == DocumentStatusEnum.COMPLETED,
                 DocumentReviewCycleModel.status == ReviewStatusEnum.APPROVED,
                 DocumentReviewCycleModel.cycle_number > 1,
@@ -621,8 +634,12 @@ def _get_executive_metrics_internal(db: Session):
 # --- Endpoints ---
 
 @router.get("/dashboard/owner", response_model=OwnerDashboardResponse, summary="Owner: Dashboard", tags=["Dashboard (Owner)"])
-def owner_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.OWNER))):
-    return _get_owner_metrics_internal(db, current_user.id)
+def owner_dashboard(
+    period: str = Query("all", description="Filter period: weekly, monthly, 6months, yearly, all"),
+    db: Session = Depends(get_db), 
+    current_user: UserRead = Depends(require_roles(Role.OWNER))
+):
+    return _get_owner_metrics_internal(db, current_user.id, period)
 
 @router.get("/dashboard/processor", response_model=ProcessorDashboardResponse, summary="Processor: Dashboard", tags=["Dashboard (Processor)"])
 def processor_dashboard(db: Session = Depends(get_db), current_user: UserRead = Depends(require_roles(Role.PROCESSOR))):
@@ -957,13 +974,15 @@ def list_dpo_destruction_requests(
         status_enum_val = str(getattr(req.status, 'value', req.status))
         items.append(DpoDestructionTableItem(
             request_id=str(req.id),
+            raw_document_id=doc.id,
             document_id=doc_code,
-            title=display_title,
-            data_owner_name=data_owner_name,
-            requested_at=req.requested_at,
-            reviewed_at=req.decided_at,
-            review_status=status_enum_val
+            name=doc.title or 'ไม่มีชื่อเอกสาร',
+            owner=data_owner_name,
+            received_date=req.requested_at,
+            destruction_date=req.decided_at,
+            status=status_enum_val
         ))
+
 
     return PaginatedDpoDestructionTableResponse(
         total=total,
@@ -971,6 +990,44 @@ def list_dpo_destruction_requests(
         limit=limit,
         items=items
     )
+
+
+@router.patch("/dashboard/dpo/destruction-requests/{document_id}", summary="DPO: Approve or Reject Destruction Request", tags=["Dashboard (DPO)"])
+def review_destruction_request(
+    document_id: UUID,
+    payload: DpoDestructionReviewRequest,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.DPO))
+):
+    # 1. Find the request
+    req = db.query(DocumentDeletionRequestModel).filter(
+        DocumentDeletionRequestModel.document_id == document_id,
+        DocumentDeletionRequestModel.dpo_id == current_user.id,
+        DocumentDeletionRequestModel.status == "PENDING"
+    ).first()
+
+    if not req:
+        raise HTTPException(status_code=404, detail="คำขอทำลายไม่พบ หรือไม่ได้อยู่ในสถานะที่รอดำเนินการ")
+
+    # 2. Update request
+    req.status = payload.status
+    req.dpo_reason = payload.rejection_reason
+    req.decided_at = datetime.now(timezone.utc)
+    # req.dpo_decision is used in model, map it too
+    req.dpo_decision = payload.status
+
+    # 3. Update document status
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if payload.status == "APPROVED":
+        doc.deletion_status = "DELETED"
+        doc.deleted_at = datetime.now(timezone.utc)
+    else:
+        # If REJECTED, reset deletion_status to None so DO can request again
+        doc.deletion_status = None
+
+    db.commit()
+    return {"message": "บันทึกผลการตรวจสอบคำขอทำลายเรียบร้อยแล้ว"}
+
 
 
 
