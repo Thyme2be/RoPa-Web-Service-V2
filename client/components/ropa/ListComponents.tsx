@@ -139,8 +139,11 @@ export function ListCard({ title, icon, iconColor = "#1B1C1C", children, showSor
             <div className="p-5 flex items-center justify-between bg-[#F1EDEC]">
                 <div className="flex items-center gap-3">
                     <span
-                        className="material-symbols-outlined font-bold text-[22px]"
-                        style={{ color: iconColor, fontVariationSettings: filled ? "'FILL' 1" : undefined }}
+                        className="material-symbols-outlined text-[22px]"
+                        style={{ 
+                            color: iconColor, 
+                            fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'GRAD' 0, 'opsz' 24`
+                        }}
                     >
                         {icon}
                     </span>
@@ -178,8 +181,11 @@ export function DocumentListCard({
             <div className="p-5 flex items-center justify-between bg-[#E0D9D7] rounded-t-[11px]">
                 <div className="flex items-center gap-3">
                     <span
-                        className="material-symbols-outlined font-bold text-[22px]"
-                        style={{ color: iconColor, fontVariationSettings: filled ? "'FILL' 1" : undefined }}
+                        className="material-symbols-outlined text-[22px]"
+                        style={{ 
+                            color: iconColor, 
+                            fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'GRAD' 0, 'opsz' 24`
+                        }}
                     >
                         {icon}
                     </span>
@@ -303,7 +309,7 @@ export function DocumentFilterBar({
                 onClick={onClear}
                 className="h-[46px] px-8 bg-[#5F5E5E] text-white rounded-lg flex items-center gap-2 font-bold hover:bg-[#4F4E4E] transition-colors md:ml-auto shrink-0 whitespace-nowrap"
             >
-                <span className="material-symbols-rounded text-[20px]">filter_list</span>
+                <span className="material-symbols-outlined text-[20px]">filter_list</span>
                 ล้างตัวกรอง
             </button>
         </div>
@@ -314,7 +320,7 @@ export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = 
     return (
         <div className={`group/tooltip relative flex items-center justify-center ${className}`}>
             <button onClick={disabled ? undefined : onClick} disabled={disabled} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-[#CCCCCC]/40 cursor-pointer'} ${buttonClassName}`}>
-                <span className="material-symbols-rounded text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? { fontVariationSettings: "'FILL' 1" } : {}}>
+                <span className="material-symbols-outlined text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? { fontVariationSettings: "'FILL' 1" } : {}}>
                     {icon}
                 </span>
             </button>
@@ -343,7 +349,7 @@ export function DocumentPagination({ current, totalPages, totalItems, itemsPerPa
                     disabled={current === 1}
                     className="w-8 h-8 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100 rounded text-[#1B1C1C]"
                 >
-                    <span className="material-symbols-rounded text-[18px]">chevron_left</span>
+                    <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                 </button>
                 {pages.map(p => (
                     <button
@@ -359,7 +365,7 @@ export function DocumentPagination({ current, totalPages, totalItems, itemsPerPa
                     disabled={current === totalPages}
                     className="w-8 h-8 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100 rounded text-[#1B1C1C]"
                 >
-                    <span className="material-symbols-rounded text-[18px]">chevron_right</span>
+                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                 </button>
             </div>
         </div>
@@ -401,7 +407,7 @@ export function DocumentTableHeaderWithTooltip({ title, tooltipText, width, clas
         <th className={`py-5 px-4 first:pl-6 last:pr-6 text-sm font-black tracking-tight text-[#5C403D] ${width || ""} ${alignClass} ${className}`}>
             <div className={`flex items-center ${justifyClass} gap-1 group relative cursor-help`}>
                 {title}
-                <span className="material-symbols-rounded text-[16px] text-[#5C403D]">info</span>
+                <span className="material-symbols-outlined text-[16px] text-[#5C403D]">info</span>
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-max opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[60]">
                     <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] space-y-1 text-left leading-relaxed">
                         {tooltipText}

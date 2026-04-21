@@ -35,7 +35,7 @@ interface RopaContextType {
     saveRecord: (record: Partial<OwnerRecord>) => Promise<OwnerRecord>;
     getById: (id: string) => OwnerRecord | undefined;
     fetchFullOwnerRecord: (id: string) => Promise<OwnerRecord | null>;
-    submitDoSection: (id: string) => Promise<void>;
+    submitDoSection: (id: string, record: Partial<OwnerRecord>) => Promise<void>;
     sendToDpo: (id: string, payload?: any) => Promise<void>;
     saveRiskAssessment: (id: string, risk: any) => Promise<void>;
     deleteRecord: (id: string, status?: string) => Promise<void>;
@@ -341,8 +341,10 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             data_source_indirect: data.data_sources?.some((i: any) => i.source === "INDIRECT") || false,
             legal_basis: data.legal_basis || "",
             minor_consent_under_10: data.minor_consent_types?.includes("UNDER_10") || false,
-            minor_consent_10_to_20: data.minor_consent_types?.includes("10_TO_20") || false,
+            minor_consent_10_to_20: data.minor_consent_types?.includes("AGE_10_20") || false,
             minor_consent_none: data.minor_consent_types?.includes("NONE") || false,
+            minor_consent_types: data.minor_consent_types || [],
+            storage_types: data.storage_types?.map((i: any) => i.type) || [],
             has_cross_border_transfer: data.has_cross_border_transfer || false,
             transfer_country: data.transfer_country,
             transfer_company: data.transfer_in_group,
@@ -360,6 +362,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             access_control_measures: data.access_control_measures,
             responsibility_measures: data.responsibility_measures,
             audit_measures: data.audit_measures,
+            storage_methods: data.storage_methods?.map((m: any) => m.method).join(",") || "",
             status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             workflow: "processing"
         };
@@ -398,22 +401,21 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const saveRecord = async (record: Partial<OwnerRecord>): Promise<OwnerRecord> => {
-        if (!record.id) throw new Error("Document ID required for saving");
-
-        // Re-mapping frontend back to backend expected format for saveOwnerDraft
-        // Build minor_consent_types array from individual boolean fields
-        const minorConsentTypes: string[] = [];
-        if (record.minor_consent_under_10) minorConsentTypes.push("UNDER_10");
-        if (record.minor_consent_10_to_20) minorConsentTypes.push("10_TO_20");
-        if (record.minor_consent_none) minorConsentTypes.push("NONE");
+    const mapOwnerRecordToPayload = (record: Partial<OwnerRecord>) => {
+        // Build minor_consent_types array from individual boolean fields as fallback
+        let minorConsentTypes: string[] = record.minor_consent_types || [];
+        if (minorConsentTypes.length === 0) {
+            if (record.minor_consent_under_10) minorConsentTypes.push("UNDER_10");
+            if (record.minor_consent_10_to_20) minorConsentTypes.push("10_TO_20");
+            if (record.minor_consent_none) minorConsentTypes.push("NONE");
+        }
 
         // Build data_sources array from boolean flags
         const dataSources: { source: string }[] = [];
         if (record.data_source_direct) dataSources.push({ source: "DIRECT" });
         if (record.data_source_indirect) dataSources.push({ source: "INDIRECT" });
 
-        const payload = {
+        return {
             title: record.document_name,
             title_prefix: record.title_prefix,
             first_name: record.first_name,
@@ -431,7 +433,23 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             data_types: record.data_types?.map(t => ({ type: t })),
             collection_methods: record.collection_method ? [{ method: record.collection_method }] : [],
             data_sources: dataSources.length > 0 ? dataSources : undefined,
+            data_source_other: record.data_source_other,
             minor_consent_types: minorConsentTypes.length > 0 ? minorConsentTypes : undefined,
+            storage_types: record.storage_types?.map(t => ({ type: t })),
+            storage_methods: typeof record.storage_methods === 'string'
+                ? record.storage_methods.split(",").filter(Boolean).map(m => ({
+                    method: m,
+                    other_description: m === "อื่นๆ" ? record.storage_methods_other : undefined
+                }))
+                : Array.isArray(record.storage_methods as any)
+                    ? (record.storage_methods as unknown as any[]).map((m: any) => {
+                        const methodName = typeof m === 'string' ? m : m.method;
+                        return {
+                            method: methodName,
+                            other_description: methodName === "อื่นๆ" ? record.storage_methods_other : (typeof m === 'object' ? m.other_description : undefined)
+                        };
+                    })
+                    : undefined,
             legal_basis: record.legal_basis,
             exemption_usage: record.exemption_usage,
             has_cross_border_transfer: record.has_cross_border_transfer,
@@ -440,7 +458,9 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             transfer_method: record.transfer_method,
             transfer_protection_standard: record.transfer_protection_standard,
             transfer_exception: record.transfer_exception,
-            retention_value: record.retention_value,
+            retention_value: (record.retention_value !== undefined && record.retention_value !== null && String(record.retention_value) !== "")
+                ? parseInt(String(record.retention_value), 10)
+                : undefined,
             retention_unit: record.retention_unit,
             access_control_policy: record.access_condition,
             deletion_method: record.deletion_method,
@@ -451,6 +471,12 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             responsibility_measures: record.responsibility_measures,
             audit_measures: record.audit_measures,
         };
+    };
+
+    const saveRecord = async (record: Partial<OwnerRecord>): Promise<OwnerRecord> => {
+        if (!record.id) throw new Error("Document ID required for saving");
+
+        const payload = mapOwnerRecordToPayload(record);
 
         const response = await ropaService.saveOwnerDraft(record.id, payload);
         
@@ -472,8 +498,9 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         console.warn("assignProcessor API integration pending");
     };
 
-    const submitDoSection = async (id: string) => {
-        await ropaService.submitOwnerSection(id);
+    const submitDoSection = async (id: string, record: Partial<OwnerRecord>) => {
+        const payload = mapOwnerRecordToPayload(record);
+        await ropaService.submitOwnerSection(id, payload);
         
         // ลิงก์สถานะ: เมื่อบันทึกสมบูรณ์ (Submit) ให้ลบฉบับร่างออกเพื่อความสะอาดของตาราง
         try {
@@ -517,7 +544,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const saveRiskAssessment = async (id: string, risk: any) => {
         try {
-            await api.post(`/owner/documents/${id}/risk`, risk);
+            const payload = {
+                likelihood: risk.probability || risk.likelihood,
+                impact: risk.impact
+            };
+            await api.post(`/owner/documents/${id}/risk`, payload);
             await refresh();
         } catch (error) {
             console.error("Failed to save risk assessment:", error);
@@ -553,56 +584,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     };
 
     const createOwnerSnapshot = async (id: string, record: any) => {
-        // Re-mapping frontend back to backend expected format
-        // Build minor_consent_types array from individual boolean fields
-        const snapshotMinorConsent: string[] = [];
-        if (record.minor_consent_under_10) snapshotMinorConsent.push("UNDER_10");
-        if (record.minor_consent_10_to_20) snapshotMinorConsent.push("10_TO_20");
-        if (record.minor_consent_none) snapshotMinorConsent.push("NONE");
-
-        // Build data_sources array from boolean flags
-        const snapshotDataSources: { source: string }[] = [];
-        if (record.data_source_direct) snapshotDataSources.push({ source: "DIRECT" });
-        if (record.data_source_indirect) snapshotDataSources.push({ source: "INDIRECT" });
-
-        const payload = {
-            title: record.document_name,
-            title_prefix: record.title_prefix,
-            first_name: record.first_name,
-            last_name: record.last_name,
-            address: record.address,
-            email: record.email,
-            phone: record.phone,
-            contact_email: record.rights_email,
-            company_phone: record.rights_phone,
-            data_owner_name: record.data_subject_name,
-            processing_activity: record.processing_activity,
-            purpose_of_processing: record.purpose_of_processing,
-            personal_data_items: record.personal_data_items?.map((t: string) => ({ type: t })),
-            data_categories: record.data_categories?.map((c: string) => ({ category: c })),
-            data_types: record.data_types?.map((t: string) => ({ type: t })),
-            collection_methods: record.collection_method ? [{ method: record.collection_method }] : [],
-            data_sources: snapshotDataSources.length > 0 ? snapshotDataSources : undefined,
-            minor_consent_types: snapshotMinorConsent.length > 0 ? snapshotMinorConsent : undefined,
-            legal_basis: record.legal_basis,
-            exemption_usage: record.exemption_usage,
-            has_cross_border_transfer: record.has_cross_border_transfer,
-            transfer_country: record.transfer_country,
-            transfer_in_group: record.transfer_company,
-            transfer_method: record.transfer_method,
-            transfer_protection_standard: record.transfer_protection_standard,
-            transfer_exception: record.transfer_exception,
-            retention_value: record.retention_value,
-            retention_unit: record.retention_unit,
-            access_control_policy: record.access_condition,
-            deletion_method: record.deletion_method,
-            org_measures: record.org_measures,
-            technical_measures: record.technical_measures,
-            physical_measures: record.physical_measures,
-            access_control_measures: record.access_control_measures,
-            responsibility_measures: record.responsibility_measures,
-            audit_measures: record.audit_measures,
-        };
+        const payload = mapOwnerRecordToPayload(record);
 
         const response = await ropaService.saveOwnerSnapshot(id, payload);
         await refresh();

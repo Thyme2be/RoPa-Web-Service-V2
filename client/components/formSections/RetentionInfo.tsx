@@ -128,44 +128,36 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                         {/* Storage Details */}
-                        <div className="space-y-4">
+                        <div className="space-y-4" id="storage_types">
                             <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                                 ประเภทของข้อมูลที่จัดเก็บ <span className="font-bold" style={{ color: markerColor }}>*</span>
                             </label>
                             <div className={cn(
                                 "bg-[#F6F3F2] p-6 rounded-xl space-y-4 border transition-all",
-                                (errors?.storage_types || errors?.storageType) ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                                errors?.storage_types ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
                             )}>
                                 <Checkbox
                                     label="ข้อมูลอิเล็กทรอนิกส์"
-                                    checked={isProcessor ? !!form?.storage_types?.includes("soft_file") : form?.retention?.storageType === "soft_file"}
+                                    checked={form?.storage_types?.includes("soft_file")}
                                     onChange={(e: any) => {
-                                        if (isProcessor) {
-                                            handleChange({ target: { name: "storage_types[]", value: "soft_file", type: "checkbox", checked: e.target.checked } });
-                                        } else {
-                                            handleChange({ target: { name: "retention.storageType", value: "soft_file", type: "checkbox", checked: e.target.checked } });
-                                        }
+                                        handleChange({ target: { name: "storage_types[]", value: "soft_file", type: "checkbox", checked: e.target.checked } });
                                     }}
                                     disabled={disabled}
                                     themeColor={primaryColor}
                                 />
                                 <Checkbox
                                     label="เอกสาร"
-                                    checked={isProcessor ? form?.storage_types?.includes("hard_copy") : form?.retention?.storageType === "hard_copy"}
+                                    checked={form?.storage_types?.includes("hard_copy")}
                                     onChange={(e: any) => {
-                                        if (isProcessor) {
-                                            handleChange({ target: { name: "storage_types[]", value: "hard_copy", type: "checkbox", checked: e.target.checked } });
-                                        } else {
-                                            handleChange({ target: { name: "retention.storageType", value: "hard_copy", type: "checkbox", checked: e.target.checked } });
-                                        }
+                                        handleChange({ target: { name: "storage_types[]", value: "hard_copy", type: "checkbox", checked: e.target.checked } });
                                     }}
                                     disabled={disabled}
                                     themeColor={primaryColor}
                                 />
                             </div>
-                            {(errors?.storage_types || errors?.storageType) && (
+                            {errors?.storage_types && (
                                 <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    {errors.storage_types || errors.storageType}
+                                    {errors.storage_types}
                                 </p>
                             )}
                         </div>
@@ -174,6 +166,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             <MultiSelect
                                 label="วิธีการเก็บรักษาข้อมูล"
                                 required
+                                id="storage_methods"
                                 description={
                                     <p className="text-[11px] font-bold tracking-tight" style={{ color: markerColor }}>
                                         (สามารถระบุได้มากกว่า 1)
@@ -219,6 +212,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <div className="flex items-start gap-4">
                             <div className="flex-1">
                                 <Input
+                                    id="retention_value"
                                     name="retention_value"
                                     value={form?.retention_value ?? ""}
                                     placeholder="ระบุตัวเลขระยะเวลา (เช่น 5)"
@@ -253,6 +247,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <Input
                             label="สิทธิและวิธีการเข้าถึงข้อมูลส่วนบุคคล"
                             required
+                            id="access_condition"
                             name="access_condition"
                             value={form?.access_condition || ""}
                             placeholder="ระบุเงื่อนไขการใช้สิทธิและวิธีการ (เช่น กำหนดสิทธิเฉพาะผู้มีสิทธิ/ฝ่ายขาย/ฝ่าย IT)"
@@ -266,6 +261,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <Input
                             label="วิธีการลบหรือทำลายข้อมูลส่วนบุคคลเมื่อสิ้นสุดระยะเวลาจัดเก็บ"
                             required
+                            id="deletion_method"
                             name="deletion_method"
                             value={form?.deletion_method || ""}
                             placeholder="ระบุวิธีการลบหรือทำลายข้อมูลส่วนบุคคล (เช่น เครื่องทำลายเอกสาร)"

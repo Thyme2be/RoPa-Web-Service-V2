@@ -33,7 +33,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
             <div className="px-8 pb-10 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                     {/* Column 1: MultiSelect */}
-                    <div className="space-y-4">
+                    <div className="space-y-4" id="personal_data_items">
                         <MultiSelect
                             label="ข้อมูลส่วนบุคคลที่จัดเก็บ"
                             required

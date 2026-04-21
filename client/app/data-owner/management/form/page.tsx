@@ -15,6 +15,7 @@ import InlineFeedbackWrapper from "@/components/ropa/InlineFeedbackWrapper";
 import RiskAssessment from "@/components/ropa/RiskAssessment";
 import FormTabs from "@/components/ropa/FormTabs";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
+import SaveConfirmModal from "@/components/ropa/SaveConfirmModal";
 import DestructionConfirmModal from "@/components/ropa/DestructionConfirmModal";
 
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
@@ -61,7 +62,9 @@ function ManagementFormContent() {
     // ปลดล็อก form ทันทีถ้าเป็นการเปิดแบบ mode=edit หรือกำลังแก้ไขฉบับร่าง (snapshotId)
     const [isLocked, setIsLocked] = useState(!isNewEdit && !snapshotId);
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
-    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [isConfirmSaveOpen, setIsConfirmSaveOpen] = useState(false);
+    const [isConfirmRiskOpen, setIsConfirmRiskOpen] = useState(false);
+    const [pendingRisk, setPendingRisk] = useState({ probability: 0, impact: 0 });
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
     const [isConfirmDeletionOpen, setIsConfirmDeletionOpen] = useState(false);
     const [deletionReason, setDeletionReason] = useState("");
@@ -155,9 +158,8 @@ function ManagementFormContent() {
         data_source_direct: false,
         data_source_indirect: false,
         data_source_other: "",
-        minor_consent_under_10: false,
-        minor_consent_10_to_20: false,
-        minor_consent_none: false,
+        minor_consent_types: [],
+        storage_types: [],
         has_cross_border_transfer: false,
         data_categories: [],
         personal_data_items: [],
@@ -169,6 +171,7 @@ function ManagementFormContent() {
         deletion_method: "",
         legal_basis: "",
         exemption_usage: "",
+        storage_methods: "",
         workflow: "processing",
     });
 
@@ -261,37 +264,38 @@ function ManagementFormContent() {
 
         // Mapping fields to their respective tabs for auto-switching
         const fieldToTabMap: Record<string, string> = {
-            document_name: "owner",
             title_prefix: "owner",
             first_name: "owner",
             last_name: "owner",
             address: "owner",
             email: "owner",
             phone: "owner",
-            rights_email: "activity",
-            rights_phone: "activity",
-            data_subject_name: "activity",
-            processing_activity: "activity",
-            purpose_of_processing: "activity",
-            data_categories: "stored",
-            personal_data_items: "stored",
-            data_types: "stored",
-            collection_method: "retention",
-            retention_value: "retention",
-            access_condition: "retention",
-            deletion_method: "retention",
-            legal_basis: "legal",
-            minor_consent: "legal",
-            has_cross_border_transfer: "legal",
-            transfer_country: "legal",
-            transfer_company: "legal",
-            transfer_method: "legal",
-            transfer_protection_standard: "legal",
-            transfer_exception: "legal",
-            exemption_usage: "legal",
+            rights_email: "owner",
+            rights_phone: "owner",
+            data_subject_name: "owner",
+            processing_activity: "owner",
+            purpose_of_processing: "owner",
+            data_categories: "owner",
+            personal_data_items: "owner",
+            data_types: "owner",
+            collection_method: "owner",
+            storage_types: "owner",
+            storage_methods: "owner",
+            retention_value: "owner",
+            access_condition: "owner",
+            deletion_method: "owner",
+            legal_basis: "owner",
+            minor_consent_types: "owner",
+            has_cross_border_transfer: "owner",
+            transfer_country: "owner",
+            transfer_company: "owner",
+            transfer_method: "owner",
+            transfer_protection_standard: "owner",
+            transfer_exception: "owner",
+            exemption_usage: "owner",
         };
 
-        if (!form.document_name?.trim()) newErrors.document_name = "กรุณากรอกชื่อเอกสาร";
+        // document_name removed from validation per user request
 
         // Section 1
         if (!form.title_prefix) newErrors.title_prefix = "กรุณาเลือกคำนำหน้า";
@@ -319,14 +323,15 @@ function ManagementFormContent() {
 
         // Section 5
         if (!form.collection_method) newErrors.collection_method = "กรุณาเลือกวิธีการได้มาซึ่งข้อมูล";
+        if (!form.storage_types || form.storage_types.length === 0) newErrors.storage_types = "กรุณาเลือกประเภทของข้อมูลที่จัดเก็บ";
         if (!form.retention_value || form.retention_value === 0) newErrors.retention_value = "กรุณาระบุระยะเวลจัดเก็บ";
         if (!form.access_condition) newErrors.access_condition = "กรุณาระบุสิทธิและวิธีการเข้าถึง";
         if (!form.deletion_method) newErrors.deletion_method = "กรุณาระบุวิธีการลบหรือทำลาย";
 
         // Section 6
         if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานทางกฎหมาย";
-        if (!form.minor_consent_under_10 && !form.minor_consent_10_to_20 && !form.minor_consent_none) {
-            newErrors.minor_consent = "กรุณาเลือกการขอความยินยอมของผู้เยาว์";
+        if (!form.minor_consent_types || form.minor_consent_types.length === 0) {
+            newErrors.minor_consent_types = "กรุณาเลือกการขอความยินยอมของผู้เยาว์";
         }
         if (form.has_cross_border_transfer === undefined || form.has_cross_border_transfer === null) {
             newErrors.has_cross_border_transfer = "กรุณาเลือกว่ามีการเปิดเผยไปต่างประเทศหรือไม่";
@@ -342,6 +347,7 @@ function ManagementFormContent() {
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
             const targetTab = fieldToTabMap[firstErrorField] || "owner";
+            const errorMessage = newErrors[firstErrorField];
 
             // 1. Auto-switch tab if necessary
             if (activeTab !== targetTab) {
@@ -352,9 +358,14 @@ function ManagementFormContent() {
             setTimeout(() => {
                 const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
                 if (element) {
-                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                    const yOffset = -120; // Fixed header offset
+                    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: "smooth" });
+                } else {
+                    // Fallback alert if element not found in DOM
+                    alert(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
                 }
-            }, 100);
+            }, 250);
 
             return false;
         }
@@ -445,8 +456,12 @@ function ManagementFormContent() {
     };
 
     const completedSteps = getCompletedSteps();
-    const doStatus = form.status === SectionStatus.SUBMITTED ? "done" : "pending";
-    const dpStatus = (dpForm.status === SectionStatus.SUBMITTED && dpForm.is_sent) ? "done" : "pending";
+    const doStatus = (form.status === SectionStatus.SUBMITTED || form.status === RopaStatus.Processing) ? "done" : "pending";
+    const dpStatus = ((dpForm.status === SectionStatus.SUBMITTED || dpForm.status === RopaStatus.Processing) && dpForm.is_sent) ? "done" : "pending";
+    
+    // Risk assessment is editable if both sections are done AND not yet under review/completed by DPO
+    const isOwner = user?.role === "OWNER";
+    const canEditRisk = isOwner && doStatus === "done" && dpStatus === "done" && !isWaitingDpoApproval && !isLockedByDeletion;
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -469,42 +484,57 @@ function ManagementFormContent() {
             setIsDraftSuccessOpen(true); // แสดง modal บันทึกร่างสำเร็จ
         } catch (error) {
             console.error("Failed to save draft:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกฉบับร่าง กรุณาลองใหม่อีกครั้ง");
         }
     };
 
-    /** กดบันทึก → validate → review mode */
+    /** กดบันทึก → validate → แสดง modal ยืนยัน */
     const handleSave = () => {
-        if (!form.document_name) {
-            setErrors(prev => ({ ...prev, document_name: "กรุณาตั้งชื่อเอกสาร" }));
-        }
         if (validateForm()) {
-            setIsReviewMode(true);
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            setIsConfirmSaveOpen(true);
         }
+    };
+
+    /** กดยืนยันใน modal → ทริกเกอร์การบันทึกและเปลี่ยนสถานะ */
+    const confirmSave = async () => {
+        setIsConfirmSaveOpen(false);
+        await handleFinalConfirm();
     };
 
     /** ยืนยันบันทึก → submitDoSection → modal สำเร็จ */
     const handleFinalConfirm = async () => {
-        const saved = await saveRecord({ ...form, status: RopaStatus.Processing } as OwnerRecord);
-        if (saved.id) {
-            await submitDoSection(saved.id);
+        try {
+            const saved = await saveRecord({ ...form, status: RopaStatus.Processing } as OwnerRecord);
+            if (saved.id) {
+                await submitDoSection(saved.id, saved);
+            }
+            localStorage.removeItem("ropa_owner_draft");
+            router.push("/data-owner/management/processing");
+        } catch (error) {
+            console.error("Failed to confirm document:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
         }
-        localStorage.removeItem("ropa_owner_draft");
-        setIsSuccessModalOpen(true);
     };
 
 
 
     /** Risk Assessment submitted */
-    const handleRiskSubmit = async (likelihood: number, impact: number) => {
-        if (recordId) {
-            try {
-                await saveRiskAssessment(recordId, { likelihood, impact });
-                await sendToDpo(recordId);
-                router.push("/data-owner/management/processing");
-            } catch (error) {
-                console.error("Failed to submit risk assessment:", error);
-            }
+    const handleRiskSubmit = async (probability: number, impact: number) => {
+        setPendingRisk({ probability, impact });
+        setIsConfirmRiskOpen(true);
+    };
+
+    const confirmRiskAssessment = async () => {
+        if (!recordId) return;
+        try {
+            // Save only the risk assessment, do not send to DPO yet
+            await saveRiskAssessment(recordId, pendingRisk);
+            router.push("/data-owner/management/processing");
+        } catch (error) {
+            console.error("Failed to submit risk assessment:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึก");
+        } finally {
+            setIsConfirmRiskOpen(false);
         }
     };
 
@@ -640,7 +670,7 @@ function ManagementFormContent() {
                                         onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}
                                         onSubmit={handleRiskSubmit}
                                         onCancel={() => setActiveTab("owner")}
-                                        disabled={effectiveIsLocked || viewMode}
+                                        disabled={!canEditRisk}
                                     />
 
                                     {/* Render view forms below the Risk Assessment UI without switching tabs */}
@@ -825,20 +855,8 @@ function ManagementFormContent() {
                             )}
                         </div>
                     ) : (
-                        /* Review Confirmation mode */
-                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                            <button
-                                onClick={() => setIsReviewMode(false)}
-                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                            >
-                                กลับไปแก้ไข
-                            </button>
-                            <button
-                                onClick={handleFinalConfirm}
-                                className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                            >
-                                ยืนยันข้อมูล RoPA
-                            </button>
+                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)] invisible px-10">
+                            {/* Buttons hidden per user request */}
                         </div>
                     )
                 )}
@@ -877,13 +895,6 @@ function ManagementFormContent() {
                 </div>
             )}
 
-            {/* ─── Success Modal ─────────────────────────────────────── */}
-            <SaveSuccessModal
-                isOpen={isSuccessModalOpen}
-                onClose={() => setIsSuccessModalOpen(false)}
-                onConfirm={() => router.push("/data-owner/management/processing")}
-            />
-
             {/* ─── Confirm Delete Request Modal ───────────────────────────────── */}
             <DestructionConfirmModal
                 isOpen={isConfirmDeletionOpen}
@@ -892,6 +903,23 @@ function ManagementFormContent() {
                 onClose={() => setIsConfirmDeletionOpen(false)}
             />
 
+            <SaveConfirmModal
+                isOpen={isConfirmSaveOpen}
+                title="ยืนยันการบันทึกข้อมูล"
+                description="ข้อมูลจะถูกบันทึกและสถานะจะถูกเปลี่ยนเป็นเสร็จสมบูรณ์"
+                confirmText="ยืนยันการบันทึก"
+                onConfirm={confirmSave}
+                onClose={() => setIsConfirmSaveOpen(false)}
+            />
+
+            <SaveConfirmModal
+                isOpen={isConfirmRiskOpen}
+                title="ยืนยันการส่งการประเมิน"
+                description="ทำการบันทึกข้อมูลการประเมินความเสี่ยง เพื่อดำเนินการส่งให้ DPO ตรวจสอบในขั้นตอนถัดไป"
+                confirmText="ยืนยันการประเมิน"
+                onConfirm={confirmRiskAssessment}
+                onClose={() => setIsConfirmRiskOpen(false)}
+            />
         </div>
     );
 }

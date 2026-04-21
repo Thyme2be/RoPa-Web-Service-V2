@@ -1,18 +1,18 @@
 import { RopaStatus, DataType, CollectionMethod, RetentionUnit, SectionStatus, UserRole } from "./enums";
 
 export interface UserRead {
-    id: number;
-    title?: string;
-    first_name?: string;
-    last_name?: string;
-    email: string;
-    username?: string;
-    role: UserRole;
-    department?: string;
-    company_name?: string;
-    status: string;
-    created_at: string;
-    is_active: boolean;
+  id: number;
+  title?: string;
+  first_name?: string;
+  last_name?: string;
+  email: string;
+  username?: string;
+  role: UserRole;
+  department?: string;
+  company_name?: string;
+  status: string;
+  created_at: string;
+  is_active: boolean;
 }
 
 export interface OwnerDashboardData {
@@ -59,6 +59,8 @@ export type OwnerRecord = {
   first_name?: string;
   last_name?: string;
   address?: string;
+  contact_email?: string;
+  company_phone?: string;
   email?: string;
   phone?: string;
   rights_email?: string;
@@ -76,11 +78,11 @@ export type OwnerRecord = {
   data_subject_name?: string;
   processing_activity?: string;
   purpose_of_processing?: string;
-  
+
   // Data Stored
   personal_data_items: string[];
   data_categories: string[];
-  data_types: string[]; 
+  data_types: string[];
   stored_data_types_other?: string;
 
   // Collection & Retention
@@ -88,7 +90,7 @@ export type OwnerRecord = {
   data_source_direct: boolean;
   data_source_indirect: boolean;
   data_source_other?: string;
-  
+
   retention_value: number;
   retention_unit: RetentionUnit;
   access_condition: string;
@@ -96,9 +98,10 @@ export type OwnerRecord = {
 
   // Legal & Transfer
   legal_basis: string;
-  minor_consent_under_10: boolean;
-  minor_consent_10_to_20: boolean;
-  minor_consent_none: boolean;
+  minor_consent_types?: string[];
+  minor_consent_under_10?: boolean;
+  minor_consent_10_to_20?: boolean;
+  minor_consent_none?: boolean;
 
   has_cross_border_transfer: boolean;
   transfer_country?: string;
@@ -150,13 +153,13 @@ export type OwnerRecord = {
   deletion_reason?: string;
   deletion_status?: "DELETE_PENDING" | "DELETED" | null;
   deletion_request?: {
-      id: string;
-      status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
-      owner_reason: string;
-      dpo_decision?: string;
-      dpo_reason?: string;
-      requested_at: string;
-      decided_at?: string;
+    id: string;
+    status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+    owner_reason: string;
+    dpo_decision?: string;
+    dpo_reason?: string;
+    requested_at: string;
+    decided_at?: string;
   };
 
   // Additional fields for table/mapping compatibility
@@ -165,7 +168,9 @@ export type OwnerRecord = {
   document_id?: string;
   storage_method?: string;
   storage_methods?: string;
+  storage_methods_other?: string;
   storage_type?: string;
+  storage_types?: string[];
   is_sent?: boolean;
   owner_status?: { code: string; label: string };
   processor_status?: { code: string; label: string };

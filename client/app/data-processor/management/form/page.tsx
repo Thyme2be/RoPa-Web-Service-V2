@@ -40,6 +40,11 @@ function DataProcessorFormContent() {
         processor_name: "",
         controller_name: "",
         controller_address: "",
+        title_prefix: "",
+        first_name: "",
+        last_name: "",
+        phone: "",
+        email: "",
         status: SectionStatus.DRAFT,
         collection_methods: [],
         data_sources: [],
@@ -142,12 +147,16 @@ function DataProcessorFormContent() {
 
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
+            const errorMessage = newErrors[firstErrorField];
 
             // Auto-scroll to the first error with a small delay
             setTimeout(() => {
                 const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
                 if (element) {
                     element.scrollIntoView({ behavior: "smooth", block: "center" });
+                } else {
+                    // Fallback alert if element not found in DOM
+                    alert(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
                 }
             }, 100);
 

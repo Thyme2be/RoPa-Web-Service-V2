@@ -14,6 +14,7 @@ interface MultiSelectProps {
     error?: string;
     disabled?: boolean;
     variant?: "owner" | "processor";
+    id?: string;
 }
 
 export default function MultiSelect({
@@ -27,6 +28,7 @@ export default function MultiSelect({
     error,
     disabled,
     variant = "owner",
+    id,
 }: MultiSelectProps) {
     const isProcessor = variant === "processor";
     const primaryColor = "#ED393C";
@@ -71,7 +73,7 @@ export default function MultiSelect({
     }, []);
 
     return (
-        <div className="space-y-2 w-full" ref={containerRef}>
+        <div className="space-y-2 w-full" ref={containerRef} id={id}>
             <label className={cn(
                 "text-sm font-bold text-[#5C403D] flex items-center gap-1 tracking-tight",
                 disabled && "opacity-60"

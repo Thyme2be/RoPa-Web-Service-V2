@@ -35,6 +35,7 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
                             <Input
                                 label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
                                 required
+                                id="data_subject_name"
                                 name="data_subject_name"
                                 value={form?.data_subject_name || ""}
                                 placeholder="ระบุเจ้าของข้อมูล (เช่น บริษัท A)"
@@ -50,6 +51,7 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
                             <Input
                                 label="กิจกรรมประมวลผล"
                                 required
+                                id="processing_activity"
                                 name="processing_activity"
                                 value={form?.processing_activity || ""}
                                 placeholder="ระบุกิจกรรมประมวลผล (เช่น การรับสมัครพนักงาน)"
@@ -62,6 +64,7 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
                             <Input
                                 label="วัตถุประสงค์การประมวลผล"
                                 required
+                                id="purpose_of_processing"
                                 name="purpose_of_processing"
                                 value={form?.purpose_of_processing || ""}
                                 placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อรับสมัครบุคคลเข้าทำงาน)"
