@@ -38,7 +38,7 @@ test('ทดสอบแอดมิน: เพิ่มผู้ใช้ให
     });
 
     // 4. ไปที่หน้าจัดการผู้ใช้
-    await page.goto('http://localhost:3000/admin/tables/users');
+    await page.goto('/admin/tables/users');
 
     // 5. รอให้หน้าโหลดเสร็จ และตรวจสอบว่าอยู่ที่ URL ที่ถูกต้อง (ไม่โดน Redirect ไป /login)
     await expect(page).toHaveURL(/.*admin\/tables\/users/);
