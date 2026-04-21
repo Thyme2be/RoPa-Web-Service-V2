@@ -164,9 +164,34 @@ export const ropaService = {
         return response.data;
     },
 
-    submitProcessorSection: async (documentId: string, data: any) => {
-        const response = await api.post(`/processor/documents/${documentId}/section/submit`, data);
+    async submitProcessorSection(documentId: string, payload: any) {
+        const response = await api.post(`/processor/documents/${documentId}/section/submit`, payload);
         return response.data;
-    }
-};
+    },
 
+    async dispatchProcessorSection(documentId: string) {
+        const response = await api.post(`/processor/documents/${documentId}/section/dispatch`);
+        return response.data;
+    },
+
+    // ─── Data Processor Snapshots ──────────────────────────────────────────
+    getProcessorSnapshots: async (): Promise<any[]> => {
+        const response = await api.get("/processor/snapshots");
+        return response.data;
+    },
+
+    getProcessorSnapshot: async (snapshotId: string) => {
+        const response = await api.get(`/processor/snapshots/${snapshotId}`);
+        return response.data;
+    },
+
+    saveProcessorSnapshot: async (documentId: string, data: any) => {
+        const response = await api.post(`/processor/documents/${documentId}/snapshot`, data);
+        return response.data;
+    },
+
+    deleteProcessorSnapshot: async (snapshotId: string) => {
+        const response = await api.delete(`/processor/snapshots/${snapshotId}`);
+        return response.data;
+    },
+};

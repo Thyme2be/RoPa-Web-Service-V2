@@ -58,8 +58,11 @@ class ProcessorSectionSave(BaseModel):
       Section 3 (ข้อมูลที่จัดเก็บ): personal_data_items, data_categories, data_types, collection_methods, data_sources
       Section 4 (การได้มาและการเก็บรักษา): storage_types, storage_methods, retention_value, retention_unit, access_policy, deletion_method
       Section 5 (ฐานทางกฎหมายและการส่งต่อ): legal_basis, has_cross_border_transfer, transfer_*
-      Section 6 (มาตรการรักษาความมั่นคงปลอดภัย TOMs): org_measures, access_control_measures, ...
+      Section 6 (มาตรการรักษาความคงปลอดภัย TOMs): org_measures, access_control_measures, ...
     """
+    # Meta fields (optional)
+    status: Optional[str] = None
+    is_sent: Optional[bool] = None
 
     # Section 1 – ผู้บันทึก (ข้อมูลส่วนตัว DP)
     title_prefix: Optional[str] = None
@@ -71,6 +74,7 @@ class ProcessorSectionSave(BaseModel):
 
     # Section 2 – ข้อมูล Processor
     processor_name: Optional[str] = None
+    controller_name: Optional[str] = None
     controller_address: Optional[str] = None
     processing_activity: Optional[str] = None
     purpose_of_processing: Optional[str] = None
@@ -88,14 +92,15 @@ class ProcessorSectionSave(BaseModel):
     data_source_other: Optional[str] = None
     retention_value: Optional[int] = None
     retention_unit: Optional[str] = None
-    access_policy: Optional[str] = None
+    storage_methods_other: Optional[str] = None
+    access_condition: Optional[str] = None
     deletion_method: Optional[str] = None
 
     # Section 5 – ฐานทางกฎหมายและการส่งต่อ
     legal_basis: Optional[str] = None
     has_cross_border_transfer: Optional[bool] = None
     transfer_country: Optional[str] = None
-    transfer_in_group: Optional[str] = None
+    transfer_company: Optional[str] = None
     transfer_method: Optional[str] = None
     transfer_protection_standard: Optional[str] = None
     transfer_exception: Optional[str] = None
@@ -122,6 +127,7 @@ class ProcessorSectionFullRead(BaseModel):
     document_id: UUID
     processor_id: int
     status: RopaSectionEnum
+    is_sent: bool
     updated_at: datetime
 
     # คำแนะนำจาก Data Owner (read-only สำหรับ DP)
@@ -137,6 +143,7 @@ class ProcessorSectionFullRead(BaseModel):
 
     # Section 2
     processor_name: Optional[str] = None
+    controller_name: Optional[str] = None
     controller_address: Optional[str] = None
     processing_activity: Optional[str] = None
     purpose_of_processing: Optional[str] = None
@@ -154,14 +161,15 @@ class ProcessorSectionFullRead(BaseModel):
     data_source_other: Optional[str] = None
     retention_value: Optional[int] = None
     retention_unit: Optional[str] = None
-    access_policy: Optional[str] = None
+    storage_methods_other: Optional[str] = None
+    access_condition: Optional[str] = None
     deletion_method: Optional[str] = None
 
     # Section 6
     legal_basis: Optional[str] = None
     has_cross_border_transfer: Optional[bool] = None
     transfer_country: Optional[str] = None
-    transfer_in_group: Optional[str] = None
+    transfer_company: Optional[str] = None
     transfer_method: Optional[str] = None
     transfer_protection_standard: Optional[str] = None
     transfer_exception: Optional[str] = None
@@ -197,11 +205,11 @@ class ProcessorAssignedTableItem(BaseModel):
     assignment_status: AssignmentStatusEnum
     due_date: Optional[datetime]
     received_at: Optional[datetime]     # วันที่ได้รับ = created_at ของ assignment
+    is_sent: bool
     owner_title: Optional[str] = None   # คำนำหน้าชื่อ DO
     owner_first_name: Optional[str] = None
     owner_last_name: Optional[str] = None
     status: ProcessorStatusBadge        # badge สถานะ DP เอง
-    owner_status: Optional[ProcessorStatusBadge] = None # badge สถานะ DO
     has_open_feedback: bool
     created_at: datetime
 

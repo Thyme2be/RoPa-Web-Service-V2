@@ -17,10 +17,11 @@ import FormTabs from "@/components/ropa/FormTabs";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
-import { RopaStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
+import { RopaStatus, SectionStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRopa } from "@/context/RopaContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 // ─── Dummy mockDpSections removed ─────────────
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 function ManagementFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user } = useAuth();
     const recordId = searchParams.get("id");
     const snapshotId = searchParams.get("snapshot_id");
     const nameParam = searchParams.get("name");
@@ -181,7 +183,7 @@ function ManagementFormContent() {
 
         loadFullRecord();
         return () => { isMounted = false; };
-    }, [recordId, snapshotId]);
+    }, [recordId, snapshotId, user?.role]);
 
     const [dpForm, setDpForm] = useState<Partial<ProcessorRecord>>({
         processor_name: "", controller_name: "", controller_address: "",
@@ -401,8 +403,8 @@ function ManagementFormContent() {
     };
 
     const completedSteps = getCompletedSteps();
-    const doStatus = form.status === RopaStatus.Processing ? "done" : "pending";
-    const dpStatus = dpForm.status === RopaStatus.Processing ? "done" : "pending";
+    const doStatus = form.status === SectionStatus.SUBMITTED ? "done" : "pending";
+    const dpStatus = (dpForm.status === SectionStatus.SUBMITTED && dpForm.is_sent) ? "done" : "pending";
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 

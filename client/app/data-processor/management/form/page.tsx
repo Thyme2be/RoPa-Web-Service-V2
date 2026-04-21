@@ -22,15 +22,18 @@ function DataProcessorFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const recordId = searchParams.get("id");
+    const snapshotId = searchParams.get("snapshot_id");
     const nameParam = searchParams.get("name");
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
 
-    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord } = useRopa();
+    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord, fetchProcessorSnapshot } = useRopa();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [form, setForm] = useState<Partial<ProcessorRecord>>({
         processor_name: "",
@@ -62,12 +65,20 @@ function DataProcessorFormContent() {
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Load existing record
+    // Load existing record or snapshot
     useEffect(() => {
         let isMounted = true;
 
         const loadFullRecord = async () => {
-            if (recordId) {
+            if (snapshotId) {
+                setIsLoadingFull(true);
+                const snapshotData = await fetchProcessorSnapshot(snapshotId);
+                if (snapshotData && isMounted) {
+                    setForm(prev => ({ ...prev, ...snapshotData }));
+                    setIsLocked(false); // Snapshots are typically loaded for editing
+                }
+                setIsLoadingFull(false);
+            } else if (recordId) {
                 setIsLoadingFull(true);
                 const fullRecord = await fetchFullProcessorRecord(recordId);
                 if (fullRecord && isMounted) {
@@ -79,14 +90,13 @@ function DataProcessorFormContent() {
 
         loadFullRecord();
         return () => { isMounted = false; };
-    }, [recordId]);
+    }, [recordId, snapshotId]);
 
     const validateField = (name: string, value: any) => {
         let error = "";
         if (name === "phone") {
-            const phoneRegex = /^[0-9]{10}$/;
-            if (value && !phoneRegex.test(value)) {
-                error = "เบอร์โทรศัพท์ต้องมี 10 หลัก";
+            if (value && value.length !== 10) {
+                error = "กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก";
             }
         }
         setErrors(prev => ({ ...prev, [name]: error }));
@@ -116,23 +126,21 @@ function DataProcessorFormContent() {
         // Step 4: Retention
         if (!form.collection_methods || form.collection_methods.length === 0) newErrors.collection_methods = "กรุณาเลือกวิธีการได้มา";
         if (!form.data_sources || form.data_sources.length === 0) newErrors.data_sources = "กรุณาเลือกแหล่งที่มา";
-        if (!form.retention_value || form.retention_value === 0) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.retention_value || Number(form.retention_value) <= 0) newErrors.retention_value = "กรุณาระบุระยะเวลา";
+        if (!form.phone || form.phone.length !== 10) newErrors.phone = "กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก";
         if (!form.access_condition) newErrors.access_condition = "กรุณาระบุการควบคุมการเข้าถึง";
 
         // Step 5: Legal
         if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานการประมวลผล";
-        if (!form.exemption_usage) newErrors.exemption_usage = "กรุณาระบุข้อยกเว้น";
 
-        // Step 6: Security
-        if (!form.org_measures) newErrors.org_measures = "กรุณาระบุมาตรการด้านบริหารจัดการ";
-        if (!form.access_control_measures) newErrors.access_control_measures = "กรุณาระบุการควบคุมการเข้าถึง";
-        if (!form.technical_measures) newErrors.technical_measures = "กรุณาระบุมาตรการด้านเทคนิค";
+        // Step 6: Security (Optional)
+        // All fields in Section 6 are now optional as per request
 
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
-            
+
             // Auto-scroll to the first error with a small delay
             setTimeout(() => {
                 const element = document.getElementsByName(firstErrorField)[0] || document.getElementById(firstErrorField);
@@ -146,19 +154,47 @@ function DataProcessorFormContent() {
         return true;
     };
 
-    const handleSaveDraft = () => {
-        saveProcessorRecord(form as ProcessorRecord);
-        setIsDraftSuccessOpen(true);
+    const handleSaveDraft = async () => {
+        setIsSaving(true);
+        try {
+            await saveProcessorRecord(form as ProcessorRecord, recordId || undefined);
+            setIsDraftSuccessOpen(true);
+        } catch (error) {
+            console.error("Save draft failed:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกฉบับร่าง กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleFinalConfirm = () => {
-        if (!validateForm()) return;
-
-        saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
-        if (recordId) {
-            submitDpSection(recordId);
+    const handleFinalConfirm = async () => {
+        if (!validateForm()) {
+            setIsLocked(false); // Automatically unlock to allow fixing errors
+            return;
         }
         setIsSuccessModalOpen(true);
+    };
+
+    const handleActualSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            if (recordId) {
+                // Perform the final submit (saves data + updates status)
+                await submitDpSection(recordId, form);
+            } else {
+                // New draft save if no recordId (shouldn't happen for DP assignments)
+                await saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
+            }
+            
+            // Note: refresh() is called inside submitDpSection/saveProcessorRecord
+            setIsSuccessModalOpen(false);
+            router.push("/data-processor/management/processing");
+        } catch (error) {
+            console.error("Submit failed:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleChange = (e: any) => {
@@ -282,15 +318,33 @@ function DataProcessorFormContent() {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handleSaveDraft}
-                            className="bg-white border-2 border-[#ED393C] text-[#ED393C] font-bold text-base h-[52px] px-10 rounded-full hover:bg-[#ED393C]/5 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                            disabled={isSaving || isSubmitting}
+                            className={cn(
+                                "bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap flex items-center gap-2",
+                                (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
+                            )}
                         >
-                            บันทึกฉบับร่าง
+                            {isSaving ? (
+                                <>
+                                    <span className="w-4 h-4 border-2 border-[#5C403D]/30 border-t-[#5C403D] rounded-full animate-spin" />
+                                    กำลังบันทึก...
+                                </>
+                            ) : "บันทึกฉบับร่าง"}
                         </button>
                         <button
                             onClick={handleFinalConfirm}
-                            className="bg-gradient-to-r from-[#ED393C] to-[#8C0E10] text-white px-20 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                            disabled={isSaving || isSubmitting}
+                            className={cn(
+                                "bg-logout-gradient text-white px-20 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2",
+                                (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
+                            )}
                         >
-                            บันทึก
+                            {isSubmitting ? (
+                                <>
+                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    กำลังดำเนินการ...
+                                </>
+                            ) : "บันทึก"}
                         </button>
                     </div>
                 </div>
@@ -308,7 +362,7 @@ function DataProcessorFormContent() {
                             onClick={() => router.push("/data-processor/management/processing")}
                             className="bg-logout-gradient leading-none text-white w-full h-[52px] rounded-2xl font-black text-base mt-4 shadow-lg shadow-[#ED393C]/20 hover:brightness-110 transition-all active:scale-95"
                         >
-                            กลับสู่หน้าหลัก
+                            กลับสู่ตารางเอกสาร
                         </button>
                     </div>
                 </div>
@@ -317,8 +371,12 @@ function DataProcessorFormContent() {
             {/* Success Modal (Standardized Red for DP) */}
             <SaveSuccessModal
                 isOpen={isSuccessModalOpen}
-                onClose={() => setIsSuccessModalOpen(false)}
-                onConfirm={() => router.push("/data-processor/management/processing")}
+                onClose={() => !isSubmitting && setIsSuccessModalOpen(false)}
+                title="บันทึกรายการ RoPA เสร็จสิ้น"
+                subtitle="สามารถดูเอกสารได้ที่ตารางแสดงเอกสารที่ดำเนินการ"
+                buttonText="ยืนยันการบันทึก"
+                isLoading={isSubmitting}
+                onConfirm={handleActualSubmit}
             />
         </div>
     );

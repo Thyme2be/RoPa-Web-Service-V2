@@ -141,10 +141,13 @@ class OwnerSectionSave(BaseModel):
       Section 4 (ข้อมูลส่วนบุคคล): personal_data_items, data_categories, data_types,
                                      collection_methods, data_sources
       Section 5 (การจัดเก็บ): storage_types, storage_methods, data_source_other,
-                               retention_value, retention_unit, access_control_policy, deletion_method
+                                retention_value, retention_unit, access_control_policy, deletion_method
       Section 6 (สิทธิ์/ความยินยอม): legal_basis, has_cross_border_transfer, ...
       Section 7 (มาตรการ TOMs): org_measures, access_control_measures, ...
     """
+    # Meta fields (optional)
+    status: Optional[str] = None
+    is_sent: Optional[bool] = None
 
     # Section 0 - Document Info
     title: Optional[str] = None
@@ -486,7 +489,7 @@ class DestroyedTableItem(BaseModel):
     document_number: Optional[str]
     title: Optional[str]
     do_name: Optional[str]                 # ชื่อ Data Owner ที่สร้างเอกสาร
-    dpo_name: Optional[str]               # ชื่อ DPO ที่อนุมัติการทำลาย
+    dpo_name: Optional[str]                # ชื่อ DPO ที่อนุมัติการทำลาย
     deletion_approved_at: Optional[datetime]   # วันที่ DPO อนุมัติ (decided_at)
     deletion_reason: Optional[str]
 
@@ -563,4 +566,3 @@ class OwnerSnapshotTableItem(BaseModel):
     title: Optional[str] = None
     created_at: datetime
     model_config = {"from_attributes": True}
-

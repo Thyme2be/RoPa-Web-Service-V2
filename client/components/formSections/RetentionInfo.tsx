@@ -46,15 +46,16 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             <Checkbox
                                 label="ข้อมูลอิเล็กทรอนิกส์"
                                 checked={isProcessor ? form?.collection_methods?.includes("soft_file") : form?.collection_method === "soft_file"}
-                                onChange={() => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "soft_file" } })}
+                                onChange={(e: any) => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "soft_file", type: "checkbox", checked: e.target.checked } })}
                                 disabled={disabled}
                                 themeColor={primaryColor}
                             />
                             <Checkbox
                                 label="เอกสาร"
                                 checked={isProcessor ? form?.collection_methods?.includes("hard_copy") : form?.collection_method === "hard_copy"}
-                                onChange={() => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "hard_copy" } })}
+                                onChange={(e: any) => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "hard_copy", type: "checkbox", checked: e.target.checked } })}
                                 disabled={disabled}
+                                themeColor={primaryColor}
                             />
                         </div>
                         {(errors?.collection_method || errors?.collection_methods) && (
@@ -77,12 +78,13 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                 checked={isProcessor ? form?.data_sources?.includes("direct") : !!form?.data_source_direct}
                                 onChange={(e: any) => {
                                     if (isProcessor) {
-                                        handleChange({ target: { name: "data_sources[]", value: "direct" } });
+                                        handleChange({ target: { name: "data_sources[]", value: "direct", type: "checkbox", checked: e.target.checked } });
                                     } else {
-                                        handleChange({ target: { name: "data_source_direct", value: e.target.checked } });
+                                        handleChange({ target: { name: "data_source_direct", value: e.target.checked, type: "checkbox", checked: e.target.checked } });
                                     }
                                 }}
                                 disabled={disabled}
+                                themeColor={primaryColor}
                             />
                             <div className="flex items-center gap-3 h-6">
                                 <Checkbox
@@ -90,12 +92,13 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                     checked={isProcessor ? form?.data_sources?.includes("indirect") : !!form?.data_source_indirect}
                                     onChange={(e: any) => {
                                         if (isProcessor) {
-                                            handleChange({ target: { name: "data_sources[]", value: "indirect" } });
+                                            handleChange({ target: { name: "data_sources[]", value: "indirect", type: "checkbox", checked: e.target.checked } });
                                         } else {
-                                            handleChange({ target: { name: "data_source_indirect", value: e.target.checked } });
+                                            handleChange({ target: { name: "data_source_indirect", value: e.target.checked, type: "checkbox", checked: e.target.checked } });
                                         }
                                     }}
                                     disabled={disabled}
+                                    themeColor={primaryColor}
                                 />
                                 <input
                                     className={cn(
@@ -131,25 +134,38 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             </label>
                             <div className={cn(
                                 "bg-[#F6F3F2] p-6 rounded-xl space-y-4 border transition-all",
-                                errors?.storageType ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
+                                (errors?.storage_types || errors?.storageType) ? "border-red-500 ring-2 ring-red-500/10 bg-red-50/30" : "border-transparent"
                             )}>
                                 <Checkbox
                                     label="ข้อมูลอิเล็กทรอนิกส์"
-                                    checked={form?.retention?.storageType === "soft_file"}
-                                    onChange={() => handleChange({ target: { name: "retention.storageType", value: "soft_file" } })}
+                                    checked={isProcessor ? form?.storage_types?.includes("soft_file") : form?.retention?.storageType === "soft_file"}
+                                    onChange={(e: any) => {
+                                        if (isProcessor) {
+                                            handleChange({ target: { name: "storage_types[]", value: "soft_file", type: "checkbox", checked: e.target.checked } });
+                                        } else {
+                                            handleChange({ target: { name: "retention.storageType", value: "soft_file", type: "checkbox", checked: e.target.checked } });
+                                        }
+                                    }}
                                     disabled={disabled}
                                     themeColor={primaryColor}
                                 />
                                 <Checkbox
                                     label="เอกสาร"
-                                    checked={form?.retention?.storageType === "hard_copy"}
-                                    onChange={() => handleChange({ target: { name: "retention.storageType", value: "hard_copy" } })}
+                                    checked={isProcessor ? form?.storage_types?.includes("hard_copy") : form?.retention?.storageType === "hard_copy"}
+                                    onChange={(e: any) => {
+                                        if (isProcessor) {
+                                            handleChange({ target: { name: "storage_types[]", value: "hard_copy", type: "checkbox", checked: e.target.checked } });
+                                        } else {
+                                            handleChange({ target: { name: "retention.storageType", value: "hard_copy", type: "checkbox", checked: e.target.checked } });
+                                        }
+                                    }}
                                     disabled={disabled}
+                                    themeColor={primaryColor}
                                 />
                             </div>
-                            {errors?.storageType && (
+                            {(errors?.storage_types || errors?.storageType) && (
                                 <p className="text-[11px] text-red-500 font-medium px-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    {errors.storageType}
+                                    {errors.storage_types || errors.storageType}
                                 </p>
                             )}
                         </div>
@@ -200,11 +216,11 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         <label className="text-[13px] font-extrabold text-[#5C403D] block tracking-tight">
                             ระยะเวลาการเก็บรักษาข้อมูลส่วนบุคคล <span className="font-bold" style={{ color: markerColor }}>*</span>
                         </label>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-start gap-4">
                             <div className="flex-1">
                                 <Input
                                     name="retention_value"
-                                    value={form?.retention_value !== undefined ? form.retention_value : ""}
+                                    value={form?.retention_value ?? ""}
                                     placeholder="ระบุตัวเลขระยะเวลา (เช่น 5)"
                                     onChange={handleChange}
                                     error={errors?.retention_value}
@@ -213,7 +229,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                     focusColor={primaryColor}
                                 />
                             </div>
-                            <div className="w-[120px]">
+                            <div className="w-[140px] pt-0">
                                 <Select
                                     name="retention_unit"
                                     value={form?.retention_unit || "YEARS"}

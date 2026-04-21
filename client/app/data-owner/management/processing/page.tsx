@@ -109,6 +109,7 @@ export default function ManagementProcessingPage() {
     const draftRecords = ownerSnapshots;
 
     const filteredProcessing = processingRecords.filter(record => {
+        // Status Filter
         let matchStatus = true;
         const do_code = record.owner_status?.code;
         const dp_code = record.processor_status?.code;
@@ -125,25 +126,51 @@ export default function ManagementProcessingPage() {
             }
         }
 
-        // Date Filter - Based on Due Date as shown in table
+        // Date Filter (Due Date)
         let matchDate = true;
         if (dateFilter !== "all" && record.due_date) {
-            const rowDate = new Date(record.due_date);
-            const now = new Date();
+            const dueDate = new Date(record.due_date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
             if (dateFilter === "7days") {
-                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                matchDate = rowDate >= sevenDaysAgo;
+                matchDate = diffDays <= 7;
             } else if (dateFilter === "30days") {
-                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                matchDate = rowDate >= thirtyDaysAgo;
+                matchDate = diffDays <= 30;
+            } else if (dateFilter === "overdue") {
+                matchDate = dueDate < today;
             } else if (dateFilter === "custom" && customDate) {
-                matchDate = rowDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
+                const cDate = new Date(customDate);
+                cDate.setHours(0, 0, 0, 0);
+                const dDate = new Date(record.due_date);
+                dDate.setHours(0, 0, 0, 0);
+                matchDate = cDate.getTime() === dDate.getTime();
             }
-        } else if (dateFilter !== "all" && !record.due_date) {
-            matchDate = false;
         }
 
         return matchStatus && matchDate;
+    }).sort((a, b) => {
+        // 1. Status Priority (Wait Owner > Wait Processor > Done)
+        const getPriority = (r: ActiveTableItem) => {
+            if (r.owner_status?.code !== "DO_DONE") return 1;
+            if (r.processor_status?.code !== "DP_DONE") return 2;
+            return 3;
+        };
+        const pA = getPriority(a);
+        const pB = getPriority(b);
+        if (pA !== pB) return pA - pB;
+
+        // 3. Due Date Urgency
+        const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+        const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+        if (dateA !== dateB) return dateA - dateB;
+
+        // 4. Recency
+        const recA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const recB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return recB - recA;
     });
 
     const filteredDrafts = draftRecords.filter(record => {
@@ -252,11 +279,11 @@ export default function ManagementProcessingPage() {
                                 ) : (
                                     paginatedProcessing.map((record) => (
                                         <DocumentTableRow key={record.document_id}>
-                                            <DocumentTableCell align="left" className="pl-6">
-                                                <div className="font-medium text-[#5F5E5E]">
-                                                    {record.document_number} {record.title}
-                                                </div>
-                                            </DocumentTableCell>
+                                             <DocumentTableCell align="left" className="pl-6">
+                                                 <div className="font-medium text-[#1B1C1C]">
+                                                     {record.document_number} {record.title}
+                                                 </div>
+                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="text-[#5C403D]">{record.dp_name || "—"}</div>
                                             </DocumentTableCell>

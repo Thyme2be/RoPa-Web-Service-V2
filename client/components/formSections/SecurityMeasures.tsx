@@ -40,7 +40,7 @@ export default function SecurityMeasures({ form, handleChange, errors, disabled,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                     {measures.map((m) => {
                         const value = (form as any)?.[m.id];
-                        const isRequired = ["org_measures", "access_control_measures", "technical_measures"].includes(m.id);
+                        const isRequired = false; // All 6 security measures are now optional
 
                         return (
                             <div key={m.id} className="flex flex-col space-y-4">

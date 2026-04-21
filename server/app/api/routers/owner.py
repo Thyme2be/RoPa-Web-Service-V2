@@ -48,7 +48,7 @@ import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, get_db
 from app.core.rbac import Role, check_document_access, require_roles
@@ -122,7 +122,7 @@ from app.schemas.owner import (
 )
 
 from app.schemas.processor import ProcessorSectionFullRead
-from app.api.routers.processor import _load_processor_section_full
+from app.api.routers.processor import _load_processor_section_full, _processor_status_badge as _dp_view_badge
 from app.schemas.user import UserRead
 
 logger = logging.getLogger(__name__)
@@ -301,7 +301,12 @@ def _processor_status_badge(
     processor_section: Optional[RopaProcessorSectionModel],
     review_assignment: Optional[ReviewAssignmentModel],
 ) -> ProcessorStatusBadge:
-    if processor_section and processor_section.status == RopaSectionEnum.SUBMITTED:
+    """
+    badge สถานะ DP ใน ตาราง 1 (มุมมอง DO) — 2 ค่า:
+      DP_DONE    = ส่งให้ DO แล้ว (is_sent=True)
+      WAITING_DP = ยังไม่ได้ส่ง หรือ กำลังกรอก (is_sent=False)
+    """
+    if processor_section and processor_section.is_sent:
         return ProcessorStatusBadge(label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE")
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 
@@ -1283,6 +1288,9 @@ def get_owner_section(
         db.commit()
         db.refresh(section)
 
+    if section:
+        pass
+
     return _load_owner_section_full(section, db)
 
 
@@ -1716,13 +1724,27 @@ def get_processor_section_for_owner(
 
     section = (
         db.query(RopaProcessorSectionModel)
+        .options(
+            joinedload(RopaProcessorSectionModel.personal_data_items),
+            joinedload(RopaProcessorSectionModel.data_categories),
+            joinedload(RopaProcessorSectionModel.data_types),
+            joinedload(RopaProcessorSectionModel.collection_methods),
+            joinedload(RopaProcessorSectionModel.data_sources),
+            joinedload(RopaProcessorSectionModel.storage_types),
+            joinedload(RopaProcessorSectionModel.storage_methods),
+        )
         .filter(RopaProcessorSectionModel.document_id == document_id)
         .first()
     )
     if not section:
         raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
 
-    return _load_processor_section_full(section, db)
+    try:
+        # Use standardized helper with Role.OWNER to handle is_sent isolation
+        return _load_processor_section_full(section, db, Role.OWNER)
+    except Exception as e:
+        logger.error(f"Error loading processor section for owner: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal error loading processor section: {str(e)}")
 
 
 # =============================================================================
@@ -1800,6 +1822,12 @@ def send_feedback_batch(
     )
     if not proc_section:
         raise HTTPException(status_code=400, detail="ไม่พบ Processor Section")
+
+    if proc_section.status != RopaSectionEnum.SUBMITTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ไม่สามารถส่ง feedback ได้ในขณะนี้ เนื่องจาก Data Processor ยังดำเนินการไม่เสร็จสิ้น (ยังเป็นฉบับร่าง)"
+        )
 
     # หา review cycle ที่ active (optional)
     cycle = (

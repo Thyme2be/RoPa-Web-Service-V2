@@ -26,6 +26,7 @@ interface RopaContextType {
     destroyedRecords: DestroyedTableItem[];
     ownerSnapshots: OwnerSnapshotTableItem[];
     processorRecords: RopaProcessorRecord[];
+    processorSnapshots: OwnerSnapshotTableItem[];
     executiveDashboardData: ExecutiveDashboardResponse | null;
     ownerDashboardData: OwnerDashboardData | null;
 
@@ -45,11 +46,13 @@ interface RopaContextType {
     submitFeedbackBatch: (id: string, items: { section_number: number; field_name?: string; comment: string }[]) => Promise<any>;
 
     // Data Processor Actions
-    saveProcessorRecord: (record: Partial<RopaProcessorRecord>) => Promise<RopaProcessorRecord>;
+    saveProcessorRecord: (record: Partial<RopaProcessorRecord>, idOverride?: string) => Promise<RopaProcessorRecord>;
     getProcessorById: (id: string) => RopaProcessorRecord | undefined;
     fetchFullProcessorRecord: (id: string) => Promise<RopaProcessorRecord | null>;
-    submitDpSection: (id: string) => Promise<void>;
+    submitDpSection: (id: string, data?: any) => Promise<void>;
+    dispatchDpSection: (id: string) => Promise<void>;
     deleteProcessorRecord: (id: string) => Promise<void>;
+    fetchProcessorSnapshot: (snapshotId: string) => Promise<RopaProcessorRecord | null>;
 
     // Data Fetching
     refresh: () => Promise<void>;
@@ -77,6 +80,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const [destroyedRecords, setDestroyedRecords] = useState<DestroyedTableItem[]>([]);
     const [ownerSnapshots, setOwnerSnapshots] = useState<OwnerSnapshotTableItem[]>([]);
     const [processorRecords, setProcessorRecords] = useState<RopaProcessorRecord[]>([]);
+    const [processorSnapshots, setProcessorSnapshots] = useState<OwnerSnapshotTableItem[]>([]);
     const [executiveDashboardData, setExecutiveDashboardData] = useState<any | null>(null);
     const [ownerDashboardData, setOwnerDashboardData] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -158,19 +162,21 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                             assigned_date: item.received_at
                         },
                         processing_status: {
-                            do_status: item.owner_status?.code === "DO_DONE" ? "done" : "pending",
-                            dp_status: item.status?.code === "DP_DONE" ? "done" : "pending"
+                            do_status: "pending", // Owner status hidden from DP
+                            dp_status: item.status?.code === "CHECK_DONE" ? "done" : "pending"
                         },
                         processor_status: item.status,
-                        owner_status: item.owner_status,
-                        status: isDraft ? SectionStatus.DRAFT : (item.status?.code === "DP_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
+                        is_sent: item.is_sent,
+                        status: isDraft ? SectionStatus.DRAFT : (item.status?.code === "CHECK_DONE" ? RopaStatus.COMPLETED : RopaStatus.IN_PROGRESS)
                     });
 
                     const normalizedActive = activeDocs.map(item => mapItem(item, false));
                     const normalizedDrafts = draftDocs.map(item => mapItem(item, true));
+                    const snapshots = await ropaService.getProcessorSnapshots();
 
                     const allNormalized = [...normalizedActive, ...normalizedDrafts];
                     setProcessorRecords(allNormalized as any);
+                    setProcessorSnapshots(snapshots);
                     setRecords(allNormalized as any);
                 } catch (err) {
                     console.error("Processor data fetch failed:", err);
@@ -587,21 +593,31 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     // ─── Data Processor Handlers ──────────────────────────────────────────────
     const fetchFullProcessorRecord = async (id: string): Promise<RopaProcessorRecord | null> => {
+        if (!id) return null;
+        
+        // Wait until user role is available to avoid 403 by calling wrong endpoint
+        if (!user || !user.role) {
+            console.warn("User role not yet loaded, postpone fetchFullProcessorRecord");
+            return null;
+        }
+
         setIsLoading(true);
         try {
             // Data Owners call /owner/.../processor-section
             // Processors call /processor/.../section
-            const data = user?.role === "OWNER"
+            const data = user.role === "OWNER"
                 ? await ropaService.getOwnerProcessorSection(id)
                 : await ropaService.getProcessorSection(id);
 
+            const normalizedData = normalizeProcessorData(data);
+
             // Simpler mapping for processor for now
             const normalized: RopaProcessorRecord = {
-                ...data,
-                id: data.document_id,
-                ropaId: data.document_id,
-                documentName: data.title || "",
-                status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
+                ...normalizedData,
+                id: normalizedData.document_id,
+                ropaId: normalizedData.document_id,
+                documentName: normalizedData.title || "",
+                status: normalizedData.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             };
             return normalized;
         } catch (error) {
@@ -612,22 +628,126 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const saveProcessorRecord = async (record: Partial<RopaProcessorRecord>): Promise<RopaProcessorRecord> => {
-        const saved = await ropaService.saveProcessorDraft(record.id!, record);
+    const normalizeProcessorData = (data: any) => {
+        if (!data) return data;
+        return {
+            ...data,
+            personal_data_items: data.personal_data_items?.map((item: any) => 
+                typeof item === 'object' ? item.type : item
+            ),
+            data_categories: data.data_categories?.map((item: any) => 
+                typeof item === 'object' ? item.category : item
+            ),
+            data_types: data.data_types?.map((item: any) => 
+                typeof item === 'object' ? item.type : item
+            ),
+            collection_methods: data.collection_methods?.map((item: any) => 
+                typeof item === 'object' ? item.method : item
+            ),
+            data_sources: data.data_sources?.map((item: any) => 
+                typeof item === 'object' ? item.source : item
+            ),
+            storage_methods: data.storage_methods?.map((item: any) => 
+                typeof item === 'object' ? item.method : item
+            ),
+            storage_types: data.storage_types?.map((item: any) => 
+                typeof item === 'object' ? item.type : item
+            ),
+        };
+    };
+
+    const mapToProcessorPayload = (data: any) => {
+        return {
+            ...data,
+            personal_data_items: data.personal_data_items?.map((item: any) => 
+                typeof item === 'string' ? { type: item } : item
+            ),
+            data_categories: data.data_categories?.map((item: any) => 
+                typeof item === 'string' ? { category: item } : item
+            ),
+            data_types: data.data_types?.map((item: any) => 
+                typeof item === 'string' ? { type: item } : item
+            ),
+            collection_methods: data.collection_methods?.map((item: any) => 
+                typeof item === 'string' ? { method: item } : item
+            ),
+            data_sources: data.data_sources?.map((item: any) => 
+                typeof item === 'string' ? { source: item } : item
+            ),
+            storage_methods: data.storage_methods?.map((item: any) => 
+                typeof item === 'string' ? { method: item } : item
+            ),
+            storage_types: data.storage_types?.map((item: any) => 
+                typeof item === 'string' ? { type: item } : item
+            ),
+        };
+    };
+
+    const saveProcessorRecord = async (record: Partial<RopaProcessorRecord>, idOverride?: string): Promise<RopaProcessorRecord> => {
+        const targetId = idOverride || record.id;
+        if (!targetId) {
+            throw new Error("Cannot save processor record: Missing ID");
+        }
+
+        const payload = mapToProcessorPayload(record);
+        const saved = await ropaService.saveProcessorDraft(targetId, payload);
+        
+        // Sync draft as a snapshot for tracking (matching Data Owner pattern)
+        try {
+            await ropaService.saveProcessorSnapshot(targetId, payload);
+        } catch (e) {
+            console.warn("Failed to sync processor snapshot during saveProcessorRecord:", e);
+        }
+
         await refresh();
-        return saved;
+        return normalizeProcessorData(saved);
     };
 
     const getProcessorById = (id: string) => processorRecords.find(r => r.id === id);
 
-    const submitDpSection = async (id: string) => {
-        await ropaService.submitProcessorSection(id, {});
+    const submitDpSection = async (id: string, data: any = {}) => {
+        const payload = mapToProcessorPayload(data);
+        await ropaService.submitProcessorSection(id, payload);
+        await refresh();
+    };
+
+    const dispatchDpSection = async (id: string) => {
+        await ropaService.dispatchProcessorSection(id);
         await refresh();
     };
 
     const deleteProcessorRecord = async (id: string) => {
-        // delete logic
+        await ropaService.deleteProcessorSnapshot(id);
         await refresh();
+    };
+
+    const fetchProcessorSnapshot = async (id: string): Promise<RopaProcessorRecord | null> => {
+        setIsLoading(true);
+        try {
+            const snapshot = await ropaService.getProcessorSnapshot(id);
+            // Snapshot data is in snapshot.data, merge with metadata
+            const combinedData = {
+                ...snapshot.data,
+                document_id: snapshot.document_id,
+                title: snapshot.title,
+            };
+            
+            const normalizedData = normalizeProcessorData(combinedData);
+            
+            // Re-use mapToOwnerRecord logic simplified for processor if needed, 
+            // or just return the combined data. The form expects ProcessorRecord.
+            return {
+                ...normalizedData,
+                id: normalizedData.document_id,
+                ropaId: normalizedData.document_id,
+                status: SectionStatus.DRAFT,
+            } as any;
+        } catch (error) {
+            console.error("Failed to fetch processor snapshot:", error);
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -654,10 +774,13 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             getProcessorById,
             fetchFullProcessorRecord,
             submitDpSection,
+            dispatchDpSection,
             deleteProcessorRecord,
+            fetchProcessorSnapshot,
             requestDelete,
             createOwnerSnapshot,
             fetchOwnerSnapshot,
+            processorSnapshots,
             refresh,
             fetchExecutiveData,
             isLoading,

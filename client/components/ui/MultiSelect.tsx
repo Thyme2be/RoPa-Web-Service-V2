@@ -29,10 +29,10 @@ export default function MultiSelect({
     variant = "owner",
 }: MultiSelectProps) {
     const isProcessor = variant === "processor";
-    const primaryColor = isProcessor ? "#00666E" : "#ED393C";
-    const tagBg = isProcessor ? "bg-[#00666E]/5" : "bg-[#FFF1F1]";
-    const tagBorder = isProcessor ? "border-[#00666E]/20" : "border-[#FFD9D9]";
-    const tagHover = isProcessor ? "hover:bg-[#00666E]/10" : "hover:bg-red-50";
+    const primaryColor = "#ED393C";
+    const tagBg = "bg-[#FFF1F1]";
+    const tagBorder = "border-[#FFD9D9]";
+    const tagHover = "hover:bg-red-50";
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);

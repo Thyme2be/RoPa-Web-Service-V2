@@ -29,6 +29,7 @@ export default function Input({
             )}
             <input
                 {...props}
+                value={props.value ?? ""}
                 className={cn(
                     "w-full h-11 border border-[#E5E2E1] rounded-xl px-4 py-2 text-sm bg-white text-[#1B1C1C] focus:outline-none transition-all placeholder:text-[#9CA3AF] font-bold focus:border-current focus:bg-white",
                     error ? "border-red-500 ring-2 ring-red-500/10" : "focus:ring-4",

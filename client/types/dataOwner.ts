@@ -166,6 +166,9 @@ export type OwnerRecord = {
   storage_method?: string;
   storage_methods?: string;
   storage_type?: string;
+  is_sent?: boolean;
+  owner_status?: { code: string; label: string };
+  processor_status?: { code: string; label: string };
 };
 
 // --- Table Item Interfaces (Matching Backend Schemas) ---

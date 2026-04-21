@@ -262,10 +262,10 @@ export function DocumentFilterBar({
                         { label: "ทั้งหมด", value: "all" },
                         { label: "รอดำเนินการ", value: "wait_all" },
                         { label: "เสร็จสิ้นทั้งหมด", value: "done_all" },
-                        { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
-                        { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
-                        { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
-                        { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" }
+                        { label: "รอ Data Owner", value: "wait_owner" },
+                        { label: "รอ Data Processor", value: "wait_processor" },
+                        { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "done_owner" },
+                        { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "done_processor" }
                     ]}
                     onChange={(e) => { onStatusChange?.(e.target.value) }}
                 />
@@ -310,10 +310,10 @@ export function DocumentFilterBar({
     );
 }
 
-export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = "", buttonClassName = "" }: { icon: string, tooltipText: React.ReactNode, onClick?: () => void, className?: string, buttonClassName?: string }) {
+export function ActionIconWithTooltip({ icon, tooltipText, onClick, className = "", buttonClassName = "", disabled = false }: { icon: string, tooltipText: React.ReactNode, onClick?: () => void, className?: string, buttonClassName?: string, disabled?: boolean }) {
     return (
         <div className={`group/tooltip relative flex items-center justify-center ${className}`}>
-            <button onClick={onClick} className={`w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#CCCCCC]/40 transition-colors cursor-pointer ${buttonClassName}`}>
+            <button onClick={disabled ? undefined : onClick} disabled={disabled} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-[#CCCCCC]/40 cursor-pointer'} ${buttonClassName}`}>
                 <span className="material-symbols-rounded text-[20px] outline-none stroke-current" style={icon === 'cancel_schedule_send' ? { fontVariationSettings: "'FILL' 1" } : {}}>
                     {icon}
                 </span>

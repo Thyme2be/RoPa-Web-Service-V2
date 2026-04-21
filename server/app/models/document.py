@@ -44,6 +44,10 @@ class RopaDocumentModel(Base):
     processor_assignments = relationship("ProcessorAssignmentModel", back_populates="document", cascade="all, delete-orphan")
     auditor_assignments = relationship("AuditorAssignmentModel", back_populates="document", cascade="all, delete-orphan")
 
+    # Section relationships (Bidirectional)
+    processor_sections = relationship("RopaProcessorSectionModel", back_populates="document")
+    owner_section = relationship("RopaOwnerSectionModel", back_populates="document", uselist=False)
+
 
 class RopaRiskAssessmentModel(Base):
     __tablename__ = "ropa_risk_assessments"
