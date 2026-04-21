@@ -22,43 +22,44 @@ interface RiskAssessmentProps {
     onViewDpSection: () => void;
     onSubmit: (probability: number, impact: number) => void;
     onCancel: () => void;
+    disabled?: boolean;
 }
 
-function ScaleSelector({
+function ScorePicker({
     label,
     value,
     onChange,
+    disabled,
 }: {
     label: string;
     value: number;
     onChange: (v: number) => void;
+    disabled?: boolean;
 }) {
     return (
-        <div className="space-y-4">
+        <div className={cn("space-y-4", disabled && "opacity-80")}>
             <p className="text-[15px] font-bold text-[#1B1C1C]">{label}</p>
             <div className="flex items-end gap-6">
                 {[1, 2, 3, 4, 5].map((n) => (
                     <button
                         key={n}
+                        disabled={disabled}
                         onClick={() => onChange(n)}
-                        className="flex flex-col items-center gap-2 group"
+                        className={cn(
+                            "flex flex-col items-center gap-2 group",
+                            disabled && "cursor-default"
+                        )}
                     >
                         <div
                             className={cn(
                                 "w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all",
                                 value === n
                                     ? "border-primary bg-primary text-white scale-110 shadow-lg shadow-primary/30"
-                                    : "border-[#D1C8C6] bg-white text-[#5F5E5E] hover:border-primary/50 hover:scale-105"
+                                    : "border-[#D1C8C6] bg-white text-[#5F5E5E] hover:border-primary/50"
                             )}
                         >
                             <span className="text-sm font-black">{n}</span>
                         </div>
-                        <span className={cn(
-                            "text-xs font-bold transition-colors",
-                            value === n ? "text-primary" : "text-[#9CA3AF]"
-                        )}>
-                            {n}
-                        </span>
                     </button>
                 ))}
             </div>
@@ -82,34 +83,33 @@ export default function RiskAssessment({
     onViewDpSection,
     onSubmit,
     onCancel,
+    disabled = false,
 }: RiskAssessmentProps) {
     const [probability, setProbability] = useState(existingRisk?.probability ?? 0);
     const [impact, setImpact] = useState(existingRisk?.impact ?? 0);
 
     const total = probability * impact;
-    const level = total === 0 ? "-" : total <= 6 ? "ต่ำ" : total <= 14 ? "ปานกลาง" : "สูง";
+    const level = total === 0 ? "-" : total < 8 ? "ต่ำ" : total < 15 ? "ปานกลาง" : "สูง";
 
-    // ─── Blocked: DP not done ─────────────────────────────────────────────────
-    if (dpStatus !== "done") {
+    // ─── Blocked: DO not done ─────────────────────────────────────────────────
+    if (doStatus !== "done") {
         return (
-            <div className="flex flex-col items-center justify-center py-32 text-center">
-                <span className="material-symbols-outlined text-[64px] text-[#D1C8C6] mb-6">lock</span>
-                <p className="text-[22px] font-black text-[#5F5E5E] leading-relaxed max-w-[500px]">
+            <div className="flex flex-col items-center justify-center py-40 text-center text-[#5F5E5E]">
+                <p className="text-[22px] leading-relaxed max-w-[600px]">
                     &ldquo;ไม่สามารถประเมินความเสี่ยงได้<br />
-                    เนื่องจากในส่วนของผู้ประมวลผลข้อมูลส่วนบุคคลยังไม่ดำเนินการ&rdquo;
+                    เนื่องจากในส่วนของผู้รับผิดชอบข้อมูลยังไม่ดำเนินการ&rdquo;
                 </p>
             </div>
         );
     }
 
-    // ─── Blocked: DO not done ─────────────────────────────────────────────────
-    if (doStatus !== "done") {
+    // ─── Blocked: DP not done ─────────────────────────────────────────────────
+    if (dpStatus !== "done") {
         return (
-            <div className="flex flex-col items-center justify-center py-32 text-center">
-                <span className="material-symbols-outlined text-[64px] text-[#D1C8C6] mb-6">hourglass_empty</span>
-                <p className="text-[22px] font-black text-[#5F5E5E] leading-relaxed max-w-[500px]">
-                    &ldquo;รอส่วนของผู้รับผิดชอบข้อมูลดำเนินการให้เสร็จสิ้นก่อน<br />
-                    จึงจะสามารถประเมินความเสี่ยงได้&rdquo;
+            <div className="flex flex-col items-center justify-center py-40 text-center text-[#5F5E5E]">
+                <p className="text-[22px] leading-relaxed max-w-[600px]">
+                    &ldquo;ไม่สามารถประเมินความเสี่ยงได้<br />
+                    เนื่องจากในส่วนของผู้ประมวลผลข้อมูลส่วนบุคคลยังไม่ดำเนินการ&rdquo;
                 </p>
             </div>
         );
@@ -128,15 +128,17 @@ export default function RiskAssessment({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
-                <ScaleSelector
+                <ScorePicker
                     label="ประเมินโอกาสที่จะเกิดเหตุ"
                     value={probability}
                     onChange={setProbability}
+                    disabled={disabled}
                 />
-                <ScaleSelector
+                <ScorePicker
                     label="ความเสียหายที่อาจจะขึ้น"
                     value={impact}
                     onChange={setImpact}
+                    disabled={disabled}
                 />
             </div>
 
@@ -208,7 +210,7 @@ export default function RiskAssessment({
                 isDraftingFeedback={false}
                 onFeedbackChange={() => {}}
                 feedbackText=""
-                existingSuggestion={dpoSuggestion ? { text: dpoSuggestion.comment, date: dpoSuggestion.date } : undefined}
+                existingSuggestions={dpoSuggestion ? [{ text: dpoSuggestion.comment, date: dpoSuggestion.date }] : undefined}
                 canReview={false}
             >
                 {content}
@@ -223,6 +225,7 @@ export default function RiskAssessment({
                     ยกเลิก
                 </button>
                 <button
+                    disabled={disabled}
                     onClick={() => {
                         if (probability === 0 || impact === 0) {
                             alert("กรุณาเลือกระดับโอกาสและความเสียหายก่อน");
@@ -230,7 +233,10 @@ export default function RiskAssessment({
                         }
                         onSubmit(probability, impact);
                     }}
-                    className="bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-bold text-[15px] tracking-tight shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all"
+                    className={cn(
+                        "bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-bold text-[15px] tracking-tight shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all",
+                        disabled && "opacity-0 pointer-events-none" // Hide submit button in disabled view
+                    )}
                 >
                     ยืนยันการส่งการประเมิน
                 </button>

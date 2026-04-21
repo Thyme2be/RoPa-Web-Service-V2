@@ -120,14 +120,7 @@ export default function RopaDestroyedPage() {
                                                 {record.deletion_approved_at ? new Date(record.deletion_approved_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip 
-                                                        icon="visibility" 
-                                                        tooltipText="ดูเอกสาร" 
-                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
-                                                    />
-                                                </div>
+                                                <div className="text-[#9CA3AF] italic text-[11px] text-center">Metadata Only</div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
                                     ))

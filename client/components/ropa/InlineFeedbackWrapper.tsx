@@ -60,7 +60,7 @@ export default function InlineFeedbackWrapper({
                         <div key={index} className="bg-white rounded-2xl p-6 flex flex-col gap-1.5 relative overflow-hidden ring-1 ring-black/[0.01] shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
                             <div className={cn("absolute left-0 top-0 bottom-0 w-[6px]", isProcessor ? "bg-[#00666E]" : "bg-[#ED393C]")} />
                             <span className="text-[14px] font-bold text-[#9CA3AF] px-4 tracking-tight">
-                                {title} {existingSuggestions.length > 1 ? `#${index + 1}` : ""}
+                                {title}
                             </span>
                             <p className="text-[15px] font-bold text-[#1B1C1C] leading-relaxed px-4">
                                 "{suggestion.text}"

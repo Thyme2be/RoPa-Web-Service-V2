@@ -14,6 +14,16 @@ import { ropaService } from "@/services/ropaService";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 
+// ─── Formatting ────────────────────────────────────────────────────────────────
+function formatDate(dateStr: string | undefined | null) {
+    if (!dateStr || dateStr === "—") return "—";
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear(); // Use AD (2026) as per sketch yyyy
+    return `${day}/${month}/${year}`;
+}
+
 // ─── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ done, label }: { done: boolean; label: string }) {
     return (
@@ -30,7 +40,7 @@ function StatusBadge({ done, label }: { done: boolean; label: string }) {
 
 export default function ManagementProcessingPage() {
     const router = useRouter();
-    const { activeRecords, ownerSnapshots, sendToDpo, requestDelete, deleteOwnerSnapshot, refresh } = useRopa();
+    const { activeRecords, ownerSnapshots, sendToDpo, requestDelete, deleteRecord, deleteOwnerSnapshot, refresh } = useRopa();
     
     useEffect(() => {
         refresh();
@@ -270,7 +280,7 @@ export default function ManagementProcessingPage() {
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D]">{record.dp_company || "—"}</DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D]">
-                                                {record.due_date ? new Date(record.due_date).toLocaleDateString("th-TH") : "—"}
+                                                {formatDate(record.due_date)}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex flex-col items-center gap-1 py-1">
@@ -306,11 +316,10 @@ export default function ManagementProcessingPage() {
                                                                 onClick={() => !isSendToDpoDisabled && setDpoConfirm({ open: true, id: record.document_id })}
                                                             />
                                                             <ActionIconWithTooltip
-                                                                icon="cancel_schedule_send"
-                                                                disabled={record.deletion_status === "DELETE_PENDING"}
-                                                                tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"}
-                                                                buttonClassName={record.deletion_status === "DELETE_PENDING" ? "text-amber-500 cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#ED393C]"}
-                                                                onClick={() => record.deletion_status !== "DELETE_PENDING" && handleRequestDelete(record.document_id)}
+                                                                icon="delete"
+                                                                tooltipText="ลบเอกสารออกจากระบบ"
+                                                                buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
+                                                                onClick={() => setDeleteConfirm({ open: true, id: record.document_id })}
                                                             />
                                                         </div>
                                                     );
@@ -354,7 +363,7 @@ export default function ManagementProcessingPage() {
                                                 </div>
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5F5E5E] font-medium text-center">
-                                                {record.created_at ? new Date(record.created_at).toLocaleDateString("th-TH") : "—"}
+                                                {formatDate(record.created_at)}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-4">
@@ -411,10 +420,21 @@ export default function ManagementProcessingPage() {
             <ConfirmModal
                 isOpen={deleteConfirm.open}
                 isLoading={isSubmitting}
-                title="ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
-                description="คำขอลบจะถูกส่งให้ DPO พิจารณา เอกสารจะย้ายไปอยู่ในตารางเอกสารที่ส่งให้ DPO แล้ว"
-                confirmText="ยืนยันการขอลบ"
-                onConfirm={() => handleRequestDelete(deleteConfirm.id)}
+                title="ลบเอกสาร"
+                description="ต้องการลบเอกสารนี้ออกจากระบบใช่หรือไม่? ข้อควรระวัง: การลบจะเป็นการลบข้อมูลถาวร ไม่สามารถกู้คืนได้ และควรทำเฉพาะกับเอกสารที่ยังไม่ได้ส่งตรวจสอบ"
+                confirmText="ลบถาวร"
+                onConfirm={async () => {
+                    setIsSubmitting(true);
+                    try {
+                        await deleteRecord(deleteConfirm.id, "IN_PROGRESS");
+                        setDeleteConfirm({ open: false, id: "" });
+                    } catch (error) {
+                        console.error("Failed to delete record:", error);
+                        alert("เกิดข้อผิดพลาดในการลบเอกสาร");
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                }}
                 onCancel={() => setDeleteConfirm({ open: false, id: "" })}
             />
 

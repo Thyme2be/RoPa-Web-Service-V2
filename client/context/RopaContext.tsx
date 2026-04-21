@@ -38,7 +38,7 @@ interface RopaContextType {
     submitDoSection: (id: string) => Promise<void>;
     sendToDpo: (id: string, payload?: any) => Promise<void>;
     saveRiskAssessment: (id: string, risk: any) => Promise<void>;
-    deleteRecord: (id: string) => Promise<void>;
+    deleteRecord: (id: string, status?: string) => Promise<void>;
     requestDelete: (id: string, reason: string) => Promise<void>;
     createOwnerSnapshot: (id: string, data: any) => Promise<any>;
     fetchOwnerSnapshot: (snapshotId: string) => Promise<OwnerRecord | null>;
@@ -536,8 +536,20 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         return result;
     };
 
-    const deleteRecord = async (id: string) => {
-        console.warn("deleteRecord API integration pending");
+    const deleteRecord = async (id: string, status?: string) => {
+        try {
+            if (status === "IN_PROGRESS") {
+                // Hard delete สำหรับฉบับร่าง
+                await ropaService.hardDeleteDocument(id);
+            } else {
+                // ยื่นคำร้องขอลบสำหรับสถานะอื่น
+                await ropaService.requestDeletion(id, "Delete request from management table");
+            }
+            await refresh();
+        } catch (error) {
+            console.error("Failed to delete record:", error);
+            throw error;
+        }
     };
 
     const createOwnerSnapshot = async (id: string, record: any) => {

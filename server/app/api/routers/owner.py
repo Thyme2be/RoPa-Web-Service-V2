@@ -290,8 +290,11 @@ def _replace_owner_sub_tables(section_id: UUID, payload: OwnerSectionSave, db: S
 def _owner_status_badge(
     doc: RopaDocumentModel,
     owner_section: Optional[RopaOwnerSectionModel],
-    review_assignment: Optional[ReviewAssignmentModel],
+    last_cycle_status: Optional[str] = None,
 ) -> OwnerStatusBadge:
+    if last_cycle_status == "CHANGES_REQUESTED":
+        return OwnerStatusBadge(label="DPO แจ้งแก้ไข (แก้ไขแล้วส่งใหม่)", code="DPO_REJECTED")
+    
     if owner_section and owner_section.status == RopaSectionEnum.SUBMITTED:
         return OwnerStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
     return OwnerStatusBadge(label="รอส่วนของ Data Owner", code="WAITING_DO")
@@ -956,13 +959,22 @@ def get_active_table(
             .first()
         )
 
+        # หา cycle ล่าสุดเพื่อดูว่าโดน Reject มาหรือไม่
+        last_cycle = (
+            db.query(DocumentReviewCycleModel)
+            .filter(DocumentReviewCycleModel.document_id == doc.id)
+            .order_by(DocumentReviewCycleModel.requested_at.desc())
+            .first()
+        )
+        last_cycle_status = last_cycle.status if last_cycle else None
+
         result.append(ActiveTableItem(
             document_id=doc.id,
             document_number=doc.document_number,
             title=doc.title,
             dp_name=_user_full_name(dp_user),
             dp_company=doc.processor_company,
-            owner_status=_owner_status_badge(doc, owner_section, owner_review_assignment),
+            owner_status=_owner_status_badge(doc, owner_section, last_cycle_status),
             processor_status=_processor_status_badge(processor_section, processor_review_assignment),
             due_date=doc.due_date,
             created_at=doc.created_at,
@@ -2023,14 +2035,54 @@ def get_deletion_request(
 
 
 # =============================================================================
+# DELETE /owner/documents/{document_id} — ลบเอกสารทั้งใบ (HARD DELETE เฉพาะ Draft)
+# =============================================================================
+
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="ลบเอกสารออกจากระบบ (Hard Delete เฉพาะ IN_PROGRESS)",
+)
+def delete_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserRead = Depends(require_roles(Role.OWNER)),
+):
+    """
+    ลบเอกสารออกจากระบบถาวร (HARD DELETE)
+    เงื่อนไข:
+    1. ต้องเป็นเอกสารที่สถานะ IN_PROGRESS เท่านั้น (ยังไม่เคยส่งตรวจ)
+    2. ต้องเป็นเจ้าของเอกสาร (Created By) เท่านั้น
+    """
+    check_document_access(document_id, current_user, db)
+
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+
+    if doc.status != "IN_PROGRESS":
+        raise HTTPException(
+            status_code=400,
+            detail="ลบทิ้งทันทีได้เฉพาะเอกสารที่ยังเป็นฉบับร่าง (IN_PROGRESS) เท่านั้น หากส่งตรวจแล้วต้องใช้การยื่นคำร้องลบ"
+        )
+
+    # ตรวจสอบความปลอดภัย: ลบได้เฉพาะเจ้าของเท่านั้น
+    if doc.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบเอกสารนี้")
+
+    db.delete(doc)
+    db.commit()
+    return None
+
+
+# =============================================================================
 # POST /owner/documents/{document_id}/deletion — ยื่นคำร้องขอทำลาย
 # =============================================================================
 
 @router.post(
     "/documents/{document_id}/deletion",
-    status_code=status.HTTP_201_CREATED,
     response_model=DeletionRequestRead,
-    summary="ยื่นคำร้องขอทำลายเอกสาร",
+    summary="ยื่นคำร้องขอทำลายเอกสาร (Soft Delete)",
 )
 def create_deletion_request(
     document_id: UUID,
@@ -2039,8 +2091,8 @@ def create_deletion_request(
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     """
-    เข้าถึงได้จากปุ่มส่ง/ลบ ในตารางใดก็ได้
-    สร้าง DocumentDeletionRequestModel และเปลี่ยน doc.deletion_status = DELETE_PENDING
+    ยื่นคำร้องขอลบ/ทำลายเอกสาร (Soft Delete)
+    สำหรับเอกสารที่ส่งตรวจหรืออนุมัติแล้ว จะสร้าง DocumentDeletionRequestModel เพื่อรอ DPO อนุมัติ
     """
     check_document_access(document_id, current_user, db)
 
@@ -2048,6 +2100,14 @@ def create_deletion_request(
     if not doc:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
 
+    # ป้องกันการใช้ผิด endpoint: ถ้าเป็น IN_PROGRESS ต้องใช้ DELETE /owner/documents/{id}
+    if doc.status == "IN_PROGRESS":
+        raise HTTPException(
+            status_code=400, 
+            detail="เอกสารฉบับร่าง (IN_PROGRESS) ต้องลบผ่าน DELETE endpoint เพื่อความปลอดภัย"
+        )
+
+    # --- กระบวนการ SOFT DELETE (Deletion Request) ---
     existing_pending = (
         db.query(DocumentDeletionRequestModel)
         .filter(
@@ -2059,8 +2119,7 @@ def create_deletion_request(
     if existing_pending:
         raise HTTPException(status_code=400, detail="มีคำร้องขอทำลายที่รอการอนุมัติอยู่แล้ว")
 
-    # --- Step 1: Assign DPO ---
-    # Find the most recently assigned DPO for this document
+    # สแกนหา DPO ล่าสุด
     assigned_dpo_id = None
     last_cycle = (
         db.query(DocumentReviewCycleModel)
@@ -2077,7 +2136,7 @@ def create_deletion_request(
         if last_assignment:
             assigned_dpo_id = last_assignment.dpo_id
 
-    # If no previous assignment, prioritize DPO กิตติพงศ์ (DPO01) for testing
+    # Fallback assignment logic...
     if not assigned_dpo_id:
         priority_dpo = db.query(UserModel).filter(
             UserModel.role == "DPO",
@@ -2088,24 +2147,13 @@ def create_deletion_request(
                 UserModel.email == "DPO01"
             )
         ).first()
-        
         if priority_dpo:
             assigned_dpo_id = priority_dpo.id
-            logger.info(f"Assigned Priority DPO {priority_dpo.email} for deletion of doc {document_id}")
         else:
-            # Fallback to random DPO
-            dpo_candidates = db.query(UserModel).filter(
-                UserModel.role == "DPO",
-                UserModel.status == "ACTIVE"
-            ).all()
+            dpo_candidates = db.query(UserModel).filter(UserModel.role == "DPO", UserModel.status == "ACTIVE").all()
             if not dpo_candidates:
-                raise HTTPException(status_code=400, detail="ไม่พบ DPO ที่พร้อมใช้งานในระบบเพื่อรับผิดชอบการทำลาย")
-            
-            assigned_dpo_user = random.choice(dpo_candidates)
-            assigned_dpo_id = assigned_dpo_user.id
-            logger.info(f"Automatically assigned fallback DPO {assigned_dpo_user.email} (Random) for deletion of doc {document_id}")
-    else:
-        logger.info(f"Assigned previous DPO id {assigned_dpo_id} for deletion of doc {document_id}")
+                raise HTTPException(status_code=400, detail="ไม่พบ DPO ที่พร้อมใช้งานในระบบ")
+            assigned_dpo_id = random.choice(dpo_candidates).id
 
     req = DocumentDeletionRequestModel(
         document_id=document_id,
@@ -2115,9 +2163,7 @@ def create_deletion_request(
         status="PENDING",
     )
     db.add(req)
-
     doc.deletion_status = "DELETE_PENDING"
-
     db.commit()
     db.refresh(req)
     return req

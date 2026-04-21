@@ -123,6 +123,11 @@ export const ropaService = {
         return response.data;
     },
 
+    hardDeleteDocument: async (id: string) => {
+        const response = await api.delete(`/owner/documents/${id}`);
+        return response.data;
+    },
+
     getDeletionRequest: async (id: string) => {
         const response = await api.get(`/owner/documents/${id}/deletion`);
         return response.data;
@@ -142,6 +147,7 @@ export const ropaService = {
         const response = await api.get(`/owner/documents/${documentId}/processor-section`);
         return response.data;
     },
+
 
     // ─── Data Processor ──────────────────────────────────────────────────────
     getProcessorAssignedTable: async () => {

@@ -11,6 +11,16 @@ import { cn } from "@/lib/utils";
 import { useRopa } from "@/context/RopaContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
+// ─── Formatting ────────────────────────────────────────────────────────────────
+function formatDate(dateStr: string | undefined | null) {
+    if (!dateStr || dateStr === "—") return "—";
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear(); // Use AD (2026) as per sketch yyyy
+    return `${day}/${month}/${year}`;
+}
+
 
 export default function RopaApprovedPage() {
     const { approvedRecords: contextApprovedRecords, requestDelete, annualReview, refresh } = useRopa();
@@ -75,7 +85,11 @@ export default function RopaApprovedPage() {
                 const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
                 matchDate = approvedDate >= thirtyDaysAgo;
             } else if (dateFilter === "custom" && customDate) {
-                matchDate = approvedDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
+                const cDate = new Date(customDate);
+                cDate.setHours(0, 0, 0, 0);
+                const aDate = new Date(record.last_approved_at);
+                aDate.setHours(0, 0, 0, 0);
+                matchDate = cDate.getTime() === aDate.getTime();
             }
         } else if (dateFilter !== "all" && !record.last_approved_at) {
             matchDate = false; // If filtering by date but no date available, hide it
@@ -160,13 +174,13 @@ export default function RopaApprovedPage() {
                                             <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.do_name || "—"}</DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D] font-medium whitespace-nowrap">{record.dpo_name || "—"}</DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D] font-medium">
-                                                {record.last_approved_at ? new Date(record.last_approved_at).toLocaleDateString("th-TH") : "—"}
+                                                {formatDate(record.last_approved_at)}
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D] font-medium">
-                                                {record.destruction_date ? new Date(record.destruction_date).toLocaleDateString("th-TH") : "—"}
+                                                {formatDate(record.destruction_date)}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white whitespace-nowrap ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : "bg-[#FF9800]"}`}>
+                                                <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white whitespace-nowrap ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : (record.annual_review_status === "NOT_REVIEWED" ? "bg-[#ED393C]" : "bg-[#FF9800]")}`}>
                                                     {record.annual_review_status_label}
                                                 </span>
                                             </DocumentTableCell>

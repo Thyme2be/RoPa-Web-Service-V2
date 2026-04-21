@@ -1202,9 +1202,9 @@ def save_document_comments(
         db.add(cycle)
         
         # If the review cycle is APPROVED, update the main Document status
-        if cycle.status == 'APPROVED':
-            doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
-            if doc:
+        doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+        if doc:
+            if cycle.status == 'APPROVED':
                 doc.status = 'COMPLETED'
                 doc.last_approved_at = now
                 # Calculate next review due date
@@ -1214,8 +1214,11 @@ def save_document_comments(
                 # Transform document_number prefix from DFT- to RP-
                 if doc.document_number and doc.document_number.startswith("DFT-"):
                     doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
-                
-                db.add(doc)
+            else:
+                # CHANGES_REQUESTED -> Move back to Table 1 (Active/Processing)
+                doc.status = 'IN_PROGRESS'
+            
+            db.add(doc)
     
     db.commit()
     

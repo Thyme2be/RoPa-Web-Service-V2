@@ -110,7 +110,7 @@ function ManagementFormContent() {
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestions={suggestions.map(s => ({ text: s.comment, date: s.date }))}
+                existingSuggestions={suggestions.length > 0 ? [suggestions.map(s => ({ text: s.comment, date: s.date })).reverse()[0]!] : undefined}
                 canReview={false}
                 onReviewClick={() => handleReviewClick(id)}
             >
@@ -128,7 +128,7 @@ function ManagementFormContent() {
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestions={feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at }))}
+                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at })).reverse()[0]!] : undefined}
                 canReview={viewMode}
                 onReviewClick={() => handleReviewClick(id)}
                 isProcessor={true}
@@ -640,6 +640,7 @@ function ManagementFormContent() {
                                         onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}
                                         onSubmit={handleRiskSubmit}
                                         onCancel={() => setActiveTab("owner")}
+                                        disabled={effectiveIsLocked || viewMode}
                                     />
 
                                     {/* Render view forms below the Risk Assessment UI without switching tabs */}
