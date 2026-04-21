@@ -1310,7 +1310,7 @@ def get_approved_table(
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     docs = (
         db.query(RopaDocumentModel)

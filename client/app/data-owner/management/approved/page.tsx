@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip, StatusBadge } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
@@ -120,11 +120,6 @@ export default function RopaApprovedPage() {
                         onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         statusOptions={[
                             { label: "ทั้งหมด", value: "all" },
-                            { label: "รอดำเนินการ", value: "pending" },
-                            { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
-                            { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
-                            { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
-                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" },
                             { label: "ตรวจสอบเสร็จสิ้น", value: "done" }
                         ]}
                         dateValue={dateFilter}
@@ -153,13 +148,14 @@ export default function RopaApprovedPage() {
                                 />
                                 <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">วันที่อนุมัติ</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">วันครบกำหนดทำลาย</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">สถานะ</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">ตรวจสอบรายปี</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedRecords.length === 0 ? (
                                     <DocumentTableRow>
-                                        <DocumentTableCell colSpan={7} align="center">
+                                        <DocumentTableCell colSpan={8} align="center">
                                             <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารที่ได้รับการอนุมัติ</span>
                                         </DocumentTableCell>
                                     </DocumentTableRow>
@@ -178,6 +174,9 @@ export default function RopaApprovedPage() {
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {formatDate(record.destruction_date)}
+                                            </DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <StatusBadge status="ตรวจสอบเสร็จสิ้น" />
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white whitespace-nowrap ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : (record.annual_review_status === "NOT_REVIEWED" ? "bg-[#ED393C]" : "bg-[#FF9800]")}`}>
