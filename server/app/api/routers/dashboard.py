@@ -163,7 +163,7 @@ def _get_org_metrics_internal(db: Session, period: str, custom_date: Optional[st
     rev_proc_stats = format_stat(rev_proc_q, ['COMPLETED'])
 
     # Deletions
-    del_stats = db.query(RopaDocumentModel.deletion_status, func.count(RopaDocumentModel.id)).filter(
+    del_stats = db.query(RopaDocumentModel.deletion_status, func.count(RopaDocumentModel.id).label("count")).filter(
         RopaDocumentModel.deletion_status.isnot(None),
         *base_filters
     ).group_by(RopaDocumentModel.deletion_status).all()
