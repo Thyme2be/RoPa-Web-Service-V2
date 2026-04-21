@@ -360,9 +360,6 @@ function InProgressTableContent() {
                       >
                         <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-[#5F5E5E] text-[13.5px] font-medium">
-                              {doc.document_id}
-                            </span>
                             <span className="text-[#5F5E5E] font-medium tracking-tight">
                               {doc.title}
                             </span>

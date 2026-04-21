@@ -238,51 +238,139 @@ function DpoInProgressDetailContent() {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/documents/${recordId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch(
+          `${API_BASE_URL}/owner/documents/${recordId}/section`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         if (!response.ok) throw new Error("Failed to fetch document");
         const docData = await response.json();
 
+        // Helper to extract string values from array of objects
+        const extractArr = (arr: any, key: string) =>
+          Array.isArray(arr)
+            ? arr.map((i: any) =>
+                typeof i === "object" && i !== null ? i[key] : i,
+              )
+            : arr;
+
+        // Helper to map Risk Assessment to frontend format
+        const mapRisk = (risk: any) => {
+          if (!risk) return undefined;
+          return {
+            probability: risk.likelihood || risk.probability || 0,
+            impact: risk.impact || 0,
+            total: risk.risk_score || risk.total || 0,
+            level: risk.risk_level === "LOW" ? "ความเสี่ยงต่ำ" : risk.risk_level === "MEDIUM" ? "ความเสี่ยงปานกลาง" : risk.risk_level === "HIGH" ? "ความเสี่ยงสูง" : risk.level || "",
+            submitted_date: risk.assessed_at || risk.submitted_date
+          };
+        };
+
         // Map Owner Section (Full mapping)
-        if (docData.owner_sections && docData.owner_sections.length > 0) {
-          const os = docData.owner_sections[0];
-          setForm((prev) => ({
-            ...prev,
-            ...os, // Direct map all fields (General, Stored, Retention, etc.)
-            id: recordId,
-            document_name: docData.title,
-            data_subject_name:
-              `${os.first_name || ""} ${os.last_name || ""}`.trim(),
-            processing_activity: os.processing_activity,
-            purpose_of_processing: os.purpose_of_processing || os.purpose,
-            status: docData.status as RopaStatus,
-            risk_assessment: docData.risk_assessment,
-            processing_status: { do_status: "done", dp_status: "done" },
-          }));
-        } else {
-          setForm((prev) => ({
-            ...prev,
-            document_name: docData.title,
-            status: docData.status as RopaStatus,
-          }));
-        }
+        const os = docData.owner_sections?.[0] || docData;
+        setForm((prev) => ({
+          ...prev,
+          ...os, // Direct map all fields (General, Stored, Retention, etc.)
+          id: recordId,
+          document_name: docData.title || os.document_name,
+          data_subject_name:
+            os.data_subject_name ||
+            `${os.title_prefix || ""} ${os.first_name || ""} ${os.last_name || ""}`.trim() ||
+            os.data_owner_name,
+          rights_email:
+            os.contact_email ||
+            docData.contact_email ||
+            os.rights_email ||
+            docData.rights_email,
+          rights_phone:
+            os.company_phone ||
+            docData.company_phone ||
+            os.rights_phone ||
+            docData.rights_phone,
+          processing_activity: os.processing_activity,
+          purpose_of_processing: os.purpose_of_processing || os.purpose,
+          status: docData.status as RopaStatus,
+          risk_assessment: mapRisk(docData.risk_assessment || os.risk_assessment),
+          processing_status: { do_status: "done", dp_status: "done" },
+          // Map array items to strings
+          personal_data_items: extractArr(os.personal_data_items, "type"),
+          data_categories: extractArr(os.data_categories, "category"),
+          data_types: extractArr(os.data_types, "type"),
+          collection_methods: extractArr(os.collection_methods, "method"),
+          collection_method:
+            extractArr(os.collection_methods, "method")?.[0] || "",
+          data_sources: extractArr(os.data_sources, "source"),
+          data_source_direct:
+            extractArr(os.data_sources, "source")?.some(
+              (s: string) => s?.toLowerCase?.() === "direct",
+            ) || false,
+          data_source_indirect:
+            extractArr(os.data_sources, "source")?.some(
+              (s: string) => s?.toLowerCase?.() === "indirect",
+            ) || false,
+          data_source_other: os.data_source_other || "",
+          storage_types: extractArr(os.storage_types, "type"),
+          storage_methods: extractArr(os.storage_methods, "method"),
+        }));
 
         // Map Processor Section (Full mapping)
-        if (
-          docData.processor_sections &&
-          docData.processor_sections.length > 0
-        ) {
-          const ps = docData.processor_sections[0];
+        const processorResponse = await fetch(
+          `${API_BASE_URL}/owner/documents/${recordId}/processor-section`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (!processorResponse.ok)
+          throw new Error("Failed to fetch processor document");
+        const docProcessorData = await processorResponse.json();
+
+        const ps =
+          docProcessorData.processor_sections &&
+          docProcessorData.processor_sections.length > 0
+            ? docProcessorData.processor_sections[0]
+            : docProcessorData;
+
+        if (ps && Object.keys(ps).length > 0 && !ps.detail) {
           setProcessorForm((prev) => ({
             ...prev,
             ...ps, // Direct map all fields
             id: recordId,
             processor_name: ps.processor_name,
+            controllerAddress: ps.controller_address || ps.controllerAddress,
             processing_activity: ps.processing_activity,
             purpose_of_processing: ps.purpose_of_processing || ps.purpose,
-            status: docData.status as RopaStatus,
+            status: (docProcessorData.status || ps.status) as RopaStatus,
+            // Map array items to strings
+            personal_data_items: extractArr(ps.personal_data_items, "type"),
+            data_categories: extractArr(ps.data_categories, "category"),
+            data_types: extractArr(ps.data_types, "type"),
+            collection_methods: extractArr(ps.collection_methods, "method"),
+            data_sources: extractArr(ps.data_sources, "source"),
+            storage_types: extractArr(ps.storage_types, "type"),
+            storage_methods: extractArr(ps.storage_methods, "method"),
           }));
+        }
+
+        // Map Risk Assessment
+        try {
+          const riskResponse = await fetch(
+            `${API_BASE_URL}/owner/documents/${recordId}/risk`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          if (riskResponse.ok) {
+            const riskData = await riskResponse.json();
+            if (riskData && Object.keys(riskData).length > 0) {
+              setForm((prev) => ({
+                ...prev,
+                risk_assessment: mapRisk(riskData),
+              }));
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch risk assessment:", err);
         }
       } catch (err: any) {
         console.error("Fetch detail error:", err);
@@ -580,7 +668,7 @@ function DpoInProgressDetailContent() {
               key={recordId}
               doStatus="done"
               dpStatus="done"
-              existingRisk={form.risk_assessment}
+              existingRisk={form.risk_assessment as any}
               activeView={riskDocView}
               onViewDoSection={() =>
                 setRiskDocView((prev) => (prev === "owner" ? "none" : "owner"))
