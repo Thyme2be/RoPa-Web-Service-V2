@@ -11,6 +11,7 @@ import LegalInfo from "@/components/formSections/LegalInfo";
 import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import { OwnerRecord } from "@/types/dataOwner";
+import InlineFeedbackWrapper from "@/components/ropa/InlineFeedbackWrapper";
 import { ProcessorRecord } from "@/types/dataProcessor";
 import { SectionStatus } from "@/types/enums";
 import { useState, useEffect, Suspense, useMemo } from "react";
@@ -60,7 +61,8 @@ function DataProcessorFormContent() {
         physical_measures: "",
         access_control_measures: "",
         responsibility_measures: "",
-        audit_measures: ""
+        audit_measures: "",
+        suggestions: []
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -185,7 +187,7 @@ function DataProcessorFormContent() {
                 // New draft save if no recordId (shouldn't happen for DP assignments)
                 await saveProcessorRecord({ ...form, status: SectionStatus.SUBMITTED } as ProcessorRecord);
             }
-            
+
             // Note: refresh() is called inside submitDpSection/saveProcessorRecord
             setIsSuccessModalOpen(false);
             router.push("/data-processor/management/processing");
@@ -284,24 +286,54 @@ function DataProcessorFormContent() {
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
                                     isLocked
-                                        ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
-                                        : "text-[#5C403D] border-none hover:bg-black/5"
+                                        ? "text-[#ED393C] border-none hover:bg-[#ED393C]/5"
+                                        : "text-[#00666E] border-none hover:bg-[#00666E]/5"
                                 )}
                             >
-                                <span className="material-symbols-outlined text-[20px]">
-                                    {isLocked ? "edit" : "done_all"}
+                                <span className={cn("material-symbols-outlined text-[22px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
+                                    {isLocked ? "edit_square" : "check_circle"}
                                 </span>
-                                {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
+                                <span className="text-[15px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
                             </button>
                         </div>
 
                         <div className="px-10 space-y-8">
-                            <GeneralInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <ActivityDetails form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <StoredInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <RetentionInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <LegalInfo form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
-                            <SecurityMeasures form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                            {(() => {
+                                const renderSection = (id: string, title: string, Component: any) => {
+                                    // key is format like dp-1, dp-2 ...
+                                    const sectionNo = parseInt(id.replace("dp-", ""), 10);
+                                    const sectionFeedbacks = form.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
+                                    
+                                    return (
+                                        <InlineFeedbackWrapper
+                                            key={id}
+                                            title={title}
+                                            isDraftingFeedback={false}
+                                            onFeedbackChange={() => { }}
+                                            feedbackText=""
+                                            existingSuggestions={sectionFeedbacks.map((f: any) => ({
+                                                text: f.comment,
+                                                date: f.created_at
+                                            }))}
+                                            isProcessor={true}
+                                            canReview={false}
+                                        >
+                                            <Component form={form} handleChange={handleChange} errors={errors} disabled={isLocked} variant="processor" />
+                                        </InlineFeedbackWrapper>
+                                    );
+                                };
+
+                                return (
+                                    <>
+                                        {renderSection("dp-1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
+                                        {renderSection("dp-2", "ส่วนที่ 2 : รายละเอียดกิจกรรม", ActivityDetails)}
+                                        {renderSection("dp-3", "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
+                                        {renderSection("dp-4", "ส่วนที่ 4 : การเก็บรักษาข้อมูล", RetentionInfo)}
+                                        {renderSection("dp-5", "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
+                                        {renderSection("dp-6", "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 )}

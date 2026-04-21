@@ -52,7 +52,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             />
                             <Checkbox
                                 label="เอกสาร"
-                                checked={isProcessor ? form?.collection_methods?.includes("hard_copy") : form?.collection_method === "hard_copy"}
+                                checked={isProcessor ? !!form?.collection_methods?.includes("hard_copy") : form?.collection_method === "hard_copy"}
                                 onChange={(e: any) => handleChange({ target: { name: isProcessor ? "collection_methods[]" : "collection_method", value: "hard_copy", type: "checkbox", checked: e.target.checked } })}
                                 disabled={disabled}
                                 themeColor={primaryColor}
@@ -75,7 +75,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                         )}>
                             <Checkbox
                                 label="จากเจ้าของข้อมูลโดยตรง"
-                                checked={isProcessor ? form?.data_sources?.includes("direct") : !!form?.data_source_direct}
+                                checked={isProcessor ? !!form?.data_sources?.includes("direct") : !!form?.data_source_direct}
                                 onChange={(e: any) => {
                                     if (isProcessor) {
                                         handleChange({ target: { name: "data_sources[]", value: "direct", type: "checkbox", checked: e.target.checked } });
@@ -89,7 +89,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             <div className="flex items-center gap-3 h-6">
                                 <Checkbox
                                     label="จากแหล่งอื่น โปรดระบุ"
-                                    checked={isProcessor ? form?.data_sources?.includes("indirect") : !!form?.data_source_indirect}
+                                    checked={isProcessor ? !!form?.data_sources?.includes("indirect") : !!form?.data_source_indirect}
                                     onChange={(e: any) => {
                                         if (isProcessor) {
                                             handleChange({ target: { name: "data_sources[]", value: "indirect", type: "checkbox", checked: e.target.checked } });
@@ -138,7 +138,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             )}>
                                 <Checkbox
                                     label="ข้อมูลอิเล็กทรอนิกส์"
-                                    checked={isProcessor ? form?.storage_types?.includes("soft_file") : form?.retention?.storageType === "soft_file"}
+                                    checked={isProcessor ? !!form?.storage_types?.includes("soft_file") : form?.retention?.storageType === "soft_file"}
                                     onChange={(e: any) => {
                                         if (isProcessor) {
                                             handleChange({ target: { name: "storage_types[]", value: "soft_file", type: "checkbox", checked: e.target.checked } });

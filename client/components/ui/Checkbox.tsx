@@ -6,6 +6,9 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export default function Checkbox({ label, themeColor = "#ED393C", ...props }: Props) {
+    const { checked, ...rest } = props;
+    const isChecked = !!checked;
+
     return (
         <label className={cn(
             "flex items-center gap-3 cursor-pointer group select-none transition-all",
@@ -14,12 +17,13 @@ export default function Checkbox({ label, themeColor = "#ED393C", ...props }: Pr
             <div className="relative flex items-center justify-center">
                 <input
                     type="checkbox"
-                    {...props}
+                    checked={isChecked}
+                    {...rest}
                     className={cn(
                         "peer appearance-none h-5 w-5 border rounded-md transition-all cursor-pointer shadow-sm disabled:opacity-100 disabled:cursor-not-allowed disabled:bg-gray-50",
-                        props.checked ? "bg-red-500 border-red-500" : "bg-white border-[#9CA3AF] hover:border-[#CEC4C2]"
+                        isChecked ? "bg-red-500 border-red-500" : "bg-white border-[#9CA3AF] hover:border-[#CEC4C2]"
                     )}
-                    style={props.checked ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                    style={isChecked ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
                 />
                 <svg
                     className={cn(

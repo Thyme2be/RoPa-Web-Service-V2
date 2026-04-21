@@ -70,15 +70,42 @@ function ManagementFormContent() {
     const handleFeedbackChange = (sectionId: string, text: string) => setDraftFeedbacks(prev => ({ ...prev, [sectionId]: text }));
     const handleReviewClick = (sectionId: string) => setActiveFeedbacks(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
 
+    const handleFeedbackConfirm = async () => {
+        if (!recordId) return;
+        
+        const feedbackItems = Object.entries(draftFeedbacks)
+            .filter(([_, text]) => text.trim() !== "")
+            .map(([sectionId, text]) => ({
+                section_number: parseInt(sectionId.replace("dp-", "")),
+                comment: text
+            }));
+
+        try {
+            await submitFeedbackBatch(recordId, feedbackItems);
+            // Refresh record to get new status
+            const procRecord = await fetchFullProcessorRecord(recordId);
+            if (procRecord) {
+                setDpForm(prev => ({ ...prev, ...procRecord }));
+            }
+            setDraftFeedbacks({});
+            setActiveFeedbacks({});
+            setFeedbackModal({ open: false, section: "" }); // Important: Close the modal
+            alert("ส่งคำร้องขอเปลี่ยนแปลงสำเร็จ เอกสารถูกตีกลับไปที่ผู้ประมวลผลแล้ว");
+        } catch (e) {
+            console.error("Failed to submit feedback batch", e);
+            alert("เกิดข้อผิดพลาดในการส่งคำร้อง");
+        }
+    };
+
     const renderDOSection = (id: string, title: string, Component: any) => {
-        const suggestion = form.suggestions?.find(s => s.section_id.toString() === id);
+        const suggestions = form.suggestions?.filter(s => s.section_id.toString() === id) || [];
         return (
             <InlineFeedbackWrapper
                 title={title}
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestion={suggestion ? { text: suggestion.comment, date: suggestion.date } : undefined}
+                existingSuggestions={suggestions.map(s => ({ text: s.comment, date: s.date }))}
                 canReview={false}
                 onReviewClick={() => handleReviewClick(id)}
             >
@@ -88,15 +115,16 @@ function ManagementFormContent() {
     };
 
     const renderDPSection = (id: string, title: string, Component: any) => {
-        const suggestion = form.suggestions?.find(s => s.section_id.toString() === id);
+        const sectionNo = parseInt(id.replace("dp-", ""), 10);
+        const feedbacks = dpForm.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
         return (
             <InlineFeedbackWrapper
                 title={title}
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestion={suggestion ? { text: suggestion.comment, date: suggestion.date } : undefined}
-                canReview={dpStatus === "done" && viewMode}
+                existingSuggestions={feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at }))}
+                canReview={viewMode}
                 onReviewClick={() => handleReviewClick(id)}
                 isProcessor={true}
             >
@@ -451,32 +479,7 @@ function ManagementFormContent() {
         setIsSuccessModalOpen(true);
     };
 
-    /** ส่งคำร้องขอเปลี่ยนแปลง DP section */
-    const handleFeedbackConfirm = async () => {
-        setFeedbackModal({ open: false, section: "" });
-        if (!recordId) return;
 
-        try {
-            const items = Object.entries(draftFeedbacks).map(([key, comment]) => {
-                // key is format like dp-1, dp-2 ...
-                const sectionNumberStr = key.split('-')[1];
-                const sectionNumber = sectionNumberStr ? parseInt(sectionNumberStr, 10) : 1;
-                return {
-                    section_number: sectionNumber,
-                    comment: comment.trim()
-                };
-            }).filter(item => item.comment !== "");
-
-            if (items.length > 0) {
-                await submitFeedbackBatch(recordId, items);
-            }
-            setDraftFeedbacks({});
-            setActiveFeedbacks({});
-            router.push("/data-owner/management/processing");
-        } catch (error) {
-            console.error("Failed to send feedback batch:", error);
-        }
-    };
 
     /** Risk Assessment submitted */
     const handleRiskSubmit = async (likelihood: number, impact: number) => {
@@ -570,12 +573,16 @@ function ManagementFormContent() {
                             {/* ─── Tab: DP (ส่วนของผู้ประมวลผล) ───────────────────── */}
                             {activeTab === "processor" && (
                                 <div className="space-y-8 mt-4">
+
+
                                     {renderDPSection("dp-1", "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", GeneralInfo)}
                                     {renderDPSection("dp-2", "ส่วนที่ 2 : รายละเอียดกิจกรรม", ActivityDetails)}
                                     {renderDPSection("dp-3", "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", StoredInfo)}
                                     {renderDPSection("dp-4", "ส่วนที่ 4 : การเก็บรักษาข้อมูล", RetentionInfo)}
                                     {renderDPSection("dp-5", "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", LegalInfo)}
                                     {renderDPSection("dp-6", "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", SecurityMeasures)}
+
+                                    {/* ─── Buttons removed from here and moved to fixed footer ─── */}
                                 </div>
                             )}
 
@@ -711,19 +718,22 @@ function ManagementFormContent() {
                 )}
 
                 {/* ─── Bottom Action Bar ────────────────────────────────────── */}
-                {viewMode && Object.values(draftFeedbacks).some(v => v.trim() !== "") ? (
-                    /* Feedback Bar takes priority in viewMode if comments are being drafted */
+                {activeTab === "processor" && viewMode ? (
                     <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
                         <button
-                            onClick={() => { setDraftFeedbacks({}); setActiveFeedbacks({}); }}
-                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                            onClick={() => {
+                                setDraftFeedbacks({});
+                                setActiveFeedbacks({});
+                            }}
+                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                         >
-                            ยกเลิกการแก้ไข
+                            ยกเลิก
                         </button>
 
                         <button
                             onClick={() => setFeedbackModal({ open: true, section: "all" })}
-                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                            disabled={!Object.values(draftFeedbacks).some(v => v.trim() !== "")}
+                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-2xl font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale-[0.5]"
                         >
                             ส่งคำร้องขอเปลี่ยนแปลง
                         </button>

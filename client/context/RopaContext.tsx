@@ -630,8 +630,17 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const normalizeProcessorData = (data: any) => {
         if (!data) return data;
+        
+        // Map feedbacks to suggestions format used by the form sections
+        const suggestions = (data.feedbacks || []).map((f: any) => ({
+            section_id: `dp-${f.section_number}`,
+            comment: f.comment,
+            date: f.created_at
+        }));
+
         return {
             ...data,
+            suggestions,
             personal_data_items: data.personal_data_items?.map((item: any) => 
                 typeof item === 'object' ? item.type : item
             ),

@@ -157,7 +157,18 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
             data_sources=[],
             storage_types=[],
             storage_methods=[],
+            feedbacks=[],
         )
+
+    # Fetch feedbacks related to this processor section
+    feedbacks = (
+        db.query(ReviewFeedbackModel)
+        .filter(
+            ReviewFeedbackModel.target_type == "PROCESSOR_SECTION",
+            ReviewFeedbackModel.target_id == section.id
+        )
+        .all()
+    )
 
     # relationships are now eagerly loaded
     personal_data_items = section.personal_data_items
@@ -213,6 +224,7 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
         responsibility_measures=section.responsibility_measures,
         physical_measures=section.physical_measures,
         audit_measures=section.audit_measures,
+        feedbacks=feedbacks
     )
 
 

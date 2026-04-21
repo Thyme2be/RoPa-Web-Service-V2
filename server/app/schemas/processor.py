@@ -182,6 +182,8 @@ class ProcessorSectionFullRead(BaseModel):
     physical_measures: Optional[str] = None
     audit_measures: Optional[str] = None
 
+    feedbacks: List[FeedbackRead] = []
+
     model_config = {"from_attributes": True}
 
 

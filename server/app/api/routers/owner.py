@@ -1823,13 +1823,13 @@ def send_feedback_batch(
     if not proc_section:
         raise HTTPException(status_code=400, detail="ไม่พบ Processor Section")
 
-    if proc_section.status != RopaSectionEnum.SUBMITTED:
+    if not proc_section.is_sent:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="ไม่สามารถส่ง feedback ได้ในขณะนี้ เนื่องจาก Data Processor ยังดำเนินการไม่เสร็จสิ้น (ยังเป็นฉบับร่าง)"
+            detail="ไม่สามารถส่ง feedback ได้เนื่องจาก Data Processor ยังไม่ได้แชร์ข้อมูลให้ท่านตรวจสอบ"
         )
 
-    # หา review cycle ที่ active (optional)
+    # หา review cycle ที่ active (จำเป็นต้องมีเพื่อผูก feedback)
     cycle = (
         db.query(DocumentReviewCycleModel)
         .filter(
@@ -1839,6 +1839,22 @@ def send_feedback_batch(
         .order_by(DocumentReviewCycleModel.requested_at.desc())
         .first()
     )
+
+    # หากไม่พบ (เช่น กรณีตีกลับตั้งแต่เริ่มต้น) ให้สร้าง cycle ขึ้นมารองรับ feedback
+    if not cycle:
+        last_cycle_num = db.query(func.max(DocumentReviewCycleModel.cycle_number))\
+            .filter(DocumentReviewCycleModel.document_id == document_id)\
+            .scalar() or 0
+            
+        cycle = DocumentReviewCycleModel(
+            document_id=document_id,
+            cycle_number=last_cycle_num + 1,
+            requested_by=current_user.id,
+            status="IN_REVIEW",
+            requested_at=datetime.now(timezone.utc)
+        )
+        db.add(cycle)
+        db.flush() # เพื่อให้ได้ cycle.id มาใช้งานต่อ
 
     created = []
     for item in payload.items:
@@ -1856,9 +1872,19 @@ def send_feedback_batch(
         db.add(feedback)
         created.append(feedback)
 
+    # Update processor section status to DRAFT (Send back for correction)
+    proc_section.status = RopaSectionEnum.DRAFT
+    # Keep is_sent=True so DO can still see the document while DP is fixing it
+    proc_section.is_sent = True 
+
+    # Update document status to IN_PROGRESS so it shows as needing work
+    if proc_section.document.status == "UNDER_REVIEW":
+        proc_section.document.status = "IN_PROGRESS"
+
     db.commit()
     for f in created:
         db.refresh(f)
+    db.refresh(proc_section)
 
     return created
 

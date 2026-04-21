@@ -68,6 +68,18 @@ export interface RopaProcessorRecord {
   responsibility_measures?: string;
   physical_measures?: string;
   audit_measures?: string;
+  
+  feedbacks?: {
+    section_number: number;
+    comment: string;
+    created_at?: string;
+  }[];
+
+  suggestions?: {
+    section_id: string;
+    comment: string;
+    date: string;
+  }[];
 
   // Backward compatibility aliases if needed
   document_name?: string;
