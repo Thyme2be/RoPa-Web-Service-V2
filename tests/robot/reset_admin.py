@@ -24,6 +24,7 @@ new_hash = get_password_hash(new_password)
 
 conn = psycopg2.connect(db_url)
 cur = conn.cursor()
+try:
     # Use Upsert logic: Update password if user exists, otherwise create a new admin user
     cur.execute("SELECT id FROM users WHERE email = %s OR username = %s", ("admin01@gmail.com", "ADMIN01"))
     user = cur.fetchone()
