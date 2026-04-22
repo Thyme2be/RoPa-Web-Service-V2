@@ -1950,7 +1950,16 @@ def list_documents_from_dpo(
                 review_date=cycle.reviewed_at if cycle else None,
                 due_date=doc.due_date,
                 status=ui_status,
-                is_overdue=doc.due_date < now if doc.due_date else False,
+                is_overdue=(
+                    (
+                        doc.due_date.replace(tzinfo=timezone.utc)
+                        if doc.due_date.tzinfo is None
+                        else doc.due_date
+                    )
+                    < now
+                    if doc.due_date
+                    else False
+                ),
                 assignment_id=aud_assign_id,
             )
         )
