@@ -1,0 +1,22 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies for psycopg2 and curl for health checks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Robot Framework and required libraries
+RUN pip install --no-cache-dir \
+    robotframework \
+    robotframework-requests \
+    psycopg2-binary \
+    python-dotenv
+
+# Copy the tests directory
+COPY . /app/tests/robot
+
+# Default command remains empty, we will override it in compose
+CMD ["robot", "tests/robot/api_user_crud.robot"]

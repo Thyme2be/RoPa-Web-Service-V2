@@ -1,0 +1,46 @@
+services:
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ropa_test
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test-backend:
+    build:
+      context: ../../server
+      dockerfile: Dockerfile
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@test-db:5432/ropa_test
+      - JWT_SECRET_KEY=test_secret_key_12345678901234567890
+      - JWT_REFRESH_SECRET_KEY=test_refresh_key_12345678901234567890
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  robot-runner:
+    build:
+      context: ../../
+      dockerfile: tests/robot/Dockerfile.test
+    depends_on:
+      test-backend:
+        condition: service_healthy
+    environment:
+      - API_URL=http://test-backend:8000
+      - DATABASE_URL=postgresql://postgres:password@test-db:5432/ropa_test
+    volumes:
+      - ../../tests/robot:/app/tests/robot
+    command: >
+      sh -c "python /app/tests/robot/reset_admin.py && 
+             robot --variable API_URL:http://test-backend:8000 \
+                   --outputdir /app/tests/robot \
+                   /app/tests/robot/api_user_crud.robot"
