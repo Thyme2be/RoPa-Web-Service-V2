@@ -702,7 +702,11 @@ def submit_processor_section(
     )
     if assignment:
         assignment.status = "SUBMITTED"
-    section.is_sent = False  # บันทึกฟอร์มเสร็จเฉยๆ ยังไม่ส่งให้ DO
+    
+    # หากเคยส่งแล้ว (is_sent=True) ให้คงไว้ เพื่อให้ DO เห็นความคืบหน้า/การแก้ไขทันที
+    # และเพื่อให้ DO สามารถประเมินความเสี่ยงต่อได้หากเป็นการแก้ไขเล็กน้อย
+    # section.is_sent = False  # ลบการรีเซ็ตออก
+    
     db.commit()
     db.refresh(section)
     return _load_processor_section_full(section, db, Role.PROCESSOR)

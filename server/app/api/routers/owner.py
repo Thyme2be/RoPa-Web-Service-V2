@@ -181,6 +181,9 @@ def _load_owner_section_full(
     เพราะ SQLAlchemy ไม่ได้ define relationship ไว้ใน model จึงต้อง query แยก
     """
     sid = section.id
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == section.document_id).first()
+    doc_status = doc.status if doc else None
+
 
     personal_data_items = (
         db.query(OwnerPersonalDataItemModel).filter_by(owner_section_id=sid).all()
@@ -255,7 +258,9 @@ def _load_owner_section_full(
         responsibility_measures=section.responsibility_measures,
         physical_measures=section.physical_measures,
         audit_measures=section.audit_measures,
+        document_status=doc_status,
     )
+
 
 
 # =============================================================================
@@ -362,10 +367,11 @@ def _processor_status_badge(
       DP_DONE    = ส่งให้ DO แล้ว (is_sent=True)
       WAITING_DP = ยังไม่ได้ส่ง หรือ กำลังกรอก (is_sent=False)
     """
-    if processor_section and processor_section.is_sent:
+    if processor_section and processor_section.is_sent and processor_section.status == RopaSectionEnum.SUBMITTED:
         return ProcessorStatusBadge(
             label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE"
         )
+
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 
 

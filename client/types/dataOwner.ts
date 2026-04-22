@@ -174,7 +174,9 @@ export type OwnerRecord = {
   is_sent?: boolean;
   owner_status?: { code: string; label: string };
   processor_status?: { code: string; label: string };
+  document_status?: string;
 };
+
 
 // --- Table Item Interfaces (Matching Backend Schemas) ---
 

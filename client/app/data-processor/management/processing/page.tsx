@@ -389,15 +389,16 @@ export default function ManagementProcessingPage() {
                             <ActionIconWithTooltip
                               icon="send"
                               disabled={
-                                record.processor_status?.code === "WAITING_DP"
+                                record.processor_status?.code === "WAITING_DP" ||
+                                record.processor_status?.code === "DP_NEED_FIX"
                               }
                               tooltipText={
-                                record.processor_status?.code === "WAITING_DP"
-                                  ? "ต้องไปกรอกเอกสารแล้วกดบันทึกก่อน"
-                                  : "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
+                                (record.processor_status?.code === "WAITING_DP" || record.processor_status?.code === "DP_NEED_FIX")
+                                  ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
+                                  : "ส่งข้อมูลให้ Data Owner ตรวจสอบ"
                               }
                               buttonClassName={
-                                record.processor_status?.code === "WAITING_DP"
+                                (record.processor_status?.code === "WAITING_DP" || record.processor_status?.code === "DP_NEED_FIX")
                                   ? "text-[#9CA3AF]"
                                   : "text-[#5F5E5E] hover:text-[#00666E]"
                               }

@@ -449,11 +449,13 @@ export default function ManagementProcessingPage() {
                                 icon="visibility"
                                 tooltipText="ดูเอกสาร"
                                 buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                onClick={() =>
+                                onClick={() => {
+                                  const mode = record.owner_status?.code === "DO_DONE" ? "view" : "edit";
                                   router.push(
-                                    `/data-owner/management/form?id=${record.document_id}&mode=view`,
-                                  )
-                                }
+                                    `/data-owner/management/form?id=${record.document_id}&mode=${mode}`,
+                                  );
+                                }}
+
                               />
                               <ActionIconWithTooltip
                                 icon="send"

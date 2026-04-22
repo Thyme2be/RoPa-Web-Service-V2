@@ -276,6 +276,8 @@ class OwnerSectionFullRead(BaseModel):
     responsibility_measures: Optional[str] = None
     physical_measures: Optional[str] = None
     audit_measures: Optional[str] = None
+    document_status: Optional[str] = None
+
 
     model_config = {"from_attributes": True}
 

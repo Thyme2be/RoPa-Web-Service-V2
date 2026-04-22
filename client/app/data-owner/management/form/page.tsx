@@ -57,6 +57,7 @@ function ManagementFormContent() {
         requestDelete,
         submitFeedbackBatch
     } = useRopa();
+    const record = getById(recordId || "");
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
     // ปลดล็อก form ทันทีถ้าเป็นการเปิดแบบ mode=edit หรือกำลังแก้ไขฉบับร่าง (snapshotId)
@@ -175,7 +176,8 @@ function ManagementFormContent() {
         workflow: "processing",
     });
 
-    const isWaitingDpoApproval = form.status === RopaStatus.UNDER_REVIEW || form.status === RopaStatus.COMPLETED;
+    const isWaitingDpoApproval = form.document_status === RopaStatus.UNDER_REVIEW || form.document_status === RopaStatus.COMPLETED;
+
     const isLockedByDeletion = form.deletion_status === "DELETE_PENDING";
     const effectiveIsLocked = isLocked || isLockedByDeletion || isWaitingDpoApproval;
 
@@ -457,7 +459,12 @@ function ManagementFormContent() {
 
     const completedSteps = getCompletedSteps();
     const doStatus = (form.status === SectionStatus.SUBMITTED || form.status === RopaStatus.Processing) ? "done" : "pending";
-    const dpStatus = ((dpForm.status === SectionStatus.SUBMITTED || dpForm.status === RopaStatus.Processing) && dpForm.is_sent) ? "done" : "pending";
+    
+    // Check DP status more robustly using badge code from backend if available
+    const dpStatus = (
+        record?.processor_status?.code === "DP_DONE" || 
+        ((dpForm.status === SectionStatus.SUBMITTED || dpForm.status === RopaStatus.Processing) && dpForm.is_sent)
+    ) ? "done" : "pending";
     
     // Risk assessment is editable if both sections are done AND not yet under review/completed by DPO
     const isOwner = user?.role === "OWNER";
@@ -660,6 +667,9 @@ function ManagementFormContent() {
                                     <RiskAssessment
                                         doStatus={doStatus}
                                         dpStatus={dpStatus}
+                                        dpRawStatus={dpForm.status}
+                                        dpIsSent={dpForm.is_sent}
+
                                         existingRisk={form.risk_assessment}
                                         dpoSuggestion={(() => {
                                             const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK");
@@ -719,7 +729,7 @@ function ManagementFormContent() {
                                             value={deletionReason}
                                             onChange={(e) => setDeletionReason(e.target.value)}
                                             rows={4}
-                                            disabled={isLockedByDeletion || viewMode}
+                                            disabled={isLockedByDeletion}
                                             className="w-full bg-white border border-[#E5E2E1] rounded-xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-[14px]"
                                             placeholder="ระบุเหตุผลในการขอทำลายเอกสาร เพื่อส่งคำขอไปยังเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
                                         />
@@ -733,7 +743,7 @@ function ManagementFormContent() {
                                                 ยกเลิก
                                             </button>
                                             <button
-                                                disabled={!deletionReason || isLockedByDeletion || viewMode}
+                                                disabled={!deletionReason || isLockedByDeletion}
                                                 onClick={() => setIsConfirmDeletionOpen(true)}
                                                 className="bg-logout-gradient text-white h-[48px] px-8 rounded-full font-bold shadow-sm hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
                                             >

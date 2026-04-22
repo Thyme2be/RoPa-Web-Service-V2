@@ -364,7 +364,9 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             audit_measures: data.audit_measures,
             storage_methods: data.storage_methods?.map((m: any) => m.method).join(",") || "",
             status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
+            document_status: data.document_status,
             workflow: "processing"
+
         };
     };
 
@@ -643,6 +645,18 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                 documentName: normalizedData.title || "",
                 status: normalizedData.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             };
+
+            // Sync with central state so getProcessorById works for Owners too
+            setProcessorRecords(prev => {
+                const existing = prev.findIndex(r => r.id === normalized.id);
+                if (existing >= 0) {
+                    const next = [...prev];
+                    next[existing] = normalized;
+                    return next;
+                }
+                return [...prev, normalized];
+            });
+
             return normalized;
         } catch (error) {
             console.error("Failed to fetch full processor record:", error);
@@ -691,7 +705,19 @@ export function RopaProvider({ children }: { children: ReactNode }) {
 
     const mapToProcessorPayload = (data: any) => {
         return {
-            ...data,
+            status: data.status,
+            is_sent: data.is_sent,
+            title_prefix: data.title_prefix,
+            first_name: data.first_name,
+            last_name: data.last_name,
+            address: data.address,
+            email: data.email,
+            phone: data.phone,
+            processor_name: data.processor_name,
+            controller_name: data.controller_name,
+            controller_address: data.controller_address,
+            processing_activity: data.processing_activity,
+            purpose_of_processing: data.purpose_of_processing,
             personal_data_items: data.personal_data_items?.map((item: any) => 
                 typeof item === 'string' ? { type: item } : item
             ),
@@ -713,6 +739,27 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             storage_types: data.storage_types?.map((item: any) => 
                 typeof item === 'string' ? { type: item } : item
             ),
+            data_source_other: data.data_source_other,
+            retention_value: (data.retention_value !== undefined && data.retention_value !== null && String(data.retention_value) !== "")
+                ? parseInt(String(data.retention_value), 10)
+                : undefined,
+            retention_unit: data.retention_unit,
+            storage_methods_other: data.storage_methods_other,
+            access_condition: data.access_condition,
+            deletion_method: data.deletion_method,
+            legal_basis: data.legal_basis,
+            has_cross_border_transfer: data.has_cross_border_transfer,
+            transfer_country: data.transfer_country,
+            transfer_company: data.transfer_company,
+            transfer_method: data.transfer_method,
+            transfer_protection_standard: data.transfer_protection_standard,
+            transfer_exception: data.transfer_exception,
+            org_measures: data.org_measures,
+            access_control_measures: data.access_control_measures,
+            technical_measures: data.technical_measures,
+            responsibility_measures: data.responsibility_measures,
+            physical_measures: data.physical_measures,
+            audit_measures: data.audit_measures,
         };
     };
 
