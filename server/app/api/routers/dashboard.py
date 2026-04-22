@@ -1843,6 +1843,7 @@ def list_documents_from_dpo(
             id_cte.c.seq_id,
             id_cte.c.year,
             AuditorAssignmentModel.id.label("auditor_assignment_id"),
+            AuditorAssignmentModel.status.label("auditor_status"),
         )
         .select_from(RopaDocumentModel)
         .join(id_cte, id_cte.c.doc_id == RopaDocumentModel.id)
@@ -1890,7 +1891,7 @@ def list_documents_from_dpo(
     )
 
     items = []
-    for doc, cycle, dpo_assign, fname, lname, seq, year, aud_assign_id in results:
+    for doc, cycle, dpo_assign, fname, lname, seq, year, aud_assign_id, aud_status in results:
         doc_code = f"RP-{int(year)}-{int(seq):02d}"
 
         # Calculate UI Status
@@ -1899,8 +1900,13 @@ def list_documents_from_dpo(
         ui_label = "รอตรวจสอบ"
 
         if internal_status == "APPROVED":
-            ui_status = "DPO_APPROVED"
-            ui_label = "ตรวจสอบเสร็จสิ้น"
+            # For Auditors, if they haven't verified it yet, show as IN_REVIEW (รอตรวจสอบ)
+            if role == Role.AUDITOR and str(getattr(aud_status, "value", aud_status)) != "VERIFIED":
+                ui_status = "IN_REVIEW"
+                ui_label = "รอตรวจสอบ"
+            else:
+                ui_status = "DPO_APPROVED"
+                ui_label = "ตรวจสอบเสร็จสิ้น"
         elif internal_status == "CHANGES_REQUESTED":
             # Check if comments belong to DO or DP
             has_do_comments = (
