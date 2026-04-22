@@ -96,6 +96,7 @@ CREATE TABLE users (
   username varchar UNIQUE,
   password_hash varchar NOT NULL,
   role user_role_enum NOT NULL,
+  title varchar,
   first_name varchar,
   last_name varchar,
   department varchar,

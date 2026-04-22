@@ -24,7 +24,8 @@
   "scripts": {
     "install:all": "npm install && npm install --workspace=client",
     "dev": "npm run dev --workspace=client",
-    "test": "npx playwright test"
+    "test": "npx playwright test",
+    "test:robot": "robot tests/robot/api_user_crud.robot"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

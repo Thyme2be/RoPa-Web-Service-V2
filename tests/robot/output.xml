@@ -1,0 +1,710 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.4.2 (Python 3.13.2 on win32)" generated="2026-04-22T12:41:56.388987" rpa="false" schemaversion="5">
+<suite id="s1" name="Api User Crud" source="d:\RoPa-Web-Service-V2\tests\robot\api_user_crud.robot">
+<kw name="Setup Admin Session" owner="keywords" type="SETUP">
+<kw name="Login As Admin" owner="keywords">
+<kw name="Create Dictionary" owner="BuiltIn">
+<msg time="2026-04-22T12:41:56.851936" level="INFO">&amp;{auth_payload} = { username_or_email=admin01@gmail.com | password=Admin@1234 }</msg>
+<var>&amp;{auth_payload}</var>
+<arg>username_or_email=${ADMIN_EMAIL}</arg>
+<arg>password=${ADMIN_PASSWORD}</arg>
+<doc>Creates and returns a dictionary based on the given ``items``.</doc>
+<status status="PASS" start="2026-04-22T12:41:56.851295" elapsed="0.000684"/>
+</kw>
+<kw name="POST" owner="RequestsLibrary">
+<msg time="2026-04-22T12:41:57.735920" level="INFO">POST Request : url=http://localhost:8000/auth/login 
+ path_url=/auth/login 
+ headers={'User-Agent': 'python-requests/2.33.1', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive', 'Content-Length': '68', 'Content-Type': 'application/json'} 
+ body=b'{"username_or_email": "admin01@gmail.com", "password": "Admin@1234"}' 
+ </msg>
+<msg time="2026-04-22T12:41:57.736107" level="INFO">POST Response : url=http://localhost:8000/auth/login 
+ status=200, reason=OK 
+ headers={'date': 'Wed, 22 Apr 2026 05:41:55 GMT', 'server': 'uvicorn', 'content-length': '316', 'content-type': 'application/json'} 
+ body={"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA","refresh_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc3NDQxMzE2fQ.YqEIj7g173V_WmtXEXqDwc-syfB8Kq0UvIongM-fo9o"} 
+ </msg>
+<msg time="2026-04-22T12:41:57.736268" level="INFO">${response} = &lt;Response [200]&gt;</msg>
+<var>${response}</var>
+<arg>${API_URL}/auth/login</arg>
+<arg>json=${auth_payload}</arg>
+<doc>Sends a POST request.</doc>
+<status status="PASS" start="2026-04-22T12:41:56.852124" elapsed="0.884174"/>
+</kw>
+<kw name="Status Should Be" owner="RequestsLibrary">
+<arg>200</arg>
+<arg>${response}</arg>
+<doc>Fails if response status code is different than the expected.</doc>
+<status status="PASS" start="2026-04-22T12:41:57.736569" elapsed="0.000431"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:41:57.738242" level="INFO">${token} = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA</msg>
+<var>${token}</var>
+<arg>${response.json()['access_token']}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-04-22T12:41:57.737184" elapsed="0.001179"/>
+</kw>
+<return>
+<value>${token}</value>
+<status status="PASS" start="2026-04-22T12:41:57.738475" elapsed="0.000060"/>
+</return>
+<msg time="2026-04-22T12:41:57.738720" level="INFO">${token} = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA</msg>
+<var>${token}</var>
+<doc>Authenticates as admin and returns the access token.</doc>
+<status status="PASS" start="2026-04-22T12:41:56.850818" elapsed="0.887934"/>
+</kw>
+<kw name="Create Dictionary" owner="BuiltIn">
+<msg time="2026-04-22T12:41:57.740024" level="INFO">&amp;{headers} = { Authorization=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA | Content-Type=application/json }</msg>
+<var>&amp;{headers}</var>
+<arg>Authorization=Bearer ${token}</arg>
+<arg>Content-Type=application/json</arg>
+<doc>Creates and returns a dictionary based on the given ``items``.</doc>
+<status status="PASS" start="2026-04-22T12:41:57.738895" elapsed="0.001228"/>
+</kw>
+<kw name="Create Session" owner="RequestsLibrary">
+<msg time="2026-04-22T12:41:57.740671" level="INFO">Creating Session using : alias=admin_session, url=http://localhost:8000, headers={'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA', 'Content-Type': 'application/json'},                     cookies={}, auth=None, timeout=None, proxies=None, verify=True,                     debug=0 </msg>
+<arg>admin_session</arg>
+<arg>${API_URL}</arg>
+<arg>headers=${headers}</arg>
+<arg>verify=True</arg>
+<doc>Create Session: create a HTTP session to a server</doc>
+<status status="PASS" start="2026-04-22T12:41:57.740311" elapsed="0.000570"/>
+</kw>
+<doc>Creates an authorized session for admin.</doc>
+<status status="PASS" start="2026-04-22T12:41:56.850508" elapsed="0.890564"/>
+</kw>
+<test id="s1-t1" name="Admin Can Create User" line="12">
+<kw name="Create Dictionary" owner="BuiltIn">
+<msg time="2026-04-22T12:41:57.750874" level="INFO">&amp;{payload} = { username=testuser | title=นาย | first_name=Robot | last_name=Tester | email=testuser@example.com | password=TestPassword123 | role=PROCESSOR | status=ACTIVE }</msg>
+<var>&amp;{payload}</var>
+<arg>username=${USER_USERNAME}</arg>
+<arg>title=นาย</arg>
+<arg>first_name=Robot</arg>
+<arg>last_name=Tester</arg>
+<arg>email=${USER_EMAIL}</arg>
+<arg>password=${USER_PASSWORD}</arg>
+<arg>role=PROCESSOR</arg>
+<arg>status=ACTIVE</arg>
+<doc>Creates and returns a dictionary based on the given ``items``.</doc>
+<status status="PASS" start="2026-04-22T12:41:57.741873" elapsed="0.009101"/>
+</kw>
+<kw name="POST On Session" owner="RequestsLibrary">
+<msg time="2026-04-22T12:41:59.280631" level="INFO">POST Request : url=http://localhost:8000/admin/users 
+ path_url=/admin/users 
+ headers={'User-Agent': 'python-requests/2.33.1', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA', 'Content-Type': 'application/json', 'Content-Length': '206'} 
+ body=b'{"username": "testuser", "title": "\\u0e19\\u0e32\\u0e22", "first_name": "Robot", "last_name": "Tester", "email": "testuser@example.com", "password": "TestPassword123", "role": "PROCESSOR", "status": "ACTIVE"}' 
+ </msg>
+<msg time="2026-04-22T12:41:59.280855" level="INFO">POST Response : url=http://localhost:8000/admin/users 
+ status=201, reason=Created 
+ headers={'date': 'Wed, 22 Apr 2026 05:41:56 GMT', 'server': 'uvicorn', 'content-length': '278', 'content-type': 'application/json'} 
+ body={"title":"นาย","email":"testuser@example.com","username":"testuser","first_name":"Robot","last_name":"Tester","department":null,"company_name":null,"auditor_type":null,"id":10,"role":"PROCESSOR","status":"ACTIVE","created_at":"2026-04-22T05:41:58.055084","is_active":true} 
+ </msg>
+<msg time="2026-04-22T12:41:59.281460" level="INFO">${response} = &lt;Response [201]&gt;</msg>
+<var>${response}</var>
+<arg>admin_session</arg>
+<arg>/admin/users</arg>
+<arg>json=${payload}</arg>
+<doc>Sends a POST request on a previously created HTTP Session.</doc>
+<status status="PASS" start="2026-04-22T12:41:57.751222" elapsed="1.530329"/>
+</kw>
+<kw name="Status Should Be" owner="RequestsLibrary">
+<arg>201</arg>
+<arg>${response}</arg>
+<doc>Fails if response status code is different than the expected.</doc>
+<status status="PASS" start="2026-04-22T12:41:59.282043" elapsed="0.000565"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:41:59.284318" level="INFO">${user_id} = 10</msg>
+<var>${user_id}</var>
+<arg>${response.json()['id']}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-04-22T12:41:59.282973" elapsed="0.001397"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:41:59.285690" level="INFO">${CREATED_USER_ID} = 10</msg>
+<arg>${CREATED_USER_ID}</arg>
+<arg>${user_id}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-04-22T12:41:59.284572" elapsed="0.001209"/>
+</kw>
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${response.json()['email']}</arg>
+<arg>${USER_EMAIL}</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="PASS" start="2026-04-22T12:41:59.286170" elapsed="0.001077"/>
+</kw>
+<doc>Test creating a new user via Admin API.</doc>
+<tag>Admin</tag>
+<tag>CRUD</tag>
+<status status="PASS" start="2026-04-22T12:41:57.741169" elapsed="1.546262"/>
+</test>
+<test id="s1-t2" name="Admin Can List Users" line="31">
+<kw name="GET On Session" owner="RequestsLibrary">
+<msg time="2026-04-22T12:42:01.610722" level="INFO">GET Request : url=http://localhost:8000/admin/users 
+ path_url=/admin/users 
+ headers={'User-Agent': 'python-requests/2.33.1', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA', 'Content-Type': 'application/json'} 
+ body=None 
+ </msg>
+<msg time="2026-04-22T12:42:01.611171" level="INFO">GET Response : url=http://localhost:8000/admin/users 
+ status=200, reason=OK 
+ headers={'date': 'Wed, 22 Apr 2026 05:41:57 GMT', 'server': 'uvicorn', 'content-length': '3005', 'content-type': 'application/json'} 
+ body={"total":10,"page":1,"limit":10,"items":[{"id":2,"user_code":"user-02","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"AUDITOR01@mail.com","role":"AUDITOR","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-17T07:49:17.806728","is_active":true},{"id":3,"user_code":"user-03","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"DPO01@mail.com","role":"DPO","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-17T07:50:06.707829","is_active":true},{"id":4,"user_code":"user-04","title":"string","first_name":"string","last_name":"string","email":"testing@gmail.com","role":"OWNER","department":"string","company_name":"string","status":"ACTIVE","created_at":"2026-04-17T08:21:27.081479","is_active":true},{"id":6,"user_code":"user-06","title":"นางสาว","first_name":"ทด","last_name":"สอบ","email":"executive@email.com","role":"EXECUTIVE","department":"แผนก IT","company_name":"บริษัท A","status":"ACTIVE","created_at":"2026-04-18T12:25:19.906532","is_active":true},{"id":7,"user_code":"user-07","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"DPO01@gmail.com","role":"PROCESSOR","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-18T18:35:16.596620","is_active":true},{"id":8,"user_code":"user-08","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"EX01@gmail.com","role":"EXECUTIVE","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-18T18:40:14.945553","is_active":true},{"id":9,"user_code":"user-09","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"DO01@gmail.com","role":"OWNER","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-18T18:42:14.446177","is_active":true},{"id":5,"user_code":"user-05","title":"นางสาว","first_name":"ไม่บอก","last_name":"ไม่บอก","email":"test@email.com","role":"AUDITOR","department":"แผนก IT","company_name":"บริษัท A","status":"INACTIVE","created_at":"2026-04-18T09:54:31.066650","is_active":false},{"id":1,"user_code":"user-01","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"admin01@gmail.com","role":"ADMIN","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-17T03:55:03.699787","is_active":true},{"id":10,"user_code":"user-10","title":"นาย","first_name":"Robot","last_name":"Tester","email":"testuser@example.com","role":"PROCESSOR","department":null,"company_name":null,"status":"ACTIVE","created_at":"2026-04-22T05:41:58.055084","is_active":true}]} 
+ </msg>
+<msg time="2026-04-22T12:42:01.612025" level="INFO">${response} = &lt;Response [200]&gt;</msg>
+<var>${response}</var>
+<arg>admin_session</arg>
+<arg>/admin/users</arg>
+<doc>Sends a GET request on a previously created HTTP Session.</doc>
+<status status="PASS" start="2026-04-22T12:41:59.288427" elapsed="2.323774"/>
+</kw>
+<kw name="Status Should Be" owner="RequestsLibrary">
+<arg>200</arg>
+<arg>${response}</arg>
+<doc>Fails if response status code is different than the expected.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.613202" elapsed="0.001620"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:42:01.627119" level="INFO">${users} = [{'id': 2, 'user_code': 'user-02', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'AUDITOR01@mail.com', 'role': 'AUDITOR', 'department': 'ฝ่าย HR', 'company_name': 'Thetada...</msg>
+<var>${users}</var>
+<arg>${response.json()['items']}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.615493" elapsed="0.011985"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:42:01.629344" level="INFO">${found} = False</msg>
+<var>${found}</var>
+<arg>${False}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.628102" elapsed="0.001361"/>
+</kw>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.635558" elapsed="0.000097"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.635863" elapsed="0.000100"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.631704" elapsed="0.004399"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.631552" elapsed="0.004698"/>
+</if>
+<var name="${user}">{'id': 2, 'user_code': 'user-02', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'AUDITOR01@mail.com', 'role': 'AUDITOR', 'department': 'ฝ่าย HR', 'company_name': 'Thetadat...</var>
+<status status="PASS" start="2026-04-22T12:42:01.631293" elapsed="0.005067"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.639175" elapsed="0.000098"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.639463" elapsed="0.000061"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.637235" elapsed="0.002814"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.637170" elapsed="0.002968"/>
+</if>
+<var name="${user}">{'id': 3, 'user_code': 'user-03', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'DPO01@mail.com', 'role': 'DPO', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata', 'sta...</var>
+<status status="PASS" start="2026-04-22T12:42:01.636994" elapsed="0.003233"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.643497" elapsed="0.000516"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.644254" elapsed="0.000094"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.641019" elapsed="0.003473"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.640965" elapsed="0.003663"/>
+</if>
+<var name="${user}">{'id': 4, 'user_code': 'user-04', 'title': 'string', 'first_name': 'string', 'last_name': 'string', 'email': 'testing@gmail.com', 'role': 'OWNER', 'department': 'string', 'company_name': 'string', 'st...</var>
+<status status="PASS" start="2026-04-22T12:42:01.640852" elapsed="0.003924"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.648832" elapsed="0.000156"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.649297" elapsed="0.000106"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.645706" elapsed="0.003968"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.645640" elapsed="0.004201"/>
+</if>
+<var name="${user}">{'id': 6, 'user_code': 'user-06', 'title': 'นางสาว', 'first_name': 'ทด', 'last_name': 'สอบ', 'email': 'executive@email.com', 'role': 'EXECUTIVE', 'department': 'แผนก IT', 'company_name': 'บริษัท A', '...</var>
+<status status="PASS" start="2026-04-22T12:42:01.645470" elapsed="0.004500"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.653934" elapsed="0.000145"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.654291" elapsed="0.000081"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.651216" elapsed="0.003279"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.651115" elapsed="0.003499"/>
+</if>
+<var name="${user}">{'id': 7, 'user_code': 'user-07', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'DPO01@gmail.com', 'role': 'PROCESSOR', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata...</var>
+<status status="PASS" start="2026-04-22T12:42:01.650941" elapsed="0.003778"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.657496" elapsed="0.000089"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.657781" elapsed="0.000075"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.655481" elapsed="0.002485"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.655425" elapsed="0.002636"/>
+</if>
+<var name="${user}">{'id': 8, 'user_code': 'user-08', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'EX01@gmail.com', 'role': 'EXECUTIVE', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata'...</var>
+<status status="PASS" start="2026-04-22T12:42:01.655305" elapsed="0.002880"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.660728" elapsed="0.000085"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.660991" elapsed="0.000055"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.658909" elapsed="0.002223"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.658854" elapsed="0.002356"/>
+</if>
+<var name="${user}">{'id': 9, 'user_code': 'user-09', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'DO01@gmail.com', 'role': 'OWNER', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata', 's...</var>
+<status status="PASS" start="2026-04-22T12:42:01.658740" elapsed="0.002553"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.664481" elapsed="0.000254"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.665152" elapsed="0.000100"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.662063" elapsed="0.003338"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.662002" elapsed="0.003511"/>
+</if>
+<var name="${user}">{'id': 5, 'user_code': 'user-05', 'title': 'นางสาว', 'first_name': 'ไม่บอก', 'last_name': 'ไม่บอก', 'email': 'test@email.com', 'role': 'AUDITOR', 'department': 'แผนก IT', 'company_name': 'บริษัท A', '...</var>
+<status status="PASS" start="2026-04-22T12:42:01.661860" elapsed="0.003798"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:01.669493" elapsed="0.000096"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.669781" elapsed="0.000059"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:01.666804" elapsed="0.003145"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.666706" elapsed="0.003330"/>
+</if>
+<var name="${user}">{'id': 1, 'user_code': 'user-01', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'admin01@gmail.com', 'role': 'ADMIN', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata',...</var>
+<status status="PASS" start="2026-04-22T12:42:01.666513" elapsed="0.003612"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="&quot;${user['email']}&quot; == &quot;${USER_EMAIL}&quot;">
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:42:01.673985" level="INFO">${found} = True</msg>
+<var>${found}</var>
+<arg>${True}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.672828" elapsed="0.001282"/>
+</kw>
+<break>
+<status status="PASS" start="2026-04-22T12:42:01.674291" elapsed="0.000126"/>
+</break>
+<status status="PASS" start="2026-04-22T12:42:01.670978" elapsed="0.003549"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:01.670923" elapsed="0.003762"/>
+</if>
+<var name="${user}">{'id': 10, 'user_code': 'user-10', 'title': 'นาย', 'first_name': 'Robot', 'last_name': 'Tester', 'email': 'testuser@example.com', 'role': 'PROCESSOR', 'department': None, 'company_name': None, 'status...</var>
+<status status="PASS" start="2026-04-22T12:42:01.670803" elapsed="0.004006"/>
+</iter>
+<var>${user}</var>
+<value>@{users}</value>
+<status status="PASS" start="2026-04-22T12:42:01.629720" elapsed="0.045217"/>
+</for>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${found}</arg>
+<arg>User not found in list</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.675341" elapsed="0.001289"/>
+</kw>
+<doc>Test listing users and finding the newly created one.</doc>
+<status status="PASS" start="2026-04-22T12:41:59.287818" elapsed="2.389436"/>
+</test>
+<test id="s1-t3" name="Admin Can Update User" line="45">
+<kw name="Create Dictionary" owner="BuiltIn">
+<msg time="2026-04-22T12:42:01.681325" level="INFO">&amp;{update_payload} = { first_name=Robot-Updated | last_name=Tester-Updated }</msg>
+<var>&amp;{update_payload}</var>
+<arg>first_name=Robot-Updated</arg>
+<arg>last_name=Tester-Updated</arg>
+<doc>Creates and returns a dictionary based on the given ``items``.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.679510" elapsed="0.002053"/>
+</kw>
+<kw name="PUT On Session" owner="RequestsLibrary">
+<msg time="2026-04-22T12:42:02.703743" level="INFO">PUT Request : url=http://localhost:8000/admin/users/10 
+ path_url=/admin/users/10 
+ headers={'User-Agent': 'python-requests/2.33.1', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA', 'Content-Type': 'application/json', 'Content-Length': '62'} 
+ body=b'{"first_name": "Robot-Updated", "last_name": "Tester-Updated"}' 
+ </msg>
+<msg time="2026-04-22T12:42:02.704137" level="INFO">PUT Response : url=http://localhost:8000/admin/users/10 
+ status=200, reason=OK 
+ headers={'date': 'Wed, 22 Apr 2026 05:42:01 GMT', 'server': 'uvicorn', 'content-length': '294', 'content-type': 'application/json'} 
+ body={"title":"นาย","email":"testuser@example.com","username":"testuser","first_name":"Robot-Updated","last_name":"Tester-Updated","department":null,"company_name":null,"auditor_type":null,"id":10,"role":"PROCESSOR","status":"ACTIVE","created_at":"2026-04-22T05:41:58.055084","is_active":true} 
+ </msg>
+<msg time="2026-04-22T12:42:02.704679" level="INFO">${response} = &lt;Response [200]&gt;</msg>
+<var>${response}</var>
+<arg>admin_session</arg>
+<arg>/admin/users/${CREATED_USER_ID}</arg>
+<arg>json=${update_payload}</arg>
+<doc>Sends a PUT request on a previously created HTTP Session.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.682616" elapsed="1.022222"/>
+</kw>
+<kw name="Status Should Be" owner="RequestsLibrary">
+<arg>200</arg>
+<arg>${response}</arg>
+<doc>Fails if response status code is different than the expected.</doc>
+<status status="PASS" start="2026-04-22T12:42:02.705909" elapsed="0.001406"/>
+</kw>
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${response.json()['first_name']}</arg>
+<arg>Robot-Updated</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="PASS" start="2026-04-22T12:42:02.707974" elapsed="0.002389"/>
+</kw>
+<doc>Test updating user details.</doc>
+<status status="PASS" start="2026-04-22T12:42:01.678168" elapsed="1.032584"/>
+</test>
+<test id="s1-t4" name="Admin Can Deactivate User" line="52">
+<kw name="DELETE On Session" owner="RequestsLibrary">
+<msg time="2026-04-22T12:42:03.378044" level="INFO">DELETE Request : url=http://localhost:8000/admin/users/10 
+ path_url=/admin/users/10 
+ headers={'User-Agent': 'python-requests/2.33.1', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA', 'Content-Type': 'application/json', 'Content-Length': '0'} 
+ body=None 
+ </msg>
+<msg time="2026-04-22T12:42:03.378296" level="INFO">DELETE Response : url=http://localhost:8000/admin/users/10 
+ status=204, reason=No Content 
+ headers={'date': 'Wed, 22 Apr 2026 05:42:02 GMT', 'server': 'uvicorn', 'content-type': 'application/json'} 
+ body=None 
+ </msg>
+<msg time="2026-04-22T12:42:03.378751" level="INFO">${response} = &lt;Response [204]&gt;</msg>
+<var>${response}</var>
+<arg>admin_session</arg>
+<arg>/admin/users/${CREATED_USER_ID}</arg>
+<doc>Sends a DELETE request on a previously created HTTP Session.</doc>
+<status status="PASS" start="2026-04-22T12:42:02.714810" elapsed="0.664050"/>
+</kw>
+<kw name="Status Should Be" owner="RequestsLibrary">
+<arg>204</arg>
+<arg>${response}</arg>
+<doc>Fails if response status code is different than the expected.</doc>
+<status status="PASS" start="2026-04-22T12:42:03.379460" elapsed="0.000900"/>
+</kw>
+<kw name="GET On Session" owner="RequestsLibrary">
+<msg time="2026-04-22T12:42:03.949396" level="INFO">GET Request : url=http://localhost:8000/admin/users 
+ path_url=/admin/users 
+ headers={'User-Agent': 'python-requests/2.33.1', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZXhwIjoxNzc2ODM4MzE2fQ.gm5ese7k0RNH4vtmocU-jvkZX3qdHsWcTepgWb3gyoA', 'Content-Type': 'application/json'} 
+ body=None 
+ </msg>
+<msg time="2026-04-22T12:42:03.949803" level="INFO">GET Response : url=http://localhost:8000/admin/users 
+ status=200, reason=OK 
+ headers={'date': 'Wed, 22 Apr 2026 05:42:02 GMT', 'server': 'uvicorn', 'content-length': '3024', 'content-type': 'application/json'} 
+ body={"total":10,"page":1,"limit":10,"items":[{"id":2,"user_code":"user-02","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"AUDITOR01@mail.com","role":"AUDITOR","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-17T07:49:17.806728","is_active":true},{"id":3,"user_code":"user-03","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"DPO01@mail.com","role":"DPO","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-17T07:50:06.707829","is_active":true},{"id":4,"user_code":"user-04","title":"string","first_name":"string","last_name":"string","email":"testing@gmail.com","role":"OWNER","department":"string","company_name":"string","status":"ACTIVE","created_at":"2026-04-17T08:21:27.081479","is_active":true},{"id":6,"user_code":"user-06","title":"นางสาว","first_name":"ทด","last_name":"สอบ","email":"executive@email.com","role":"EXECUTIVE","department":"แผนก IT","company_name":"บริษัท A","status":"ACTIVE","created_at":"2026-04-18T12:25:19.906532","is_active":true},{"id":7,"user_code":"user-07","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"DPO01@gmail.com","role":"PROCESSOR","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-18T18:35:16.596620","is_active":true},{"id":8,"user_code":"user-08","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"EX01@gmail.com","role":"EXECUTIVE","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-18T18:40:14.945553","is_active":true},{"id":9,"user_code":"user-09","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"DO01@gmail.com","role":"OWNER","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-18T18:42:14.446177","is_active":true},{"id":5,"user_code":"user-05","title":"นางสาว","first_name":"ไม่บอก","last_name":"ไม่บอก","email":"test@email.com","role":"AUDITOR","department":"แผนก IT","company_name":"บริษัท A","status":"INACTIVE","created_at":"2026-04-18T09:54:31.066650","is_active":false},{"id":1,"user_code":"user-01","title":"นาย","first_name":"ประวริศ","last_name":"เป้งเซ่ง","email":"admin01@gmail.com","role":"ADMIN","department":"ฝ่าย HR","company_name":"Thetadata","status":"ACTIVE","created_at":"2026-04-17T03:55:03.699787","is_active":true},{"id":10,"user_code":"user-10","title":"นาย","first_name":"Robot-Updated","last_name":"Tester-Updated","email":"testuser@example.com","role":"PROCESSOR","department":null,"company_name":null,"status":"INACTIVE","created_at":"2026-04-22T05:41:58.055084","is_active":false}]} 
+ </msg>
+<msg time="2026-04-22T12:42:03.950856" level="INFO">${response} = &lt;Response [200]&gt;</msg>
+<var>${response}</var>
+<arg>admin_session</arg>
+<arg>/admin/users</arg>
+<doc>Sends a GET request on a previously created HTTP Session.</doc>
+<status status="PASS" start="2026-04-22T12:42:03.381000" elapsed="0.569969"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-04-22T12:42:03.954119" level="INFO">${users} = [{'id': 2, 'user_code': 'user-02', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'AUDITOR01@mail.com', 'role': 'AUDITOR', 'department': 'ฝ่าย HR', 'company_name': 'Thetada...</msg>
+<var>${users}</var>
+<arg>${response.json()['items']}</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-04-22T12:42:03.951440" elapsed="0.002807"/>
+</kw>
+<for flavor="IN">
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.957449" elapsed="0.000088"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.957758" elapsed="0.000062"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.955407" elapsed="0.002505"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.955345" elapsed="0.002649"/>
+</if>
+<var name="${user}">{'id': 2, 'user_code': 'user-02', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'AUDITOR01@mail.com', 'role': 'AUDITOR', 'department': 'ฝ่าย HR', 'company_name': 'Thetadat...</var>
+<status status="PASS" start="2026-04-22T12:42:03.955227" elapsed="0.002852"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.960600" elapsed="0.000084"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.960899" elapsed="0.000064"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.958756" elapsed="0.002301"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.958704" elapsed="0.002433"/>
+</if>
+<var name="${user}">{'id': 3, 'user_code': 'user-03', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'DPO01@mail.com', 'role': 'DPO', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata', 'sta...</var>
+<status status="PASS" start="2026-04-22T12:42:03.958593" elapsed="0.002624"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.963641" elapsed="0.000089"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.964099" elapsed="0.000098"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.961839" elapsed="0.002510"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.961790" elapsed="0.002702"/>
+</if>
+<var name="${user}">{'id': 4, 'user_code': 'user-04', 'title': 'string', 'first_name': 'string', 'last_name': 'string', 'email': 'testing@gmail.com', 'role': 'OWNER', 'department': 'string', 'company_name': 'string', 'st...</var>
+<status status="PASS" start="2026-04-22T12:42:03.961687" elapsed="0.002961"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.967681" elapsed="0.000090"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.967963" elapsed="0.000056"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.965568" elapsed="0.002537"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.965476" elapsed="0.002710"/>
+</if>
+<var name="${user}">{'id': 6, 'user_code': 'user-06', 'title': 'นางสาว', 'first_name': 'ทด', 'last_name': 'สอบ', 'email': 'executive@email.com', 'role': 'EXECUTIVE', 'department': 'แผนก IT', 'company_name': 'บริษัท A', '...</var>
+<status status="PASS" start="2026-04-22T12:42:03.965339" elapsed="0.002933"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.970833" elapsed="0.000084"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.971089" elapsed="0.000052"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.968942" elapsed="0.002282"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.968890" elapsed="0.002411"/>
+</if>
+<var name="${user}">{'id': 7, 'user_code': 'user-07', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'DPO01@gmail.com', 'role': 'PROCESSOR', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata...</var>
+<status status="PASS" start="2026-04-22T12:42:03.968783" elapsed="0.002605"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.974296" elapsed="0.000089"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.974560" elapsed="0.000054"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.972082" elapsed="0.002620"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.972032" elapsed="0.002749"/>
+</if>
+<var name="${user}">{'id': 8, 'user_code': 'user-08', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'EX01@gmail.com', 'role': 'EXECUTIVE', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata'...</var>
+<status status="PASS" start="2026-04-22T12:42:03.971928" elapsed="0.002937"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.977366" elapsed="0.000085"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.977649" elapsed="0.000058"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.975510" elapsed="0.002287"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.975461" elapsed="0.002414"/>
+</if>
+<var name="${user}">{'id': 9, 'user_code': 'user-09', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'DO01@gmail.com', 'role': 'OWNER', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata', 's...</var>
+<status status="PASS" start="2026-04-22T12:42:03.975355" elapsed="0.002601"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.980690" elapsed="0.000326"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.981460" elapsed="0.000112"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.978612" elapsed="0.003295"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.978563" elapsed="0.003464"/>
+</if>
+<var name="${user}">{'id': 5, 'user_code': 'user-05', 'title': 'นางสาว', 'first_name': 'ไม่บอก', 'last_name': 'ไม่บอก', 'email': 'test@email.com', 'role': 'AUDITOR', 'department': 'แผนก IT', 'company_name': 'บริษัท A', '...</var>
+<status status="PASS" start="2026-04-22T12:42:03.978460" elapsed="0.003669"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="NOT RUN" start="2026-04-22T12:42:03.985109" elapsed="0.000089"/>
+</kw>
+<break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.985378" elapsed="0.000089"/>
+</break>
+<status status="NOT RUN" start="2026-04-22T12:42:03.982896" elapsed="0.002669"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.982829" elapsed="0.002818"/>
+</if>
+<var name="${user}">{'id': 1, 'user_code': 'user-01', 'title': 'นาย', 'first_name': 'ประวริศ', 'last_name': 'เป้งเซ่ง', 'email': 'admin01@gmail.com', 'role': 'ADMIN', 'department': 'ฝ่าย HR', 'company_name': 'Thetadata',...</var>
+<status status="PASS" start="2026-04-22T12:42:03.982709" elapsed="0.003024"/>
+</iter>
+<iter>
+<if>
+<branch type="IF" condition="${user['id']} == ${CREATED_USER_ID}">
+<kw name="Should Be Equal As Strings" owner="BuiltIn">
+<arg>${user['status']}</arg>
+<arg>INACTIVE</arg>
+<doc>Fails if objects are unequal after converting them to strings.</doc>
+<status status="PASS" start="2026-04-22T12:42:03.988224" elapsed="0.002961"/>
+</kw>
+<break>
+<status status="PASS" start="2026-04-22T12:42:03.991544" elapsed="0.000168"/>
+</break>
+<status status="PASS" start="2026-04-22T12:42:03.986400" elapsed="0.005466"/>
+</branch>
+<status status="PASS" start="2026-04-22T12:42:03.986348" elapsed="0.005620"/>
+</if>
+<var name="${user}">{'id': 10, 'user_code': 'user-10', 'title': 'นาย', 'first_name': 'Robot-Updated', 'last_name': 'Tester-Updated', 'email': 'testuser@example.com', 'role': 'PROCESSOR', 'department': None, 'company_name...</var>
+<status status="PASS" start="2026-04-22T12:42:03.986240" elapsed="0.005838"/>
+</iter>
+<var>${user}</var>
+<value>@{users}</value>
+<status status="PASS" start="2026-04-22T12:42:03.954490" elapsed="0.037718"/>
+</for>
+<doc>Test deactivating a user (DELETE method in this API).</doc>
+<status status="PASS" start="2026-04-22T12:42:02.711557" elapsed="1.281018"/>
+</test>
+<test id="s1-t5" name="Cleanup Created User From DB" line="67">
+<kw name="Delete User By Email" owner="DbCleanupLibrary">
+<msg time="2026-04-22T12:42:05.072667" level="INFO">Deleted user with email: testuser@example.com</msg>
+<arg>${USER_EMAIL}</arg>
+<status status="PASS" start="2026-04-22T12:42:03.994833" elapsed="1.077996"/>
+</kw>
+<doc>Hard delete the user from DB to allow re-running tests.</doc>
+<tag>Cleanup</tag>
+<status status="PASS" start="2026-04-22T12:42:03.993295" elapsed="1.079803"/>
+</test>
+<kw name="Teardown Admin Session" owner="keywords" type="TEARDOWN">
+<kw name="Delete All Sessions" owner="RequestsLibrary">
+<msg time="2026-04-22T12:42:05.074792" level="INFO">Deleting All Sessions</msg>
+<doc>Removes all the session objects</doc>
+<status status="PASS" start="2026-04-22T12:42:05.074650" elapsed="0.000267"/>
+</kw>
+<status status="PASS" start="2026-04-22T12:42:05.074291" elapsed="0.000717"/>
+</kw>
+<status status="PASS" start="2026-04-22T12:41:56.391722" elapsed="8.683350"/>
+</suite>
+<statistics>
+<total>
+<stat pass="5" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+<stat pass="1" fail="0" skip="0">Admin</stat>
+<stat pass="1" fail="0" skip="0">Cleanup</stat>
+<stat pass="1" fail="0" skip="0">CRUD</stat>
+</tag>
+<suite>
+<stat name="Api User Crud" id="s1" pass="5" fail="0" skip="0">Api User Crud</stat>
+</suite>
+</statistics>
+<errors>
+<msg time="2026-04-22T12:41:56.846569" level="WARN">Error in file 'd:\RoPa-Web-Service-V2\tests\robot\resources\keywords.robot' on line 13: The '[Return]' setting is deprecated. Use the 'RETURN' statement instead.</msg>
+</errors>
+</robot>
