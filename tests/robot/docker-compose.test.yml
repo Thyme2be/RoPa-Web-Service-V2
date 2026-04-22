@@ -40,9 +40,12 @@ services:
     volumes:
       - ../../tests/robot:/app/tests/robot
     command: >
-      sh -c "python /app/server/run_migration.py /app/server/migrations/002_full_ropa_schema.sql && 
-             python /app/server/run_migration.py /app/server/migrations/005_fix_schema_mismatches.sql && 
-             python /app/tests/robot/reset_admin.py && 
+      sh -c "echo '🚀 Starting Migrations...' && 
+             python server/run_migration.py server/migrations/002_full_ropa_schema.sql && 
+             python server/run_migration.py server/migrations/005_fix_schema_mismatches.sql && 
+             echo '✅ Migrations Done. Resetting Admin...' && 
+             python tests/robot/reset_admin.py && 
+             echo '🤖 Running Robot Tests...' && 
              robot --variable API_URL:http://test-backend:8000 \
-                   --outputdir /app/tests/robot \
-                   /app/tests/robot/api_user_crud.robot"
+                   --outputdir tests/robot \
+                   tests/robot/api_user_crud.robot"
