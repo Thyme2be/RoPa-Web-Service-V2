@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir \
     psycopg2-binary \
     python-dotenv
 
-# Copy the tests directory
-COPY . /app/tests/robot
+# Copy the whole project to /app
+COPY . /app
 
 # Default command remains empty, we will override it in compose
 CMD ["robot", "tests/robot/api_user_crud.robot"]
