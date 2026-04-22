@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir \
     robotframework \
     robotframework-requests \
     psycopg2-binary \
+    sqlalchemy \
     python-dotenv
 
 # Copy the whole project to /app

@@ -46,6 +46,4 @@ services:
              echo '✅ Migrations Done. Resetting Admin...' && 
              python tests/robot/reset_admin.py && 
              echo '🤖 Running Robot Tests...' && 
-             robot --variable API_URL:http://test-backend:8000 \
-                   --outputdir tests/robot \
-                   tests/robot/api_user_crud.robot"
+             robot --variable API_URL:http://test-backend:8000 --outputdir tests/robot tests/robot/api_user_crud.robot"
