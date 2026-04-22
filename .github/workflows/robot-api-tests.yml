@@ -1,0 +1,92 @@
+name: Robot Framework API Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r server/requirements.txt
+          pip install robotframework robotframework-requests psycopg2-binary
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+        env:
+          PGPASSWORD: password
+
+      - name: Run Migrations
+        run: |
+          # Use the local postgres service
+          export DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
+          python server/run_migration.py server/migrations/002_full_ropa_schema.sql
+          python server/run_migration.py server/migrations/005_fix_schema_mismatches.sql
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
+
+      - name: Start Backend
+        run: |
+          export DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
+          export JWT_SECRET_KEY=test_secret_key_12345678901234567890
+          export JWT_REFRESH_SECRET_KEY=test_refresh_key_12345678901234567890
+          cd server
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10 # Wait for backend to start
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
+
+      - name: Reset Admin Password
+        run: |
+          export DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
+          python tests/robot/reset_admin.py
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
+
+      - name: Run Robot Tests
+        run: |
+          # Override API URL to point to localhost in GH Actions
+          robot --variable API_URL:http://localhost:8000 tests/robot/api_user_crud.robot
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-framework-report
+          path: |
+            log.html
+            report.html
+            output.xml
+          retention-days: 30
