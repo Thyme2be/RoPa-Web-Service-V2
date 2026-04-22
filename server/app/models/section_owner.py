@@ -58,6 +58,15 @@ class RopaOwnerSectionModel(Base):
 
     document = relationship("RopaDocumentModel", back_populates="owner_section")
 
+    personal_data_items = relationship("OwnerPersonalDataItemModel", back_populates="section", cascade="all, delete-orphan")
+    data_categories     = relationship("OwnerDataCategoryModel", back_populates="section", cascade="all, delete-orphan")
+    data_types          = relationship("OwnerDataTypeModel", back_populates="section", cascade="all, delete-orphan")
+    collection_methods  = relationship("OwnerCollectionMethodModel", back_populates="section", cascade="all, delete-orphan")
+    data_sources        = relationship("OwnerDataSourceModel", back_populates="section", cascade="all, delete-orphan")
+    storage_types       = relationship("OwnerStorageTypeModel", back_populates="section", cascade="all, delete-orphan")
+    storage_methods     = relationship("OwnerStorageMethodModel", back_populates="section", cascade="all, delete-orphan")
+    minor_consent_types = relationship("OwnerMinorConsentTypeModel", back_populates="section", cascade="all, delete-orphan")
+
 class OwnerPersonalDataItemModel(Base):
     __tablename__ = "owner_personal_data_items"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -65,11 +74,15 @@ class OwnerPersonalDataItemModel(Base):
     type = Column(String, nullable=True)
     other_description = Column(Text, nullable=True)
 
+    section = relationship("RopaOwnerSectionModel", back_populates="personal_data_items")
+
 class OwnerDataCategoryModel(Base):
     __tablename__ = "owner_data_categories"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     category = Column(String, nullable=True)
+
+    section = relationship("RopaOwnerSectionModel", back_populates="data_categories")
 
 class OwnerDataTypeModel(Base):
     __tablename__ = "owner_data_types"
@@ -77,11 +90,15 @@ class OwnerDataTypeModel(Base):
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=True)
 
+    section = relationship("RopaOwnerSectionModel", back_populates="data_types")
+
 class OwnerCollectionMethodModel(Base):
     __tablename__ = "owner_collection_methods"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     method = Column(String, nullable=True)
+
+    section = relationship("RopaOwnerSectionModel", back_populates="collection_methods")
 
 class OwnerDataSourceModel(Base):
     __tablename__ = "owner_data_sources"
@@ -90,11 +107,15 @@ class OwnerDataSourceModel(Base):
     source = Column(String, nullable=True)
     other_description = Column(Text, nullable=True)
 
+    section = relationship("RopaOwnerSectionModel", back_populates="data_sources")
+
 class OwnerStorageTypeModel(Base):
     __tablename__ = "owner_storage_types"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=True)
+
+    section = relationship("RopaOwnerSectionModel", back_populates="storage_types")
 
 class OwnerStorageMethodModel(Base):
     __tablename__ = "owner_storage_methods"
@@ -103,9 +124,13 @@ class OwnerStorageMethodModel(Base):
     method = Column(String, nullable=True)
     other_description = Column(Text, nullable=True)
 
+    section = relationship("RopaOwnerSectionModel", back_populates="storage_methods")
+
 class OwnerMinorConsentTypeModel(Base):
     """ตรงกับ 3 checkbox ใน UI: อายุไม่เกิน 10 ปี / อายุ 10-20 ปี / ไม่มีการขอ"""
     __tablename__ = "owner_minor_consent_types"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_section_id = Column(UUID(as_uuid=True), ForeignKey("ropa_owner_sections.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=False)
+
+    section = relationship("RopaOwnerSectionModel", back_populates="minor_consent_types")

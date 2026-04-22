@@ -1629,7 +1629,7 @@ def list_dpo_auditor_assignments(
 def get_document_comments(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(require_roles(Role.DPO)),
+    current_user: UserRead = Depends(require_roles(Role.DPO, Role.AUDITOR)),
 ):
     check_document_access(document_id, current_user, db)
     comments = (

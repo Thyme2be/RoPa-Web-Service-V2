@@ -206,6 +206,12 @@ def _load_owner_section_full(
     )
     minor_consent_types_out = [ct.type for ct in consent_type_rows]
 
+    # Map sub-tables back to flat booleans/strings for UI
+    coll_method = collection_methods[0].method if collection_methods else None
+    src_list = [s.source for s in data_sources if s.source]
+    ds_direct = "direct" in src_list
+    ds_indirect = "indirect" in src_list
+
     return OwnerSectionFullRead(
         id=section.id,
         document_id=section.document_id,
@@ -249,6 +255,9 @@ def _load_owner_section_full(
         exemption_usage=section.exemption_usage,
         refusal_handling=section.refusal_handling,
         minor_consent_types=minor_consent_types_out,
+        collection_method=coll_method,
+        data_source_direct=ds_direct,
+        data_source_indirect=ds_indirect,
         org_measures=section.org_measures,
         access_control_measures=section.access_control_measures,
         technical_measures=section.technical_measures,
@@ -301,6 +310,16 @@ def _replace_owner_sub_tables(section_id: UUID, payload: OwnerSectionSave, db: S
                     owner_section_id=section_id, **item.model_dump()
                 )
             )
+    elif payload.collection_method is not None:
+        db.query(OwnerCollectionMethodModel).filter_by(
+            owner_section_id=section_id
+        ).delete()
+        if payload.collection_method:
+            db.add(
+                OwnerCollectionMethodModel(
+                    owner_section_id=section_id, method=payload.collection_method
+                )
+            )
 
     if payload.data_sources is not None:
         db.query(OwnerDataSourceModel).filter_by(owner_section_id=section_id).delete()
@@ -308,6 +327,12 @@ def _replace_owner_sub_tables(section_id: UUID, payload: OwnerSectionSave, db: S
             db.add(
                 OwnerDataSourceModel(owner_section_id=section_id, **item.model_dump())
             )
+    elif payload.data_source_direct is not None or payload.data_source_indirect is not None:
+        db.query(OwnerDataSourceModel).filter_by(owner_section_id=section_id).delete()
+        if payload.data_source_direct:
+            db.add(OwnerDataSourceModel(owner_section_id=section_id, source="direct"))
+        if payload.data_source_indirect:
+            db.add(OwnerDataSourceModel(owner_section_id=section_id, source="indirect"))
 
     if payload.storage_types is not None:
         db.query(OwnerStorageTypeModel).filter_by(owner_section_id=section_id).delete()
