@@ -26,7 +26,7 @@
     "dev": "npm run dev --workspace=client",
     "test": "npx playwright test",
     "test:robot": "robot tests/robot/api_user_crud.robot",
-    "test:robot:spec": "docker-compose -f tests/robot/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from robot-runner"
+    "test:robot:spec": "docker compose -f tests/robot/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from robot-runner"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

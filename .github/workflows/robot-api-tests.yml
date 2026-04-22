@@ -14,13 +14,13 @@ jobs:
 
       - name: Run 100% Spec Compliant Robot Tests
         run: |
-          docker-compose -f tests/robot/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from robot-runner
+          docker compose -f tests/robot/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from robot-runner
         continue-on-error: false
 
       - name: Show Docker Logs on Failure
         if: failure()
         run: |
-          docker-compose -f tests/robot/docker-compose.test.yml logs test-backend
+          docker compose -f tests/robot/docker-compose.test.yml logs test-backend
 
       - name: Upload Test Results
         if: always()
