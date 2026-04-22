@@ -16,7 +16,8 @@ def get_password_hash(password: str) -> str:
         salt
     ).decode('utf-8')
 
-load_dotenv("d:/RoPa-Web-Service-V2/server/.env")
+# Try to load .env, but prioritize existing environment variables (like in Docker)
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../server/.env"))
 db_url = os.getenv("DATABASE_URL")
 
 new_password = "Admin@1234"
