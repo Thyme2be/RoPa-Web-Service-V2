@@ -24,10 +24,21 @@ new_hash = get_password_hash(new_password)
 
 conn = psycopg2.connect(db_url)
 cur = conn.cursor()
-try:
-    cur.execute("UPDATE users SET password_hash = %s WHERE username = %s OR email = %s", (new_hash, "ADMIN01", "admin01@gmail.com"))
+    # Use Upsert logic: Update password if user exists, otherwise create a new admin user
+    cur.execute("SELECT id FROM users WHERE email = %s OR username = %s", ("admin01@gmail.com", "ADMIN01"))
+    user = cur.fetchone()
+    
+    if user:
+        cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user[0]))
+        print(f"Updated admin password for existing user: admin01@gmail.com")
+    else:
+        cur.execute(
+            "INSERT INTO users (email, username, password_hash, role, status) VALUES (%s, %s, %s, %s, %s)",
+            ("admin01@gmail.com", "ADMIN01", new_hash, "ADMIN", "ACTIVE")
+        )
+        print("Created new admin user: admin01@gmail.com")
+    
     conn.commit()
-    print(f"Updated admin password to: {new_password}")
 except Exception as e:
     print(f"Error: {e}")
     conn.rollback()
