@@ -94,6 +94,15 @@ jobs:
         run: |
           # Override API URL to point to localhost in GH Actions
           robot --variable API_URL:http://localhost:8000 tests/robot/api_user_crud.robot
+        continue-on-error: false
+
+      - name: Show Docker Logs on Failure
+        if: failure()
+        run: docker logs backend
+
+      - name: Save Docker Logs to file
+        if: always()
+        run: docker logs backend > docker-backend.log
 
       - name: Upload Test Results
         if: always()
@@ -104,5 +113,5 @@ jobs:
             log.html
             report.html
             output.xml
-            backend.log
+            docker-backend.log
           retention-days: 30
