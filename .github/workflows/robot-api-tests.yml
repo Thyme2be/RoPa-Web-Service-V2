@@ -94,6 +94,8 @@ jobs:
         run: |
           # Override API URL to point to localhost in GH Actions
           robot --variable API_URL:http://localhost:8000 tests/robot/api_user_crud.robot
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
         continue-on-error: false
 
       - name: Show Docker Logs on Failure
