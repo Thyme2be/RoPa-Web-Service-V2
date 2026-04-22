@@ -10,7 +10,7 @@ Login As Admin
     ${response}=        POST    ${API_URL}/auth/login    json=${auth_payload}
     Status Should Be    200    ${response}
     ${token}=           Set Variable    ${response.json()['access_token']}
-    [Return]           ${token}
+    RETURN           ${token}
 
 Setup Admin Session
     [Documentation]    Creates an authorized session for admin.
