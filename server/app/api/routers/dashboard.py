@@ -1228,7 +1228,7 @@ def list_dpo_documents(
         None, description="Search by title or document number"
     ),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
@@ -1371,7 +1371,7 @@ def list_dpo_destruction_requests(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
     days_filter: Optional[int] = Query(None, description="Days filter"),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
@@ -1524,7 +1524,7 @@ def list_dpo_auditor_assignments(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
     days_filter: Optional[int] = Query(None, description="Days filter"),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
@@ -1761,7 +1761,7 @@ def save_document_comments(
 )
 def list_documents_from_dpo(
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     status: Optional[str] = Query(
         None,
         description="FILTER: IN_REVIEW, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED",
