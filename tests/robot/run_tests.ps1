@@ -4,13 +4,13 @@
 $portCheck = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
 if ($null -eq $portCheck) {
     Write-Host "⚠️ Backend is NOT running on port 8000." -ForegroundColor Yellow
-    Write-Host "🚀 Starting backend in a new window..." -ForegroundColor Gray
+    Write-Host "🚀 Starting backend container via Docker Compose..." -ForegroundColor Gray
     
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd server; uvicorn app.main:app --reload"
-    Write-Host "⏳ Waiting for backend to initialize (5s)..."
-    Start-Sleep -Seconds 5
+    docker-compose up -d backend
+    Write-Host "⏳ Waiting for backend container to initialize (10s)..."
+    Start-Sleep -Seconds 10
 } else {
-    Write-Host "✅ Backend is already running." -ForegroundColor Green
+    Write-Host "✅ Backend (or something else) is already running on port 8000." -ForegroundColor Green
 }
 
 # 2. Reset Admin password to ensure authentication works (troubleshooting helper)

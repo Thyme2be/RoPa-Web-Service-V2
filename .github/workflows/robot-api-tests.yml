@@ -57,14 +57,18 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
 
-      - name: Start Backend
+      - name: Start Backend (Docker)
         run: |
-          export DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
-          export JWT_SECRET_KEY=test_secret_key_12345678901234567890
-          export JWT_REFRESH_SECRET_KEY=test_refresh_key_12345678901234567890
-          cd server
-          # Redirect both stdout and stderr to backend.log
-          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug > ../backend.log 2>&1 &
+          # Build the backend image
+          docker build -t ropa-backend ./server
+          
+          # Run the container using host network to access the postgres service on localhost
+          # We pass environment variables to override any .env file inside the container
+          docker run -d --name backend --network host \
+            -e DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres \
+            -e JWT_SECRET_KEY=test_secret_key_12345678901234567890 \
+            -e JWT_REFRESH_SECRET_KEY=test_refresh_key_12345678901234567890 \
+            ropa-backend
           
           echo "⏳ Waiting for backend to start..."
           for i in {1..15}; do
@@ -76,10 +80,8 @@ jobs:
             sleep 2
           done
           echo "❌ Backend failed to start within 30 seconds"
-          cat ../backend.log
+          docker logs backend
           exit 1
-        env:
-          DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
 
       - name: Reset Admin Password
         run: |
