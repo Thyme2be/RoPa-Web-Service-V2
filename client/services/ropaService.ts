@@ -151,8 +151,8 @@ export const ropaService = {
 
 
     // ─── Data Processor ──────────────────────────────────────────────────────
-    getProcessorAssignedTable: async () => {
-        const response = await api.get("/processor/tables/assigned");
+    getProcessorAssignedTable: async (page = 1, limit = 3) => {
+        const response = await api.get("/processor/tables/assigned", { params: { page, limit } });
         return response.data;
     },
 

@@ -228,10 +228,22 @@ class ProcessorDraftTableItem(BaseModel):
     last_saved_at: Optional[datetime]   # updated_at ของ processor_section
 
 
+class PaginationMeta(BaseModel):
+    """Metadata สำหรับ Pagination"""
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
 class ProcessorAssignedTableResponse(BaseModel):
     """Response สำหรับ GET /processor/tables/assigned — แยก 2 กลุ่ม"""
     active: List[ProcessorAssignedTableItem]
     drafts: List[ProcessorDraftTableItem]
+
+class ProcessorAssignedTablePaginated(BaseModel):
+    """Response สำหรับ GET /processor/tables/assigned ที่มี Pagination"""
+    items: List[ProcessorAssignedTableItem]
+    meta: PaginationMeta
 
 
 class MessageResponse(BaseModel):

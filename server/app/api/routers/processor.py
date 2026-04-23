@@ -60,6 +60,7 @@ from app.schemas.owner import (
 )
 from app.schemas.processor import (
     ProcessorAssignedTableItem,
+    ProcessorAssignedTablePaginated,
     ProcessorDraftTableItem,
     ProcessorSectionFullRead,
     ProcessorSectionSave,
@@ -408,10 +409,12 @@ def delete_processor_snapshot(
 
 @router.get(
     "/tables/assigned",
-    response_model=ProcessorAssignedTableResponse,
-    summary="ตารางเอกสารของ Data Processor (แยก 2 กลุ่ม)",
+    response_model=ProcessorAssignedTablePaginated,
+    summary="ตารางเอกสารของ Data Processor (Active Items พร้อม Pagination)",
 )
 def get_assigned_table(
+    page: int = 1,
+    limit: int = 3,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
 ):
@@ -423,15 +426,10 @@ def get_assigned_table(
     """
     uid = current_user.id
 
-    # 1. Fetch assignments with related data in one go
-    assignments = (
+    # Base query
+    query = (
         db.query(ProcessorAssignmentModel)
         .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
-        .options(
-            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.creator),
-            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.processor_sections),
-            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.owner_section)
-        )
         .filter(
             ProcessorAssignmentModel.processor_id == uid,
             or_(
@@ -439,7 +437,22 @@ def get_assigned_table(
                 RopaDocumentModel.deletion_status != "DELETED",
             ),
         )
+    )
+
+    # Total count for pagination
+    total_items = query.count()
+    total_pages = (total_items + limit - 1) // limit
+
+    # Fetch paginated assignments
+    assignments = (
+        query.options(
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.creator),
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.processor_sections),
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.owner_section)
+        )
         .order_by(ProcessorAssignmentModel.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
         .all()
     )
 
@@ -522,8 +535,13 @@ def get_assigned_table(
             ))
 
     return {
-        "active": active_items,
-        "drafts": draft_items,
+        "items": active_items,
+        "meta": {
+            "total": total_items,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
     }
 
 

@@ -11,7 +11,7 @@ import {
     OwnerSnapshotTableItem,
     StatusBadge
 } from "@/types/dataOwner";
-import { RopaProcessorRecord } from "@/types/dataProcessor";
+import { RopaProcessorRecord, ProcessorAssignedTableItem } from "@/types/dataProcessor";
 import { ExecutiveDashboardResponse, RiskByDepartment } from "@/types/executive";
 import { ropaService } from "@/services/ropaService";
 import { api } from "@/lib/api";
@@ -66,6 +66,7 @@ interface RopaContextType {
     fetchSentTable: (page?: number, limit?: number) => Promise<void>;
     fetchApprovedTable: (page?: number, limit?: number) => Promise<void>;
     fetchDestroyedTable: (page?: number, limit?: number) => Promise<void>;
+    fetchProcessorAssignedTable: (page?: number, limit?: number) => Promise<void>;
     
     annualReview: (id: string, payload?: any) => Promise<void>;
 
@@ -74,6 +75,8 @@ interface RopaContextType {
     sentMeta: { total: number; page: number; limit: number };
     approvedMeta: { total: number; page: number; limit: number };
     destroyedMeta: { total: number; page: number; limit: number };
+    processorAssignedMeta: { total: number; page: number; limit: number; total_pages: number };
+    processorAssignedRecords: ProcessorAssignedTableItem[];
     stats: {
         total: number;
         withProcessor: number;
@@ -98,6 +101,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const [processorSnapshots, setProcessorSnapshots] = useState<OwnerSnapshotTableItem[]>([]);
     const [executiveDashboardData, setExecutiveDashboardData] = useState<any | null>(null);
     const [ownerDashboardData, setOwnerDashboardData] = useState<any | null>(null);
+    const [processorAssignedRecords, setProcessorAssignedRecords] = useState<ProcessorAssignedTableItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
     // Pagination Metadata
@@ -105,9 +109,9 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const [sentMeta, setSentMeta] = useState({ total: 0, page: 1, limit: 3 });
     const [approvedMeta, setApprovedMeta] = useState({ total: 0, page: 1, limit: 3 });
     const [destroyedMeta, setDestroyedMeta] = useState({ total: 0, page: 1, limit: 3 });
+    const [processorAssignedMeta, setProcessorAssignedMeta] = useState({ total: 0, page: 1, limit: 3, total_pages: 1 });
 
     const fetchActiveTable = useCallback(async (page = 1, limit = 3) => {
-        setIsLoading(true);
         try {
             const res = await ropaService.getOwnerActiveTable(page, limit);
             setActiveRecords(res.items);
@@ -115,12 +119,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error("Fetch Active Table failed:", err);
         } finally {
-            setIsLoading(false);
+            // Keep loading if needed by refresh
         }
     }, []);
 
     const fetchSentTable = useCallback(async (page = 1, limit = 3) => {
-        setIsLoading(true);
         try {
             const res = await ropaService.getOwnerSentTable(page, limit);
             setSentRecords(res.items);
@@ -128,12 +131,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error("Fetch Sent Table failed:", err);
         } finally {
-            setIsLoading(false);
+            // Keep loading if needed by refresh
         }
     }, []);
 
     const fetchApprovedTable = useCallback(async (page = 1, limit = 3) => {
-        setIsLoading(true);
         try {
             const res = await ropaService.getOwnerApprovedTable(page, limit);
             setApprovedRecords(res.items);
@@ -141,12 +143,11 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error("Fetch Approved Table failed:", err);
         } finally {
-            setIsLoading(false);
+            // Keep loading if needed by refresh
         }
     }, []);
 
     const fetchDestroyedTable = useCallback(async (page = 1, limit = 3) => {
-        setIsLoading(true);
         try {
             const res = await ropaService.getOwnerDestroyedTable(page, limit);
             setDestroyedRecords(res.items);
@@ -154,7 +155,23 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error("Fetch Destroyed Table failed:", err);
         } finally {
-            setIsLoading(false);
+            // Keep loading if needed by refresh
+        }
+    }, []);
+
+    const fetchProcessorAssignedTable = useCallback(async (page = 1, limit = 3) => {
+        try {
+            const res = await ropaService.getProcessorAssignedTable(page, limit);
+            const itemsWithId = res.items.map((item: any) => ({
+                ...item,
+                id: item.document_id
+            }));
+            setProcessorAssignedRecords(itemsWithId);
+            setProcessorAssignedMeta(res.meta);
+        } catch (err) {
+            console.error("Fetch Processor Assigned Table failed:", err);
+        } finally {
+            // Keep loading if needed by refresh
         }
     }, []);
 
@@ -195,18 +212,17 @@ export function RopaProvider({ children }: { children: ReactNode }) {
                         document_name: item.title || item.document_name,
                         title: item.title || item.document_name,
                         document_number: item.document_number,
-                        // ใช้ do_name ที่ backend format มาให้แล้ว (นางสาวพรรษชล บุญมาก)
                         full_name: item.do_name,
                         title_prefix: item.owner_title || "",
                         first_name: item.owner_first_name || "",
                         last_name: item.owner_last_name || "",
-                        due_date: item.due_date, // เก็บเป็น raw date เพื่อให้มา format ที่ frontend
+                        due_date: item.due_date,
                         updated_at: item.updated_at,
                         assigned_processor: {
                             assigned_date: item.received_at
                         },
                         processing_status: {
-                            do_status: "pending", // Owner status hidden from DP
+                            do_status: "pending",
                             dp_status: item.status?.code === "CHECK_DONE" ? "done" : "pending"
                         },
                         processor_status: item.status,
@@ -241,7 +257,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    }, [isAuthenticated, user]);
+    }, [isAuthenticated, user, fetchActiveTable, fetchSentTable, fetchApprovedTable, fetchDestroyedTable]);
 
     const fetchExecutiveData = async (period: string = "all", department?: string) => {
         setIsLoading(true);
@@ -886,6 +902,8 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             sentMeta,
             approvedMeta,
             destroyedMeta,
+            processorAssignedMeta,
+            processorAssignedRecords,
             saveRecord,
             getById,
             fetchFullOwnerRecord,
@@ -914,6 +932,7 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             fetchSentTable,
             fetchApprovedTable,
             fetchDestroyedTable,
+            fetchProcessorAssignedTable,
             isLoading,
             stats,
             getDashboardStats,

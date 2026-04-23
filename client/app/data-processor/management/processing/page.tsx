@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import {
@@ -95,14 +95,19 @@ function LocalStatusBadge({ code, label }: { code: string; label: string }) {
 export default function ManagementProcessingPage() {
   const router = useRouter();
   const {
-    records,
-    processorRecords,
+    processorAssignedRecords,
+    processorAssignedMeta,
+    fetchProcessorAssignedTable,
     processorSnapshots,
     deleteProcessorRecord,
     dispatchDpSection,
   } = useRopa();
   const [page, setPage] = useState(1);
   const [draftPage, setDraftPage] = useState(1);
+
+  useEffect(() => {
+    fetchProcessorAssignedTable(page, 3);
+  }, [page, fetchProcessorAssignedTable]);
 
   const [submitConfirm, setSubmitConfirm] = useState<{
     open: boolean;
@@ -138,7 +143,7 @@ export default function ManagementProcessingPage() {
     setCustomDate("");
   };
 
-  const assignedRecords = records.filter((r) => r.assigned_processor);
+  const assignedRecords = processorAssignedRecords;
   const draftRecords = processorSnapshots;
 
   const filteredAssigned = assignedRecords
@@ -146,7 +151,7 @@ export default function ManagementProcessingPage() {
       // Status Filter
       if (
         statusFilter !== "all" &&
-        record.processor_status?.code !== statusFilter
+        record.status?.code !== statusFilter
       ) {
         return false;
       }
@@ -186,8 +191,8 @@ export default function ManagementProcessingPage() {
         WAITING_CHECK: 3,
         CHECK_DONE: 4,
       };
-      const pA = statusPriority[a.processor_status?.code || ""] || 99;
-      const pB = statusPriority[b.processor_status?.code || ""] || 99;
+      const pA = statusPriority[a.status?.code || ""] || 99;
+      const pB = statusPriority[b.status?.code || ""] || 99;
       if (pA !== pB) return pA - pB;
 
       // 3. Due Date Urgency (Ascending - soonest first)
@@ -196,21 +201,18 @@ export default function ManagementProcessingPage() {
       if (dateA !== dateB) return dateA - dateB;
 
       // 4. Recency (Descending - newest assignment first)
-      const recA = a.assigned_processor?.assigned_date
-        ? new Date(a.assigned_processor.assigned_date).getTime()
-        : 0;
-      const recB = b.assigned_processor?.assigned_date
-        ? new Date(b.assigned_processor.assigned_date).getTime()
-        : 0;
+      const recA = a.received_at ? new Date(a.received_at).getTime() : 0;
+      const recB = b.received_at ? new Date(b.received_at).getTime() : 0;
       return recB - recA;
     });
 
   const PROCESSING_ITEMS_PER_PAGE = 3;
   const DRAFT_ITEMS_PER_PAGE = 2;
-  const paginatedProcessing = filteredAssigned.slice(
-    (page - 1) * PROCESSING_ITEMS_PER_PAGE,
-    page * PROCESSING_ITEMS_PER_PAGE,
-  );
+  
+  // Now using paginated data from context directly
+  const paginatedProcessing = assignedRecords;
+  
+  // Drafts still use client slicing for now as they are usually fewer
   const paginatedDrafts = draftRecords.slice(
     (draftPage - 1) * DRAFT_ITEMS_PER_PAGE,
     draftPage * DRAFT_ITEMS_PER_PAGE,
@@ -321,14 +323,11 @@ export default function ManagementProcessingPage() {
                         </div>
                       </DocumentTableCell>
                       <DocumentTableCell className="text-[#5C403D] font-medium">
-                        {record.full_name ||
-                          `${record.title_prefix}${record.first_name} ${record.last_name}`}
+                        {record.do_name || "—"}
                       </DocumentTableCell>
                       <DocumentTableCell className="text-[#5C403D] font-medium">
-                        {record.assigned_processor?.assigned_date
-                          ? new Date(
-                              record.assigned_processor.assigned_date,
-                            ).toLocaleDateString("th-TH")
+                        {record.received_at
+                          ? new Date(record.received_at).toLocaleDateString("th-TH")
                           : "—"}
                       </DocumentTableCell>
                       <DocumentTableCell className="text-[#5C403D] font-medium">
@@ -341,9 +340,9 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
                           <LocalStatusBadge
-                            code={record.processor_status?.code || "WAITING_DP"}
+                            code={record.status?.code || "WAITING_DP"}
                             label={
-                              record.processor_status?.label ||
+                              record.status?.label ||
                               "รอส่วนของ Data Processor"
                             }
                           />
@@ -367,13 +366,13 @@ export default function ManagementProcessingPage() {
                                 icon="send"
                                 disabled={true}
                                 tooltipText={
-                                  record.processor_status?.code ===
+                                  record.status?.code ===
                                   "WAITING_CHECK"
                                     ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
                                     : "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
                                 }
                                 buttonClassName={
-                                  record.processor_status?.code === "WAITING_DP"
+                                  record.status?.code === "WAITING_DP"
                                     ? "text-[#9CA3AF]"
                                     : "text-[#5F5E5E]"
                                 }
@@ -389,16 +388,16 @@ export default function ManagementProcessingPage() {
                             <ActionIconWithTooltip
                               icon="send"
                               disabled={
-                                record.processor_status?.code === "WAITING_DP" ||
-                                record.processor_status?.code === "DP_NEED_FIX"
+                                record.status?.code === "WAITING_DP" ||
+                                record.status?.code === "DP_NEED_FIX"
                               }
                               tooltipText={
-                                (record.processor_status?.code === "WAITING_DP" || record.processor_status?.code === "DP_NEED_FIX")
+                                (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
                                   ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
                                   : "ส่งข้อมูลให้ Data Owner ตรวจสอบ"
                               }
                               buttonClassName={
-                                (record.processor_status?.code === "WAITING_DP" || record.processor_status?.code === "DP_NEED_FIX")
+                                (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
                                   ? "text-[#9CA3AF]"
                                   : "text-[#5F5E5E] hover:text-[#00666E]"
                               }
@@ -416,11 +415,8 @@ export default function ManagementProcessingPage() {
             </DocumentTable>
             <DocumentPagination
               current={page}
-              totalPages={Math.max(
-                1,
-                Math.ceil(filteredAssigned.length / PROCESSING_ITEMS_PER_PAGE),
-              )}
-              totalItems={filteredAssigned.length}
+              totalPages={processorAssignedMeta.total_pages}
+              totalItems={processorAssignedMeta.total}
               itemsPerPage={PROCESSING_ITEMS_PER_PAGE}
               onChange={setPage}
             />
