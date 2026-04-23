@@ -1743,6 +1743,11 @@ def send_to_dpo(
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
     if doc.status != "IN_PROGRESS":
         raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ IN_PROGRESS")
+    if doc.deletion_status == "DELETE_PENDING":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารนี้อยู่ระหว่างรอการอนุมัติทำลาย ไม่สามารถส่งให้ DPO ตรวจสอบได้",
+        )
 
     owner_section = (
         db.query(RopaOwnerSectionModel)
@@ -1957,6 +1962,11 @@ def request_annual_review(
     )
     if not doc or doc.status != "COMPLETED":
         raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ COMPLETED")
+
+    if doc.deletion_status == "DELETE_PENDING":
+        raise HTTPException(
+            status_code=400, detail="ไม่สามารถส่งทบทวนรายปีได้เนื่องจากเอกสารนี้อยู่ระหว่างรอดำเนินการทำลาย"
+        )
 
     existing_cycles = (
         db.query(func.count(DocumentReviewCycleModel.id))
@@ -2415,14 +2425,7 @@ def create_deletion_request(
     if not doc:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
 
-    # ป้องกันการใช้ผิด endpoint: ถ้าเป็น IN_PROGRESS ต้องใช้ DELETE /owner/documents/{id}
-    if doc.status == "IN_PROGRESS":
-        raise HTTPException(
-            status_code=400,
-            detail="เอกสารฉบับร่าง (IN_PROGRESS) ต้องลบผ่าน DELETE endpoint เพื่อความปลอดภัย",
-        )
-
-    # --- กระบวนการ SOFT DELETE (Deletion Request) ---
+    # ป้องกันการยื่นคำร้องซ้ำ
     existing_pending = (
         db.query(DocumentDeletionRequestModel)
         .filter(

@@ -429,18 +429,23 @@ export default function ManagementProcessingPage() {
                           const isSendToDpoDisabled =
                             record.owner_status?.code !== "DO_DONE" ||
                             record.processor_status?.code !== "DP_DONE" ||
-                            !record.is_risk_complete;
+                            !record.is_risk_complete ||
+                            record.deletion_status === "DELETE_PENDING";
                           let dpoTooltip =
                             "ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ";
                           if (isSendToDpoDisabled) {
-                            const missing = [];
-                            if (record.owner_status?.code !== "DO_DONE")
-                              missing.push("ส่วนของ DO");
-                            if (record.processor_status?.code !== "DP_DONE")
-                              missing.push("ส่วนของ DP");
-                            if (!record.is_risk_complete)
-                              missing.push("การประเมินความเสี่ยง");
-                            dpoTooltip = `ต้องดำเนินการ${missing.join(", ")}ให้เสร็จก่อน`;
+                            if (record.deletion_status === "DELETE_PENDING") {
+                              dpoTooltip = "รอยื่นคำร้องขอทำลาย ไม่สามารถส่งได้";
+                            } else {
+                              const missing = [];
+                              if (record.owner_status?.code !== "DO_DONE")
+                                missing.push("ส่วนของ DO");
+                              if (record.processor_status?.code !== "DP_DONE")
+                                missing.push("ส่วนของ DP");
+                              if (!record.is_risk_complete)
+                                missing.push("การประเมินความเสี่ยง");
+                              dpoTooltip = `ต้องดำเนินการ${missing.join(", ")}ให้เสร็จก่อน`;
+                            }
                           }
 
                           return (
@@ -450,7 +455,7 @@ export default function ManagementProcessingPage() {
                                 tooltipText="ดูเอกสาร"
                                 buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                 onClick={() => {
-                                  const mode = record.owner_status?.code === "DO_DONE" ? "view" : "edit";
+                                  const mode = (record.owner_status?.code === "DO_DONE" || record.deletion_status === "DELETE_PENDING") ? "view" : "edit";
                                   router.push(
                                     `/data-owner/management/form?id=${record.document_id}&mode=${mode}`,
                                   );
@@ -476,14 +481,10 @@ export default function ManagementProcessingPage() {
                               />
                               <ActionIconWithTooltip
                                 icon="cancel_schedule_send"
-                                tooltipText="ลบเอกสารออกจากระบบ"
-                                buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
-                                onClick={() =>
-                                  setDeleteConfirm({
-                                    open: true,
-                                    id: record.document_id,
-                                  })
-                                }
+                                disabled={record.deletion_status === "DELETE_PENDING" || isSubmitting}
+                                tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ยื่นคำร้องขอทำลายเอกสารให้ DPO"}
+                                buttonClassName={record.deletion_status === "DELETE_PENDING" ? "text-amber-500 cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#ED393C]"}
+                                onClick={() => record.deletion_status !== "DELETE_PENDING" && router.push(`/data-owner/management/form?id=${record.document_id}&mode=deletion`)}
                               />
                             </div>
                           );

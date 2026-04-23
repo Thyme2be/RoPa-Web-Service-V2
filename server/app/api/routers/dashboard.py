@@ -455,7 +455,7 @@ def _get_owner_metrics_internal(db: Session, user_id: int, period: str = "all"):
             )
             .filter(
                 RopaDocumentModel.id.in_(doc_ids_q),
-                OwnerDataTypeModel.is_sensitive == True,
+                OwnerDataTypeModel.type == "sensitive",
             )
             .scalar()
             or 0
@@ -905,7 +905,7 @@ def _get_executive_metrics_internal(db: Session):
             )
             .filter(
                 UserModel.department.isnot(None),
-                OwnerDataTypeModel.is_sensitive == True,
+                OwnerDataTypeModel.type == "sensitive",
             )
             .group_by(UserModel.department)
             .all()
