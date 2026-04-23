@@ -106,7 +106,7 @@ def list_users(
     status: Optional[UserStatusEnum] = Query(None, description="Filter by status"),
     role: Optional[UserRoleEnum] = Query(None, description="Filter by role"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    limit: int = Query(10, ge=1, le=1000, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
 ):
@@ -233,7 +233,7 @@ def list_all_documents(
     search: Optional[str] = Query(None, description="Search by title or document_number"),
     status: Optional[DocumentStatusEnum] = Query(None, description="Filter by document status"),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly
 ):

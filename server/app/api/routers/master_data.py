@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from typing import Optional
 
 from app.api.deps import get_db
 from app.core.rbac import Role, require_roles
 from app.schemas.user import UserRead
 from app.models.master_data import MstDepartmentModel, MstCompanyModel, MstRoleModel
+from app.models.user import UserModel
 from app.schemas.master_data import (
     MasterDataRead, MasterDataCreate, MasterDataUpdate, 
     PaginatedDepartmentResponse, PaginatedCompanyResponse, PaginatedRoleResponse
@@ -23,10 +24,19 @@ AdminOnly = Depends(require_roles(Role.ADMIN))
 def list_departments(
     search: Optional[str] = Query(None, description="Search by name"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    limit: int = Query(10, ge=1, le=1000, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
 ):
+    # Sync missing departments from users table
+    db.execute(text("""
+        INSERT INTO mst_departments (name, is_active)
+        SELECT DISTINCT department, true FROM users 
+        WHERE department IS NOT NULL
+        ON CONFLICT (name) DO NOTHING
+    """))
+    db.commit()
+
     query = db.query(MstDepartmentModel).filter(MstDepartmentModel.is_active == True)
     if search:
         query = query.filter(MstDepartmentModel.name.ilike(f"%{search}%"))
@@ -71,10 +81,19 @@ def delete_department(dept_id: int, db: Session = Depends(get_db), current_user:
 def list_companies(
     search: Optional[str] = Query(None, description="Search by name"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    limit: int = Query(10, ge=1, le=1000, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
 ):
+    # Sync missing companies from users table
+    db.execute(text("""
+        INSERT INTO mst_companies (name, is_active)
+        SELECT DISTINCT company_name, true FROM users 
+        WHERE company_name IS NOT NULL
+        ON CONFLICT (name) DO NOTHING
+    """))
+    db.commit()
+
     query = db.query(MstCompanyModel).filter(MstCompanyModel.is_active == True)
     if search:
         query = query.filter(MstCompanyModel.name.ilike(f"%{search}%"))
@@ -119,7 +138,7 @@ def delete_company(comp_id: int, db: Session = Depends(get_db), current_user: Us
 def list_roles(
     search: Optional[str] = Query(None, description="Search by name or code"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    limit: int = Query(10, ge=1, le=1000, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: UserRead = AdminOnly,
 ):

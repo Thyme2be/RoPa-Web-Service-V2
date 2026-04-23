@@ -174,7 +174,10 @@ class OwnerSectionSave(BaseModel):
     data_categories: Optional[List[DataCategoryIn]] = None
     data_types: Optional[List[DataTypeIn]] = None
     collection_methods: Optional[List[CollectionMethodIn]] = None
+    collection_method: Optional[str] = None
     data_sources: Optional[List[DataSourceIn]] = None
+    data_source_direct: Optional[bool] = None
+    data_source_indirect: Optional[bool] = None
 
     # Section 5 – การจัดเก็บข้อมูล
     storage_types: Optional[List[StorageTypeIn]] = None
@@ -245,7 +248,10 @@ class OwnerSectionFullRead(BaseModel):
     data_categories: List[DataCategoryOut] = []
     data_types: List[DataTypeOut] = []
     collection_methods: List[CollectionMethodOut] = []
+    collection_method: Optional[str] = None
     data_sources: List[DataSourceOut] = []
+    data_source_direct: bool = False
+    data_source_indirect: bool = False
 
     # Section 5
     storage_types: List[StorageTypeOut] = []

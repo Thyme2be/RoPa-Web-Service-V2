@@ -1228,7 +1228,7 @@ def list_dpo_documents(
         None, description="Search by title or document number"
     ),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
@@ -1371,7 +1371,7 @@ def list_dpo_destruction_requests(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
     days_filter: Optional[int] = Query(None, description="Days filter"),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
@@ -1524,7 +1524,7 @@ def list_dpo_auditor_assignments(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
     days_filter: Optional[int] = Query(None, description="Days filter"),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
@@ -1629,7 +1629,7 @@ def list_dpo_auditor_assignments(
 def get_document_comments(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(require_roles(Role.DPO)),
+    current_user: UserRead = Depends(require_roles(Role.DPO, Role.AUDITOR)),
 ):
     check_document_access(document_id, current_user, db)
     comments = (
@@ -1761,7 +1761,7 @@ def save_document_comments(
 )
 def list_documents_from_dpo(
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     status: Optional[str] = Query(
         None,
         description="FILTER: IN_REVIEW, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED",
@@ -1843,6 +1843,7 @@ def list_documents_from_dpo(
             id_cte.c.seq_id,
             id_cte.c.year,
             AuditorAssignmentModel.id.label("auditor_assignment_id"),
+            AuditorAssignmentModel.status.label("auditor_status"),
         )
         .select_from(RopaDocumentModel)
         .join(id_cte, id_cte.c.doc_id == RopaDocumentModel.id)
@@ -1890,7 +1891,7 @@ def list_documents_from_dpo(
     )
 
     items = []
-    for doc, cycle, dpo_assign, fname, lname, seq, year, aud_assign_id in results:
+    for doc, cycle, dpo_assign, fname, lname, seq, year, aud_assign_id, aud_status in results:
         doc_code = f"RP-{int(year)}-{int(seq):02d}"
 
         # Calculate UI Status
@@ -1899,8 +1900,13 @@ def list_documents_from_dpo(
         ui_label = "รอตรวจสอบ"
 
         if internal_status == "APPROVED":
-            ui_status = "DPO_APPROVED"
-            ui_label = "ตรวจสอบเสร็จสิ้น"
+            # For Auditors, if they haven't verified it yet, show as IN_REVIEW (รอตรวจสอบ)
+            if role == Role.AUDITOR and str(getattr(aud_status, "value", aud_status)) != "VERIFIED":
+                ui_status = "IN_REVIEW"
+                ui_label = "รอตรวจสอบ"
+            else:
+                ui_status = "DPO_APPROVED"
+                ui_label = "ตรวจสอบเสร็จสิ้น"
         elif internal_status == "CHANGES_REQUESTED":
             # Check if comments belong to DO or DP
             has_do_comments = (
@@ -1950,7 +1956,16 @@ def list_documents_from_dpo(
                 review_date=cycle.reviewed_at if cycle else None,
                 due_date=doc.due_date,
                 status=ui_status,
-                is_overdue=doc.due_date < now if doc.due_date else False,
+                is_overdue=(
+                    (
+                        doc.due_date.replace(tzinfo=timezone.utc)
+                        if doc.due_date.tzinfo is None
+                        else doc.due_date
+                    )
+                    < now
+                    if doc.due_date
+                    else False
+                ),
                 assignment_id=aud_assign_id,
             )
         )

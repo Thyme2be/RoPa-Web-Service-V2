@@ -226,20 +226,49 @@ function AuditorDetailContent() {
                         personal_data_items: os.personal_data_categories || [],
                         data_categories: os.subject_categories || [],
                         data_types: os.data_types || [],
-                        
-                        // Retention
-                        retention_value: os.retention_value || "",
-                        retention_unit: os.retention_unit || "",
-                        storage_methods: os.storage_method || "",
+
+                        rights_email: os.contact_email || "",
+                        rights_phone: os.company_phone || "",
+
+                        // Retention & Acquisition
+                        collection_method: os.collection_method || "",
+                        data_source_direct: !!os.data_source_direct,
+                        data_source_indirect: !!os.data_source_indirect,
+                        data_source_other: os.data_source_other || "",
+                        storage_types: os.storage_types || [],
+                        storage_methods: os.storage_methods || [],
+                        storage_methods_other: os.storage_methods_other || "",
+                        retention_value: os.retention_value,
+                        retention_unit: os.retention_unit || "YEARS",
+                        access_condition: os.access_condition || "",
                         deletion_method: os.destruction_method || "",
                         
                         // Legal & Security
                         legal_basis: os.legal_basis || "",
-                        technical_measures: os.technical_measures || "",
+                        minor_consent_types: os.minor_consent_types || [],
+                        has_cross_border_transfer: !!os.has_cross_border_transfer,
+                        transfer_country: os.transfer_country || "",
+                        transfer_company: os.transfer_company || "",
+                        transfer_method: os.transfer_method || "",
+                        transfer_protection_standard: os.transfer_protection_standard || "",
+                        transfer_exception: os.transfer_exception || "",
+                        exemption_usage: os.exemption_usage || "",
+                        rejectionNote: os.refusal_handling || "",
+
                         org_measures: os.org_measures || "",
+                        access_control_measures: os.access_control_measures || "",
+                        technical_measures: os.technical_measures || "",
+                        responsibility_measures: os.responsibility_measures || "",
+                        physical_measures: os.physical_measures || "",
+                        audit_measures: os.audit_measures || "",
                         
                         status: docData.status as RopaStatus,
-                        risk_assessment: docData.risk_assessment
+                        risk_assessment: docData.risk_assessment ? {
+                            probability: docData.risk_assessment.likelihood || 0,
+                            impact: docData.risk_assessment.impact || 0,
+                            total: docData.risk_assessment.risk_score || 0,
+                            level: docData.risk_assessment.risk_level === "LOW" ? "ความเสี่ยงต่ำ" : docData.risk_assessment.risk_level === "MEDIUM" ? "ความเสี่ยงปานกลาง" : docData.risk_assessment.risk_level === "HIGH" ? "ความเสี่ยงสูง" : (docData.risk_assessment.risk_level || "-")
+                        } : undefined
                     }));
                 } else {
                     setForm(prev => ({ ...prev, document_name: docData.title, status: docData.status as RopaStatus }));
@@ -255,27 +284,45 @@ function AuditorDetailContent() {
                         first_name: ps.first_name || "",
                         last_name: ps.last_name || "",
                         processor_name: ps.processor_name || "",
+                        controller_address: ps.controller_address || "",
                         email: ps.email || "",
                         phone: ps.phone || "",
                         address: ps.address || "",
                         processing_activity: ps.processing_activity || "",
                         purpose_of_processing: ps.purpose_of_processing || "",
                         
-                        // Lists (Casting strings from API to any for simple display)
-                        personal_data_items: (ps.personal_data_categories || []) as any,
-                        data_categories: (ps.subject_categories || []) as any,
-                        data_types: (ps.data_types || []) as any,
-                        
+                        // Lists
+                        personal_data_items: ps.personal_data_categories || [],
+                        data_categories: ps.subject_categories || [],
+                        data_types: ps.data_types || [],
+                        collection_methods: ps.collection_methods || [],
+                        data_sources: ps.data_sources || [],
+                        data_source_other: ps.data_source_other || "",
+                        storage_types: ps.storage_types || [],
+                        storage_methods: ps.storage_methods || [],
+                        storage_methods_other: ps.storage_methods_other || "",
+
                         // Retention
-                        retention_value: ps.retention_value || "",
-                        retention_unit: ps.retention_unit || "",
-                        storage_methods: ps.storage_method || "",
+                        retention_value: ps.retention_value,
+                        retention_unit: ps.retention_unit || "YEARS",
+                        access_condition: ps.access_condition || "",
                         deletion_method: ps.destruction_method || "",
                         
                         // Legal & Security
                         legal_basis: ps.legal_basis || "",
-                        technical_measures: ps.technical_measures || "",
+                        has_cross_border_transfer: !!ps.has_cross_border_transfer,
+                        transfer_country: ps.transfer_country || "",
+                        transfer_company: ps.transfer_company || "",
+                        transfer_method: ps.transfer_method || "",
+                        transfer_protection_standard: ps.transfer_protection_standard || "",
+                        transfer_exception: ps.transfer_exception || "",
+                        
                         org_measures: ps.org_measures || "",
+                        access_control_measures: ps.access_control_measures || "",
+                        technical_measures: ps.technical_measures || "",
+                        responsibility_measures: ps.responsibility_measures || "",
+                        physical_measures: ps.physical_measures || "",
+                        audit_measures: ps.audit_measures || "",
                         
                         status: docData.status as RopaStatus
                     }));

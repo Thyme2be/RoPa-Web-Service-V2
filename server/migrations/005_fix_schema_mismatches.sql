@@ -37,6 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_dpo_section_comments_section_key ON dpo_section_c
 ALTER TABLE ropa_processor_sections ADD COLUMN IF NOT EXISTS do_suggestion text;
 ALTER TABLE processor_data_types ADD COLUMN IF NOT EXISTS is_sensitive boolean NOT NULL DEFAULT false;
 ALTER TABLE review_feedbacks ADD COLUMN IF NOT EXISTS section_number integer;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS title varchar(50);
 
 -- 4. Refactor owner_minor_consent_types
 -- Check if owner_section_id already exists to avoid errors
