@@ -146,8 +146,8 @@ export default function ExecutiveDashboard() {
                                 label="เอกสารที่รอดำเนินการ"
                                 accentColor="info"
                                 splitValues={[
-                                    { label: "ผู้รับผิดชอบข้อมูล", value: pendingDocs?.data_owner_count ?? 0 },
-                                    { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: pendingDocs?.data_processor_count ?? 0 },
+                                    { label: "Data Owner", value: pendingDocs?.data_owner_count ?? 0 },
+                                    { label: "Data Processor", value: pendingDocs?.data_processor_count ?? 0 },
                                 ]}
                             />
                         </div>

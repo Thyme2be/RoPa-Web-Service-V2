@@ -11,10 +11,10 @@ import { useRopa } from "@/context/RopaContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 export default function RopaSubmittedPage() {
-    const { sentRecords, sentMeta, sendBackToDpo, refresh, fetchSentTable } = useRopa();
+    const { sentRecords, sentMeta, sendBackToDpo, deleteRecord, refresh, fetchSentTable } = useRopa();
 
     const router = useRouter();
-    
+
     // Action State
     const [sendBackConfirm, setSendBackConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,15 +117,15 @@ export default function RopaSubmittedPage() {
                         </h1>
                     </div>
 
-                    <DocumentFilterBar 
+                    <DocumentFilterBar
                         statusValue={statusFilter}
                         onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         statusOptions={[
                             { label: "ทั้งหมด", value: "all" },
-                            { label: "รอดำเนินการ(รอทั้งหมด)", value: "wait_all" },
-                            { label: "เสร็จสิ้นทั้งหมด(เสร็จสิ้นทั้งหมด)", value: "done_all" },
-                            { label: "รอส่วนของผู้รับผิดชอบข้อมูล", value: "wait_owner" },
-                            { label: "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล", value: "wait_processor" },
+                            { label: "รอตรวจสอบ", value: "wait_all" },
+                            { label: "รอส่วนของ Data Owner แก้ไข", value: "wait_owner" },
+                            { label: "รอส่วนของ Data Processor แก้ไข", value: "wait_processor" },
+                            { label: "ตรวจสอบเสร็จสิ้น", value: "done_all" },
                             { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
                             { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" }
                         ]}
@@ -143,16 +143,16 @@ export default function RopaSubmittedPage() {
                                 <DocumentTableHeader width="w-[27%]" className="whitespace-nowrap !text-[12px]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันที่ส่งข้อมูล</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันที่ตรวจสอบ</DocumentTableHeader>
-                                <DocumentTableHeaderWithTooltip 
-                                    width="w-[15%]" 
+                                <DocumentTableHeaderWithTooltip
+                                    width="w-[15%]"
                                     className="whitespace-nowrap !text-[12px]"
-                                    title="สถานะ" 
+                                    title="สถานะ"
                                     tooltipText={
                                         <>
                                             <p><span className="w-24 inline-block font-bold text-[#1B1C1C]">Data Owner</span> หมายถึง ผู้รับผิดชอบข้อมูล</p>
                                             <p><span className="w-24 inline-block font-bold text-[#1B1C1C]">Data Processor</span> หมายถึง ผู้ประมวลผลข้อมูลส่วนบุคคล</p>
                                         </>
-                                    } 
+                                    }
                                 />
                                 <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
@@ -187,20 +187,30 @@ export default function RopaSubmittedPage() {
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip 
-                                                        icon="visibility" 
-                                                        tooltipText="ดูเอกสาร" 
+                                                    <ActionIconWithTooltip
+                                                        icon="visibility"
+                                                        tooltipText="ดูเอกสาร"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                                         onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
                                                     />
-                                                    {record.ui_status === "WAITING_DO_FIX" && (
-                                                        <ActionIconWithTooltip 
-                                                            icon="send" 
-                                                            tooltipText="ส่งแก้ไขคืน DPO" 
-                                                            buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+
+                                                    {/* ปุ่มส่งคืน: ปรากฏเมื่อสถานะเป็นรอการส่งคืน (หลังจากแก้ไขแล้ว หรือมีเงื่อนไขพร้อมส่ง) */}
+                                                    {(record.ui_status === "WAITING_DO_FIX" || record.ui_status === "DO_DONE" || record.ui_status === "WAITING_REVIEW") && (
+                                                        <ActionIconWithTooltip
+                                                            icon="send"
+                                                            tooltipText="ส่งการแก้ไขคืน DPO"
+                                                            buttonClassName="text-[#5F5E5E] hover:text-[#2C8C00]"
                                                             onClick={() => setSendBackConfirm({ open: true, id: record.document_id })}
                                                         />
                                                     )}
+
+                                                    {/* ปุ่มขอลบ: นำทางไปยังแถบทำลายในหน้าฟอร์ม */}
+                                                    <ActionIconWithTooltip 
+                                                        icon="cancel_schedule_send" 
+                                                        tooltipText="ยื่นคำร้องขอทำลายเอกสารให้ DPO" 
+                                                        buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=deletion`)}
+                                                    />
                                                 </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
@@ -208,12 +218,12 @@ export default function RopaSubmittedPage() {
                                 )}
                             </DocumentTableBody>
                         </DocumentTable>
-                        <DocumentPagination 
-                            current={page} 
-                            totalPages={totalPages} 
-                            totalItems={sentMeta.total} 
-                            itemsPerPage={ITEMS_PER_PAGE} 
-                            onChange={setPage} 
+                        <DocumentPagination
+                            current={page}
+                            totalPages={totalPages}
+                            totalItems={sentMeta.total}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onChange={setPage}
                         />
                     </DocumentListCard>
                 </div>

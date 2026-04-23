@@ -280,6 +280,10 @@ function DataProcessorFormContent() {
                     isProcessor={true}
                 />
 
+                <div className="bg-white border-b border-[#E5E2E1]/50 sticky top-[72px] z-30">
+                    <Stepper completedSteps={[1, 2, 3, 4, 5, 6]} variant="processor" />
+                </div>
+
                 {isLoadingFull ? (
                     <div className="flex-1 flex items-center justify-center pt-20">
                         <div className="flex flex-col items-center gap-4">

@@ -241,11 +241,13 @@ export function DocumentFilterBar({
     statusOptions,
     statusValue = "all",
     onStatusChange,
-    dateValue = "7days",
+    dateValue = "all",
     onDateChange,
     customDate = "",
     onCustomDateChange,
-    onClear
+    onClear,
+    additionalFilters,
+    statusLabel = "สถานะ"
 }: {
     statusOptions?: { label: string, value: string }[],
     statusValue?: string,
@@ -254,13 +256,15 @@ export function DocumentFilterBar({
     onDateChange?: (val: string) => void,
     customDate?: string,
     onCustomDateChange?: (val: string) => void,
-    onClear?: () => void
+    onClear?: () => void,
+    additionalFilters?: React.ReactNode,
+    statusLabel?: string
 }) {
     return (
         <div className="bg-[#EAE4E3] rounded-xl p-5 flex flex-wrap md:flex-nowrap items-end gap-6 border border-[#E5E2E1] overflow-visible">
             <div className="w-full md:w-[340px] shrink-0">
                 <Select
-                    label="สถานะ"
+                    label={statusLabel}
                     labelClassName="!text-[15px] !font-extrabold !text-[#5C403D] !tracking-tight !ml-0"
                     name="statusFilter"
                     value={statusValue || "all"}
@@ -305,6 +309,13 @@ export function DocumentFilterBar({
                     )}
                 </div>
             </div>
+
+            {additionalFilters && (
+                <div className="flex-1 flex items-end overflow-visible">
+                    {additionalFilters}
+                </div>
+            )}
+
             <button
                 onClick={onClear}
                 className="h-[46px] px-8 bg-[#5F5E5E] text-white rounded-lg flex items-center gap-2 font-bold hover:bg-[#4F4E4E] transition-colors md:ml-auto shrink-0 whitespace-nowrap"

@@ -263,13 +263,13 @@ export default function ManagementProcessingPage() {
 
   const getDoLabel = (r: ActiveTableItem) =>
     r.owner_status?.code === "DO_DONE"
-      ? "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น"
-      : "รอส่วนของผู้รับผิดชอบข้อมูล";
+      ? "Data Owner ดำเนินการเสร็จสิ้น"
+      : "รอส่วนของ Data Owner";
 
   const getDpLabel = (r: ActiveTableItem) =>
     r.processor_status?.code === "DP_DONE"
-      ? "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น"
-      : "รอส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล";
+      ? "Data Processor ดำเนินการเสร็จสิ้น"
+      : "รอส่วนของ Data Processor";
 
   const PROCESSING_ITEMS_PER_PAGE = 3;
   const DRAFT_ITEMS_PER_PAGE = 2;

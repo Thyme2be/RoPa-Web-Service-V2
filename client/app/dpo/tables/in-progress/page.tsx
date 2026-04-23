@@ -50,9 +50,9 @@ function InProgressTableContent() {
 
       let statusFilter = "";
       if (selectedStatus === "รอตรวจสอบ") statusFilter = "IN_REVIEW";
-      else if (selectedStatus === "รอส่วนของ Data Owner")
+      else if (selectedStatus === "รอส่วนของ Data Owner แก้ไข")
         statusFilter = "ACTION_REQUIRED_DO";
-      else if (selectedStatus === "รอส่วนของ Data processor")
+      else if (selectedStatus === "รอส่วนของ Data Processor แก้ไข")
         statusFilter = "ACTION_REQUIRED_DP";
       else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "APPROVED";
 
@@ -103,13 +103,16 @@ function InProgressTableContent() {
       case "IN_REVIEW":
         return "รอตรวจสอบ";
       case "ACTION_REQUIRED_DO":
-        return "ต้องแก้ไข"; // Simplified for StatusBadge
+        return "รอส่วนของ Data Owner แก้ไข";
       case "ACTION_REQUIRED_DP":
-        return "ต้องแก้ไข";
+        return "รอส่วนของ Data Processor แก้ไข";
       case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
+      case "INITIAL":
+      case "PENDING":
+        return "ยังไม่ได้ตรวจสอบ";
       default:
-        return "ฉบับร่าง";
+        return apiStatus;
     }
   };
 
@@ -118,13 +121,13 @@ function InProgressTableContent() {
       case "IN_REVIEW":
         return "รอตรวจสอบ";
       case "ACTION_REQUIRED_DO":
-        return "รอส่วนของ Data Owner";
+        return "รอส่วนของ Data Owner แก้ไข";
       case "ACTION_REQUIRED_DP":
-        return "รอส่วนของ Data processor";
+        return "รอส่วนของ Data Processor แก้ไข";
       case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
       default:
-        return "ฉบับร่าง";
+        return "ยังไม่ได้ตรวจสอบ";
     }
   };
 
@@ -259,12 +262,12 @@ function InProgressTableContent() {
                 { label: "ทั้งหมด", value: "ทั้งหมด" },
                 { label: "รอตรวจสอบ", value: "รอตรวจสอบ" },
                 {
-                  label: "รอส่วนของ Data Owner",
-                  value: "รอส่วนของ Data Owner",
+                  label: "รอส่วนของ Data Owner แก้ไข",
+                  value: "รอส่วนของ Data Owner แก้ไข",
                 },
                 {
-                  label: "รอส่วนของ Data processor",
-                  value: "รอส่วนของ Data processor",
+                  label: "รอส่วนของ Data Processor แก้ไข",
+                  value: "รอส่วนของ Data Processor แก้ไข",
                 },
                 { label: "ตรวจสอบเสร็จสิ้น", value: "ตรวจสอบเสร็จสิ้น" },
               ]}
@@ -376,7 +379,7 @@ function InProgressTableContent() {
                         <td className="py-4">
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
                             {doc.review_status === "IN_REVIEW" ||
-                            doc.review_status === "APPROVED" ? (
+                              doc.review_status === "APPROVED" ? (
                               <StatusBadge
                                 status={getUIStatus(doc.review_status) as any}
                               />
@@ -385,18 +388,16 @@ function InProgressTableContent() {
                                 <span
                                   className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.owner_status)} shadow-sm`}
                                 >
-                                  Data Owner:{" "}
                                   {doc.owner_status === "done"
-                                    ? "เสร็จสิ้น"
-                                    : "ต้องแก้ไข"}
+                                    ? "Data Owner ดำเนินการเสร็จสิ้น"
+                                    : "รอส่วนของ Data Owner"}
                                 </span>
                                 <span
                                   className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.processor_status)} shadow-sm`}
                                 >
-                                  Data Processor:{" "}
                                   {doc.processor_status === "done"
-                                    ? "เสร็จสิ้น"
-                                    : "ต้องแก้ไข"}
+                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
+                                    : "รอส่วนของ Data Processor"}
                                 </span>
                               </div>
                             )}

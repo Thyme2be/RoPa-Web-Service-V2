@@ -208,10 +208,10 @@ export default function ManagementProcessingPage() {
 
   const PROCESSING_ITEMS_PER_PAGE = 3;
   const DRAFT_ITEMS_PER_PAGE = 2;
-  
+
   // Now using paginated data from context directly
   const paginatedProcessing = assignedRecords;
-  
+
   // Drafts still use client slicing for now as they are usually fewer
   const paginatedDrafts = draftRecords.slice(
     (draftPage - 1) * DRAFT_ITEMS_PER_PAGE,
@@ -220,9 +220,9 @@ export default function ManagementProcessingPage() {
 
   const statusOptions = [
     { label: "ทั้งหมด", value: "all" },
-    { label: "รอ Data Processor", value: "WAITING_DP" },
+    { label: "รอส่วนของ Data Processor", value: "WAITING_DP" },
     { label: "รอตรวจสอบ", value: "WAITING_CHECK" },
-    { label: "รอ Data Processor แก้ไข", value: "DP_NEED_FIX" },
+    { label: "รอส่วนของ Data Processor แก้ไข", value: "DP_NEED_FIX" },
     { label: "ตรวจสอบเสร็จสิ้น", value: "CHECK_DONE" },
   ];
 
@@ -333,8 +333,8 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell className="text-[#5C403D] font-medium">
                         {record.due_date
                           ? new Date(record.due_date).toLocaleDateString(
-                              "th-TH",
-                            )
+                            "th-TH",
+                          )
                           : "—"}
                       </DocumentTableCell>
                       <DocumentTableCell>
@@ -342,8 +342,13 @@ export default function ManagementProcessingPage() {
                           <LocalStatusBadge
                             code={record.status?.code || "WAITING_DP"}
                             label={
-                              record.status?.label ||
-                              "รอส่วนของ Data Processor"
+                              record.status?.code === "WAITING_DO"
+                                ? "รอส่วนของ Data Owner"
+                                : record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX"
+                                  ? "รอส่วนของ Data Processor"
+                                  : record.status?.code === "CHECK_DONE"
+                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
+                                    : record.status?.label || "Data Processor ดำเนินการเสร็จสิ้น"
                             }
                           />
                         </div>
@@ -367,7 +372,7 @@ export default function ManagementProcessingPage() {
                                 disabled={true}
                                 tooltipText={
                                   record.status?.code ===
-                                  "WAITING_CHECK"
+                                    "WAITING_CHECK"
                                     ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
                                     : "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
                                 }
@@ -465,8 +470,8 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell className="text-[#5C403D] font-medium">
                         {record.created_at
                           ? new Date(record.created_at).toLocaleDateString(
-                              "th-TH",
-                            )
+                            "th-TH",
+                          )
                           : "—"}
                       </DocumentTableCell>
                       <DocumentTableCell>
