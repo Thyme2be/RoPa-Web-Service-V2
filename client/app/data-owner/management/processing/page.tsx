@@ -55,20 +55,27 @@ export default function ManagementProcessingPage() {
   const router = useRouter();
   const {
     activeRecords,
+    activeMeta,
     ownerSnapshots,
     sendToDpo,
     requestDelete,
     deleteRecord,
     deleteOwnerSnapshot,
     refresh,
+    fetchActiveTable,
   } = useRopa();
+
+  const [page, setPage] = useState(1);
+  const [draftPage, setDraftPage] = useState(1);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const [page, setPage] = useState(1);
-  const [draftPage, setDraftPage] = useState(1);
+  // Fetch new page when page changes
+  useEffect(() => {
+    fetchActiveTable(page, 3);
+  }, [page, fetchActiveTable]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Confirm modals
@@ -266,14 +273,17 @@ export default function ManagementProcessingPage() {
 
   const PROCESSING_ITEMS_PER_PAGE = 3;
   const DRAFT_ITEMS_PER_PAGE = 2;
-  const paginatedProcessing = filteredProcessing.slice(
-    (page - 1) * PROCESSING_ITEMS_PER_PAGE,
-    page * PROCESSING_ITEMS_PER_PAGE,
-  );
+
+  // Client-side pagination (Still used for drafts, but processing is now server-side)
+  // For processing, we just use the 3 items we got from the server.
+  const paginatedProcessing = filteredProcessing.slice(0, PROCESSING_ITEMS_PER_PAGE);
+  const totalProcessingPages = Math.ceil(activeMeta.total / PROCESSING_ITEMS_PER_PAGE);
+
   const paginatedDrafts = filteredDrafts.slice(
     (draftPage - 1) * DRAFT_ITEMS_PER_PAGE,
     draftPage * DRAFT_ITEMS_PER_PAGE,
   );
+  const totalDraftPages = Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE);
 
   return (
     <div className="flex min-h-screen bg-background font-sans">
@@ -497,13 +507,8 @@ export default function ManagementProcessingPage() {
             </DocumentTable>
             <DocumentPagination
               current={page}
-              totalPages={Math.max(
-                1,
-                Math.ceil(
-                  filteredProcessing.length / PROCESSING_ITEMS_PER_PAGE,
-                ),
-              )}
-              totalItems={filteredProcessing.length}
+              totalPages={totalProcessingPages}
+              totalItems={activeMeta.total}
               itemsPerPage={PROCESSING_ITEMS_PER_PAGE}
               onChange={setPage}
             />

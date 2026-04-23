@@ -329,14 +329,12 @@ class DeletionRequestCreate(BaseModel):
 class DeletionRequestRead(BaseModel):
     id: UUID
     document_id: UUID
-    requested_by: int
-    owner_reason: str
-    dpo_id: Optional[int]
-    dpo_decision: Optional[str]
-    dpo_reason: Optional[str]
+    reason: str
     status: DeletionRequestStatusEnum
-    requested_at: datetime
-    decided_at: Optional[datetime]
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+    reviewer_id: Optional[int] = None
+    
     model_config = {"from_attributes": True}
 
 
@@ -554,6 +552,35 @@ class OwnerDashboardResponse(BaseModel):
     # ── Card 11: เอกสารที่ถูกทำลายแล้ว ───────────────────────────────────
     deleted_count: int
     model_config = {"from_attributes": True}
+
+
+# =============================================================================
+# Pagination Wrappers
+# =============================================================================
+
+class PaginatedActiveTableResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[ActiveTableItem]
+
+class PaginatedSentToDpoResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[SentToDpoTableItem]
+
+class PaginatedApprovedResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[ApprovedTableItem]
+
+class PaginatedDestroyedResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[DestroyedTableItem]
 
 
 # =============================================================================

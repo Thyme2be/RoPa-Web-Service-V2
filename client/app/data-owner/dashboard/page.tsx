@@ -20,8 +20,9 @@ export default function DashboardPage() {
 
   // Handle filter change
   useEffect(() => {
-    if (timeFilter !== "all" || true) {
-      // Always refresh when filter state changes if we want live updates
+    // Only fetch if timeFilter is not 'all' (since 'all' is already fetched by refresh() on mount)
+    // Or if we specifically want to refresh just the dashboard data
+    if (timeFilter !== "all") {
       fetchOwnerDashboard(timeFilter);
     }
   }, [timeFilter, fetchOwnerDashboard]);

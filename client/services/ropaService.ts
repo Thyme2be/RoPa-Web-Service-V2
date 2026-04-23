@@ -5,7 +5,8 @@ import {
   SentToDpoTableItem, 
   ApprovedTableItem, 
   DestroyedTableItem,
-  OwnerSnapshotTableItem
+  OwnerSnapshotTableItem,
+  PaginatedResponse
 } from "@/types/dataOwner";
 import { ExecutiveDashboardResponse } from "@/types/executive";
 import { UserRead } from "@/types/dataOwner";
@@ -25,23 +26,23 @@ export const ropaService = {
         return response.data;
     },
 
-    getOwnerActiveTable: async (): Promise<ActiveTableItem[]> => {
-        const response = await api.get("/owner/tables/active");
+    getOwnerActiveTable: async (page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<ActiveTableItem>> => {
+        const response = await api.get(`/owner/tables/active?page=${page}&page_size=${pageSize}`);
         return response.data;
     },
 
-    getOwnerSentTable: async (): Promise<SentToDpoTableItem[]> => {
-        const response = await api.get("/owner/tables/sent-to-dpo");
+    getOwnerSentTable: async (page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<SentToDpoTableItem>> => {
+        const response = await api.get(`/owner/tables/sent-to-dpo?page=${page}&page_size=${pageSize}`);
         return response.data;
     },
 
-    getOwnerApprovedTable: async (): Promise<ApprovedTableItem[]> => {
-        const response = await api.get("/owner/tables/approved");
+    getOwnerApprovedTable: async (page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<ApprovedTableItem>> => {
+        const response = await api.get(`/owner/tables/approved?page=${page}&page_size=${pageSize}`);
         return response.data;
     },
 
-    getOwnerDestroyedTable: async (): Promise<DestroyedTableItem[]> => {
-        const response = await api.get("/owner/tables/destroyed");
+    getOwnerDestroyedTable: async (page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<DestroyedTableItem>> => {
+        const response = await api.get(`/owner/tables/destroyed?page=${page}&page_size=${pageSize}`);
         return response.data;
     },
 

@@ -15,6 +15,13 @@ export interface UserRead {
   is_active: boolean;
 }
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface OwnerDashboardData {
   total_documents: number;
   needs_fix_do_count: number;

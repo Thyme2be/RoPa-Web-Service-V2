@@ -11,11 +11,8 @@ import { useRopa } from "@/context/RopaContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 export default function RopaSubmittedPage() {
-    const { sentRecords, sendBackToDpo, refresh } = useRopa();
+    const { sentRecords, sentMeta, sendBackToDpo, refresh, fetchSentTable } = useRopa();
 
-    useEffect(() => {
-        refresh();
-    }, [refresh]);
     const router = useRouter();
     
     // Action State
@@ -25,6 +22,14 @@ export default function RopaSubmittedPage() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
+
+    useEffect(() => {
+        fetchSentTable(page, 3);
+    }, [page, fetchSentTable]);
 
     const handleClearFilters = () => {
         setStatusFilter("all");
@@ -71,7 +76,8 @@ export default function RopaSubmittedPage() {
     });
 
     const ITEMS_PER_PAGE = 3;
-    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice(0, ITEMS_PER_PAGE); // Using records directly from context (first 3 or current page)
+    const totalPages = Math.ceil(sentMeta.total / ITEMS_PER_PAGE);
 
     const handleSendBackToDpo = async (id: string) => {
         setIsSubmitting(true);
@@ -204,9 +210,9 @@ export default function RopaSubmittedPage() {
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={filteredRecords.length}
-                            itemsPerPage={ITEMS_PER_PAGE}
+                            totalPages={totalPages} 
+                            totalItems={sentMeta.total} 
+                            itemsPerPage={ITEMS_PER_PAGE} 
                             onChange={setPage} 
                         />
                     </DocumentListCard>

@@ -60,9 +60,20 @@ interface RopaContextType {
     refresh: () => Promise<void>;
     fetchExecutiveData: (period?: string, department?: string) => Promise<void>;
     fetchOwnerDashboard: (period?: string) => Promise<void>;
+    
+    // Paginated Fetchers
+    fetchActiveTable: (page?: number, limit?: number) => Promise<void>;
+    fetchSentTable: (page?: number, limit?: number) => Promise<void>;
+    fetchApprovedTable: (page?: number, limit?: number) => Promise<void>;
+    fetchDestroyedTable: (page?: number, limit?: number) => Promise<void>;
+    
     annualReview: (id: string, payload?: any) => Promise<void>;
 
     isLoading: boolean;
+    activeMeta: { total: number; page: number; limit: number };
+    sentMeta: { total: number; page: number; limit: number };
+    approvedMeta: { total: number; page: number; limit: number };
+    destroyedMeta: { total: number; page: number; limit: number };
     stats: {
         total: number;
         withProcessor: number;
@@ -89,49 +100,78 @@ export function RopaProvider({ children }: { children: ReactNode }) {
     const [ownerDashboardData, setOwnerDashboardData] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Pagination Metadata
+    const [activeMeta, setActiveMeta] = useState({ total: 0, page: 1, limit: 3 });
+    const [sentMeta, setSentMeta] = useState({ total: 0, page: 1, limit: 3 });
+    const [approvedMeta, setApprovedMeta] = useState({ total: 0, page: 1, limit: 3 });
+    const [destroyedMeta, setDestroyedMeta] = useState({ total: 0, page: 1, limit: 3 });
+
+    const fetchActiveTable = useCallback(async (page = 1, limit = 3) => {
+        setIsLoading(true);
+        try {
+            const res = await ropaService.getOwnerActiveTable(page, limit);
+            setActiveRecords(res.items);
+            setActiveMeta({ total: res.total, page: res.page, limit: res.limit });
+        } catch (err) {
+            console.error("Fetch Active Table failed:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    const fetchSentTable = useCallback(async (page = 1, limit = 3) => {
+        setIsLoading(true);
+        try {
+            const res = await ropaService.getOwnerSentTable(page, limit);
+            setSentRecords(res.items);
+            setSentMeta({ total: res.total, page: res.page, limit: res.limit });
+        } catch (err) {
+            console.error("Fetch Sent Table failed:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    const fetchApprovedTable = useCallback(async (page = 1, limit = 3) => {
+        setIsLoading(true);
+        try {
+            const res = await ropaService.getOwnerApprovedTable(page, limit);
+            setApprovedRecords(res.items);
+            setApprovedMeta({ total: res.total, page: res.page, limit: res.limit });
+        } catch (err) {
+            console.error("Fetch Approved Table failed:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    const fetchDestroyedTable = useCallback(async (page = 1, limit = 3) => {
+        setIsLoading(true);
+        try {
+            const res = await ropaService.getOwnerDestroyedTable(page, limit);
+            setDestroyedRecords(res.items);
+            setDestroyedMeta({ total: res.total, page: res.page, limit: res.limit });
+        } catch (err) {
+            console.error("Fetch Destroyed Table failed:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
     const refresh = useCallback(async () => {
         if (!isAuthenticated || !user) return;
         setIsLoading(true);
         try {
             if (user.role === "OWNER") {
-                try {
-                    const [active, sent, approved, destroyed, snapshots] = await Promise.all([
-                        ropaService.getOwnerActiveTable(),
-                        ropaService.getOwnerSentTable(),
-                        ropaService.getOwnerApprovedTable(),
-                        ropaService.getOwnerDestroyedTable(),
-                        ropaService.getOwnerSnapshots()
-                    ]);
-
-                    setActiveRecords(active);
-                    setSentRecords(sent);
-                    setApprovedRecords(approved);
-                    setDestroyedRecords(destroyed);
-                    setOwnerSnapshots(snapshots);
-
-                    // Legacy records mapping for screens that still use unified list
-                    const legacyMapping = active.map(item => ({
-                        id: item.document_id,
-                        document_name: item.title,
-                        assigned_processor: { name: item.dp_name },
-                        processor_company: item.dp_company,
-                        due_date: item.due_date ? new Date(item.due_date).toLocaleDateString("th-TH") : "—",
-                        status: item.owner_section_status === "SUBMITTED" ? RopaStatus.IN_PROGRESS : RopaStatus.Draft,
-                        processing_status: {
-                            do_status: item.owner_status.code === "DO_DONE" ? "done" : "pending",
-                            dp_status: item.processor_status.code === "DP_DONE" ? "done" : "pending"
-                        }
-                    }));
-                    setRecords(legacyMapping as any);
-
-                    const ownerStats = await ropaService.getOwnerDashboard();
-                    setOwnerDashboardData(ownerStats);
-                } catch (err: any) {
-                    console.error("Owner data fetch failed:", err);
-                    if (err.response?.status === 401) {
-                        console.warn("Session expired (401). Redirecting via interceptor...");
-                    }
-                }
+                // Fetch only first pages and dashboard
+                await Promise.all([
+                    fetchActiveTable(1, 3),
+                    fetchSentTable(1, 3),
+                    fetchApprovedTable(1, 3),
+                    fetchDestroyedTable(1, 3),
+                    ropaService.getOwnerSnapshots().then(setOwnerSnapshots),
+                    ropaService.getOwnerDashboard().then(setOwnerDashboardData)
+                ]);
             }
 
             if (user.role === "PROCESSOR") {
@@ -839,8 +879,13 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             destroyedRecords,
             ownerSnapshots,
             processorRecords,
+            processorSnapshots,
             executiveDashboardData,
             ownerDashboardData,
+            activeMeta,
+            sentMeta,
+            approvedMeta,
+            destroyedMeta,
             saveRecord,
             getById,
             fetchFullOwnerRecord,
@@ -849,6 +894,10 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             sendBackToDpo,
             saveRiskAssessment,
             deleteRecord,
+            requestDelete,
+            createOwnerSnapshot,
+            fetchOwnerSnapshot,
+            deleteOwnerSnapshot,
             assignProcessor,
             submitFeedbackBatch,
             saveProcessorRecord,
@@ -857,15 +906,14 @@ export function RopaProvider({ children }: { children: ReactNode }) {
             submitDpSection,
             dispatchDpSection,
             deleteProcessorRecord,
-            deleteOwnerSnapshot,
             fetchProcessorSnapshot,
-            requestDelete,
-            createOwnerSnapshot,
-            fetchOwnerSnapshot,
-            processorSnapshots,
             refresh,
             fetchExecutiveData,
             fetchOwnerDashboard,
+            fetchActiveTable,
+            fetchSentTable,
+            fetchApprovedTable,
+            fetchDestroyedTable,
             isLoading,
             stats,
             getDashboardStats,

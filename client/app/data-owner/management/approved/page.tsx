@@ -23,14 +23,18 @@ function formatDate(dateStr: string | undefined | null) {
 
 
 export default function RopaApprovedPage() {
-    const { approvedRecords: contextApprovedRecords, requestDelete, annualReview, refresh } = useRopa();
+    const { approvedRecords: contextApprovedRecords, approvedMeta, fetchApprovedTable, requestDelete, annualReview, refresh } = useRopa();
+
+    const [page, setPage] = useState(1);
+    const router = useRouter();
 
     useEffect(() => {
         refresh();
     }, [refresh]);
-    const router = useRouter();
 
-    const [page, setPage] = useState(1);
+    useEffect(() => {
+        fetchApprovedTable(page, 3);
+    }, [page, fetchApprovedTable]);
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
@@ -99,7 +103,8 @@ export default function RopaApprovedPage() {
     });
 
     const ITEMS_PER_PAGE = 3;
-    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice(0, ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(approvedMeta.total / ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -214,8 +219,8 @@ export default function RopaApprovedPage() {
                         </DocumentTable>
                         <DocumentPagination
                             current={page}
-                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={filteredRecords.length}
+                            totalPages={Math.max(1, totalPages)}
+                            totalItems={approvedMeta.total}
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage}
                         />

@@ -48,7 +48,7 @@ import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.deps import get_current_user, get_db
 from app.core.rbac import Role, check_document_access, require_roles
@@ -87,8 +87,13 @@ from app.schemas.enums import (
 )
 from app.schemas.owner import (
     ActiveTableItem,
+    SentToDpoTableItem,
     ApprovedTableItem,
     DestroyedTableItem,
+    PaginatedActiveTableResponse,
+    PaginatedSentToDpoResponse,
+    PaginatedApprovedResponse,
+    PaginatedDestroyedResponse,
     DeletionRequestCreate,
     DeletionRequestRead,
     DocumentCreateOwner,
@@ -795,246 +800,138 @@ def get_owner_dashboard(
         or 0
     )
 
-    # needs_fix_dp = DPO มี comment ถึง DP (DP_SEC_x) และ cycle อยู่ใน CHANGES_REQUESTED
-    #              + DO ส่ง feedback โดยตรงถึง DP ผ่าน ReviewFeedbackModel (OPEN)
-    dp_fix_from_dpo = set(
-        row[0]
-        for row in (
-            db.query(DocumentReviewCycleModel.document_id)
-            .join(
-                RopaDocumentModel,
-                RopaDocumentModel.id == DocumentReviewCycleModel.document_id,
-            )
-            .filter(
-                RopaDocumentModel.created_by == uid,
-                DocumentReviewCycleModel.status == "CHANGES_REQUESTED",
-                DocumentReviewCycleModel.document_id.in_(
-                    db.query(DpoSectionCommentModel.document_id).filter(
-                        DpoSectionCommentModel.section_key.like("DP_SEC_%")
-                    )
-                ),
-            )
-            .all()
-        )
-    )
-    dp_fix_from_do = set(
-        row[0]
-        for row in (
-            db.query(RopaDocumentModel.id)
-            .join(
-                RopaProcessorSectionModel,
-                RopaProcessorSectionModel.document_id == RopaDocumentModel.id,
-            )
-            .join(
-                ReviewFeedbackModel,
-                ReviewFeedbackModel.target_id == RopaProcessorSectionModel.id,
-            )
-            .filter(
-                RopaDocumentModel.created_by == uid,
-                ReviewFeedbackModel.status == "OPEN",
-            )
-            .all()
-        )
-    )
-    needs_fix_dp = len(dp_fix_from_dpo | dp_fix_from_do)
-
-    # ── Card 3: ความเสี่ยง ────────────────────────────────────────────────
-    _risk_base = (
-        db.query(RopaRiskAssessmentModel)
-        .join(
-            RopaDocumentModel,
-            RopaRiskAssessmentModel.document_id == RopaDocumentModel.id,
-        )
-        .filter(RopaDocumentModel.created_by == uid)
-    )
-    risk_low = _risk_base.filter(RopaRiskAssessmentModel.risk_level == "LOW").count()
-    risk_medium = _risk_base.filter(
-        RopaRiskAssessmentModel.risk_level == "MEDIUM"
-    ).count()
-    risk_high = _risk_base.filter(RopaRiskAssessmentModel.risk_level == "HIGH").count()
-
-    # ── Card 4: รอ DPO ตรวจสอบ (แยก จัดเก็บ / ทำลาย) ────────────────────
-    # under_review_storage = UNDER_REVIEW ที่ยังไม่มี deletion request
-    under_review_storage = base_q.filter(
-        RopaDocumentModel.status == "UNDER_REVIEW",
-        RopaDocumentModel.deletion_status.is_(None),
-    ).count()
-    under_review_deletion = base_q.filter(
-        RopaDocumentModel.deletion_status == "DELETE_PENDING",
-    ).count()
-
-    # ── Card 5: รอดำเนินการ (แยก DO / DP ยังไม่ submit) ──────────────────
-    pending_do = (
-        db.query(func.count(RopaOwnerSectionModel.id))
-        .join(
-            RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id
-        )
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            RopaDocumentModel.status == "IN_PROGRESS",
-            RopaOwnerSectionModel.status == "DRAFT",
-        )
-        .scalar()
-        or 0
-    )
-    pending_dp = (
-        db.query(func.count(RopaProcessorSectionModel.id))
-        .join(
-            RopaDocumentModel,
-            RopaProcessorSectionModel.document_id == RopaDocumentModel.id,
-        )
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            RopaDocumentModel.status == "IN_PROGRESS",
-            RopaProcessorSectionModel.status == "DRAFT",
-        )
-        .scalar()
-        or 0
-    )
-
-    # ── Card 6: อนุมัติแล้ว ───────────────────────────────────────────────
-    completed = base_q.filter(RopaDocumentModel.status == "COMPLETED").count()
-
-    # ── Card 7: ข้อมูลอ่อนไหว (เอกสารที่มี data_type อย่างน้อย 1 รายการที่ติ้ก is_sensitive=True) ──
-    sensitive = (
-        db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id)))
-        .join(
-            OwnerDataTypeModel,
-            OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id,
-        )
-        .join(
-            RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id
-        )
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            OwnerDataTypeModel.type == "sensitive",
-        )
-        .scalar()
-        or 0
-    )
-
-    # ── Card 8: DP ส่งช้า = IN_PROGRESS ที่เลย due_date แล้วแต่ DP ยังไม่ submit ──
-    # due_date คือวันกำหนดส่งที่ DO ตั้งตอนสร้างเอกสาร
-    overdue_dp = (
-        db.query(func.count(ProcessorAssignmentModel.id))
-        .join(
-            RopaDocumentModel,
-            ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
-        )
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            RopaDocumentModel.status == "IN_PROGRESS",
-            ProcessorAssignmentModel.due_date != None,
-            ProcessorAssignmentModel.due_date <= now,
-            ProcessorAssignmentModel.status != "SUBMITTED",
-        )
-        .scalar()
-        or 0
-    )
-
-    # ── Card 10: ครบกำหนดทำลาย = COMPLETED ที่ retention หมดแล้ว ────────────
-    # อิงจากระยะเวลาเก็บรักษาที่กรอกในฟอร์ม:
-    #   - DO Section 5: retention_value + retention_unit (ropa_owner_sections)
-    #   - DP Section 4: retention_value + retention_unit (ropa_processor_sections)
-    # ถ้าฝั่งใดฝั่งหนึ่งครบกำหนดแล้ว = นับว่าถึงเวลาทำลาย
-    completed_docs = base_q.filter(
-        RopaDocumentModel.status == "COMPLETED",
-        RopaDocumentModel.last_approved_at != None,
-        or_(
-            RopaDocumentModel.deletion_status == None,
-            RopaDocumentModel.deletion_status != "DELETED",
-        ),
-    ).all()
-
-    def _calc_dest_date(approved_at, retention_value, retention_unit):
-        """คำนวณวันครบกำหนดทำลายจาก retention period"""
-        if not retention_value or not retention_unit:
-            return None
-        ru = retention_unit.upper()
-        if ru == "DAYS":
-            return approved_at + timedelta(days=retention_value)
-        elif ru == "MONTHS":
-            return approved_at + timedelta(days=retention_value * 30)
-        elif ru == "YEARS":
-            return approved_at + timedelta(days=retention_value * 365)
-        return None
-
-    destruction_due = 0
-    for doc in completed_docs:
-        owner_sec = (
-            db.query(RopaOwnerSectionModel)
-            .filter(RopaOwnerSectionModel.document_id == doc.id)
-            .first()
-        )
-        proc_sec = (
-            db.query(RopaProcessorSectionModel)
-            .filter(RopaProcessorSectionModel.document_id == doc.id)
-            .first()
-        )
-
-        dest_dates = []
-        if owner_sec:
-            d = _calc_dest_date(
-                doc.last_approved_at,
-                owner_sec.retention_value,
-                owner_sec.retention_unit,
-            )
-            if d:
-                dest_dates.append(d)
-        if proc_sec:
-            d = _calc_dest_date(
-                doc.last_approved_at, proc_sec.retention_value, proc_sec.retention_unit
-            )
-            if d:
-                dest_dates.append(d)
-
-        # ถ้าฝั่งใดฝั่งหนึ่งครบกำหนดแล้ว = ถึงเวลาทำลาย
-        if dest_dates and min(dest_dates) <= now:
-            destruction_due += 1
-
-    # ── Card 9: เช็ครายปี (แยก ตรวจแล้ว / ยังไม่ตรวจ) ───────────────────
-    annual_not_reviewed = base_q.filter(
-        RopaDocumentModel.status == "COMPLETED",
-        RopaDocumentModel.next_review_due_at <= now,
-    ).count()
-    # ตรวจแล้ว = COMPLETED ที่มี review cycle อนุมัติมากกว่า 1 รอบ (รอบแรก = initial, รอบถัดไป = annual)
-    annual_reviewed = (
+    # ── Ultimate Optimization: Combine all 17 queries into ONE high-performance query ────────
+    
+    # 1. Total Documents
+    total_q = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.created_by == uid).as_scalar()
+    
+    # 2. Needs Fix DO
+    needs_fix_do_q = (
         db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
-        .join(
-            RopaDocumentModel,
-            DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
+        .join(RopaDocumentModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id)
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            DocumentReviewCycleModel.status == "CHANGES_REQUESTED",
+            DocumentReviewCycleModel.document_id.in_(
+                db.query(DpoSectionCommentModel.document_id).filter(
+                    or_(DpoSectionCommentModel.section_key.like("DO_SEC_%"), DpoSectionCommentModel.section_key == "DO_RISK")
+                )
+            )
         )
+        .as_scalar()
+    )
+
+    # 3. Needs Fix DP
+    needs_fix_dp_q = (
+        db.query(func.count(func.distinct(RopaDocumentModel.id)))
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            or_(
+                # Path A: From DPO
+                RopaDocumentModel.id.in_(
+                    db.query(DocumentReviewCycleModel.document_id)
+                    .filter(DocumentReviewCycleModel.status == "CHANGES_REQUESTED")
+                    .filter(DocumentReviewCycleModel.document_id.in_(
+                        db.query(DpoSectionCommentModel.document_id).filter(DpoSectionCommentModel.section_key.like("DP_SEC_%"))
+                    ))
+                ),
+                # Path B: From DO
+                RopaDocumentModel.id.in_(
+                    db.query(RopaProcessorSectionModel.document_id)
+                    .join(ReviewFeedbackModel, ReviewFeedbackModel.target_id == RopaProcessorSectionModel.id)
+                    .filter(ReviewFeedbackModel.status == "OPEN")
+                )
+            )
+        )
+        .as_scalar()
+    )
+
+    # 4. Risks
+    risk_low_q = db.query(func.count(RopaRiskAssessmentModel.id)).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaRiskAssessmentModel.risk_level == "LOW").as_scalar()
+    risk_medium_q = db.query(func.count(RopaRiskAssessmentModel.id)).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaRiskAssessmentModel.risk_level == "MEDIUM").as_scalar()
+    risk_high_q = db.query(func.count(RopaRiskAssessmentModel.id)).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaRiskAssessmentModel.risk_level == "HIGH").as_scalar()
+
+    # 5. Pending DPO
+    under_review_storage_q = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "UNDER_REVIEW", RopaDocumentModel.deletion_status.is_(None)).as_scalar()
+    under_review_deletion_q = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.deletion_status == "DELETE_PENDING").as_scalar()
+
+    # 6. Pending Actions (Drafts)
+    pending_do_q = db.query(func.count(RopaOwnerSectionModel.id)).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "IN_PROGRESS", RopaOwnerSectionModel.status == "DRAFT").as_scalar()
+    pending_dp_q = db.query(func.count(RopaProcessorSectionModel.id)).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "IN_PROGRESS", RopaProcessorSectionModel.status == "DRAFT").as_scalar()
+
+    # 7. Completed
+    completed_q = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "COMPLETED").as_scalar()
+
+    # 8. Sensitive
+    sensitive_q = db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id))).join(OwnerDataTypeModel).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, OwnerDataTypeModel.type == "sensitive").as_scalar()
+
+    # 9. Overdue DP
+    overdue_dp_q = db.query(func.count(ProcessorAssignmentModel.id)).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "IN_PROGRESS", ProcessorAssignmentModel.due_date != None, ProcessorAssignmentModel.due_date <= now, ProcessorAssignmentModel.status != "SUBMITTED").as_scalar()
+
+    # 10. Destruction Due
+    destruction_due_q = (
+        db.query(func.count(RopaDocumentModel.id))
+        .join(RopaOwnerSectionModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+        .outerjoin(RopaProcessorSectionModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
         .filter(
             RopaDocumentModel.created_by == uid,
             RopaDocumentModel.status == "COMPLETED",
-            DocumentReviewCycleModel.status == "APPROVED",
-            DocumentReviewCycleModel.cycle_number > 1,
+            RopaDocumentModel.last_approved_at != None,
+            or_(RopaDocumentModel.deletion_status == None, RopaDocumentModel.deletion_status != "DELETED"),
+            or_(
+                case((RopaOwnerSectionModel.retention_unit == 'YEARS', RopaDocumentModel.last_approved_at + text("interval '1 year' * ropa_owner_sections.retention_value")), (RopaOwnerSectionModel.retention_unit == 'MONTHS', RopaDocumentModel.last_approved_at + text("interval '1 month' * ropa_owner_sections.retention_value")), else_=RopaDocumentModel.last_approved_at + text("interval '1 day' * ropa_owner_sections.retention_value")) <= now,
+                case((RopaProcessorSectionModel.retention_unit == 'YEARS', RopaDocumentModel.last_approved_at + text("interval '1 year' * ropa_processor_sections.retention_value")), (RopaProcessorSectionModel.retention_unit == 'MONTHS', RopaDocumentModel.last_approved_at + text("interval '1 month' * ropa_processor_sections.retention_value")), else_=RopaDocumentModel.last_approved_at + text("interval '1 day' * ropa_processor_sections.retention_value")) <= now
+            )
         )
-        .scalar()
-        or 0
+        .as_scalar()
     )
 
-    # ── Card 11: ถูกทำลายแล้ว ─────────────────────────────────────────────
-    deleted = base_q.filter(RopaDocumentModel.deletion_status == "DELETED").count()
+    # 11. Annual Review
+    annual_not_reviewed_q = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "COMPLETED", RopaDocumentModel.next_review_due_at <= now).as_scalar()
+    annual_reviewed_q = db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id))).join(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "COMPLETED", DocumentReviewCycleModel.status == "APPROVED", DocumentReviewCycleModel.cycle_number > 1).as_scalar()
+
+    # 12. Destroyed
+    deleted_q = db.query(func.count(RopaDocumentModel.id)).filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.deletion_status == "DELETED").as_scalar()
+
+    # ── Execute all as ONE query ───────────────────────────────────────────
+    stats = db.query(
+        total_q.label('total'),
+        needs_fix_do_q.label('fix_do'),
+        needs_fix_dp_q.label('fix_dp'),
+        risk_low_q.label('r_low'),
+        risk_medium_q.label('r_med'),
+        risk_high_q.label('r_high'),
+        under_review_storage_q.label('ur_store'),
+        under_review_deletion_q.label('ur_del'),
+        pending_do_q.label('p_do'),
+        pending_dp_q.label('p_dp'),
+        completed_q.label('comp'),
+        sensitive_q.label('sens'),
+        overdue_dp_q.label('over_dp'),
+        destruction_due_q.label('dest_due'),
+        annual_not_reviewed_q.label('ann_not'),
+        annual_reviewed_q.label('ann_rev'),
+        deleted_q.label('deleted')
+    ).first()
 
     return OwnerDashboardResponse(
-        total_documents=total,
-        needs_fix_do_count=needs_fix_do,
-        needs_fix_dp_count=needs_fix_dp,
-        risk_low_count=risk_low,
-        risk_medium_count=risk_medium,
-        risk_high_count=risk_high,
-        under_review_storage_count=under_review_storage,
-        under_review_deletion_count=under_review_deletion,
-        pending_do_count=pending_do,
-        pending_dp_count=pending_dp,
-        completed_count=completed,
-        sensitive_document_count=sensitive,
-        overdue_dp_count=overdue_dp,
-        annual_reviewed_count=annual_reviewed,
-        annual_not_reviewed_count=annual_not_reviewed,
-        destruction_due_count=destruction_due,
-        deleted_count=deleted,
+        total_documents=stats.total or 0,
+        needs_fix_do_count=stats.fix_do or 0,
+        needs_fix_dp_count=stats.fix_dp or 0,
+        risk_low_count=stats.r_low or 0,
+        risk_medium_count=stats.r_med or 0,
+        risk_high_count=stats.r_high or 0,
+        under_review_storage_count=stats.ur_store or 0,
+        under_review_deletion_count=stats.ur_del or 0,
+        pending_do_count=stats.p_do or 0,
+        pending_dp_count=stats.p_dp or 0,
+        completed_count=stats.comp or 0,
+        sensitive_document_count=stats.sens or 0,
+        overdue_dp_count=stats.over_dp or 0,
+        annual_reviewed_count=stats.ann_rev or 0,
+        annual_not_reviewed_count=stats.ann_not or 0,
+        destruction_due_count=stats.dest_due or 0,
+        deleted_count=stats.deleted or 0,
     )
 
 
@@ -1045,103 +942,67 @@ def get_owner_dashboard(
 
 @router.get(
     "/tables/active",
-    response_model=List[ActiveTableItem],
-    summary="ตาราง 1: เอกสาร Active (IN_PROGRESS)",
+    response_model=PaginatedActiveTableResponse,
+    summary="ตาราง 1 – เอกสาร Active (IN_PROGRESS)",
 )
 def get_active_table(
+    page: int = 1,
+    page_size: int = 50,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
+    offset = (page - 1) * page_size
 
-    docs = (
+    # 1. Base Query with Projections (Reduced Over-fetching)
+    base_q = (
         db.query(RopaDocumentModel)
+        .options(
+            joinedload(RopaDocumentModel.owner_section).load_only(RopaOwnerSectionModel.id, RopaOwnerSectionModel.status),
+            selectinload(RopaDocumentModel.processor_sections).load_only(RopaProcessorSectionModel.id, RopaProcessorSectionModel.status, RopaProcessorSectionModel.is_sent),
+            selectinload(RopaDocumentModel.processor_assignments).joinedload(ProcessorAssignmentModel.processor).load_only(UserModel.first_name, UserModel.last_name),
+            selectinload(RopaDocumentModel.risk_assessments).load_only(RopaRiskAssessmentModel.likelihood, RopaRiskAssessmentModel.impact)
+        )
         .filter(
             RopaDocumentModel.created_by == uid,
             RopaDocumentModel.status == "IN_PROGRESS",
-            or_(
-                RopaDocumentModel.deletion_status == None,
-                RopaDocumentModel.deletion_status != "DELETED",
-            ),
+            or_(RopaDocumentModel.deletion_status == None, RopaDocumentModel.deletion_status != "DELETED"),
         )
-        .order_by(RopaDocumentModel.updated_at.desc())
-        .all()
     )
 
+    total = base_q.count()
+    docs = base_q.order_by(RopaDocumentModel.created_at.desc()).offset(offset).limit(page_size).all()
+
+    # 2. Bulk fetch cycles and assignments
+    doc_ids = [doc.id for doc in docs]
+    all_cycles = (
+        db.query(DocumentReviewCycleModel)
+        .options(joinedload(DocumentReviewCycleModel.reviewer).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(DocumentReviewCycleModel.document_id.in_(doc_ids))
+        .order_by(DocumentReviewCycleModel.cycle_number.desc())
+        .all()
+    )
+    
+    latest_cycles = {}
+    for c in all_cycles:
+        if c.document_id not in latest_cycles:
+            latest_cycles[c.document_id] = c
+
+    cycle_ids = [c.id for c in latest_cycles.values()]
+    all_assignments = db.query(ReviewAssignmentModel).filter(ReviewAssignmentModel.review_cycle_id.in_(cycle_ids)).all()
+    assignments_map = {(a.review_cycle_id, a.role): a for a in all_assignments}
+
+    # 3. Build Result
     result = []
     for doc in docs:
-        owner_section = (
-            db.query(RopaOwnerSectionModel)
-            .filter(RopaOwnerSectionModel.document_id == doc.id)
-            .first()
-        )
-
-        # โหลด processor assignment (ต้องการ processor_id สำหรับ dp_name)
-        proc_assignment = (
-            db.query(ProcessorAssignmentModel)
-            .filter(ProcessorAssignmentModel.document_id == doc.id)
-            .first()
-        )
-
-        processor_section = (
-            db.query(RopaProcessorSectionModel)
-            .filter(RopaProcessorSectionModel.document_id == doc.id)
-            .first()
-        )
-
-        # ตรวจสอบความสมบูรณ์ของการประเมินความเสี่ยง
-        risk = (
-            db.query(RopaRiskAssessmentModel)
-            .filter(
-                RopaRiskAssessmentModel.document_id == doc.id,
-                RopaRiskAssessmentModel.likelihood != None,
-                RopaRiskAssessmentModel.impact != None,
-            )
-            .first()
-        )
-        is_risk_complete = risk is not None
-
-        # ชื่อ DP
-        dp_user = None
-        if proc_assignment:
-            dp_user = (
-                db.query(UserModel)
-                .filter(UserModel.id == proc_assignment.processor_id)
-                .first()
-            )
-
-        owner_review_assignment = (
-            db.query(ReviewAssignmentModel)
-            .join(DocumentReviewCycleModel)
-            .filter(
-                DocumentReviewCycleModel.document_id == doc.id,
-                ReviewAssignmentModel.user_id == uid,
-                ReviewAssignmentModel.role == "OWNER",
-            )
-            .order_by(DocumentReviewCycleModel.requested_at.desc())
-            .first()
-        )
-
-        processor_review_assignment = (
-            db.query(ReviewAssignmentModel)
-            .join(DocumentReviewCycleModel)
-            .filter(
-                DocumentReviewCycleModel.document_id == doc.id,
-                ReviewAssignmentModel.role == "PROCESSOR",
-            )
-            .order_by(DocumentReviewCycleModel.requested_at.desc())
-            .first()
-        )
-
-        # หา cycle ล่าสุดเพื่อดูว่าโดน Reject มาหรือไม่
-        last_cycle = (
-            db.query(DocumentReviewCycleModel)
-            .filter(DocumentReviewCycleModel.document_id == doc.id)
-            .order_by(DocumentReviewCycleModel.requested_at.desc())
-            .first()
-        )
-        last_cycle_status = last_cycle.status if last_cycle else None
-
+        owner_section = doc.owner_section
+        proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
+        processor_section = doc.processor_sections[0] if doc.processor_sections else None
+        
+        is_risk_complete = any(r.likelihood is not None and r.impact is not None for r in doc.risk_assessments)
+        dp_user = proc_assignment.processor if proc_assignment else None
+        last_cycle = latest_cycles.get(doc.id)
+        
         result.append(
             ActiveTableItem(
                 document_id=doc.id,
@@ -1149,26 +1010,20 @@ def get_active_table(
                 title=doc.title,
                 dp_name=_user_full_name(dp_user),
                 dp_company=doc.processor_company,
-                owner_status=_owner_status_badge(doc, owner_section, last_cycle_status),
-                processor_status=_processor_status_badge(
-                    processor_section, processor_review_assignment
-                ),
+                owner_status=_owner_status_badge(doc, owner_section, last_cycle.status if last_cycle else None),
+                processor_status=_processor_status_badge(processor_section, assignments_map.get((last_cycle.id, "PROCESSOR")) if last_cycle else None),
                 due_date=doc.due_date,
                 created_at=doc.created_at,
                 owner_section_id=owner_section.id if owner_section else None,
                 owner_section_status=owner_section.status if owner_section else None,
-                processor_section_id=(
-                    processor_section.id if processor_section else None
-                ),
-                processor_section_status=(
-                    processor_section.status if processor_section else None
-                ),
+                processor_section_id=processor_section.id if processor_section else None,
+                processor_section_status=processor_section.status if processor_section else None,
                 is_risk_complete=is_risk_complete,
                 deletion_status=doc.deletion_status,
             )
         )
 
-    return result
+    return {"items": result, "total": total, "page": page, "limit": page_size}
 
 
 # =============================================================================
@@ -1176,11 +1031,12 @@ def get_active_table(
 # =============================================================================
 
 
-def _table2_ui_status(
+def _table2_ui_status_optimized(
     doc: RopaDocumentModel,
     cycle: Optional[DocumentReviewCycleModel],
     uid: int,
-    db: Session,
+    comments: List[DpoSectionCommentModel],
+    assignments_map: dict,  # { (cycle_id, role): ReviewAssignmentModel }
 ):
     """
     5 สถานะของ ตาราง 2 (DO ↔ DPO):
@@ -1197,52 +1053,27 @@ def _table2_ui_status(
     # section_key: DO_SEC_x, DO_RISK = feedback ถึง DO
     #              DP_SEC_x           = feedback ถึง DP
     if cycle.status == "CHANGES_REQUESTED":
-        has_do_comment = (
-            db.query(DpoSectionCommentModel)
-            .filter(
-                DpoSectionCommentModel.document_id == doc.id,
-                or_(
-                    DpoSectionCommentModel.section_key.like("DO_SEC_%"),
-                    DpoSectionCommentModel.section_key == "DO_RISK",
-                ),
-            )
-            .first()
+        has_do_comment = any(
+            c.section_key.startswith("DO_SEC_") or c.section_key == "DO_RISK"
+            for c in comments
         )
         if has_do_comment:
             return "WAITING_DO_FIX", "รอ DO แก้ไข"
 
-        has_dp_comment = (
-            db.query(DpoSectionCommentModel)
-            .filter(
-                DpoSectionCommentModel.document_id == doc.id,
-                DpoSectionCommentModel.section_key.like("DP_SEC_%"),
-            )
-            .first()
-        )
+        has_dp_comment = any(c.section_key.startswith("DP_SEC_") for c in comments)
         if has_dp_comment:
             return "WAITING_DP_FIX", "รอ DP แก้ไข"
 
     # ReviewAssignment ของ DO ในรอบนี้
     owner_review_assignment = (
-        db.query(ReviewAssignmentModel)
-        .filter(
-            ReviewAssignmentModel.review_cycle_id == cycle.id,
-            ReviewAssignmentModel.user_id == uid,
-            ReviewAssignmentModel.role == "OWNER",
-        )
-        .first()
+        assignments_map.get((cycle.id, "OWNER")) if cycle else None
     )
     if owner_review_assignment and owner_review_assignment.status == "FIX_SUBMITTED":
         return "DO_DONE", "DO ดำเนินการเสร็จสิ้น"
 
     # ReviewAssignment ของ DP ในรอบนี้
     proc_review_assignment = (
-        db.query(ReviewAssignmentModel)
-        .filter(
-            ReviewAssignmentModel.review_cycle_id == cycle.id,
-            ReviewAssignmentModel.role == "PROCESSOR",
-        )
-        .first()
+        assignments_map.get((cycle.id, "PROCESSOR")) if cycle else None
     )
     if proc_review_assignment and proc_review_assignment.status == "FIX_SUBMITTED":
         return "DP_DONE", "DP ดำเนินการเสร็จสิ้น"
@@ -1257,56 +1088,61 @@ def _table2_ui_status(
 
 @router.get(
     "/tables/sent-to-dpo",
-    response_model=List[SentToDpoTableItem],
+    response_model=PaginatedSentToDpoResponse,
     summary="ตาราง 2: เอกสารที่ส่ง DPO แล้ว (UNDER_REVIEW)",
 )
 def get_sent_to_dpo_table(
+    page: int = 1,
+    page_size: int = 50,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
+    offset = (page - 1) * page_size
 
-    docs = (
+    base_q = (
         db.query(RopaDocumentModel)
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            RopaDocumentModel.status == "UNDER_REVIEW",
+        .options(
+            joinedload(RopaDocumentModel.owner_section).load_only(RopaOwnerSectionModel.id),
+            selectinload(RopaDocumentModel.processor_assignments).joinedload(ProcessorAssignmentModel.processor).load_only(UserModel.first_name, UserModel.last_name)
         )
-        .order_by(RopaDocumentModel.updated_at.desc())
+        .filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "UNDER_REVIEW")
+    )
+
+    total = base_q.count()
+    docs = base_q.order_by(RopaDocumentModel.updated_at.desc()).offset(offset).limit(page_size).all()
+
+    # Bulk fetch cycles, assignments, and comments
+    doc_ids = [doc.id for doc in docs]
+    all_cycles = (
+        db.query(DocumentReviewCycleModel)
+        .options(joinedload(DocumentReviewCycleModel.reviewer).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(DocumentReviewCycleModel.document_id.in_(doc_ids))
+        .order_by(DocumentReviewCycleModel.cycle_number.desc())
         .all()
     )
+    
+    latest_cycles = {c.document_id: c for c in all_cycles}
+    cycle_ids = [c.id for c in latest_cycles.values()]
+    
+    all_assignments = db.query(ReviewAssignmentModel).filter(ReviewAssignmentModel.review_cycle_id.in_(cycle_ids)).all()
+    assignments_map = {(a.review_cycle_id, a.role): a for a in all_assignments}
+    
+    all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.review_cycle_id.in_(cycle_ids)).all()
+    comments_map = {}
+    for c in all_comments:
+        if c.review_cycle_id not in comments_map: comments_map[c.review_cycle_id] = []
+        comments_map[c.review_cycle_id].append(c)
 
     result = []
     for doc in docs:
-        cycle = (
-            db.query(DocumentReviewCycleModel)
-            .filter(DocumentReviewCycleModel.document_id == doc.id)
-            .order_by(DocumentReviewCycleModel.requested_at.desc())
-            .first()
-        )
-
-        dpo_user = None
-        if cycle:
-            dpo_assignment = (
-                db.query(ReviewDpoAssignmentModel)
-                .filter(ReviewDpoAssignmentModel.review_cycle_id == cycle.id)
-                .first()
-            )
-            if dpo_assignment:
-                dpo_user = (
-                    db.query(UserModel)
-                    .filter(UserModel.id == dpo_assignment.dpo_id)
-                    .first()
-                )
-            elif cycle.reviewed_by:
-                dpo_user = (
-                    db.query(UserModel)
-                    .filter(UserModel.id == cycle.reviewed_by)
-                    .first()
-                )
-
-        # คำนวณ ui_status 5 ค่า
-        ui_status, ui_status_label = _table2_ui_status(doc, cycle, uid, db)
+        last_cycle = latest_cycles.get(doc.id)
+        cycle_comments = comments_map.get(last_cycle.id, []) if last_cycle else []
+        ui_status, ui_label = _table2_ui_status_optimized(doc, last_cycle, uid, cycle_comments, assignments_map)
+        
+        dpo_user = last_cycle.reviewer if last_cycle else None
+        proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
+        dp_user = proc_assignment.processor if proc_assignment else None
 
         result.append(
             SentToDpoTableItem(
@@ -1315,15 +1151,15 @@ def get_sent_to_dpo_table(
                 title=doc.title,
                 dpo_name=_user_full_name(dpo_user),
                 ui_status=ui_status,
-                ui_status_label=ui_status_label,
-                sent_at=cycle.requested_at if cycle else None,
-                reviewed_at=cycle.reviewed_at if cycle else None,
+                ui_status_label=ui_label,
+                sent_at=last_cycle.requested_at if last_cycle else None,
+                reviewed_at=last_cycle.reviewed_at if last_cycle else None,
                 due_date=doc.due_date,
                 deletion_status=doc.deletion_status,
             )
         )
 
-    return result
+    return {"items": result, "total": total, "page": page, "limit": page_size}
 
 
 # =============================================================================
@@ -1333,105 +1169,106 @@ def get_sent_to_dpo_table(
 
 @router.get(
     "/tables/approved",
-    response_model=List[ApprovedTableItem],
-    summary="ตาราง 3: เอกสารที่ DPO อนุมัติแล้ว (COMPLETED)",
+    response_model=PaginatedApprovedResponse,
+    summary="ตาราง 3: เอกสารที่อนุมัติแล้ว (COMPLETED)",
 )
 def get_approved_table(
+    page: int = 1,
+    page_size: int = 50,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    offset = (page - 1) * page_size
 
-    docs = (
+    base_q = (
         db.query(RopaDocumentModel)
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            RopaDocumentModel.status == "COMPLETED",
-            or_(
-                RopaDocumentModel.deletion_status == None,
-                RopaDocumentModel.deletion_status != "DELETED",
-            ),
+        .options(
+            joinedload(RopaDocumentModel.owner_section).load_only(RopaOwnerSectionModel.id, RopaOwnerSectionModel.retention_value, RopaOwnerSectionModel.retention_unit),
+            selectinload(RopaDocumentModel.processor_sections).load_only(RopaProcessorSectionModel.id, RopaProcessorSectionModel.retention_value, RopaProcessorSectionModel.retention_unit),
+            selectinload(RopaDocumentModel.processor_assignments).joinedload(ProcessorAssignmentModel.processor).load_only(UserModel.first_name, UserModel.last_name)
         )
-        .order_by(RopaDocumentModel.last_approved_at.desc())
+        .filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "COMPLETED")
+    )
+
+    total = base_q.count()
+    docs = base_q.order_by(RopaDocumentModel.last_approved_at.desc()).offset(offset).limit(page_size).all()
+
+    # Bulk fetch cycles for DPO name
+    doc_ids = [doc.id for doc in docs]
+    approved_cycles = (
+        db.query(DocumentReviewCycleModel)
+        .options(joinedload(DocumentReviewCycleModel.reviewer).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(DocumentReviewCycleModel.document_id.in_(doc_ids), DocumentReviewCycleModel.status == "APPROVED")
+        .order_by(DocumentReviewCycleModel.reviewed_at.desc())
         .all()
     )
+    cycles_map = {c.document_id: c for c in approved_cycles}
 
     result = []
     for doc in docs:
-        # หา DO name (creator)
-        do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
-
-        # หา DPO จาก review cycle ล่าสุดที่ APPROVED
-        dpo_user = None
-        last_cycle = (
-            db.query(DocumentReviewCycleModel)
-            .filter(
-                DocumentReviewCycleModel.document_id == doc.id,
-                DocumentReviewCycleModel.status == "APPROVED",
-            )
-            .order_by(DocumentReviewCycleModel.reviewed_at.desc())
-            .first()
-        )
-        if last_cycle and last_cycle.reviewed_by:
-            dpo_user = (
-                db.query(UserModel)
-                .filter(UserModel.id == last_cycle.reviewed_by)
-                .first()
-            )
-
-        # คำนวณ destruction_date จาก owner section's retention
+        owner_sec = doc.owner_section
+        proc_sec = doc.processor_sections[0] if doc.processor_sections else None
+        
         destruction_date = None
-        owner_section = (
-            db.query(RopaOwnerSectionModel)
-            .filter(RopaOwnerSectionModel.document_id == doc.id)
-            .first()
-        )
-        if (
-            owner_section
-            and owner_section.retention_value
-            and owner_section.retention_unit
-            and doc.last_approved_at
-        ):
-            rv = owner_section.retention_value
-            ru = (owner_section.retention_unit or "").upper()
-            if ru == "DAYS":
-                destruction_date = doc.last_approved_at + timedelta(days=rv)
-            elif ru == "MONTHS":
-                destruction_date = doc.last_approved_at + timedelta(days=rv * 30)
-            elif ru == "YEARS":
-                destruction_date = doc.last_approved_at + timedelta(days=rv * 365)
-
-        # ถ้าถึงวันทำลายแล้ว → รอทำลาย ไม่ต้องตรวจรายปีอีก
-        # ถ้าครบปีแล้ว (next_review_due_at <= now) → ยังไม่ได้ตรวจสอบรายปี
-        # ถ้ายังไม่ครบปี → ตรวจสอบเสร็จสิ้น
-        if destruction_date and destruction_date <= now:
-            annual_review_status = "PENDING_DESTRUCTION"
-            annual_review_status_label = "รอทำลายเอกสาร"
-        elif doc.next_review_due_at and doc.next_review_due_at <= now:
-            annual_review_status = "NOT_REVIEWED"
-            annual_review_status_label = "ยังไม่ได้ตรวจสอบ"
+        target_sec = owner_sec or proc_sec
+        if target_sec and target_sec.retention_value and target_sec.retention_unit:
+            rv = target_sec.retention_value
+            ru = target_sec.retention_unit.upper()
+            if ru == "DAYS": destruction_date = doc.last_approved_at + timedelta(days=rv)
+            elif ru == "MONTHS": destruction_date = doc.last_approved_at + timedelta(days=rv * 30)
+            elif ru == "YEARS": destruction_date = doc.last_approved_at + timedelta(days=rv * 365)
+        
+        if destruction_date:
+            # Ensure destruction_date is aware for comparison
+            if destruction_date.tzinfo is None:
+                destruction_date = destruction_date.replace(tzinfo=timezone.utc)
+            
+            if destruction_date <= now:
+                status, label = "PENDING_DESTRUCTION", "รอทำลายเอกสาร"
+            elif doc.next_review_due_at:
+                nrda = doc.next_review_due_at
+                if nrda.tzinfo is None: nrda = nrda.replace(tzinfo=timezone.utc)
+                if nrda <= now:
+                    status, label = "NOT_REVIEWED", "ยังไม่ได้ตรวจสอบ"
+                else:
+                    status, label = "REVIEWED", "ตรวจสอบเสร็จสิ้น"
+            else:
+                status, label = "REVIEWED", "ตรวจสอบเสร็จสิ้น"
         else:
-            annual_review_status = "REVIEWED"
-            annual_review_status_label = "ตรวจสอบเสร็จสิ้น"
+            if doc.next_review_due_at:
+                nrda = doc.next_review_due_at
+                if nrda.tzinfo is None: nrda = nrda.replace(tzinfo=timezone.utc)
+                if nrda <= now:
+                    status, label = "NOT_REVIEWED", "ยังไม่ได้ตรวจสอบ"
+                else:
+                    status, label = "REVIEWED", "ตรวจสอบเสร็จสิ้น"
+            else:
+                status, label = "REVIEWED", "ตรวจสอบเสร็จสิ้น"
+
+        last_cycle = cycles_map.get(doc.id)
+        dpo_user = last_cycle.reviewer if last_cycle else None
+        proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
+        dp_user = proc_assignment.processor if proc_assignment else None
 
         result.append(
             ApprovedTableItem(
                 document_id=doc.id,
                 document_number=doc.document_number,
                 title=doc.title,
-                do_name=_user_full_name(do_user),
+                do_name=_user_full_name(current_user),
                 dpo_name=_user_full_name(dpo_user),
                 last_approved_at=doc.last_approved_at,
                 next_review_due_at=doc.next_review_due_at,
                 destruction_date=destruction_date,
-                annual_review_status=annual_review_status,
-                annual_review_status_label=annual_review_status_label,
+                annual_review_status=status,
+                annual_review_status_label=label,
                 deletion_status=doc.deletion_status,
             )
         )
 
-    return result
+    return {"items": result, "total": total, "page": page, "limit": page_size}
 
 
 # =============================================================================
@@ -1441,60 +1278,59 @@ def get_approved_table(
 
 @router.get(
     "/tables/destroyed",
-    response_model=List[DestroyedTableItem],
+    response_model=PaginatedDestroyedResponse,
     summary="ตาราง 4: เอกสารที่ถูกทำลายแล้ว (DELETED)",
 )
 def get_destroyed_table(
+    page: int = 1,
+    page_size: int = 50,
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
+    offset = (page - 1) * page_size
 
-    docs = (
+    base_q = (
         db.query(RopaDocumentModel)
-        .filter(
-            RopaDocumentModel.created_by == uid,
-            RopaDocumentModel.deletion_status == "DELETED",
+        .options(
+            selectinload(RopaDocumentModel.processor_assignments).joinedload(ProcessorAssignmentModel.processor).load_only(UserModel.first_name, UserModel.last_name)
         )
-        .order_by(RopaDocumentModel.deleted_at.desc())
+        .filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.deletion_status == "DELETED")
+    )
+
+    total = base_q.count()
+    docs = base_q.order_by(RopaDocumentModel.deleted_at.desc()).offset(offset).limit(page_size).all()
+
+    # Bulk load deletion requests to find who approved destruction
+    doc_ids = [doc.id for doc in docs]
+    deletion_reqs = (
+        db.query(DocumentDeletionRequestModel)
+        .options(joinedload(DocumentDeletionRequestModel.reviewer).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(DocumentDeletionRequestModel.document_id.in_(doc_ids), DocumentDeletionRequestModel.status == "APPROVED")
         .all()
     )
+    reqs_map = {r.document_id: r for r in deletion_reqs}
 
     result = []
     for doc in docs:
-        do_user = db.query(UserModel).filter(UserModel.id == doc.created_by).first()
-
-        # หา DPO ที่อนุมัติการทำลาย
-        deletion_req = (
-            db.query(DocumentDeletionRequestModel)
-            .filter(
-                DocumentDeletionRequestModel.document_id == doc.id,
-                DocumentDeletionRequestModel.status == "APPROVED",
-            )
-            .order_by(DocumentDeletionRequestModel.decided_at.desc())
-            .first()
-        )
-        dpo_user = None
-        if deletion_req and deletion_req.dpo_id:
-            dpo_user = (
-                db.query(UserModel).filter(UserModel.id == deletion_req.dpo_id).first()
-            )
+        req = reqs_map.get(doc.id)
+        dpo_user = req.reviewer if req else None
+        proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
+        dp_user = proc_assignment.processor if proc_assignment else None
 
         result.append(
             DestroyedTableItem(
                 document_id=doc.id,
                 document_number=doc.document_number,
                 title=doc.title,
-                do_name=_user_full_name(do_user),
+                do_name=_user_full_name(current_user),
                 dpo_name=_user_full_name(dpo_user),
-                deletion_approved_at=(
-                    deletion_req.decided_at if deletion_req else doc.deleted_at
-                ),
-                deletion_reason=deletion_req.owner_reason if deletion_req else None,
+                deletion_approved_at=doc.deleted_at or doc.updated_at,
+                deletion_reason=req.owner_reason if req else None,
             )
         )
 
-    return result
+    return {"items": result, "total": total, "page": page, "limit": page_size}
 
 
 # =============================================================================

@@ -10,14 +10,18 @@ import Select from "@/components/ui/Select";
 import { useRopa } from "@/context/RopaContext";
 
 export default function RopaDestroyedPage() {
-    const { destroyedRecords: contextDestroyedRecords, refresh } = useRopa();
+    const { destroyedRecords: contextDestroyedRecords, destroyedMeta, fetchDestroyedTable, refresh } = useRopa();
+
+    const [page, setPage] = useState(1);
+    const router = useRouter();
 
     useEffect(() => {
         refresh();
     }, [refresh]);
-    const router = useRouter();
-    
-    const [page, setPage] = useState(1);
+
+    useEffect(() => {
+        fetchDestroyedTable(page, 3);
+    }, [page, fetchDestroyedTable]);
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
@@ -60,7 +64,8 @@ export default function RopaDestroyedPage() {
     });
 
     const ITEMS_PER_PAGE = 3;
-    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice(0, ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(destroyedMeta.total / ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -129,8 +134,8 @@ export default function RopaDestroyedPage() {
                         </DocumentTable>
                         <DocumentPagination 
                             current={page} 
-                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={filteredRecords.length}
+                            totalPages={Math.max(1, totalPages)}
+                            totalItems={destroyedMeta.total}
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage} 
                         />
