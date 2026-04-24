@@ -1,4 +1,5 @@
 FROM node:20-alpine
+RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
@@ -6,7 +7,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci && npm install -D @next/swc-linux-x64-musl
 
 COPY . .
 

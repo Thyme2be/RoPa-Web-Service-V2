@@ -9,7 +9,7 @@ import SensitiveDataCard from "@/components/dashboard/SensitiveDataCard";
 import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
 import { DonutData } from "@/components/ui/DonutChart";
 import { useState, useEffect } from "react";
-import { useRopa } from "@/context/RopaContext";
+import { useExecutive } from "@/context/ExecutiveContext";
 
 // Removed hardcoded DEPT_OPTIONS to use dynamic departments from API
 
@@ -22,7 +22,7 @@ const PERIOD_OPTIONS = [
 ];
 
 export default function ExecutiveDashboard() {
-    const { executiveDashboardData, fetchExecutiveData, isLoading } = useRopa();
+    const { executiveDashboardData, fetchExecutiveData, isLoading } = useExecutive();
     const data = executiveDashboardData;
     const [period, setPeriod] = useState("all");
     const [selectedDept, setSelectedDept] = useState("IT");

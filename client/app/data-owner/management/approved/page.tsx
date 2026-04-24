@@ -8,7 +8,7 @@ import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable,
 import Select from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 // ─── Formatting ────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ function formatDate(dateStr: string | undefined | null) {
 
 
 export default function RopaApprovedPage() {
-    const { approvedRecords: contextApprovedRecords, approvedMeta, fetchApprovedTable, requestDelete, annualReview, refresh } = useRopa();
+    const { approvedRecords: contextApprovedRecords, approvedMeta, fetchApprovedTable, requestDelete, annualReview, refresh } = useOwner();
 
     const [page, setPage] = useState(1);
     const router = useRouter();

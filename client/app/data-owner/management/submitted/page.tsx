@@ -7,11 +7,11 @@ import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 export default function RopaSubmittedPage() {
-    const { sentRecords, sentMeta, sendBackToDpo, deleteRecord, refresh, fetchSentTable } = useRopa();
+    const { sentRecords, sentMeta, sendBackToDpo, deleteRecord, refresh, fetchSentTable } = useOwner();
 
     const router = useRouter();
 

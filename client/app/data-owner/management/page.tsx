@@ -4,11 +4,11 @@ import React, { useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Link from "next/link";
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import { cn } from "@/lib/utils";
 
 export default function RopaSelectionPage() {
-    const { activeRecords, sentRecords, approvedRecords, destroyedRecords, refresh } = useRopa();
+    const { refresh } = useOwner();
 
     useEffect(() => {
         refresh();

@@ -7,10 +7,10 @@ import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 
 export default function RopaDestroyedPage() {
-    const { destroyedRecords: contextDestroyedRecords, destroyedMeta, fetchDestroyedTable, refresh } = useRopa();
+    const { destroyedRecords: contextDestroyedRecords, destroyedMeta, fetchDestroyedTable, refresh } = useOwner();
 
     const [page, setPage] = useState(1);
     const router = useRouter();

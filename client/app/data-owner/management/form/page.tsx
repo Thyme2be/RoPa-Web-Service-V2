@@ -24,7 +24,8 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus, SectionStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
+import { useProcessor } from "@/context/ProcessorContext";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -46,17 +47,16 @@ function ManagementFormContent() {
     const {
         saveRecord,
         getById,
-        getProcessorById,
         submitDoSection,
         sendToDpo,
         saveRiskAssessment,
         fetchFullOwnerRecord,
-        fetchFullProcessorRecord,
         createOwnerSnapshot,
         fetchOwnerSnapshot,
         requestDelete,
         submitFeedbackBatch
-    } = useRopa();
+    } = useOwner();
+    const { fetchFullProcessorRecord } = useProcessor();
     const record = getById(recordId || "");
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);

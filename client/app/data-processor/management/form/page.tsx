@@ -16,7 +16,7 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { SectionStatus } from "@/types/enums";
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
+import { useProcessor } from "@/context/ProcessorContext";
 import { cn } from "@/lib/utils";
 
 function DataProcessorFormContent() {
@@ -28,7 +28,7 @@ function DataProcessorFormContent() {
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
 
-    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord, fetchProcessorSnapshot } = useRopa();
+    const { submitDpSection, saveProcessorRecord, fetchFullProcessorRecord, fetchProcessorSnapshot } = useProcessor();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isLocked, setIsLocked] = useState(true);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);

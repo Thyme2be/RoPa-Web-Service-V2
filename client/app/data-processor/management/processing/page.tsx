@@ -17,7 +17,7 @@ import {
   ActionIconWithTooltip,
 } from "@/components/ropa/ListComponents";
 import { useRouter } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
+import { useProcessor } from "@/context/ProcessorContext";
 import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
@@ -101,7 +101,7 @@ export default function ManagementProcessingPage() {
     processorSnapshots,
     deleteProcessorRecord,
     dispatchDpSection,
-  } = useRopa();
+  } = useProcessor();
   const [page, setPage] = useState(1);
   const [draftPage, setDraftPage] = useState(1);
 

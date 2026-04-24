@@ -5,12 +5,12 @@ import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
 import DonutChart from "@/components/ui/DonutChart";
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import Select from "@/components/ui/Select";
 
 export default function DashboardPage() {
   const { getDashboardStats, refresh, fetchOwnerDashboard, isLoading } =
-    useRopa();
+    useOwner();
   const [timeFilter, setTimeFilter] = React.useState("all");
 
   // Initial refresh

@@ -18,11 +18,11 @@ import {
 } from "@/components/ropa/ListComponents";
 import CreateDocumentModal from "@/components/ropa/CreateDocumentModal";
 import { useRouter } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord, ActiveTableItem } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
-import { ropaService } from "@/services/ropaService";
+import { ownerService } from "@/services/ownerService";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 // ─── Formatting ────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ export default function ManagementProcessingPage() {
     deleteOwnerSnapshot,
     refresh,
     fetchActiveTable,
-  } = useRopa();
+  } = useOwner();
 
   const [page, setPage] = useState(1);
   const [draftPage, setDraftPage] = useState(1);
@@ -110,7 +110,7 @@ export default function ManagementProcessingPage() {
   }) => {
     setIsCreateModalOpen(false);
     try {
-      const result = await ropaService.createDocument({
+      const result = await ownerService.createDocument({
         title: data.name,
         processor_company: data.company,
         due_date: data.dueDate,
