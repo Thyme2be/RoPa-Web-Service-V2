@@ -285,7 +285,39 @@ def _load_owner_section_full(
         physical_measures=section.physical_measures,
         audit_measures=section.audit_measures,
         document_status=doc_status,
+        feedbacks=[], # Default
     )
+    
+    # Fetch DPO comments for this document that are meant for DO
+    dpo_comms = db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == section.document_id,
+        or_(
+            DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7", "risk"]),
+            DpoSectionCommentModel.section_key.like("DO_SEC_%")
+        )
+    ).all()
+
+    for comm in dpo_comms:
+        # Map DPO comment to the structure expected by the frontend 'suggestions' array
+        # Use section_key as section_id if it's numeric, otherwise map 'risk'
+        s_id = comm.section_key
+        if s_id == "risk":
+            # For Risk Assessment, we map to a special ID or keep as 'risk' 
+            # The frontend ManagementFormContent uses 'DO_RISK' or 'risk'
+            s_id = "risk"
+        
+        res.suggestions.append({
+            "id": str(comm.id),
+            "section": "DO_RISK" if comm.section_key == "risk" else f"DO_SEC_{comm.section_key}",
+            "section_id": s_id, 
+            "comment": comm.comment,
+            "reviewer": "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)",
+            "date": comm.created_at.isoformat(),
+            "status": "pending",
+            "role": "owner"
+        })
+        
+    return res
 
 
 
@@ -393,7 +425,7 @@ def _owner_status_badge(
     last_cycle_status: Optional[str] = None,
 ) -> OwnerStatusBadge:
     if last_cycle_status == "CHANGES_REQUESTED":
-        return OwnerStatusBadge(label="DPO แจ้งแก้ไข (แก้ไขแล้วส่งใหม่)", code="DPO_REJECTED")
+        return OwnerStatusBadge(label="รอส่วนของ Data Owner แก้ไข", code="DPO_REJECTED")
 
     if owner_section and owner_section.status == RopaSectionEnum.SUBMITTED:
         return OwnerStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
@@ -403,12 +435,24 @@ def _owner_status_badge(
 def _processor_status_badge(
     processor_section: Optional[RopaProcessorSectionModel],
     review_assignment: Optional[ReviewAssignmentModel],
+    last_cycle_status: Optional[str] = None,
 ) -> ProcessorStatusBadge:
     """
     badge สถานะ DP ใน ตาราง 1 (มุมมอง DO) — 2 ค่า:
       DP_DONE    = ส่งให้ DO แล้ว (is_sent=True)
       WAITING_DP = ยังไม่ได้ส่ง หรือ กำลังกรอก (is_sent=False)
     """
+    # Check for DPO rejections for the processor
+    # We need to check if there are any open DPO comments for the processor section
+    # Since this helper doesn't have DB access, we might need a different approach or 
+    # accept that DO sees it as WAITING_DP (which is technically correct as status is DRAFT)
+    
+    # However, to be consistent with _owner_status_badge, we should ideally check cycle status
+    if last_cycle_status == "CHANGES_REQUESTED":
+        # Check if the processor section is in DRAFT mode (which we set on rejection)
+        if processor_section and processor_section.status == RopaSectionEnum.DRAFT:
+             return ProcessorStatusBadge(label="รอส่วนของ Data Processor แก้ไข", code="DPO_REJECTED")
+
     if processor_section and processor_section.is_sent and processor_section.status == RopaSectionEnum.SUBMITTED:
         return ProcessorStatusBadge(
             label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE"
@@ -1088,7 +1132,7 @@ def get_active_table(
                 dp_name=_user_full_name(dp_user),
                 dp_company=doc.processor_company,
                 owner_status=_owner_status_badge(doc, owner_section, last_cycle.status if last_cycle else None),
-                processor_status=_processor_status_badge(processor_section, assignments_map.get((last_cycle.id, "PROCESSOR")) if last_cycle else None),
+                processor_status=_processor_status_badge(processor_section, assignments_map.get((last_cycle.id, "PROCESSOR")) if last_cycle else None, last_cycle.status if last_cycle else None),
                 due_date=doc.due_date,
                 created_at=doc.created_at,
                 owner_section_id=owner_section.id if owner_section else None,
@@ -1598,6 +1642,16 @@ def submit_owner_section(
 
     _replace_owner_sub_tables(section.id, payload, db)
     section.status = "SUBMITTED"
+
+    # ALSO: Clear DPO comments for DO sections because the user has fixed them
+    # Keys for DO: "1", "2", "3", "risk" (and old DO_SEC_ keys)
+    db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id,
+        or_(
+            DpoSectionCommentModel.section_key.in_(["1", "2", "3", "risk"]),
+            DpoSectionCommentModel.section_key.like("DO_SEC_%")
+        )
+    ).delete(synchronize_session=False)
 
     db.commit()
     db.refresh(section)

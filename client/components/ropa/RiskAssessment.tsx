@@ -221,7 +221,7 @@ export default function RiskAssessment({
                 isDraftingFeedback={false}
                 onFeedbackChange={() => {}}
                 feedbackText=""
-                existingSuggestions={dpoSuggestion ? [{ text: dpoSuggestion.comment, date: dpoSuggestion.date }] : undefined}
+                existingSuggestions={dpoSuggestion ? [{ text: dpoSuggestion.comment, date: dpoSuggestion.date, reviewer: "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)" }] : undefined}
                 canReview={false}
             >
                 {content}
