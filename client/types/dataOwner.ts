@@ -134,7 +134,7 @@ export type OwnerRecord = {
   suggestions?: {
     id: string;
     section: string;
-    section_id: number;
+    section_id: string;
     comment: string;
     reviewer: string;
     date: string;

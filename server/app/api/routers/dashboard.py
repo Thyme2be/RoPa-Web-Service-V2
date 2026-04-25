@@ -1928,7 +1928,7 @@ def save_document_comments(
                     proc_sec = db.query(RopaProcessorSectionModel).filter(RopaProcessorSectionModel.document_id == document_id).first()
                     if proc_sec:
                         proc_sec.status = "DRAFT"
-                        proc_sec.is_sent = False # Force send back to DO workflow
+                        # proc_sec.is_sent = False # Keep is_sent so DO can see feedback
                         db.add(proc_sec)
 
             db.add(doc)

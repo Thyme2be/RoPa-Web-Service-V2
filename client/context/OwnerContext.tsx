@@ -245,7 +245,8 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
             storage_methods: data.storage_methods?.map((m: any) => m.method).join(",") || "",
             status: data.status === "SUBMITTED" ? RopaStatus.Processing : RopaStatus.Draft,
             document_status: data.document_status,
-            workflow: "processing"
+            workflow: "processing",
+            suggestions: data.suggestions || []
         };
     };
 
@@ -269,6 +270,29 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 normalized.deletion_status = null;
                 normalized.deletion_request = undefined;
             }
+            
+            try {
+                const riskData = await ownerService.getRiskAssessment(id);
+                if (riskData) {
+                    normalized.risk_assessment = {
+                        probability: riskData.likelihood,
+                        impact: riskData.impact,
+                        total: riskData.risk_score,
+                        level: riskData.risk_level === "LOW" ? "ต่ำ" : riskData.risk_level === "MEDIUM" ? "ปานกลาง" : "สูง",
+                        submitted_date: riskData.assessed_at
+                    };
+                    if (riskData.suggestions && riskData.suggestions.length > 0) {
+                        normalized.suggestions = [
+                            ...(normalized.suggestions || []),
+                            ...riskData.suggestions
+                        ];
+                    }
+                }
+            } catch (e) {
+                // No risk assessment found
+                normalized.risk_assessment = undefined;
+            }
+            
             return normalized;
         } catch (error) {
             console.error("Failed to fetch full owner record:", error);

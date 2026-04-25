@@ -2231,7 +2231,41 @@ def get_risk_assessment(
             status_code=404, detail="ยังไม่มี Risk Assessment สำหรับเอกสารนี้"
         )
 
-    return risk
+    # Fetch DPO comments for Risk Assessment
+    dpo_comms = db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id,
+        or_(
+            DpoSectionCommentModel.section_key == "DO_RISK",
+            DpoSectionCommentModel.section_key == "risk"
+        )
+    ).all()
+    
+    suggestions = []
+    for comm in dpo_comms:
+        suggestions.append({
+            "id": str(comm.id),
+            "section": comm.section_key,
+            "section_id": "risk",
+            "comment": comm.comment,
+            "reviewer": "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)",
+            "date": comm.created_at.isoformat(),
+            "status": "OPEN",
+            "role": "DPO"
+        })
+        
+    risk_dict = {
+        "id": risk.id,
+        "document_id": risk.document_id,
+        "assessed_by": risk.assessed_by,
+        "likelihood": risk.likelihood,
+        "impact": risk.impact,
+        "risk_score": risk.risk_score,
+        "risk_level": risk.risk_level,
+        "assessed_at": risk.assessed_at,
+        "suggestions": suggestions
+    }
+
+    return risk_dict
 
 
 # =============================================================================
