@@ -1,8 +1,8 @@
 import { api } from "@/lib/api";
 
 export const processorService = {
-    getProcessorAssignedTable: async (page = 1, limit = 3) => {
-        const response = await api.get("/processor/tables/assigned", { params: { page, limit } });
+    getProcessorAssignedTable: async (page = 1, limit = 3, search?: string) => {
+        const response = await api.get("/processor/tables/assigned", { params: { page, limit, search } });
         return response.data;
     },
 

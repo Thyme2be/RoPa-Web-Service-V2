@@ -92,6 +92,10 @@ function LocalStatusBadge({ code, label }: { code: string; label: string }) {
   );
 }
 
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
+import TableLoading from "@/components/ui/TableLoading";
+
 export default function ManagementProcessingPage() {
   const router = useRouter();
   const {
@@ -101,13 +105,31 @@ export default function ManagementProcessingPage() {
     processorSnapshots,
     deleteProcessorRecord,
     dispatchDpSection,
+    isLoading,
+    error,
+    clearError,
+    refresh,
   } = useProcessor();
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [draftPage, setDraftPage] = useState(1);
 
   useEffect(() => {
-    fetchProcessorAssignedTable(page, 3);
-  }, [page, fetchProcessorAssignedTable]);
+    refresh();
+  }, [refresh]);
+
+  // Handle Search Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    fetchProcessorAssignedTable(page, 3, debouncedSearch);
+  }, [page, debouncedSearch, fetchProcessorAssignedTable]);
 
   const [submitConfirm, setSubmitConfirm] = useState<{
     open: boolean;
@@ -127,24 +149,35 @@ export default function ManagementProcessingPage() {
       setSubmitConfirm({ open: false, id: "" });
     } catch (error) {
       console.error("Failed to submit to DO:", error);
-      alert("เกิดข้อผิดพลาดในการส่งให้เจ้าของข้อมูล");
+      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("7days");
+  const [dateFilter, setDateFilter] = useState("all");
   const [customDate, setCustomDate] = useState("");
 
   const handleClearFilters = () => {
     setStatusFilter("all");
-    setDateFilter("7days");
+    setDateFilter("all");
     setCustomDate("");
   };
 
   const assignedRecords = processorAssignedRecords;
   const draftRecords = processorSnapshots;
+  
+  const filteredDrafts = draftRecords.filter((record) => {
+    if (debouncedSearch) {
+      const searchLower = debouncedSearch.toLowerCase();
+      return (
+        (record.document_number?.toLowerCase() || "").includes(searchLower) ||
+        (record.title?.toLowerCase() || "").includes(searchLower)
+      );
+    }
+    return true;
+  });
 
   const filteredAssigned = assignedRecords
     .filter((record) => {
@@ -213,7 +246,7 @@ export default function ManagementProcessingPage() {
   const paginatedProcessing = assignedRecords;
 
   // Drafts still use client slicing for now as they are usually fewer
-  const paginatedDrafts = draftRecords.slice(
+  const paginatedDrafts = filteredDrafts.slice(
     (draftPage - 1) * DRAFT_ITEMS_PER_PAGE,
     draftPage * DRAFT_ITEMS_PER_PAGE,
   );
@@ -226,8 +259,29 @@ export default function ManagementProcessingPage() {
     { label: "ตรวจสอบเสร็จสิ้น", value: "CHECK_DONE" },
   ];
 
+  if (error) {
+    return (
+      <div className="flex min-h-screen bg-[#F6F3F2]">
+        <Sidebar />
+        <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
+          <ErrorState 
+            title="ไม่สามารถโหลดข้อมูลงานที่มอบหมายได้" 
+            message={error} 
+            onRetry={() => { clearError(); refresh(); }} 
+          />
+        </main>
+      </div>
+    );
+  }
+
+  const isInitialLoading = isLoading && !processorAssignedRecords.length && !processorSnapshots.length;
+
+  if (isInitialLoading) {
+    return <LoadingState fullPage message="กำลังโหลด..." />;
+  }
+
   return (
-    <div className="flex min-h-screen bg-[#F6F3F2]">
+    <div className="flex min-h-screen bg-[#F6F3F2] relative">
       <Sidebar />
 
       <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
@@ -235,7 +289,9 @@ export default function ManagementProcessingPage() {
           showBack={false}
           backUrl="/data-processor/management"
           pageTitle=" "
-          hideSearch={true}
+          hideSearch={false}
+          searchQuery={searchQuery}
+          onSearchChange={(e: any) => setSearchQuery(e.target.value)}
           isProcessor={true}
         />
 
@@ -267,18 +323,17 @@ export default function ManagementProcessingPage() {
               <DocumentTableHead>
                 <DocumentTableHeader
                   width="w-[25%]"
-                  align="left"
-                  className="pl-6"
+                  align="center"
                 >
                   ชื่อเอกสาร
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[20%]">
+                <DocumentTableHeader width="w-[20%]" align="center">
                   ชื่อผู้รับผิดชอบข้อมูล
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[12%]">
+                <DocumentTableHeader width="w-[12%]" align="center">
                   วันที่ได้รับ
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[13%]">
+                <DocumentTableHeader width="w-[13%]" align="center">
                   วันที่กำหนดส่ง
                 </DocumentTableHeader>
                 <DocumentTableHeaderWithTooltip
@@ -301,12 +356,14 @@ export default function ManagementProcessingPage() {
                     </div>
                   }
                 />
-                <DocumentTableHeader width="w-[12%]">
+                <DocumentTableHeader width="w-[12%]" align="center">
                   การดำเนินการ
                 </DocumentTableHeader>
               </DocumentTableHead>
               <DocumentTableBody>
-                {paginatedProcessing.length === 0 ? (
+                {isLoading ? (
+                  <TableLoading colSpan={6} />
+                ) : paginatedProcessing.length === 0 ? (
                   <DocumentTableRow>
                     <DocumentTableCell colSpan={6} align="center">
                       <span className="text-[#9CA3AF] font-bold py-10 block">
@@ -317,20 +374,20 @@ export default function ManagementProcessingPage() {
                 ) : (
                   paginatedProcessing.map((record) => (
                     <DocumentTableRow key={record.id}>
-                      <DocumentTableCell align="left" className="pl-6">
-                        <div className="font-medium text-[#1B1C1C]">
+                      <DocumentTableCell align="left" className="pl-6 font-medium">
+                        <div className="text-[#5F5E5E]">
                           {record.document_number} {record.title}
                         </div>
                       </DocumentTableCell>
-                      <DocumentTableCell className="text-[#5C403D] font-medium">
+                      <DocumentTableCell align="center" className="text-[#5C403D] font-medium">
                         {record.do_name || "—"}
                       </DocumentTableCell>
-                      <DocumentTableCell className="text-[#5C403D] font-medium">
+                      <DocumentTableCell align="center" className="text-[#5C403D] font-medium">
                         {record.received_at
                           ? new Date(record.received_at).toLocaleDateString("th-TH")
                           : "—"}
                       </DocumentTableCell>
-                      <DocumentTableCell className="text-[#5C403D] font-medium">
+                      <DocumentTableCell align="center" className="text-[#5C403D] font-medium">
                         {record.due_date
                           ? new Date(record.due_date).toLocaleDateString(
                             "th-TH",
@@ -435,22 +492,20 @@ export default function ManagementProcessingPage() {
           >
             <DocumentTable>
               <DocumentTableHead>
-                <DocumentTableHeader
-                  width="w-[50%]"
-                  align="left"
-                  className="pl-6"
-                >
+                <DocumentTableHeader width="w-[50%]" align="center">
                   ชื่อเอกสาร
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[25%]">
-                  บันทึกล่าสุด
+                <DocumentTableHeader width="w-[25%]" align="center">
+                  บันทึกล่าสุดเมื่อ
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[25%]">
+                <DocumentTableHeader width="w-[25%]" align="center">
                   การดำเนินการ
                 </DocumentTableHeader>
               </DocumentTableHead>
               <DocumentTableBody>
-                {paginatedDrafts.length === 0 ? (
+                {isLoading ? (
+                  <TableLoading colSpan={3} />
+                ) : paginatedDrafts.length === 0 ? (
                   <DocumentTableRow>
                     <DocumentTableCell colSpan={3} align="center">
                       <span className="text-[#9CA3AF] font-bold py-10 block">
@@ -467,7 +522,7 @@ export default function ManagementProcessingPage() {
                           {record.title}
                         </div>
                       </DocumentTableCell>
-                      <DocumentTableCell className="text-[#5C403D] font-medium">
+                      <DocumentTableCell align="center" className="text-[#5C403D] font-medium">
                         {record.created_at
                           ? new Date(record.created_at).toLocaleDateString(
                             "th-TH",

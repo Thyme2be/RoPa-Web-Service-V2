@@ -9,8 +9,8 @@ export const withToast = async <T>(
   }
 ): Promise<T> => {
   return toast.promise(promise, {
-    loading: options?.loading || 'Processing...',
-    success: options?.success || 'Success',
+    loading: options?.loading || 'กำลังประมวลผล...',
+    success: options?.success || 'ดำเนินการสำเร็จ',
     error: (err) => {
       if (options?.error) {
          if (typeof options.error === 'function') {
@@ -18,7 +18,7 @@ export const withToast = async <T>(
          }
          return options.error;
       }
-      return err?.response?.data?.detail || err?.message || 'An error occurred';
+      return err?.response?.data?.detail || err?.message || 'เกิดข้อผิดพลาดในการดำเนินงาน';
     },
   });
 };

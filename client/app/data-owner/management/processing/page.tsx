@@ -25,6 +25,9 @@ import { cn } from "@/lib/utils";
 import { ownerService } from "@/services/ownerService";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
+const PROCESSING_ITEMS_PER_PAGE = 3;
+const DRAFT_ITEMS_PER_PAGE = 2;
+
 // ─── Formatting ────────────────────────────────────────────────────────────────
 function formatDate(dateStr: string | undefined | null) {
   if (!dateStr || dateStr === "—") return "—";
@@ -51,6 +54,10 @@ function StatusBadge({ done, label }: { done: boolean; label: string }) {
   );
 }
 
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
+import TableLoading from "@/components/ui/TableLoading";
+
 export default function ManagementProcessingPage() {
   const router = useRouter();
   const {
@@ -63,19 +70,44 @@ export default function ManagementProcessingPage() {
     deleteOwnerSnapshot,
     refresh,
     fetchActiveTable,
+    isLoading,
+    error,
+    clearError,
   } = useOwner();
 
   const [page, setPage] = useState(1);
   const [draftPage, setDraftPage] = useState(1);
 
+  // Filter State
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customDate, setCustomDate] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const handleClearFilters = () => {
+    setStatusFilter("all");
+    setDateFilter("all");
+    setCustomDate("");
+  };
+
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Fetch new page when page changes
+  // Handle Search Debounce
   useEffect(() => {
-    fetchActiveTable(page, 3);
-  }, [page, fetchActiveTable]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch new page when filters or search change
+  useEffect(() => {
+    fetchActiveTable(page, 3, statusFilter, dateFilter, customDate, debouncedSearch);
+  }, [page, statusFilter, dateFilter, customDate, debouncedSearch, fetchActiveTable]);
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Confirm modals
@@ -91,17 +123,6 @@ export default function ManagementProcessingPage() {
     open: boolean;
     id: string;
   }>({ open: false, id: "" });
-
-  // Filter State
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("7days");
-  const [customDate, setCustomDate] = useState("");
-
-  const handleClearFilters = () => {
-    setStatusFilter("all");
-    setDateFilter("7days");
-    setCustomDate("");
-  };
 
   const handleCreateDocument = async (data: {
     name: string;
@@ -119,126 +140,30 @@ export default function ManagementProcessingPage() {
       if (result.document_id) {
         await refresh(); // Refresh dashboards and tables for all roles
         router.push(
-          `/data-owner/management/form?id=${result.document_id}&mode=edit`,
+          `/data-owner/management/form?id=${result.document_id}&mode=create`,
         );
       }
     } catch (error) {
       console.error("Failed to create document:", error);
-      alert("เกิดข้อผิดพลาดในการสร้างเอกสาร กรุณาลองใหม่อีกครั้ง");
+      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     }
   };
 
   // ─── Filter processing records ─────────────────────────────────────────────
-  // Records in "processing" table are all active records (track status within table)
-  const processingRecords = activeRecords;
-  const draftRecords = ownerSnapshots;
+  // Processing table now uses server-side filtering.
+  // We just use activeRecords directly as they come filtered from the backend.
+  const paginatedProcessing = activeRecords;
+  const totalProcessingPages = Math.max(1, Math.ceil(activeMeta.total / PROCESSING_ITEMS_PER_PAGE));
 
-  const filteredProcessing = processingRecords
-    .filter((record) => {
-      // Status Filter
-      let matchStatus = true;
-      const do_code = record.owner_status?.code;
-      const dp_code = record.processor_status?.code;
-
-      if (statusFilter !== "all") {
-        switch (statusFilter) {
-          case "wait_owner":
-            matchStatus = do_code !== "DO_DONE";
-            break;
-          case "wait_processor":
-            matchStatus = dp_code !== "DP_DONE";
-            break;
-          case "done_owner":
-            matchStatus = do_code === "DO_DONE";
-            break;
-          case "done_processor":
-            matchStatus = dp_code === "DP_DONE";
-            break;
-          case "wait_all":
-            matchStatus = do_code !== "DO_DONE" && dp_code !== "DP_DONE";
-            break;
-          case "done_all":
-            matchStatus = do_code === "DO_DONE" && dp_code === "DP_DONE";
-            break;
-          default:
-            matchStatus = true;
-        }
-      }
-
-      // Date Filter (Due Date)
-      let matchDate = true;
-      if (dateFilter !== "all" && record.due_date) {
-        const dueDate = new Date(record.due_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const diffDays = Math.ceil(
-          (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        if (dateFilter === "7days") {
-          matchDate = diffDays <= 7;
-        } else if (dateFilter === "30days") {
-          matchDate = diffDays <= 30;
-        } else if (dateFilter === "overdue") {
-          matchDate = dueDate < today;
-        } else if (dateFilter === "custom" && customDate) {
-          const cDate = new Date(customDate);
-          cDate.setHours(0, 0, 0, 0);
-          const dDate = new Date(record.due_date);
-          dDate.setHours(0, 0, 0, 0);
-          matchDate = cDate.getTime() === dDate.getTime();
-        }
-      }
-
-      return matchStatus && matchDate;
-    })
-    .sort((a, b) => {
-      // 1. Status Priority (Wait Owner > Wait Processor > Done)
-      const getPriority = (r: ActiveTableItem) => {
-        if (r.owner_status?.code !== "DO_DONE") return 1;
-        if (r.processor_status?.code !== "DP_DONE") return 2;
-        return 3;
-      };
-      const pA = getPriority(a);
-      const pB = getPriority(b);
-      if (pA !== pB) return pA - pB;
-
-      // 3. Due Date Urgency
-      const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-      const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-      if (dateA !== dateB) return dateA - dateB;
-
-      // 4. Recency
-      const recA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const recB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return recB - recA;
-    });
-
-  const filteredDrafts = draftRecords.filter((record) => {
-    // Date Filter - Based on Created At (Last Saved) as shown in table
-    let matchDate = true;
-    if (dateFilter !== "all" && record.created_at) {
-      const rowDate = new Date(record.created_at);
-      const now = new Date();
-      if (dateFilter === "7days") {
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        matchDate = rowDate >= sevenDaysAgo;
-      } else if (dateFilter === "30days") {
-        const thirtyDaysAgo = new Date(
-          now.getTime() - 30 * 24 * 60 * 60 * 1000,
-        );
-        matchDate = rowDate >= thirtyDaysAgo;
-      } else if (dateFilter === "custom" && customDate) {
-        matchDate =
-          rowDate.toLocaleDateString() ===
-          new Date(customDate).toLocaleDateString();
-      }
-    } else if (dateFilter !== "all" && !record.created_at) {
-      matchDate = false;
+  const filteredDrafts = ownerSnapshots.filter((record) => {
+    if (debouncedSearch) {
+      const searchLower = debouncedSearch.toLowerCase();
+      return (
+        (record.document_number?.toLowerCase() || "").includes(searchLower) ||
+        (record.title?.toLowerCase() || "").includes(searchLower)
+      );
     }
-
-    return matchDate;
+    return true;
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -251,7 +176,7 @@ export default function ManagementProcessingPage() {
       setDpoConfirm({ open: false, id: "" });
     } catch (error) {
       console.error("Failed to send to DPO:", error);
-      alert("เกิดข้อผิดพลาดในการส่งให้ DPO");
+      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmitting(false);
     }
@@ -271,22 +196,37 @@ export default function ManagementProcessingPage() {
       ? "Data Processor ดำเนินการเสร็จสิ้น"
       : "รอส่วนของ Data Processor";
 
-  const PROCESSING_ITEMS_PER_PAGE = 3;
-  const DRAFT_ITEMS_PER_PAGE = 2;
 
-  // Client-side pagination (Still used for drafts, but processing is now server-side)
-  // For processing, we just use the 3 items we got from the server.
-  const paginatedProcessing = filteredProcessing.slice(0, PROCESSING_ITEMS_PER_PAGE);
-  const totalProcessingPages = Math.ceil(activeMeta.total / PROCESSING_ITEMS_PER_PAGE);
+  const totalDraftPages = Math.max(1, Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE));
 
   const paginatedDrafts = filteredDrafts.slice(
     (draftPage - 1) * DRAFT_ITEMS_PER_PAGE,
     draftPage * DRAFT_ITEMS_PER_PAGE,
   );
-  const totalDraftPages = Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE);
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
+          <ErrorState 
+            title="ไม่สามารถโหลดข้อมูลเอกสารได้" 
+            message={error} 
+            onRetry={() => { clearError(); refresh(); }} 
+          />
+        </main>
+      </div>
+    );
+  }
+
+  const isInitialLoading = isLoading && !activeRecords.length && !ownerSnapshots.length;
+
+  if (isInitialLoading) {
+    return <LoadingState fullPage message="กำลังโหลด..." />;
+  }
 
   return (
-    <div className="flex min-h-screen bg-background font-sans">
+    <div className="flex min-h-screen bg-background font-sans relative">
       <Sidebar />
 
       <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col bg-surface-container-low">
@@ -294,7 +234,9 @@ export default function ManagementProcessingPage() {
           showBack={false}
           backUrl="/data-owner/management"
           pageTitle=" "
-          hideSearch={true}
+          hideSearch={false}
+          searchQuery={searchQuery}
+          onSearchChange={(e: any) => setSearchQuery(e.target.value)}
         />
 
         <div className="p-10 space-y-10">
@@ -342,26 +284,29 @@ export default function ManagementProcessingPage() {
             <DocumentTable>
               <DocumentTableHead>
                 <DocumentTableHeader
-                  width="w-[16%]"
-                  align="left"
-                  className="whitespace-nowrap !text-[12px] pl-6"
+                  width="w-[18%]"
+                  align="center"
+                  className="whitespace-nowrap !text-[12px]"
                 >
                   ชื่อเอกสาร
                 </DocumentTableHeader>
                 <DocumentTableHeader
-                  width="w-[16%]"
+                  width="w-[18%]"
+                  align="center"
                   className="whitespace-nowrap !text-[12px]"
                 >
                   ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล
                 </DocumentTableHeader>
                 <DocumentTableHeader
-                  width="w-[16%]"
+                  width="w-[15%]"
+                  align="center"
                   className="whitespace-nowrap !text-[12px]"
                 >
                   ชื่อบริษัท
                 </DocumentTableHeader>
                 <DocumentTableHeader
                   width="w-[12%]"
+                  align="center"
                   className="whitespace-nowrap !text-[12px]"
                 >
                   วันที่กำหนดส่ง
@@ -389,13 +334,16 @@ export default function ManagementProcessingPage() {
                 />
                 <DocumentTableHeader
                   width="w-[12%]"
+                  align="center"
                   className="whitespace-nowrap !text-[12px]"
                 >
                   การดำเนินการ
                 </DocumentTableHeader>
               </DocumentTableHead>
               <DocumentTableBody>
-                {paginatedProcessing.length === 0 ? (
+                {isLoading ? (
+                  <TableLoading colSpan={6} />
+                ) : paginatedProcessing.length === 0 ? (
                   <DocumentTableRow>
                     <DocumentTableCell colSpan={6} align="center">
                       <span className="text-[#9CA3AF] font-bold py-10 block">
@@ -407,19 +355,19 @@ export default function ManagementProcessingPage() {
                   paginatedProcessing.map((record) => (
                     <DocumentTableRow key={record.document_id}>
                       <DocumentTableCell align="left" className="pl-6">
-                        <div className="font-medium text-[#1B1C1C]">
+                        <div className="font-medium text-[#5F5E5E]">
                           {record.document_number} {record.title}
                         </div>
                       </DocumentTableCell>
-                      <DocumentTableCell>
-                        <div className="text-[#5C403D]">
+                      <DocumentTableCell align="center">
+                        <div className="text-[#5C403D] font-medium">
                           {record.dp_name || "—"}
                         </div>
                       </DocumentTableCell>
-                      <DocumentTableCell className="text-[#5C403D]">
+                      <DocumentTableCell align="center" className="text-[#5C403D]">
                         {record.dp_company || "—"}
                       </DocumentTableCell>
-                      <DocumentTableCell className="text-[#5C403D]">
+                      <DocumentTableCell align="center" className="text-[#5C403D]">
                         {formatDate(record.due_date)}
                       </DocumentTableCell>
                       <DocumentTableCell>
@@ -523,22 +471,20 @@ export default function ManagementProcessingPage() {
           >
             <DocumentTable>
               <DocumentTableHead>
-                <DocumentTableHeader
-                  width="w-[50%]"
-                  align="left"
-                  className="pl-6"
-                >
+                <DocumentTableHeader width="w-[50%]" align="center">
                   ชื่อเอกสาร
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[25%]">
-                  บันทึกล่าสุด
+                <DocumentTableHeader width="w-[25%]" align="center">
+                  บันทึกล่าสุดเมื่อ
                 </DocumentTableHeader>
-                <DocumentTableHeader width="w-[25%]">
+                <DocumentTableHeader width="w-[25%]" align="center">
                   การดำเนินการ
                 </DocumentTableHeader>
               </DocumentTableHead>
               <DocumentTableBody>
-                {paginatedDrafts.length === 0 ? (
+                {isLoading ? (
+                  <TableLoading colSpan={3} />
+                ) : paginatedDrafts.length === 0 ? (
                   <DocumentTableRow>
                     <DocumentTableCell colSpan={3} align="center">
                       <span className="text-[#9CA3AF] font-bold py-10 block">
@@ -592,10 +538,7 @@ export default function ManagementProcessingPage() {
             </DocumentTable>
             <DocumentPagination
               current={draftPage}
-              totalPages={Math.max(
-                1,
-                Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE),
-              )}
+              totalPages={totalDraftPages}
               totalItems={filteredDrafts.length}
               itemsPerPage={DRAFT_ITEMS_PER_PAGE}
               onChange={setDraftPage}
@@ -635,7 +578,7 @@ export default function ManagementProcessingPage() {
             setDeleteConfirm({ open: false, id: "" });
           } catch (error) {
             console.error("Failed to delete record:", error);
-            alert("เกิดข้อผิดพลาดในการลบเอกสาร");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
           } finally {
             setIsSubmitting(false);
           }

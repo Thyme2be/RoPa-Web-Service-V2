@@ -15,8 +15,10 @@ interface ProcessorContextType {
     processorAssignedRecords: ProcessorAssignedTableItem[];
     processorAssignedMeta: { total: number; page: number; limit: number; total_pages: number };
     isLoading: boolean;
+    error: string | null;
+    clearError: () => void;
 
-    fetchProcessorAssignedTable: (page?: number, limit?: number) => Promise<void>;
+    fetchProcessorAssignedTable: (page?: number, limit?: number, search?: string) => Promise<void>;
     fetchFullProcessorRecord: (id: string) => Promise<RopaProcessorRecord | null>;
     saveProcessorRecord: (record: Partial<RopaProcessorRecord>, idOverride?: string) => Promise<RopaProcessorRecord>;
     submitDpSection: (id: string, data?: any) => Promise<void>;
@@ -36,18 +38,24 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
     const [processorAssignedRecords, setProcessorAssignedRecords] = useState<ProcessorAssignedTableItem[]>([]);
     const [processorAssignedMeta, setProcessorAssignedMeta] = useState({ total: 0, page: 1, limit: 3, total_pages: 1 });
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const fetchProcessorAssignedTable = useCallback(async (page = 1, limit = 3) => {
+    const clearError = useCallback(() => setError(null), []);
+
+    const fetchProcessorAssignedTable = useCallback(async (page = 1, limit = 3, search = "") => {
+        setIsLoading(true);
         try {
-            const res = await processorService.getProcessorAssignedTable(page, limit);
+            const res = await processorService.getProcessorAssignedTable(page, limit, search);
             const itemsWithId = res.items.map((item: any) => ({
                 ...item,
                 id: item.document_id
             }));
             setProcessorAssignedRecords(itemsWithId);
             setProcessorAssignedMeta(res.meta);
-        } catch (err) {
-            console.error("Fetch Processor Assigned Table failed:", err);
+        } catch (err: any) {
+            setError(err.message || "Failed to fetch assigned table");
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
@@ -56,6 +64,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
         if (user.role !== "PROCESSOR") return;
 
         setIsLoading(true);
+        setError(null);
         try {
             const assignedDocs = await processorService.getProcessorAssignedTable();
             let activeDocs: any[] = [];
@@ -100,8 +109,9 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
             const allNormalized = [...normalizedActive, ...normalizedDrafts];
             setProcessorRecords(allNormalized as any);
             setProcessorSnapshots(snapshots);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Processor data fetch failed:", err);
+            setError(err.response?.data?.detail || "ไม่สามารถโหลดข้อมูลผู้ประมวลผลได้ กรุณาลองใหม่อีกครั้ง");
         } finally {
             setIsLoading(false);
         }
@@ -225,7 +235,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
                  await refresh();
                  return normalizeProcessorData(saved);
              })(),
-             { loading: 'Saving draft...', success: 'Draft saved successfully' }
+             { loading: 'กำลังบันทึกฉบับร่าง...', success: 'บันทึกฉบับร่างสำเร็จ!' }
         );
     };
 
@@ -236,7 +246,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
                  await processorService.submitProcessorSection(id, payload);
                  await refresh();
             })(),
-            { loading: 'Submitting section...', success: 'Section submitted successfully' }
+            { loading: 'กำลังส่งข้อมูล...', success: 'ส่งข้อมูลส่วนนี้สำเร็จ!' }
         );
     };
 
@@ -246,7 +256,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
                  await processorService.dispatchProcessorSection(id);
                  await refresh();
             })(),
-            { loading: 'Dispatching...', success: 'Section dispatched successfully' }
+            { loading: 'กำลังส่งข้อมูล...', success: 'ส่งข้อมูลสำเร็จ!' }
         );
     };
 
@@ -258,7 +268,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
                  await processorService.deleteProcessorSnapshot(snapshotId);
                  await refresh();
             })(),
-            { loading: 'Deleting...', success: 'Deleted successfully' }
+            { loading: 'กำลังลบ...', success: 'ลบข้อมูลสำเร็จ!' }
         );
     };
 
@@ -286,6 +296,8 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
             processorAssignedRecords,
             processorAssignedMeta,
             isLoading,
+            error,
+            clearError,
             fetchProcessorAssignedTable,
             fetchFullProcessorRecord,
             saveProcessorRecord,

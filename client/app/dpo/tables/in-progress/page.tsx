@@ -9,6 +9,7 @@ import {
   StatusBadge,
 } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+import TableLoading from "@/components/ui/TableLoading";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
@@ -223,7 +224,7 @@ function InProgressTableContent() {
       fetchDocuments(); // Refresh list
     } catch (err: any) {
       console.error("Assign auditor error:", err);
-      alert(`เกิดข้อผิดพลาด: ${err.message}`);
+      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmittingAssignment(false);
     }
@@ -308,7 +309,7 @@ function InProgressTableContent() {
               <table className="w-full text-center border-collapse">
                 <thead className="relative z-20">
                   <tr className="border-b border-[#E5E2E1]/40">
-                    <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">
+                    <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">
                       ชื่อเอกสาร
                     </th>
                     <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">
@@ -337,14 +338,7 @@ function InProgressTableContent() {
                 </thead>
                 <tbody className="divide-y divide-[#E5E2E1]/10">
                   {loading ? (
-                    <tr key={"loading"}>
-                      <td
-                        colSpan={6}
-                        className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse"
-                      >
-                        กำลังโหลดข้อมูล...
-                      </td>
-                    </tr>
+                    <TableLoading colSpan={6} />
                   ) : error ? (
                     <tr key={"error"}>
                       <td

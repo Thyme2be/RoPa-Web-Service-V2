@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import DocumentDonutChart from "./DocumentDonutChart";
+import MiniDonutChartCard from "./MiniDonutChartCard";
+import UserOverviewChart from "./UserOverviewChart";
+import UserListCard from "./UserListCard";
 
 interface DashboardData {
     document_status_chart: {
@@ -24,15 +28,6 @@ interface DashboardData {
     user_stats: any;
 }
 
-const roleMap: Record<string, { label: string, color: string }> = {
-    OWNER: { label: "ผู้รับผิดชอบข้อมูล", color: "#BF0D21" },
-    PROCESSOR: { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", color: "#E1424E" },
-    DPO: { label: "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", color: "#FFB000" },
-    AUDITOR: { label: "ผู้ตรวจสอบ", color: "#1F4E79" },
-    ADMIN: { label: "ผู้ดูแลระบบ", color: "#4472C4" },
-    EXECUTIVE: { label: "ผู้บริหารระดับสูง", color: "#7030A0" }
-};
-
 export default function AdminDashboardView({ data, activeTab }: { data: DashboardData, activeTab: "documents" | "users" }) {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -45,9 +40,7 @@ export default function AdminDashboardView({ data, activeTab }: { data: Dashboar
                             <h3 className="text-[20px] font-bold tracking-tight text-[#1B1C1C]">สถานะเอกสาร ROPA</h3>
                             <p className="text-[16px] text-[#5C403D] font-medium uppercase tracking-wider mt-0.5">แบ่งตามสถานะการดำเนินงานปัจจุบัน</p>
                         </div>
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24">
-                            <DocumentDonutChart chartData={data.document_status_chart} />
-                        </div>
+                        <DocumentDonutChart chartData={data.document_status_chart} />
                     </section>
 
                     {/* Role-based Document Insights */}
@@ -107,9 +100,7 @@ export default function AdminDashboardView({ data, activeTab }: { data: Dashboar
                             <h3 className="text-[20px] font-bold tracking-tight text-[#1B1C1C]">จำนวนผู้ใช้ทั้งหมด</h3>
                             <p className="text-[16px] text-[#5C403D] font-medium tracking-wide mt-1">แบ่งตามบทบาทการทำงาน</p>
                         </div>
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24">
-                            <UserOverviewChart userStats={data.user_stats} />
-                        </div>
+                        <UserOverviewChart userStats={data.user_stats} />
                     </section>
 
                     {/* Department Grids */}
@@ -156,204 +147,6 @@ export default function AdminDashboardView({ data, activeTab }: { data: Dashboar
                     </section>
                 </div>
             )}
-        </div>
-    );
-}
-
-function DocumentDonutChart({ chartData }: { chartData: any }) {
-    const totalDocs = chartData.draft + chartData.pending + chartData.completed + chartData.reviewing;
-    const completedPct = totalDocs > 0 ? (chartData.completed / totalDocs) * 100 : 0;
-    const reviewingPct = totalDocs > 0 ? (chartData.reviewing / totalDocs) * 100 : 0;
-    const pendingPct = totalDocs > 0 ? (chartData.pending / totalDocs) * 100 : 0;
-    const draftPct = totalDocs > 0 ? (chartData.draft / totalDocs) * 100 : 0;
-
-    const completedOffset = 0;
-    const reviewingOffset = -completedPct;
-    const pendingOffset = reviewingOffset - reviewingPct;
-    const draftOffset = pendingOffset - pendingPct;
-
-    return (
-        <>
-            <div className="relative w-56 h-56 group cursor-pointer drop-shadow-md">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" fill="transparent" r="16" stroke="#f0eded" strokeWidth="3.5"></circle>
-                    {completedPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#2C8C00" strokeDasharray={`${completedPct} 100`} strokeDashoffset={`${completedOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-200"></circle>}
-                    {reviewingPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#ED393C" strokeDasharray={`${reviewingPct} 100`} strokeDashoffset={`${reviewingOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-300"></circle>}
-                    {pendingPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#FFCC00" strokeDasharray={`${pendingPct} 100`} strokeDashoffset={`${pendingOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out delay-100"></circle>}
-                    {draftPct > 0 && <circle cx="18" cy="18" fill="transparent" r="16" stroke="#F0EDED" strokeDasharray={`${draftPct} 100`} strokeDashoffset={`${draftOffset}`} strokeWidth="3.5" className="transition-all duration-1000 ease-out"></circle>}
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center flex-col transition-all duration-500 group-hover:scale-110 text-center px-4">
-                    <span className="text-[20px] font-bold text-neutral-800 leading-relaxed">จำนวนเอกสาร<br />ทั้งหมด</span>
-                </div>
-            </div>
-            <div className="w-56 space-y-1">
-                <LegendItem color="#F0EDED" label="ฉบับร่าง" value={chartData.draft} />
-                <LegendItem color="#FFCC00" label="รอดำเนินการ" value={chartData.pending} />
-                <LegendItem color="#ED393C" label="รอตรวจสอบ" value={chartData.reviewing} />
-                <LegendItem color="#2C8C00" label="เสร็จสมบูรณ์" value={chartData.completed} />
-            </div>
-        </>
-    );
-}
-
-function LegendItem({ color, label, value }: { color: string, label: string, value: number }) {
-    return (
-        <div className="flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition-colors duration-200 cursor-default group">
-            <div className="flex items-center gap-4">
-                <div className="w-3.5 h-3.5 rounded-full shadow-sm border border-zinc-200" style={{ backgroundColor: color }}></div>
-                <span className="text-sm font-bold text-neutral-700">{label}</span>
-            </div>
-            <span className="text-sm font-black text-neutral-500">{value} ฉบับ</span>
-        </div>
-    );
-}
-
-function MiniDonutChartCard({ title, completed, empty }: { title: string, completed: number, empty: number }) {
-    const total = completed + empty;
-    const completedPct = total > 0 ? (completed / total) * 100 : 0;
-    const emptyPct = total > 0 ? (empty / total) * 100 : 0;
-
-    return (
-        <div className="bg-white p-6 rounded-xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col items-center justify-between min-h-[360px]">
-            <h4 className="text-sm font-bold text-neutral-900 w-full text-left mb-6 leading-relaxed h-10">{title}</h4>
-            <div className="relative w-40 h-40 mb-6 drop-shadow-sm">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#f0eded" strokeWidth="4"></circle>
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#ED393C" strokeDasharray={`${emptyPct} 100`} strokeDashoffset="0" strokeWidth="4" className="transition-all duration-1000 ease-out"></circle>
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#2C8C00" strokeDasharray={`${completedPct} 100`} strokeDashoffset={`-${emptyPct}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-100"></circle>
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-center px-4">
-                    <span className="text-[10px] font-bold text-neutral-800 leading-tight">
-                        จำนวนเอกสารทั้งหมด
-                    </span>
-                </div>
-            </div>
-            <div className="w-full space-y-2">
-                <StatRow color="#2C8C00" label="เสร็จสมบูรณ์" value={completed} />
-                <StatRow color="#ED393C" label="ไม่เสร็จสมบูรณ์" value={empty} />
-            </div>
-        </div>
-    );
-}
-
-function StatRow({ color, label, value }: { color: string, label: string, value: number }) {
-    return (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
-                <span className="text-sm font-bold text-neutral-700">{label}</span>
-            </div>
-            <span className="text-sm font-medium text-neutral-500">{value} ฉบับ</span>
-        </div>
-    );
-}
-
-function UserOverviewChart({ userStats }: { userStats: any }) {
-    const overview = userStats.user_overview || { total: 0, roles: {} };
-    const roleChartData = Object.entries(overview.roles).map(([key, count]) => ({
-        title: roleMap[key]?.label || key,
-        count: count as number,
-        color: roleMap[key]?.color || "#CCC"
-    }));
-    const totalUsersCount = overview.total || 0;
-    let currentOffset = 0;
-
-    return (
-        <>
-            <div className="relative w-56 h-56 drop-shadow-md cursor-pointer group">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" fill="transparent" r="16" stroke="#f0eded" strokeWidth="3.5"></circle>
-                    {roleChartData.map((item, idx) => {
-                        const pct = totalUsersCount > 0 ? (item.count / totalUsersCount) * 100 : 0;
-                        const dashArray = `${pct} 100`;
-                        const offset = currentOffset;
-                        currentOffset -= pct;
-                        return (
-                            <circle key={idx} cx="18" cy="18" fill="transparent" r="16" stroke={item.color} strokeWidth="3.5" strokeDasharray={dashArray} strokeDashoffset={offset} className="transition-all duration-1000 ease-out"></circle>
-                        );
-                    })}
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center flex-col transition-all duration-300 group-hover:scale-105 text-center px-4">
-                    <span className="text-[20px] font-bold text-neutral-800 leading-tight">จำนวนผู้ใช้ทั้งหมด</span>
-                </div>
-            </div>
-            <div className="w-full max-w-[320px] space-y-1">
-                {roleChartData.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition-colors duration-200 cursor-default group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ backgroundColor: item.color }}></div>
-                            <span className="text-sm font-bold text-neutral-700 whitespace-nowrap">{item.title}</span>
-                        </div>
-                        <span className="text-sm font-black text-neutral-500 shrink-0 ml-4">{item.count} คน</span>
-                    </div>
-                ))}
-            </div>
-        </>
-    );
-}
-
-function UserListCard({ data }: { data: any }) {
-    const [activeTab, setActiveTab] = useState("คนในบริษัท");
-
-    const itemsToDisplay = data.hasTabs ? data.tabData[activeTab] : data.items;
-
-    // Calculate total dynamically if tabs exist, otherwise use data.total
-    const currentTotal = data.hasTabs
-        ? itemsToDisplay.reduce((sum: number, item: any) => sum + item.count, 0)
-        : data.total;
-
-    return (
-        <div className="bg-white p-6 rounded-xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col h-full min-h-[400px]">
-            {/* Header Series */}
-            <div className="flex flex-col mb-6 space-y-3">
-                {/* Title Row */}
-                <div className="flex justify-between items-start gap-4">
-                    <h4 className="text-[17px] font-bold text-neutral-900 leading-snug">{data.title}</h4>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                        {data.hasTabs && (
-                            <div className="flex gap-2 mr-1">
-                                <button
-                                    onClick={() => setActiveTab("คนในบริษัท")}
-                                    className={`h-7 px-3 text-[12px] font-bold transition-all rounded-md border cursor-pointer ${activeTab === "คนในบริษัท"
-                                        ? "bg-[#ED393C] text-white border-[#ED393C] shadow-sm"
-                                        : "bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50"}`}
-                                >
-                                    คนในบริษัท
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("คนนอกบริษัท")}
-                                    className={`h-7 px-3 text-[12px] font-bold transition-all rounded-md border cursor-pointer ${activeTab === "คนนอกบริษัท"
-                                        ? "bg-[#ED393C] text-white border-[#ED393C] shadow-sm"
-                                        : "bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50"}`}
-                                >
-                                    คนนอกบริษัท
-                                </button>
-                            </div>
-                        )}
-                        <div className="px-3 py-1 bg-surface-container rounded-md border border-neutral-200 shadow-sm min-w-[60px] text-center">
-                            <span className="text-sm font-bold text-neutral-700">{currentTotal} คน</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Subtitle Row */}
-                <div>
-                    <p className="text-sm text-[#5C403D] font-medium">
-                        {data.hasTabs && activeTab === "คนนอกบริษัท" ? "แบ่งตามบริษัท" : data.subtitle}
-                    </p>
-                </div>
-            </div>
-
-            {/* List Array */}
-            <div className="flex-1 flex flex-col gap-2">
-                {itemsToDisplay.map((item: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center px-4 py-3 rounded-xl border border-neutral-100 hover:border-neutral-200 transition-colors shadow-sm bg-white">
-                        <span className="text-[14px] font-bold text-neutral-800">{item.name}</span>
-                        <span className="text-[14px] font-medium text-neutral-500">{item.count} คน</span>
-                    </div>
-                ))}
-            </div>
         </div>
     );
 }

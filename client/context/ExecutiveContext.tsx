@@ -9,9 +9,20 @@ import { withToast } from "@/lib/toastHelper";
 interface ExecutiveContextType {
     executiveDashboardData: ExecutiveDashboardResponse | null;
     isLoading: boolean;
+    error: string | null;
+    clearError: () => void;
+    currentPeriod: string;
+    setCurrentPeriod: (p: string) => void;
+    refresh: (period?: string) => Promise<void>;
     fetchExecutiveData: (period?: string, department?: string) => Promise<void>;
-    getExecutiveStats: (dept?: string) => any;
-    refresh: () => Promise<void>;
+    getExecutiveStats: (dept?: string) => {
+        total: number;
+        draft: number;
+        pending: number;
+        underReview: number;
+        approved: number;
+        risk: { low: number; medium: number; high: number };
+    };
 }
 
 const ExecutiveContext = createContext<ExecutiveContextType | undefined>(undefined);
@@ -20,23 +31,32 @@ export function ExecutiveProvider({ children }: { children: ReactNode }) {
     const { isAuthenticated, user } = useAuth();
     const [executiveDashboardData, setExecutiveDashboardData] = useState<ExecutiveDashboardResponse | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [currentPeriod, setCurrentPeriod] = useState("all");
+
+    const clearError = useCallback(() => setError(null), []);
 
     const fetchExecutiveData = useCallback(async (period: string = "all", department?: string) => {
+        if (!isAuthenticated || user?.role !== "EXECUTIVE") return;
         setIsLoading(true);
+        setError(null);
+        setCurrentPeriod(period);
         try {
             const data = await executiveService.getExecutiveDashboard(period, department);
             setExecutiveDashboardData(data);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch executive data:", error);
+            setError(error.response?.data?.detail || "ไม่สามารถโหลดข้อมูลสถิติผู้บริหารได้ กรุณาลองใหม่อีกครั้ง");
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [isAuthenticated, user]);
 
-    const refresh = useCallback(async () => {
+    const refresh = useCallback(async (period?: string) => {
         if (!isAuthenticated || user?.role !== "EXECUTIVE") return;
-        await fetchExecutiveData();
-    }, [isAuthenticated, user, fetchExecutiveData]);
+        const targetPeriod = period || currentPeriod;
+        await fetchExecutiveData(targetPeriod);
+    }, [isAuthenticated, user, currentPeriod, fetchExecutiveData]);
 
     useEffect(() => {
         refresh();
@@ -79,9 +99,13 @@ export function ExecutiveProvider({ children }: { children: ReactNode }) {
         <ExecutiveContext.Provider value={{
             executiveDashboardData,
             isLoading,
+            error,
+            clearError,
             fetchExecutiveData,
             getExecutiveStats,
-            refresh
+            refresh,
+            currentPeriod,
+            setCurrentPeriod
         }}>
             {children}
         </ExecutiveContext.Provider>

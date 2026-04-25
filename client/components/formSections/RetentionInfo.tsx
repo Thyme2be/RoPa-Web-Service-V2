@@ -103,7 +103,8 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                 <input
                                     className={cn(
                                         "flex-1 bg-white border-none rounded-full h-8 px-4 text-sm focus:outline-none focus:ring-2 shadow-sm transition-all",
-                                        ringColor
+                                        ringColor,
+                                        (isProcessor ? !form?.data_sources?.includes("indirect") : (!form?.data_source_indirect || disabled)) && "opacity-50 cursor-not-allowed bg-gray-50"
                                     )}
                                     disabled={isProcessor ? !form?.data_sources?.includes("indirect") : (!form?.data_source_indirect || disabled)}
                                     placeholder=""
@@ -178,7 +179,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                                     "เก็บในตู้เอกสารหรือสแกนเป็นไฟล์",
                                     "อื่นๆ"
                                 ]}
-                                selectedValues={form?.storage_methods || []}
+                                selectedValues={Array.isArray(form?.storage_methods) ? form.storage_methods : (form?.storage_methods ? [form.storage_methods] : [])}
                                 onChange={(values: string[]) => {
                                     handleChange({ target: { name: "storage_methods", value: values } } as any);
                                 }}
@@ -188,7 +189,7 @@ export default function RetentionInfo({ form, handleChange, errors, disabled, va
                             />
 
                             {/* "Other" specification field - visible only when "อื่นๆ" is selected */}
-                            {form?.storage_methods?.includes("อื่นๆ") && (
+                            {(Array.isArray(form?.storage_methods) ? form.storage_methods : (form?.storage_methods ? [form.storage_methods] : [])).includes("อื่นๆ") && (
                                 <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <Input
                                         label="รายละเอียดวิธีการเก็บรักษาอื่น ๆ"

@@ -39,10 +39,10 @@ def _parse_period(period: str) -> Optional[datetime]:
         return now - timedelta(days=7)
     elif period == "30_days":
         return now - timedelta(days=30)
-    elif period == "this_month":
-        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    elif period == "this_year":
-        return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "6_months":
+        return now - timedelta(days=180)
+    elif period == "1_year":
+        return now - timedelta(days=365)
     return None
 
 
@@ -53,7 +53,7 @@ def _parse_period(period: str) -> Optional[datetime]:
     tags=["Dashboard (Executive)"],
 )
 def executive_dashboard(
-    period: str = Query("all", description="Filter: 7_days, 30_days, this_month, this_year, all"),
+    period: str = Query("all", description="Filter: 7_days, 30_days, 6_months, 1_year, this_month, this_year, all"),
     department: Optional[str] = Query(None, description="Filter risk by department"),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.EXECUTIVE)),

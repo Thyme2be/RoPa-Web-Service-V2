@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { ListCard, StatusBadge, GenericFilterBar, Pagination } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+import TableLoading from "@/components/ui/TableLoading";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -172,9 +173,7 @@ function DestructionTableContent() {
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
                                     {loading ? (
-                                        <tr>
-                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse">กำลังโหลดข้อมูล...</td>
-                                        </tr>
+                                        <TableLoading colSpan={6} />
                                     ) : error ? (
                                         <tr>
                                             <td colSpan={6} className="py-12 text-center text-[#ED393C] font-black">{error}</td>

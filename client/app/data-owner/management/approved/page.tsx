@@ -55,7 +55,7 @@ export default function RopaApprovedPage() {
                 alert("ส่งตรวจสอบรายปีสำเร็จ เอกสารถูกย้ายไปที่ตารางรอดำเนินการ (Submitted)");
             } catch (error) {
                 console.error("Failed to submit annual review:", error);
-                alert("เกิดข้อผิดพลาดในการส่งตรวจสอบรายปี");
+                alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
             } finally {
                 setIsSubmitting(false);
             }

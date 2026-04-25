@@ -15,8 +15,8 @@ export const ownerService = {
         return response.data;
     },
 
-    getOwnerActiveTable: async (page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<ActiveTableItem>> => {
-        const response = await api.get(`/owner/tables/active?page=${page}&page_size=${pageSize}`);
+    getOwnerActiveTable: async (page: number = 1, pageSize: number = 50, statusFilter: string = "all", period: string = "all", customDate: string = "", search: string = ""): Promise<PaginatedResponse<ActiveTableItem>> => {
+        const response = await api.get(`/owner/tables/active?page=${page}&page_size=${pageSize}&status_filter=${statusFilter}&period=${period}${customDate ? `&custom_date=${customDate}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`);
         return response.data;
     },
 

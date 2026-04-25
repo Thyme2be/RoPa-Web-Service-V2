@@ -25,6 +25,8 @@ interface ReusableFormProps {
     isLoading?: boolean;
 }
 
+import Button from "./Button";
+
 export default function ReusableForm({
     fields,
     formData,
@@ -38,6 +40,7 @@ export default function ReusableForm({
     return (
         <form onSubmit={onSubmit} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
+                {/* ... existing fields mapping ... */}
                 {fields.map((field) => (
                     <div
                         key={field.name}
@@ -83,22 +86,25 @@ export default function ReusableForm({
 
             <div className="flex gap-3 pt-6">
                 {onCancel && (
-                    <button
+                    <Button
                         type="button"
                         onClick={onCancel}
-                        disabled={isLoading}
-                        className="flex-1 px-8 h-12 rounded-2xl text-[15px] font-bold text-secondary hover:bg-surface-container-high transition-all cursor-pointer"
+                        isLoading={isLoading}
+                        variant="ghost"
+                        className="flex-1 h-12 rounded-2xl"
                     >
                         {cancelLabel}
-                    </button>
+                    </Button>
                 )}
-                <button
+                <Button
                     type="submit"
-                    disabled={isLoading}
-                    className="flex-1 bg-logout-gradient text-white px-8 h-12 rounded-2xl text-[15px] font-bold shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+                    isLoading={isLoading}
+                    variant="primary"
+                    className="flex-1 h-12 rounded-2xl"
+                    loadingText="กำลังประมวลผล..."
                 >
-                    {isLoading ? "กำลังประมวลผล..." : submitLabel}
-                </button>
+                    {submitLabel}
+                </Button>
             </div>
         </form>
     );

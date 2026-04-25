@@ -27,8 +27,10 @@ interface DataOwnerDashboardViewProps {
     };
 }
 
+import LoadingState from "@/components/ui/LoadingState";
+
 export default function DataOwnerDashboardView({ userId, stats }: DataOwnerDashboardViewProps) {
-    if (!stats) return <div className="p-10 text-center text-neutral-400 font-bold">กำลังโหลดข้อมูล...</div>;
+    if (!stats) return <LoadingState message="กำลังโหลดข้อมูลแดชบอร์ด..." />;
 
     const riskChartData = [
         { label: "ความเสี่ยงต่ำ (1)", value: stats.risk_low_count || 0, color: "#B4F534" },

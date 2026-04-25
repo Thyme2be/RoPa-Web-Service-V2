@@ -23,7 +23,13 @@ interface DataTableProps<T> {
     totalItems: number;
     emptyMessage?: string;
     filters?: React.ReactNode;
+    isLoading?: boolean;
+    error?: string;
+    onRetry?: () => void;
 }
+
+import LoadingState from "./LoadingState";
+import ErrorState from "./ErrorState";
 
 export default function DataTable<T extends { id: string | number }>({
     columns,
@@ -37,6 +43,9 @@ export default function DataTable<T extends { id: string | number }>({
     totalItems,
     emptyMessage = "ไม่พบข้อมูล",
     filters,
+    isLoading = false,
+    error,
+    onRetry,
 }: DataTableProps<T>) {
     const startIndex = (currentPage - 1) * itemsPerPage;
 
@@ -63,46 +72,56 @@ export default function DataTable<T extends { id: string | number }>({
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse table-fixed">
-                    <thead>
-                        <tr className="bg-surface-container-low/40 border-b border-surface-container/30">
-                            {columns.map((col, idx) => (
-                                <th
-                                    key={idx}
-                                    style={{ width: col.width }}
-                                    className={`px-6 py-4 text-[14px] font-extrabold uppercase tracking-[0.1em] text-secondary ${col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
-                                        }`}
-                                >
-                                    {col.header}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.length > 0 ? (
-                            data.map((item) => (
-                                <tr key={item.id} className="hover:bg-surface-container-low/30 transition-colors group border-b border-surface-container/30">
-                                    {columns.map((col, idx) => (
-                                        <td
-                                            key={idx}
-                                            className={`px-6 py-4 ${col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
-                                                }`}
-                                        >
-                                            {col.render ? col.render(item) : (item as any)[col.key]}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={columns.length} className="px-6 py-12 text-center text-on-surface-variant font-medium">
-                                    {emptyMessage}
-                                </td>
+            <div className="overflow-x-auto relative min-h-[200px]">
+                {isLoading ? (
+                    <div className="py-20">
+                        <LoadingState message="กำลังโหลด..." />
+                    </div>
+                ) : error ? (
+                    <div className="py-12">
+                        <ErrorState message={error} onRetry={onRetry} />
+                    </div>
+                ) : (
+                    <table className="w-full text-left border-collapse table-fixed">
+                        <thead>
+                            <tr className="bg-surface-container-low/40 border-b border-surface-container/30">
+                                {columns.map((col, idx) => (
+                                    <th
+                                        key={idx}
+                                        style={{ width: col.width }}
+                                        className={`px-6 py-4 text-[14px] font-extrabold uppercase tracking-[0.1em] text-secondary ${col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
+                                            }`}
+                                    >
+                                        {col.header}
+                                    </th>
+                                ))}
                             </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {data.length > 0 ? (
+                                data.map((item) => (
+                                    <tr key={item.id} className="hover:bg-surface-container-low/30 transition-colors group border-b border-surface-container/30">
+                                        {columns.map((col, idx) => (
+                                            <td
+                                                key={idx}
+                                                className={`px-6 py-4 ${col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
+                                                    }`}
+                                            >
+                                                {col.render ? col.render(item) : (item as any)[col.key]}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={columns.length} className="px-6 py-12 text-center text-on-surface-variant font-medium">
+                                        {emptyMessage}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             {/* Pagination Controls */}

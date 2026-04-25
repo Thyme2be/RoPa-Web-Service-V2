@@ -86,7 +86,7 @@ export default function RopaSubmittedPage() {
             setSendBackConfirm({ open: false, id: "" });
         } catch (error) {
             console.error("Failed to send back to DPO:", error);
-            alert("เกิดข้อผิดพลาดในการส่งคืน DPO");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmitting(false);
         }

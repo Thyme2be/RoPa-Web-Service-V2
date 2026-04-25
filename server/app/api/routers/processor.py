@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, contains_eager
 
@@ -415,6 +415,7 @@ def delete_processor_snapshot(
 def get_assigned_table(
     page: int = 1,
     limit: int = 3,
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
 ):
@@ -438,6 +439,16 @@ def get_assigned_table(
             ),
         )
     )
+
+    # Search Logic
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                RopaDocumentModel.document_number.ilike(search_pattern),
+                RopaDocumentModel.title.ilike(search_pattern)
+            )
+        )
 
     # Total count for pagination
     total_items = query.count()

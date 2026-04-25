@@ -42,6 +42,7 @@ function ManagementFormContent() {
     const dueDateParam = searchParams.get("dueDate");
     const viewMode = searchParams.get("mode") === "view";
     const isNewEdit = searchParams.get("mode") === "edit";
+    const isNewCreate = searchParams.get("mode") === "create";
 
     const [activeTab, setActiveTab] = useState("owner");
     const {
@@ -60,8 +61,10 @@ function ManagementFormContent() {
     const record = getById(recordId || "");
     const [isLoadingFull, setIsLoadingFull] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
-    // ปลดล็อก form ทันทีถ้าเป็นการเปิดแบบ mode=edit หรือกำลังแก้ไขฉบับร่าง (snapshotId)
-    const [isLocked, setIsLocked] = useState(!isNewEdit && !snapshotId);
+    
+    // Strict Locking: ล็อก form ทันทีสำหรับเอกสารเดิม (แม้จะมาด้วย mode=edit)
+    // จะปลดล็อกอัตโนมัติเฉพาะกรณี: 1. กำลังสร้างใหม่ (mode=create) 2. กำลังแก้ไขฉบับร่าง (snapshotId)
+    const [isLocked, setIsLocked] = useState(!isNewCreate && !snapshotId);
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
     const [isConfirmSaveOpen, setIsConfirmSaveOpen] = useState(false);
     const [isConfirmRiskOpen, setIsConfirmRiskOpen] = useState(false);
@@ -102,7 +105,7 @@ function ManagementFormContent() {
             alert("ส่งคำร้องขอเปลี่ยนแปลงสำเร็จ เอกสารถูกตีกลับไปที่ผู้ประมวลผลแล้ว");
         } catch (e) {
             console.error("Failed to submit feedback batch", e);
-            alert("เกิดข้อผิดพลาดในการส่งคำร้อง");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 
@@ -468,7 +471,7 @@ function ManagementFormContent() {
     
     // Risk assessment is editable if both sections are done AND not yet under review/completed by DPO
     const isOwner = user?.role === "OWNER";
-    const canEditRisk = isOwner && doStatus === "done" && dpStatus === "done" && !isWaitingDpoApproval && !isLockedByDeletion;
+    const canEditRisk = isOwner && doStatus === "done" && dpStatus === "done" && !isWaitingDpoApproval && !isLockedByDeletion && !isLocked;
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -481,17 +484,17 @@ function ManagementFormContent() {
         }
     };
 
-    /** บันทึกฉบับร่าง → save Snapshot + กลับหน้า management */
+    /** บันทึกฉบับร่าง → save ฉบับร่าง + กลับหน้า management */
     const handleDraft = async () => {
         if (!recordId) return;
         try {
-            // saveRecord จัดการบันทึกทั้งตารางหลัก (Live) และตารางร่าง (Snapshot) ให้ลิงก์กันอัตโนมัติ
+            // saveRecord จัดการบันทึกทั้งตารางหลัก (Live) และตารางร่าง (ฉบับร่าง) ให้ลิงก์กันอัตโนมัติ
             await saveRecord(form);
             setErrors({}); // ล้าง error เมื่อบันทึกร่าง
             setIsDraftSuccessOpen(true); // แสดง modal บันทึกร่างสำเร็จ
         } catch (error) {
             console.error("Failed to save draft:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึกฉบับร่าง กรุณาลองใหม่อีกครั้ง");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 
@@ -519,7 +522,7 @@ function ManagementFormContent() {
             router.push("/data-owner/management/processing");
         } catch (error) {
             console.error("Failed to confirm document:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 
@@ -539,7 +542,7 @@ function ManagementFormContent() {
             router.push("/data-owner/management/processing");
         } catch (error) {
             console.error("Failed to submit risk assessment:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึก");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsConfirmRiskOpen(false);
         }
@@ -560,7 +563,7 @@ function ManagementFormContent() {
             alert("ส่งคำร้องขอทำลายเอกสารสำเร็จ");
         } catch (error) {
             console.error("Failed to submit deletion request:", error);
-            alert("เกิดข้อผิดพลาดในการส่งคำร้อง");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmittingDeletion(false);
         }
@@ -587,7 +590,7 @@ function ManagementFormContent() {
                     <div className="flex-1 flex items-center justify-center pt-20">
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลดข้อมูลเอกสาร...</p>
+                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลด...</p>
                         </div>
                     </div>
                 ) : (
@@ -602,23 +605,23 @@ function ManagementFormContent() {
                                     dpComplete={dpStatus === "done"}
                                 />
                             </div>
-                            {activeTab === "owner" && !isNewEdit && (
+                            {activeTab !== "destruction" && !isNewCreate && (
                                 <button
                                     disabled={isLockedByDeletion || isWaitingDpoApproval}
                                     onClick={() => setIsLocked(!isLocked)}
                                     className={cn(
-                                        "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0",
+                                        "flex items-center gap-2 h-[42px] px-4 rounded-md transition-all font-bold shrink-0 mb-6 border border-[#E5E2E1] bg-[#F8F9FA]",
                                         isLocked
-                                            ? "text-[#B90A1E] border-none hover:bg-[#B90A1E]/5 shadow-none"
-                                            : "text-[#5C403D] border-none hover:bg-black/5",
+                                            ? "text-[#ED393C] hover:bg-red-50"
+                                            : "text-[#00666E] hover:bg-green-50",
                                         (isLockedByDeletion || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
                                     )}
                                     title={isLockedByDeletion ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ" : isWaitingDpoApproval ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO" : ""}
                                 >
-                                    <span className="material-symbols-outlined text-[20px]">
-                                        {isLocked ? "edit" : "done_all"}
+                                    <span className={cn("material-symbols-outlined text-[20px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
+                                        {isLocked ? "edit" : "check_circle"}
                                     </span>
-                                    {isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}
+                                    <span className="text-[14px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
                                 </button>
                             )}
                         </div>
@@ -809,7 +812,7 @@ function ManagementFormContent() {
                                 setDraftFeedbacks({});
                                 setActiveFeedbacks({});
                             }}
-                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-2xl hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                         >
                             ยกเลิก
                         </button>
@@ -822,53 +825,56 @@ function ManagementFormContent() {
                             ส่งคำร้องขอเปลี่ยนแปลง
                         </button>
                     </div>
-                ) : activeTab === "owner" && (
-                    !isReviewMode ? (
-                        /* Normal form mode or view mode (Conditional buttons based on lock state) */
-                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                            {viewMode && isLocked ? (
-                                /* Single Centered Back Button in Locked View Mode */
-                                <div className="flex justify-center w-full">
+                ) : (
+                    <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                        {isLocked ? (
+                            /* Center Group in Locked View Mode: Back + Edit */
+                            <div className="flex items-center justify-center w-full gap-4">
+                                <button
+                                    onClick={handleCancel}
+                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-14 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                >
+                                    กลับ
+                                </button>
+
+                                {!isWaitingDpoApproval && !isLockedByDeletion && activeTab !== "destruction" && (
                                     <button
-                                        onClick={handleCancel}
-                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-20 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                        onClick={() => setIsLocked(false)}
+                                        className="bg-[#ED393C] text-white px-14 h-[52px] rounded-full font-black text-base shadow-lg shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2"
                                     >
-                                        กลับ
+                                        <span className="material-symbols-outlined text-[20px]">edit_square</span>
+                                        แก้ไขเอกสาร
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                {/* Left: Cancellation */}
+                                <button
+                                    onClick={handleCancel}
+                                    className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                >
+                                    ยกเลิก
+                                </button>
+
+                                {/* Right Group: Draft + Save */}
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={handleDraft}
+                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                        บันทึกฉบับร่าง
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                    >
+                                        บันทึก
                                     </button>
                                 </div>
-                            ) : (
-                                <>
-                                    {/* Left: Cancellation */}
-                                    <button
-                                        onClick={handleCancel}
-                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                    >
-                                        ยกเลิก
-                                    </button>
-
-                                    {/* Right Group: Draft + Save */}
-                                    <div className="flex items-center gap-4">
-                                        <button
-                                            onClick={handleDraft}
-                                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                        >
-                                            บันทึกฉบับร่าง
-                                        </button>
-                                        <button
-                                            onClick={handleSave}
-                                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                        >
-                                            บันทึก
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-end z-40 gap-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)] invisible px-10">
-                            {/* Buttons hidden per user request */}
-                        </div>
-                    )
+                            </>
+                        )}
+                    </div>
                 )}
 
 
@@ -924,9 +930,9 @@ function ManagementFormContent() {
 
             <SaveConfirmModal
                 isOpen={isConfirmRiskOpen}
-                title="ยืนยันการส่งการประเมิน"
-                description="ทำการบันทึกข้อมูลการประเมินความเสี่ยง เพื่อดำเนินการส่งให้ DPO ตรวจสอบในขั้นตอนถัดไป"
-                confirmText="ยืนยันการประเมิน"
+                title="ยืนยันการส่งข้อมูล"
+                description="ทำการส่งข้อมูลการประเมินให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
+                confirmText="ยืนยันการส่งข้อมูล"
                 onConfirm={confirmRiskAssessment}
                 onClose={() => setIsConfirmRiskOpen(false)}
             />

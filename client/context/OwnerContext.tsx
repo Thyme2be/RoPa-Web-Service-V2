@@ -25,13 +25,15 @@ interface OwnerContextType {
     ownerSnapshots: OwnerSnapshotTableItem[];
     ownerDashboardData: OwnerDashboardData | null;
     isLoading: boolean;
+    error: string | null;
+    clearError: () => void;
 
     activeMeta: { total: number; page: number; limit: number };
     sentMeta: { total: number; page: number; limit: number };
     approvedMeta: { total: number; page: number; limit: number };
     destroyedMeta: { total: number; page: number; limit: number };
 
-    fetchActiveTable: (page?: number, limit?: number) => Promise<void>;
+    fetchActiveTable: (page?: number, limit?: number, statusFilter?: string, period?: string, customDate?: string, search?: string) => Promise<void>;
     fetchSentTable: (page?: number, limit?: number) => Promise<void>;
     fetchApprovedTable: (page?: number, limit?: number) => Promise<void>;
     fetchDestroyedTable: (page?: number, limit?: number) => Promise<void>;
@@ -51,8 +53,22 @@ interface OwnerContextType {
     sendBackToDpo: (id: string) => Promise<void>;
     annualReview: (id: string, payload?: any) => Promise<void>;
     getById: (id: string) => OwnerRecord | undefined;
-    getDashboardStats: () => any;
-    refresh: () => Promise<void>;
+    getDashboardStats: () => {
+        totalDocs: number;
+        docsToEdit: { owner: number; processor: number };
+        risk: { low: number; medium: number; high: number; total: number };
+        pendingDpo: { store: number; destroy: number };
+        pendingDocs: { owner: number; processor: number };
+        approved: number;
+        sensitive: number;
+        delayed: number;
+        annualCheck: { reviewed: number; notReviewed: number };
+        dueDestroy: number;
+        destroyed: number;
+    };
+    currentPeriod: string;
+    setCurrentPeriod: (p: string) => void;
+    refresh: (period?: string) => Promise<void>;
 }
 
 const OwnerContext = createContext<OwnerContextType | undefined>(undefined);
@@ -67,19 +83,26 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     const [ownerSnapshots, setOwnerSnapshots] = useState<OwnerSnapshotTableItem[]>([]);
     const [ownerDashboardData, setOwnerDashboardData] = useState<OwnerDashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [currentPeriod, setCurrentPeriod] = useState("all");
+
+    const clearError = useCallback(() => setError(null), []);
 
     const [activeMeta, setActiveMeta] = useState({ total: 0, page: 1, limit: 3 });
     const [sentMeta, setSentMeta] = useState({ total: 0, page: 1, limit: 3 });
     const [approvedMeta, setApprovedMeta] = useState({ total: 0, page: 1, limit: 3 });
     const [destroyedMeta, setDestroyedMeta] = useState({ total: 0, page: 1, limit: 3 });
 
-    const fetchActiveTable = useCallback(async (page = 1, limit = 3) => {
+    const fetchActiveTable = useCallback(async (page = 1, limit = 3, statusFilter = "all", period = "all", customDate = "", search = "") => {
+        setIsLoading(true);
         try {
-            const res = await ownerService.getOwnerActiveTable(page, limit);
-            setActiveRecords(res.items);
-            setActiveMeta({ total: res.total, page: res.page, limit: res.limit });
-        } catch (err) {
-            console.error("Fetch Active Table failed:", err);
+            const data = await ownerService.getOwnerActiveTable(page, limit, statusFilter, period, customDate, search);
+            setActiveRecords(data.items);
+            setActiveMeta({ total: data.total, page: data.page, limit: data.limit });
+        } catch (err: any) {
+            setError(err.message || "Failed to fetch active records");
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
@@ -115,32 +138,60 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
 
     const fetchOwnerDashboard = useCallback(async (period: string = "all") => {
         if (!isAuthenticated || user?.role !== "OWNER") return;
+        setIsLoading(true);
+        setError(null);
+        setCurrentPeriod(period);
         try {
             const data = await ownerService.getOwnerDashboard(period);
             setOwnerDashboardData(data);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to fetch owner dashboard:", err);
-        }
-    }, [isAuthenticated, user]);
-
-    const refresh = useCallback(async () => {
-        if (!isAuthenticated || user?.role !== "OWNER") return;
-        setIsLoading(true);
-        try {
-            await Promise.all([
-                fetchActiveTable(1, 3),
-                fetchSentTable(1, 3),
-                fetchApprovedTable(1, 3),
-                fetchDestroyedTable(1, 3),
-                ownerService.getOwnerSnapshots().then(setOwnerSnapshots),
-                fetchOwnerDashboard()
-            ]);
-        } catch (error) {
-            console.error("Failed to refresh Owner data:", error);
+            setError(err.response?.data?.detail || "ไม่สามารถโหลดข้อมูลสถิติได้ กรุณาลองใหม่อีกครั้ง");
         } finally {
             setIsLoading(false);
         }
-    }, [isAuthenticated, user, fetchActiveTable, fetchSentTable, fetchApprovedTable, fetchDestroyedTable, fetchOwnerDashboard]);
+    }, [isAuthenticated, user]);
+
+    const refresh = useCallback(async (period?: string) => {
+        if (!isAuthenticated || user?.role !== "OWNER") return;
+        
+        const targetPeriod = period || currentPeriod;
+        setIsLoading(true);
+        setError(null);
+        try {
+            // Bulk fetch initial data
+            const [active, sent, approved, destroyed, snapshots, dashboard] = await Promise.all([
+                ownerService.getOwnerActiveTable(1, 3),
+                ownerService.getOwnerSentTable(1, 3),
+                ownerService.getOwnerApprovedTable(1, 3),
+                ownerService.getOwnerDestroyedTable(1, 3),
+                ownerService.getOwnerSnapshots(),
+                ownerService.getOwnerDashboard(targetPeriod)
+            ]);
+
+            setActiveRecords(active.items);
+            setActiveMeta({ total: active.total, page: active.page, limit: active.limit });
+            
+            setSentRecords(sent.items);
+            setSentMeta({ total: sent.total, page: sent.page, limit: sent.limit });
+            
+            setApprovedRecords(approved.items);
+            setApprovedMeta({ total: approved.total, page: approved.page, limit: approved.limit });
+            
+            setDestroyedRecords(destroyed.items);
+            setDestroyedMeta({ total: destroyed.total, page: destroyed.page, limit: destroyed.limit });
+            
+            setOwnerSnapshots(snapshots);
+            setOwnerDashboardData(dashboard);
+            if (period) setCurrentPeriod(period);
+            
+        } catch (error: any) {
+            console.error("Failed to refresh Owner data:", error);
+            setError(error.response?.data?.detail || "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isAuthenticated, user, currentPeriod]);
 
     useEffect(() => {
         refresh();
@@ -307,7 +358,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 await refresh();
                 return record as OwnerRecord;
             })(),
-            { loading: "Saving...", success: "Saved successfully!" }
+            { loading: "กำลังบันทึก...", success: "บันทึกข้อมูลสำเร็จ!" }
         );
     };
 
@@ -323,7 +374,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                  } catch (e) {}
                  await refresh();
             })(),
-            { loading: "Submitting...", success: "Submitted section successfully!" }
+            { loading: "กำลังส่งข้อมูล...", success: "ส่งข้อมูลส่วนนี้สำเร็จ!" }
         );
     };
 
@@ -333,7 +384,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 await ownerService.sendToDpo(id, payload);
                 await refresh();
             })(),
-            { loading: "Sending to DPO...", success: "Sent to DPO successfully!" }
+            { loading: "กำลังส่งให้ DPO...", success: "ส่งให้ DPO สำเร็จ!" }
         );
     };
 
@@ -343,7 +394,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 await ownerService.annualReview(id, payload);
                 await refresh();
             })(),
-            { loading: "Processing annual review...", success: "Annual review processed!" }
+            { loading: "กำลังดำเนินการตรวจสอบรายปี...", success: "ตรวจสอบรายปีสำเร็จ!" }
         );
     };
 
@@ -353,7 +404,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 await ownerService.sendBackToDpo(id);
                 await refresh();
             })(),
-            { loading: "Sending back to DPO...", success: "Sent back to DPO!" }
+            { loading: "กำลังส่งกลับให้ DPO...", success: "ส่งกลับให้ DPO สำเร็จ!" }
         );
     };
 
@@ -367,7 +418,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 await api.post(`/owner/documents/${id}/risk`, payload);
                 await refresh();
             })(),
-            { loading: "Saving risk assessment...", success: "Risk assessment saved!" }
+            { loading: "กำลังบันทึกการประเมินความเสี่ยง...", success: "บันทึกการประเมินความเสี่ยงสำเร็จ!" }
         );
     };
 
@@ -377,7 +428,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 await ownerService.requestDeletion(id, reason);
                 await refresh();
             })(),
-            { loading: "Submitting deletion request...", success: "Deletion request submitted!" }
+            { loading: "กำลังส่งคำขอทำลาย...", success: "ส่งคำขอทำลายสำเร็จ!" }
         );
     };
 
@@ -388,7 +439,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                  await refresh();
                  return result;
             })(),
-            { loading: "Submitting feedback...", success: "Feedback submitted successfully!" }
+            { loading: "กำลังส่งข้อเสนอแนะ...", success: "ส่งข้อเสนอแนะสำเร็จ!" }
         );
     };
 
@@ -402,7 +453,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                 }
                 await refresh();
             })(),
-            { loading: "Deleting...", success: "Deleted successfully!" }
+            { loading: "กำลังลบ...", success: "ลบข้อมูลสำเร็จ!" }
         );
     };
 
@@ -414,7 +465,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                  await refresh();
                  return response;
             })(),
-            { loading: "Creating snapshot...", success: "Snapshot created!" }
+            { loading: "กำลังสร้างฉบับร่าง...", success: "สร้างฉบับร่างสำเร็จ!" }
         );
     };
 
@@ -442,7 +493,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
                  await ownerService.deleteOwnerSnapshot(snapshotId);
                  await refresh();
             })(),
-            { loading: "Deleting snapshot...", success: "Snapshot deleted!" }
+            { loading: "กำลังลบฉบับร่าง...", success: "ลบฉบับร่างสำเร็จ!" }
         );
     };
 
@@ -485,13 +536,14 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     return (
         <OwnerContext.Provider value={{
             records, activeRecords, sentRecords, approvedRecords, destroyedRecords, ownerSnapshots,
-            ownerDashboardData, isLoading,
+            ownerDashboardData, isLoading, error, clearError,
             activeMeta, sentMeta, approvedMeta, destroyedMeta,
             fetchActiveTable, fetchSentTable, fetchApprovedTable, fetchDestroyedTable,
             fetchOwnerDashboard, fetchFullOwnerRecord, saveRecord, submitDoSection,
             sendToDpo, saveRiskAssessment, deleteRecord, requestDelete, createOwnerSnapshot,
             fetchOwnerSnapshot, deleteOwnerSnapshot, submitFeedbackBatch, sendBackToDpo,
-            annualReview, getById, getDashboardStats, refresh
+            annualReview, getById, getDashboardStats, refresh,
+            currentPeriod, setCurrentPeriod
         }}>
             {children}
         </OwnerContext.Provider>

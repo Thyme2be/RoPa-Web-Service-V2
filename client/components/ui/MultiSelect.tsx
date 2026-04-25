@@ -39,26 +39,29 @@ export default function MultiSelect({
     const [searchTerm, setSearchTerm] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Ensure selectedValues is always an array to prevent runtime errors like .filter or .includes is not a function
+    const safeSelectedValues = Array.isArray(selectedValues) ? selectedValues : [];
+
     // Filter options based on search and exclude already selected
     const filteredOptions = options.filter(
         (opt) =>
             opt.toLowerCase().includes(searchTerm.toLowerCase()) &&
-            !selectedValues.includes(opt)
+            !safeSelectedValues.includes(opt)
     );
 
     const toggleOption = (option: string) => {
         if (disabled) return;
-        if (selectedValues.includes(option)) {
-            onChange(selectedValues.filter((v) => v !== option));
+        if (safeSelectedValues.includes(option)) {
+            onChange(safeSelectedValues.filter((v) => v !== option));
         } else {
-            onChange([...selectedValues, option]);
+            onChange([...safeSelectedValues, option]);
         }
         setSearchTerm("");
     };
 
     const removeTag = (option: string) => {
         if (disabled) return;
-        onChange(selectedValues.filter((v) => v !== option));
+        onChange(safeSelectedValues.filter((v) => v !== option));
     };
 
     // Close dropdown on click outside
@@ -87,8 +90,8 @@ export default function MultiSelect({
                 </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2 mb-3">
-                {Array.from(new Set(selectedValues)).map((val, idx) => (
+            <div className={cn("grid grid-cols-3 gap-2 mb-3", disabled && "pointer-events-none")}>
+                {Array.from(new Set(safeSelectedValues)).map((val, idx) => (
                     <div
                         key={`${val}-${idx}`}
                         className={cn(
@@ -99,15 +102,17 @@ export default function MultiSelect({
                         )}
                     >
                         <span className="truncate mr-2 font-black">{val}</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                removeTag(val);
-                            }}
-                            className="flex items-center justify-center hover:bg-red-200/50 rounded-full w-4 h-4 flex-shrink-0 transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-[16px] font-bold text-black">close</span>
-                        </button>
+                        {!disabled && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeTag(val);
+                                }}
+                                className="flex items-center justify-center hover:bg-red-200/50 rounded-full w-4 h-4 flex-shrink-0 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[16px] font-bold text-black">close</span>
+                            </button>
+                        )}
                     </div>
                 ))}
             </div>
@@ -126,7 +131,7 @@ export default function MultiSelect({
                         type="text"
                         disabled={disabled}
                         className="bg-transparent border-none outline-none text-sm w-full placeholder-[#6B7280] font-medium disabled:cursor-not-allowed"
-                        placeholder={selectedValues.length === 0 ? placeholder : ""}
+                        placeholder={safeSelectedValues.length === 0 ? placeholder : ""}
                         value={searchTerm}
                         onChange={(e) => {
                             if (disabled) return;

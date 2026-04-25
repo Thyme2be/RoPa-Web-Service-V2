@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -33,19 +33,55 @@ function SummaryCard({ title, value, unit, subtitle, icon, color = "primary", bo
 }
 
 function RiskDonutChart({ riskData, totalDocuments }: { riskData: any; totalDocuments: number }) {
+    const radius = 15;
+    const circumference = 2 * Math.PI * radius;
+    
+    // Calculate proportions (0 to circumference)
+    const lowStroke = totalDocuments > 0 ? (riskData.low / totalDocuments) * circumference : 0;
+    const mediumStroke = totalDocuments > 0 ? (riskData.medium / totalDocuments) * circumference : 0;
+    const highStroke = totalDocuments > 0 ? (riskData.high / totalDocuments) * circumference : 0;
+
     return (
         <div className="bg-white p-8 rounded-xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] border-b-4 border-zinc-200 flex flex-col items-center h-full">
             <h4 className="text-[17px] font-bold text-neutral-900 w-full text-left mb-8">ความเสี่ยงของเอกสารทั้งหมด</h4>
             
             <div className="relative w-48 h-48 mb-8 drop-shadow-sm group cursor-pointer">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#f0eded" strokeWidth="4"></circle>
+                    {/* Background circle */}
+                    <circle cx="18" cy="18" fill="transparent" r={radius} stroke="#f0eded" strokeWidth="4"></circle>
+                    
                     {/* Green: Low Risk */}
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#A7F305" strokeDasharray={`${riskData.low} 100`} strokeDashoffset="0" strokeWidth="4" className="transition-all duration-1000 ease-out"></circle>
+                    <circle 
+                        cx="18" cy="18" fill="transparent" r={radius} 
+                        stroke="#A7F305" 
+                        strokeDasharray={`${lowStroke} ${circumference}`} 
+                        strokeDashoffset="0" 
+                        strokeWidth="4" 
+                        strokeLinecap="butt"
+                        className="transition-all duration-1000 ease-out"
+                    ></circle>
+                    
                     {/* Orange: Medium Risk */}
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#F9A506" strokeDasharray={`${riskData.medium} 100`} strokeDashoffset={`-${riskData.low}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-100"></circle>
+                    <circle 
+                        cx="18" cy="18" fill="transparent" r={radius} 
+                        stroke="#F9A506" 
+                        strokeDasharray={`${mediumStroke} ${circumference}`} 
+                        strokeDashoffset={`-${lowStroke}`} 
+                        strokeWidth="4" 
+                        strokeLinecap="butt"
+                        className="transition-all duration-1000 ease-out delay-100"
+                    ></circle>
+                    
                     {/* Red: High Risk */}
-                    <circle cx="18" cy="18" fill="transparent" r="15" stroke="#FB8827" strokeDasharray={`${riskData.high} 100`} strokeDashoffset={`-${riskData.low + riskData.medium}`} strokeWidth="4" className="transition-all duration-1000 ease-out delay-200"></circle>
+                    <circle 
+                        cx="18" cy="18" fill="transparent" r={radius} 
+                        stroke="#FB8827" 
+                        strokeDasharray={`${highStroke} ${circumference}`} 
+                        strokeDashoffset={`-${lowStroke + mediumStroke}`} 
+                        strokeWidth="4" 
+                        strokeLinecap="butt"
+                        className="transition-all duration-1000 ease-out delay-200"
+                    ></circle>
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center text-center px-4 flex-col transition-transform duration-300 group-hover:scale-105">
                     <span className="text-[13px] font-bold text-neutral-900 leading-tight uppercase">จากเอกสารทั้งหมด</span>
@@ -80,13 +116,16 @@ function RiskDonutChart({ riskData, totalDocuments }: { riskData: any; totalDocu
     );
 }
 
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
+
 export default function DPODashboard() {
-    const [timeRange, setTimeRange] = useState("30");
+    const [timeRange, setTimeRange] = useState("all");
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchDashboard = async () => {
+    const fetchDashboard = useCallback(async () => {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("token");
@@ -98,8 +137,7 @@ export default function DPODashboard() {
         }
 
         try {
-            const daysFilter = timeRange === "all" ? 0 : parseInt(timeRange);
-            const response = await fetch(`${API_BASE_URL}/dashboard/dpo?days_filter=${daysFilter}`, {
+            const response = await fetch(`${API_BASE_URL}/dashboard/dpo?period=${timeRange}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
@@ -126,17 +164,19 @@ export default function DPODashboard() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [timeRange]);
 
     useEffect(() => {
         fetchDashboard();
-    }, [timeRange]);
+    }, [fetchDashboard]);
 
-    if (!stats && loading) return <div className="h-screen flex items-center justify-center text-[#5F5E5E] font-bold italic animate-pulse">กำลังโหลดข้อมูล...</div>;
-    if (error) return <div className="h-screen flex items-center justify-center text-[#ED393C] font-bold">Error: {error}</div>;
+    if (loading || !stats) {
+        return <LoadingState fullPage message="กำลังโหลด..." />;
+    }
+    if (error) return <ErrorState title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" message={error} onRetry={fetchDashboard} />;
 
     return (
-        <div className={`space-y-8 pb-12 transition-opacity duration-300 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+        <div className="space-y-8 pb-12 transition-opacity duration-300 relative opacity-100">
             {/* Header Section */}
             <div className="flex justify-between items-start">
                 <div>
@@ -152,8 +192,10 @@ export default function DPODashboard() {
                             onChange={(e) => setTimeRange(e.target.value)}
                             className="h-9 px-4 pr-10 appearance-none bg-white border border-neutral-200 rounded-md text-sm font-medium text-neutral-700 focus:outline-none focus:ring-1 focus:ring-primary shadow-sm hover:bg-neutral-50 cursor-pointer min-w-[200px]"
                         >
-                            <option value="7">7 วันล่าสุด</option>
-                            <option value="30">30 วันล่าสุด</option>
+                            <option value="7_days">7 วันล่าสุด</option>
+                            <option value="30_days">30 วันล่าสุด</option>
+                            <option value="6_months">6 เดือนล่าสุด</option>
+                            <option value="1_year">1 ปีล่าสุด</option>
                             <option value="all">ทั้งหมด</option>
                         </select>
                         <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-sm">

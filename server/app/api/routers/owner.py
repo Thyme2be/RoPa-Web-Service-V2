@@ -46,7 +46,7 @@ import logging
 import random
 import string
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -165,12 +165,24 @@ def _generate_document_number(db: Session, prefix: str = "RP") -> str:
 
 
 def _user_full_name(user: Optional[UserModel]) -> Optional[str]:
-    """คืนชื่อเต็มของ user หรือ None ถ้าไม่มี"""
+    """
+    Format: [Title][FirstName] [LastName]
+    Example: นางสาวพรรษชล บุญมาก
+    """
     if not user:
         return None
-    parts = [user.first_name, user.last_name]
-    name = " ".join(p for p in parts if p)
-    return name or user.username or None
+    
+    # Combined title and first name (no space)
+    title_first = (user.title or "") + (user.first_name or "")
+    
+    if not title_first and not user.last_name:
+        return user.username or None
+        
+    full_name = title_first
+    if user.last_name:
+        full_name += f" {user.last_name}"
+        
+    return full_name.strip() or user.username or None
 
 
 # =============================================================================
@@ -423,16 +435,16 @@ def list_processor_companies(
     คืนรายชื่อบริษัทที่มี PROCESSOR user อยู่ → frontend เอาไปทำ dropdown ในหน้าสร้างเอกสาร
     """
     rows = (
-        db.query(UserModel.company_name)
+        db.query(func.min(UserModel.company_name))
         .filter(
             UserModel.company_name.isnot(None),
             UserModel.status == "ACTIVE",
         )
-        .distinct()
-        .order_by(UserModel.company_name)
+        .group_by(func.lower(UserModel.company_name))
+        .order_by(func.lower(UserModel.company_name))
         .all()
     )
-    return {"companies": [r.company_name for r in rows]}
+    return {"companies": [r[0] for r in rows if r[0]]}
 
 
 @router.get(
@@ -948,13 +960,17 @@ def get_owner_dashboard(
 def get_active_table(
     page: int = 1,
     page_size: int = 50,
+    status_filter: Optional[str] = Query("all"),
+    period: Optional[str] = Query("all"),
+    custom_date: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
     offset = (page - 1) * page_size
 
-    # 1. Base Query with Projections (Reduced Over-fetching)
+    # 1. Base Query with Projections
     base_q = (
         db.query(RopaDocumentModel)
         .options(
@@ -969,6 +985,67 @@ def get_active_table(
             or_(RopaDocumentModel.deletion_status == None, RopaDocumentModel.deletion_status != "DELETED"),
         )
     )
+
+    # ─── Search Logic ───
+    if search:
+        search_pattern = f"%{search}%"
+        base_q = base_q.filter(
+            or_(
+                RopaDocumentModel.document_number.ilike(search_pattern),
+                RopaDocumentModel.title.ilike(search_pattern)
+            )
+        )
+
+    # ─── Filtering Logic ───
+    if status_filter and status_filter != "all":
+        if status_filter == "wait_owner":
+            base_q = base_q.join(RopaOwnerSectionModel).filter(RopaOwnerSectionModel.status != "SUBMITTED")
+        elif status_filter == "wait_processor":
+            base_q = base_q.join(RopaProcessorSectionModel).filter(
+                or_(
+                    RopaProcessorSectionModel.status != "SUBMITTED",
+                    RopaProcessorSectionModel.is_sent == False
+                )
+            )
+        elif status_filter == "done_owner":
+            base_q = base_q.join(RopaOwnerSectionModel).filter(RopaOwnerSectionModel.status == "SUBMITTED")
+        elif status_filter == "done_processor":
+            base_q = base_q.join(RopaProcessorSectionModel).filter(
+                RopaProcessorSectionModel.status == "SUBMITTED",
+                RopaProcessorSectionModel.is_sent == True
+            )
+        elif status_filter == "wait_all":
+            base_q = base_q.join(RopaOwnerSectionModel).join(RopaProcessorSectionModel).filter(
+                RopaOwnerSectionModel.status != "SUBMITTED",
+                or_(
+                    RopaProcessorSectionModel.status != "SUBMITTED",
+                    RopaProcessorSectionModel.is_sent == False
+                )
+            )
+        elif status_filter == "done_all":
+            base_q = base_q.join(RopaOwnerSectionModel).join(RopaProcessorSectionModel).filter(
+                RopaOwnerSectionModel.status == "SUBMITTED",
+                RopaProcessorSectionModel.status == "SUBMITTED",
+                RopaProcessorSectionModel.is_sent == True
+            )
+
+    if period and period != "all":
+        now = datetime.now(timezone.utc)
+        if period == "7days":
+            base_q = base_q.filter(RopaDocumentModel.due_date <= now + timedelta(days=7))
+        elif period == "30days":
+            base_q = base_q.filter(RopaDocumentModel.due_date <= now + timedelta(days=30))
+        elif period == "overdue":
+            base_q = base_q.filter(RopaDocumentModel.due_date < now)
+        elif period == "custom" and custom_date:
+            try:
+                c_date = datetime.fromisoformat(custom_date.replace("Z", "+00:00"))
+                # Filter for the entire day of c_date
+                start_of_day = c_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_of_day = start_of_day + timedelta(days=1)
+                base_q = base_q.filter(RopaDocumentModel.due_date >= start_of_day, RopaDocumentModel.due_date < end_of_day)
+            except Exception as e:
+                logger.warning(f"Failed to parse custom_date '{custom_date}': {e}")
 
     total = base_q.count()
     docs = base_q.order_by(RopaDocumentModel.created_at.desc()).offset(offset).limit(page_size).all()

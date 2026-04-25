@@ -62,7 +62,11 @@ function makeStatus(draft: number, pending: number, review: number, done: number
     ];
 }
 
+import LoadingState from "@/components/ui/LoadingState";
+
 export default function ExecutiveDashboardView({ stats }: ExecutiveDashboardViewProps) {
+    if (!stats) return <LoadingState message="กำลังโหลดข้อมูลแดชบอร์ด..." />;
+
     const [selectedDept, setSelectedDept] = useState<string>("ทั้งหมด");
 
     // Dynamic department options from backend data
