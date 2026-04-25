@@ -52,7 +52,7 @@ export default function DashboardPage() {
         <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
           <ErrorState 
             title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" 
-            message={error} 
+            description={error} 
             onRetry={() => { clearError(); refresh(periodParam); }} 
           />
         </main>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ListCard, StatusBadge, GenericFilterBar, Pagination } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
+import ErrorState from "@/components/ui/ErrorState";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -172,47 +173,56 @@ function DestructionTableContent() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
-                                    {loading ? (
-                                        <TableLoading colSpan={6} />
-                                    ) : error ? (
-                                        <tr>
-                                            <td colSpan={6} className="py-12 text-center text-[#ED393C] font-black">{error}</td>
-                                        </tr>
-                                    ) : documents.length > 0 ? documents.map((doc) => (
-                                        <tr key={doc.raw_document_id} className="hover:bg-gray-50 transition-colors group">
-                                            <td className="py-4 text-[13.5px] font-medium text-left pl-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
-                                                    <span className="text-[#5F5E5E] font-medium tracking-tight">{doc.name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.owner}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.received_date)}</td>
-                                            <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.destruction_date)}</td>
-                                            <td className="py-4">
-                                                <div className="flex justify-center py-1">
-                                                    <span className={`px-4 py-1 rounded-lg text-[11px] font-black inline-block text-center shadow-sm ${getStatusColor(getStatusType(doc.status))}`}>
-                                                        {getDisplayStatus(doc.status)}
+                                    {(() => {
+                                        if (loading) return <TableLoading colSpan={6} />;
+                                        if (error) return (
+                                            <ErrorState
+                                                colSpan={6}
+                                                description={error}
+                                                onRetry={fetchDestructionRequests}
+                                            />
+                                        );
+                                        if (documents.length > 0) return documents.map((doc) => (
+                                            <tr key={doc.raw_document_id} className="hover:bg-gray-50 transition-colors group">
+                                                <td className="py-4 text-[13.5px] font-medium text-left pl-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
+                                                        <span className="text-[#5F5E5E] font-medium tracking-tight">{doc.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.owner}</td>
+                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.received_date)}</td>
+                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.destruction_date)}</td>
+                                                <td className="py-4">
+                                                    <div className="flex justify-center py-1">
+                                                        <StatusBadge
+                                                            label={getDisplayStatus(doc.status)}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td className="py-4">
+                                                    <div className="flex justify-center">
+                                                        <Link
+                                                            href={`/dpo/tables/destruction/${doc.raw_document_id}`}
+                                                            title="ดูรายละเอียดและทำลาย"
+                                                            className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>visibility</span>
+                                                        </Link>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ));
+                                        return (
+                                            <tr className="animate-in fade-in duration-500">
+                                                <td colSpan={6} align="center">
+                                                    <span className="text-[#9CA3AF] font-bold py-10 block">
+                                                        ไม่พบเอกสารที่ขอทำลาย
                                                     </span>
-                                                </div>
-                                            </td>
-                                            <td className="py-4">
-                                                <div className="flex justify-center">
-                                                    <Link
-                                                        href={`/dpo/tables/destruction/${doc.raw_document_id}`}
-                                                        title="ดูรายละเอียดและทำลาย"
-                                                        className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>visibility</span>
-                                                    </Link>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] opacity-60 font-medium">ไม่พบข้อมูลที่ค้นหา</td>
-                                        </tr>
-                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })()}
                                 </tbody>
                             </table>
 
@@ -243,7 +253,12 @@ function DestructionTableContent() {
 
 export default function DestructionPage() {
     return (
-        <Suspense fallback={<div className="p-8">กำลังโหลด...</div>}>
+        <Suspense fallback={
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <div className="w-12 h-12 border-4 border-[#ED393C]/10 border-t-[#ED393C] rounded-full animate-spin"></div>
+                <p className="text-[15px] font-bold text-[#5F5E5E] animate-pulse">กำลังโหลดหน้าเอกสาร...</p>
+            </div>
+        }>
             <DestructionTableContent />
         </Suspense>
     );

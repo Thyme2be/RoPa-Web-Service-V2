@@ -16,6 +16,7 @@ import {
   DocumentTableCell,
   ActionIconWithTooltip,
 } from "@/components/ropa/ListComponents";
+import { StatusBadge } from "@/components/ropa/RopaListComponents";
 import CreateDocumentModal from "@/components/ropa/CreateDocumentModal";
 import { useRouter } from "next/navigation";
 import { useOwner } from "@/context/OwnerContext";
@@ -38,27 +39,6 @@ function formatDate(dateStr: string | undefined | null) {
   return `${day}/${month}/${year}`;
 }
 
-// ─── Status Badge ──────────────────────────────────────────────────────────────
-function StatusBadge({ code, label }: { code: string; label: string }) {
-  const styles: Record<string, string> = {
-    DO_DONE: "bg-[#107C41] text-white",      // Green
-    DP_DONE: "bg-[#107C41] text-white",      // Green
-    WAITING_DO: "bg-[#FFC107] text-[#5C403D]", // Yellow
-    WAITING_DP: "bg-[#FFC107] text-[#5C403D]", // Yellow
-    DPO_REJECTED: "bg-[#ED393C] text-white",   // Red
-  };
-
-  return (
-    <span
-      className={cn(
-        "px-2.5 py-1 rounded-[6px] text-[10px] font-bold whitespace-nowrap min-w-[140px] text-center shadow-sm",
-        styles[code] || "bg-[#9CA3AF] text-white",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
 
 import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
@@ -210,8 +190,9 @@ export default function ManagementProcessingPage() {
         <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
           <ErrorState 
             title="ไม่สามารถโหลดข้อมูลเอกสารได้" 
-            message={error} 
+            description={error} 
             onRetry={() => { clearError(); refresh(); }} 
+            isTable={false}
           />
         </main>
       </div>

@@ -79,7 +79,7 @@ export default function DataTable<T extends { id: string | number }>({
                     </div>
                 ) : error ? (
                     <div className="py-12">
-                        <ErrorState message={error} onRetry={onRetry} />
+                        <ErrorState description={error} onRetry={onRetry} />
                     </div>
                 ) : (
                     <table className="w-full text-left border-collapse table-fixed">

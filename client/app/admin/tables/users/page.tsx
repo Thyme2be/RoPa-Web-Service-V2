@@ -407,7 +407,7 @@ function UsersPageContent() {
                                         <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{user.department}</td>
                                         <td className="py-7">
                                             <div className="flex justify-center scale-110">
-                                                <StatusBadge status={user.status as any} />
+                                                <StatusBadge label={user.status} />
                                             </div>
                                         </td>
                                         <td className="py-7">

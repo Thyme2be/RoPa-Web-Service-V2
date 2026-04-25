@@ -173,7 +173,7 @@ export default function DPODashboard() {
     if (loading || !stats) {
         return <LoadingState fullPage message="กำลังโหลด..." />;
     }
-    if (error) return <ErrorState title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" message={error} onRetry={fetchDashboard} />;
+    if (error) return <ErrorState title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" description={error} onRetry={fetchDashboard} />;
 
     return (
         <div className="space-y-8 pb-12 transition-opacity duration-300 relative opacity-100">

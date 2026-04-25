@@ -80,7 +80,7 @@ export default function ExecutiveDashboard() {
                 <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
                     <ErrorState 
                         title="ไม่สามารถโหลดข้อมูลแดชบอร์ดผู้บริหารได้" 
-                        message={error} 
+                        description={error} 
                         onRetry={() => { clearError(); refresh(periodParam); }} 
                     />
                 </main>

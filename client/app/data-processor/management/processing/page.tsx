@@ -16,6 +16,7 @@ import {
   DocumentTableCell,
   ActionIconWithTooltip,
 } from "@/components/ropa/ListComponents";
+import { StatusBadge } from "@/components/ropa/RopaListComponents";
 import { useRouter } from "next/navigation";
 import { useProcessor } from "@/context/ProcessorContext";
 import { RopaStatus, SectionStatus } from "@/types/enums";
@@ -71,26 +72,6 @@ function ConfirmModal({
   );
 }
 
-// ─── Status Badge ──────────────────────────────────────────────────────────────
-function LocalStatusBadge({ code, label }: { code: string; label: string }) {
-  const styles: Record<string, string> = {
-    CHECK_DONE: "bg-[#107C41] text-white", // Green
-    WAITING_CHECK: "bg-[#FFC107] text-[#5C403D]", // Yellow
-    DP_NEED_FIX: "bg-[#ED393C] text-white", // Red
-    WAITING_DP: "bg-[#FFC107] text-[#5C403D]", // Yellow
-  };
-
-  return (
-    <span
-      className={cn(
-        "px-2.5 py-1 rounded-[6px] text-[10px] font-bold whitespace-nowrap min-w-[140px] text-center shadow-sm",
-        styles[code] || "bg-[#9CA3AF] text-white",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
 
 import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
@@ -266,8 +247,9 @@ export default function ManagementProcessingPage() {
         <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
           <ErrorState 
             title="ไม่สามารถโหลดข้อมูลงานที่มอบหมายได้" 
-            message={error} 
+            description={error} 
             onRetry={() => { clearError(); refresh(); }} 
+            isTable={false}
           />
         </main>
       </div>
@@ -396,7 +378,7 @@ export default function ManagementProcessingPage() {
                       </DocumentTableCell>
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
-                          <LocalStatusBadge
+                          <StatusBadge
                             code={record.status?.code || "WAITING_DP"}
                             label={
                               record.status?.code === "WAITING_DO"
@@ -423,21 +405,12 @@ export default function ManagementProcessingPage() {
                             }
                           />
                           {record.is_sent ? (
-                            <div className="text-[#107C41] p-2">
+                            <div className="text-[#ED393C] p-2">
                               <ActionIconWithTooltip
                                 icon="send"
-                                disabled={true}
-                                tooltipText={
-                                  record.status?.code ===
-                                    "WAITING_CHECK"
-                                    ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
-                                    : "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
-                                }
-                                buttonClassName={
-                                  record.status?.code === "WAITING_DP"
-                                    ? "text-[#9CA3AF]"
-                                    : "text-[#5F5E5E]"
-                                }
+                                disabled={false}
+                                tooltipText="ส่งให้ผู้รับผิดชอบข้อมูล (Data Owner)"
+                                buttonClassName="text-[#ED393C] hover:scale-110 transition-transform"
                                 onClick={() =>
                                   setSubmitConfirm({
                                     open: true,
@@ -447,26 +420,14 @@ export default function ManagementProcessingPage() {
                               />
                             </div>
                           ) : (
-                            <ActionIconWithTooltip
-                              icon="send"
-                              disabled={
-                                record.status?.code === "WAITING_DP" ||
-                                record.status?.code === "DP_NEED_FIX"
-                              }
-                              tooltipText={
-                                (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
-                                  ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
-                                  : "ส่งข้อมูลให้ Data Owner ตรวจสอบ"
-                              }
-                              buttonClassName={
-                                (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
-                                  ? "text-[#9CA3AF]"
-                                  : "text-[#5F5E5E] hover:text-[#00666E]"
-                              }
-                              onClick={() =>
-                                setSubmitConfirm({ open: true, id: record.id })
-                              }
-                            />
+                            <div className="p-2 opacity-40">
+                              <ActionIconWithTooltip
+                                icon="send"
+                                disabled={true}
+                                tooltipText="กรุณาบันทึกข้อมูลในแบบฟอร์มให้เรียบร้อยก่อนส่ง"
+                                buttonClassName="text-[#9CA3AF] cursor-not-allowed"
+                              />
+                            </div>
                           )}
                         </div>
                       </DocumentTableCell>

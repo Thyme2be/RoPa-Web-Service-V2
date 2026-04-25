@@ -18,7 +18,7 @@ export default function Error({
         <div className="flex min-h-screen items-center justify-center p-4">
             <ErrorState
                 title="เกิดข้อผิดพลาดในการโหลดข้อมูลผู้บริหาร"
-                message={error.message || "ไม่สามารถสรุปภาพรวมข้อมูลได้ในขณะนี้"}
+                description={error.message || "ไม่สามารถสรุปภาพรวมข้อมูลได้ในขณะนี้"}
                 onRetry={() => reset()}
             />
         </div>

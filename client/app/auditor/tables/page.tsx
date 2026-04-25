@@ -253,7 +253,7 @@ function AuditorTableContent() {
                         <td className="py-4">
                           <div className="flex justify-center py-1">
                             <StatusBadge
-                              status={getUIStatus(doc.status) as any}
+                              label={getUIStatus(doc.status)}
                             />
                           </div>
                         </td>

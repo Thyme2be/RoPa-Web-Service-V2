@@ -18,7 +18,7 @@ export default function Error({
         <div className="flex min-h-screen items-center justify-center p-4">
             <ErrorState
                 title="เกิดข้อผิดพลาดในการโหลดหน้าเว็บ"
-                message={error.message || "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ในขณะนี้"}
+                description={error.message || "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ในขณะนี้"}
                 onRetry={() => reset()}
             />
         </div>

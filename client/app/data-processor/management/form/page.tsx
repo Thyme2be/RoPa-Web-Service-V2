@@ -382,7 +382,7 @@ function DataProcessorFormContent() {
                 <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
                     <div className={cn("flex items-center justify-between w-full", isLocked ? "justify-center gap-4" : "")}>
                         <button
-                            onClick={() => router.back()}
+                            onClick={() => router.push("/data-processor/management/processing")}
                             className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                         >
                             {isLocked ? "กลับ" : "ยกเลิก"}

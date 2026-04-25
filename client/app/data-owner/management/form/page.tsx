@@ -857,20 +857,31 @@ function ManagementFormContent() {
                                     ยกเลิก
                                 </button>
 
-                                {/* Right Group: Draft + Save */}
+                                {/* Right Group: Draft + Save or Risk Submit */}
                                 <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={handleDraft}
-                                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                                    >
-                                        บันทึกฉบับร่าง
-                                    </button>
-                                    <button
-                                        onClick={handleSave}
-                                        className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                    >
-                                        บันทึก
-                                    </button>
+                                    {activeTab === "risk" ? (
+                                        <button
+                                            onClick={() => setIsConfirmRiskOpen(true)}
+                                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                        >
+                                            ยืนยันการส่งการประเมิน
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={handleDraft}
+                                                className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                            >
+                                                บันทึกฉบับร่าง
+                                            </button>
+                                            <button
+                                                onClick={handleSave}
+                                                className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                            >
+                                                บันทึก
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </>
                         )}

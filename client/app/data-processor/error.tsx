@@ -18,7 +18,7 @@ export default function Error({
         <div className="flex min-h-screen items-center justify-center p-4">
             <ErrorState
                 title="เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ประมวลผล"
-                message={error.message || "ไม่สามารถโหลดข้อมูลการมอบหมายงานได้"}
+                description={error.message || "ไม่สามารถโหลดข้อมูลการมอบหมายงานได้"}
                 onRetry={() => reset()}
             />
         </div>

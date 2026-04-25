@@ -206,7 +206,7 @@ export default function DashboardPage() {
     }
 
     if (!data) {
-        return <ErrorState title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" message="เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล" onRetry={fetchDashboardData} />;
+        return <ErrorState title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" description="เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล" onRetry={fetchDashboardData} />;
     }
 
     return (

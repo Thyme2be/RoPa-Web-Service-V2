@@ -10,6 +10,7 @@ import {
 } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
+import ErrorState from "@/components/ui/ErrorState";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
 import { cn } from "@/lib/utils";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
@@ -340,19 +341,16 @@ function InProgressTableContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E2E1]/10">
-                  {loading ? (
-                    <TableLoading colSpan={6} />
-                  ) : error ? (
-                    <tr key={"error"}>
-                      <td
+                  {(() => {
+                    if (loading) return <TableLoading colSpan={6} />;
+                    if (error) return (
+                      <ErrorState
                         colSpan={6}
-                        className="py-12 text-center text-[#ED393C] font-black"
-                      >
-                        {error}
-                      </td>
-                    </tr>
-                  ) : documents.length > 0 ? (
-                    documents.map((doc) => (
+                        description={error}
+                        onRetry={fetchDocuments}
+                      />
+                    );
+                    if (documents.length > 0) return documents.map((doc) => (
                       <tr
                         key={doc.raw_document_id}
                         className="hover:bg-gray-50 transition-colors group"
@@ -379,24 +377,17 @@ function InProgressTableContent() {
                               doc.review_status === "APPROVED" ||
                               doc.review_status === "CHANGES_REQUESTED" ? (
                               <StatusBadge
-                                status={getUIStatus(doc.review_status) as any}
+                                code={doc.review_status}
+                                label={getUIStatus(doc.review_status)}
                               />
                             ) : (
                               <div className="flex flex-col gap-1">
-                                <span
-                                  className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.owner_status)} shadow-sm`}
-                                >
-                                  {doc.owner_status === "done"
-                                    ? "Data Owner ดำเนินการเสร็จสิ้น"
-                                    : "รอส่วนของ Data Owner"}
-                                </span>
-                                <span
-                                  className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.processor_status)} shadow-sm`}
-                                >
-                                  {doc.processor_status === "done"
-                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
-                                    : "รอส่วนของ Data Processor"}
-                                </span>
+                                <StatusBadge
+                                  code={doc.owner_status === "done" ? "DO_DONE" : "WAITING_DO"}
+                                />
+                                <StatusBadge
+                                  code={doc.processor_status === "done" ? "DP_DONE" : "WAITING_DP"}
+                                />
                               </div>
                             )}
                           </div>
@@ -439,17 +430,17 @@ function InProgressTableContent() {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="py-12 text-center text-[#5F5E5E] opacity-60 font-medium"
-                      >
-                        ไม่พบข้อมูลที่ค้นหา
-                      </td>
-                    </tr>
-                  )}
+                    ));
+                    return (
+                      <tr className="animate-in fade-in duration-500">
+                        <td colSpan={6} align="center">
+                          <span className="text-[#9CA3AF] font-bold py-10 block">
+                            ไม่พบเอกสารที่อยู่ระหว่างตรวจสอบ
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
 
@@ -490,7 +481,12 @@ function InProgressTableContent() {
 
 export default function InProgressPage() {
   return (
-    <Suspense fallback={<div className="p-8">กำลังโหลด...</div>}>
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="w-12 h-12 border-4 border-[#ED393C]/10 border-t-[#ED393C] rounded-full animate-spin"></div>
+        <p className="text-[15px] font-bold text-[#5F5E5E] animate-pulse">กำลังโหลดหน้าเอกสาร...</p>
+      </div>
+    }>
       <InProgressTableContent />
     </Suspense>
   );

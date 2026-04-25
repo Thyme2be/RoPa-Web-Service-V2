@@ -9,8 +9,10 @@ import LegalInfo from "@/components/formSections/LegalInfo";
 import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import RightsChannel from "@/components/formSections/RightsChannel";
 import DpoRiskAssessment from "@/components/ropa/DpoRiskAssessment";
+import SectionCommentBox from "@/components/ropa/SectionCommentBox";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import Input from "@/components/ui/Input";
+import ErrorState from "@/components/ui/ErrorState";
 import { cn } from "@/lib/utils";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
@@ -63,6 +65,7 @@ function LocalActivityDetails({
   errors,
   disabled,
   variant = "owner",
+  hideHeader = false,
 }: any) {
   const isProcessor = variant === "processor";
   const primaryColor = isProcessor ? "#00666E" : "#ED393C";
@@ -78,92 +81,23 @@ function LocalActivityDetails({
     : "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์";
 
   return (
-    <div
-      className={cn(
-        "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
-        borderLColor,
-      )}
-    >
-      <div className="flex items-center gap-4 px-8 py-6">
-        <div
-          className={cn(
-            "p-2.5 rounded-xl flex items-center justify-center",
-            lightBg,
-          )}
-        >
-          <span
-            className="material-symbols-outlined text-2xl font-bold"
-            style={{ color: primaryColor }}
-          >
-            accessibility_new
-          </span>
-        </div>
-        <h2 className="font-bold text-[18px] text-[#1B1C1C] tracking-tight">
-          {sectionTitle}
-        </h2>
-      </div>
+    <div className="space-y-6">
+      {!isProcessor ? (
+        <>
+          <div className="grid grid-cols-1">
+            <Input
+              label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
+              name="data_subject_name"
+              value={form?.data_subject_name || ""}
+              placeholder="ไม่มีข้อมูล"
+              onChange={handleChange}
+              disabled={disabled}
+              focusColor={primaryColor}
+              requiredColor={markerColor}
+            />
+          </div>
 
-      <div className="px-8 pb-8 space-y-6">
-        {!isProcessor ? (
-          <>
-            <div className="grid grid-cols-1">
-              <Input
-                label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
-                name="data_subject_name"
-                value={form?.data_subject_name || ""}
-                placeholder="ไม่มีข้อมูล"
-                onChange={handleChange}
-                disabled={disabled}
-                focusColor={primaryColor}
-                requiredColor={markerColor}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              <Input
-                label="กิจกรรมประมวลผล"
-                name="processing_activity"
-                value={form?.processing_activity || ""}
-                placeholder="ไม่มีข้อมูล"
-                onChange={handleChange}
-                disabled={disabled}
-                focusColor={primaryColor}
-                requiredColor={markerColor}
-              />
-              <Input
-                label="วัตถุประสงค์การประมวลผล"
-                name="purpose_of_processing"
-                value={form?.purpose_of_processing || form?.purpose || ""}
-                placeholder="ไม่มีข้อมูล"
-                onChange={handleChange}
-                disabled={disabled}
-                focusColor={primaryColor}
-                requiredColor={markerColor}
-              />
-            </div>
-          </>
-        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            <Input
-              label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-              name="processor_name"
-              value={form?.processor_name || ""}
-              placeholder="ไม่มีข้อมูล"
-              onChange={handleChange}
-              disabled={disabled}
-              focusColor={primaryColor}
-              requiredColor={markerColor}
-            />
-            <Input
-              label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
-              name="controllerAddress"
-              value={form?.controllerAddress || ""}
-              placeholder="ไม่มีข้อมูล"
-              onChange={handleChange}
-              disabled={disabled}
-              focusColor={primaryColor}
-              requiredColor={markerColor}
-            />
             <Input
               label="กิจกรรมประมวลผล"
               name="processing_activity"
@@ -175,7 +109,7 @@ function LocalActivityDetails({
               requiredColor={markerColor}
             />
             <Input
-              label="วัตถุประสงค์ของการประมวลผล"
+              label="วัตถุประสงค์การประมวลผล"
               name="purpose_of_processing"
               value={form?.purpose_of_processing || form?.purpose || ""}
               placeholder="ไม่มีข้อมูล"
@@ -185,8 +119,51 @@ function LocalActivityDetails({
               requiredColor={markerColor}
             />
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+          <Input
+            label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
+            name="processor_name"
+            value={form?.processor_name || ""}
+            placeholder="ไม่มีข้อมูล"
+            onChange={handleChange}
+            disabled={disabled}
+            focusColor={primaryColor}
+            requiredColor={markerColor}
+          />
+          <Input
+            label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
+            name="controllerAddress"
+            value={form?.controllerAddress || ""}
+            placeholder="ไม่มีข้อมูล"
+            onChange={handleChange}
+            disabled={disabled}
+            focusColor={primaryColor}
+            requiredColor={markerColor}
+          />
+          <Input
+            label="กิจกรรมประมวลผล"
+            name="processing_activity"
+            value={form?.processing_activity || ""}
+            placeholder="ไม่มีข้อมูล"
+            onChange={handleChange}
+            disabled={disabled}
+            focusColor={primaryColor}
+            requiredColor={markerColor}
+          />
+          <Input
+            label="วัตถุประสงค์ของการประมวลผล"
+            name="purpose_of_processing"
+            value={form?.purpose_of_processing || form?.purpose || ""}
+            placeholder="ไม่มีข้อมูล"
+            onChange={handleChange}
+            disabled={disabled}
+            focusColor={primaryColor}
+            requiredColor={markerColor}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -544,11 +521,35 @@ function DpoInProgressDetailContent() {
 
   if (loading)
     return (
-      <div className="p-8 space-y-8">
-        <div className="h-14 bg-gray-100 rounded-2xl animate-pulse w-full" />
-        <div className="space-y-6">
+      <div className="flex-1 space-y-8 animate-in fade-in duration-500">
+        {/* Tabs Skeleton */}
+        <div className="h-14 bg-[#F6F6F6] rounded-xl animate-pulse flex p-2 gap-2">
+           <div className="flex-1 bg-white/60 rounded-lg" />
+           <div className="flex-1 bg-white/60 rounded-lg" />
+           <div className="flex-1 bg-white/60 rounded-lg" />
+        </div>
+
+        {/* Form Sections Skeleton */}
+        <div className="space-y-10 pb-32">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-2xl shadow-sm h-64 animate-pulse border-l-4 border-gray-200" />
+            <div key={i} className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-gray-200 overflow-hidden">
+                <div className="h-20 bg-gray-50/50 flex items-center px-8 gap-4">
+                    <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse" />
+                    <div className="w-48 h-6 bg-gray-200 rounded-lg animate-pulse" />
+                </div>
+                <div className="px-8 pb-10 pt-4 space-y-6">
+                    <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                            <div className="w-32 h-4 bg-gray-100 rounded" />
+                            <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                        </div>
+                        <div className="space-y-3">
+                            <div className="w-32 h-4 bg-gray-100 rounded" />
+                            <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+            </div>
           ))}
         </div>
       </div>
@@ -556,75 +557,46 @@ function DpoInProgressDetailContent() {
 
   if (error)
     return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-red-600 text-3xl">error</span>
-          </div>
-          <h3 className="text-xl font-bold text-red-900">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
-          <p className="text-red-700 font-medium">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors"
-          >
-            ลองใหม่อีกครั้ง
-          </button>
-        </div>
+      <div className="min-h-[600px] flex items-center justify-center p-8">
+        <ErrorState 
+          isTable={false} 
+          description={error} 
+          onRetry={() => window.location.reload()} 
+        />
       </div>
     );
 
   const renderOwnerSections = () => (
     <div className="space-y-12">
       {[
-        { title: "ข้อมูลทั่วไป", component: GeneralInfo },
-        { title: "ช่องทางใช้สิทธิ", component: RightsChannel },
-        { title: "กิจกรรมประมวลผล", component: LocalActivityDetails },
-        { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo },
-        { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo },
-        { title: "ฐานทางกฎหมาย", component: LegalInfo },
-        { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
+        { title: "ข้อมูลทั่วไป", component: GeneralInfo, icon: "person_edit" },
+        { title: "ช่องทางใช้สิทธิ", component: RightsChannel, icon: "how_to_reg" },
+        { title: "กิจกรรมประมวลผล", component: LocalActivityDetails, icon: "accessibility_new" },
+        { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo, icon: "database" },
+        { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo, icon: "timer" },
+        { title: "ฐานทางกฎหมาย", component: LegalInfo, icon: "gavel" },
+        { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures, icon: "shield_lock" },
       ].map((sec, idx) => (
-        <div key={idx} className="flex flex-col gap-4">
-          {openFeedbackSections.includes(sec.title) && (
-            <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#ED393C] p-6 animate-in slide-in-from-top-4 duration-300">
-              <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
-                <textarea
-                  className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
-                  placeholder="ระบุข้อเสนอแนะสำหรับผู้รับผิดชอบข้อมูล"
-                  value={sectionFeedbacks[sec.title] || ""}
-                  onChange={(e) =>
-                    setSectionFeedbacks((prev) => ({
-                      ...prev,
-                      [sec.title]: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="relative group">
-            <button
-              onClick={() => toggleFeedback(sec.title)}
-              className={cn(
-                "absolute top-5 right-5 z-10 w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer",
-                openFeedbackSections.includes(sec.title)
-                  ? "bg-[#ED393C] text-white"
-                  : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]",
-              )}
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                {openFeedbackSections.includes(sec.title) ? "close" : "comment"}
-              </span>
-            </button>
-            <sec.component
-              form={form}
-              handleChange={emptyHandler}
-              errors={{}}
-              disabled={true}
-            />
-          </div>
-        </div>
+        <SectionCommentBox
+          key={idx}
+          title={sec.title}
+          icon={sec.icon}
+          isOpen={openFeedbackSections.includes(sec.title)}
+          onToggle={() => toggleFeedback(sec.title)}
+          value={sectionFeedbacks[sec.title] || ""}
+          onChange={(text) =>
+            setSectionFeedbacks((prev) => ({ ...prev, [sec.title]: text }))
+          }
+          variant="do"
+        >
+          <sec.component
+            form={form}
+            handleChange={emptyHandler}
+            errors={{}}
+            disabled={true}
+            hideHeader={true}
+          />
+        </SectionCommentBox>
       ))}
     </div>
   );
@@ -632,55 +604,34 @@ function DpoInProgressDetailContent() {
   const renderProcessorSections = () => (
     <div className="space-y-12">
       {[
-        { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo },
-        { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails },
-        { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo },
-        { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo },
-        { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo },
-        { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
+        { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo, icon: "corporate_fare" },
+        { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails, icon: "settings_accessibility" },
+        { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo, icon: "inventory_2" },
+        { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo, icon: "history" },
+        { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo, icon: "balance" },
+        { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures, icon: "lock" },
       ].map((sec, idx) => (
-        <div key={idx} className="flex flex-col gap-4">
-          {openFeedbackSections.includes(sec.title) && (
-            <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#00666E] p-6 animate-in slide-in-from-top-4 duration-300">
-              <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
-                <textarea
-                  className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
-                  placeholder="ระบุข้อเสนอแนะสำหรับส่วนผู้ประมวลผลข้อมูล"
-                  value={sectionFeedbacks[sec.title] || ""}
-                  onChange={(e) =>
-                    setSectionFeedbacks((prev) => ({
-                      ...prev,
-                      [sec.title]: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="relative group">
-            <button
-              onClick={() => toggleFeedback(sec.title)}
-              className={cn(
-                "absolute top-5 right-5 z-10 w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer",
-                openFeedbackSections.includes(sec.title)
-                  ? "bg-[#00666E] text-white"
-                  : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]",
-              )}
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                {openFeedbackSections.includes(sec.title) ? "close" : "comment"}
-              </span>
-            </button>
-            <sec.component
-              form={processorForm}
-              handleChange={emptyHandler}
-              errors={{}}
-              disabled={true}
-              variant="processor"
-            />
-          </div>
-        </div>
+        <SectionCommentBox
+          key={idx}
+          title={sec.title}
+          icon={sec.icon}
+          isOpen={openFeedbackSections.includes(sec.title)}
+          onToggle={() => toggleFeedback(sec.title)}
+          value={sectionFeedbacks[sec.title] || ""}
+          onChange={(text) =>
+            setSectionFeedbacks((prev) => ({ ...prev, [sec.title]: text }))
+          }
+          variant="dp"
+        >
+          <sec.component
+            form={processorForm}
+            handleChange={emptyHandler}
+            errors={{}}
+            disabled={true}
+            hideHeader={true}
+            variant="processor"
+          />
+        </SectionCommentBox>
       ))}
     </div>
   );
@@ -704,50 +655,43 @@ function DpoInProgressDetailContent() {
 
         {activeTab === "risk" && (
           <div className="mt-4 pb-32 space-y-8">
-            <DpoRiskAssessment
-              key={recordId}
-              doStatus="done"
-              dpStatus="done"
-              existingRisk={form.risk_assessment as any}
-              activeView={riskDocView}
-              onViewDoSection={() =>
-                setRiskDocView((prev) => (prev === "owner" ? "none" : "owner"))
+            <SectionCommentBox
+              isOpen={openFeedbackSections.includes("การประเมินความเสี่ยง")}
+              onToggle={() => toggleFeedback("การประเมินความเสี่ยง")}
+              value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
+              onChange={(text) =>
+                setSectionFeedbacks((prev) => ({
+                  ...prev,
+                  ["การประเมินความเสี่ยง"]: text,
+                }))
               }
-              onViewDpSection={() =>
-                setRiskDocView((prev) =>
-                  prev === "processor" ? "none" : "processor",
-                )
-              }
-              onSubmit={emptyHandler}
-              onCancel={() => setActiveTab("owner")}
-              readOnly={true}
-              isFeedbackOpen={openFeedbackSections.includes(
-                "การประเมินความเสี่ยง",
-              )}
-              onToggleFeedback={() => toggleFeedback("การประเมินความเสี่ยง")}
-              feedbackData={(form as any).suggestions?.filter((s: any) => s.section === "DO_RISK" || s.section_id === "risk").map((s: any) => ({
-                content: s.comment,
-                created_at: s.date
+              variant="risk"
+              suggestions={(form as any).suggestions?.filter((s: any) => s.section === "DO_RISK" || s.section_id === "risk").map((s: any) => ({
+                text: s.comment,
+                date: s.date,
+                reviewer: "DPO"
               })) || []}
-            />
-
-            {openFeedbackSections.includes("การประเมินความเสี่ยง") && (
-              <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#ED393C] p-6 animate-in slide-in-from-top-4 duration-300">
-                <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
-                  <textarea
-                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
-                    placeholder="ระบุข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
-                    value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
-                    onChange={(e) =>
-                      setSectionFeedbacks((prev) => ({
-                        ...prev,
-                        ["การประเมินความเสี่ยง"]: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            )}
+            >
+              <DpoRiskAssessment
+                key={recordId}
+                doStatus="done"
+                dpStatus="done"
+                existingRisk={form.risk_assessment as any}
+                activeView={riskDocView}
+                onViewDoSection={() =>
+                  setRiskDocView((prev) => (prev === "owner" ? "none" : "owner"))
+                }
+                onViewDpSection={() =>
+                  setRiskDocView((prev) =>
+                    prev === "processor" ? "none" : "processor",
+                  )
+                }
+                onSubmit={emptyHandler}
+                onCancel={() => setActiveTab("owner")}
+                readOnly={true}
+                showFeedback={false} // Disable internal feedback UI as it's wrapped now
+              />
+            </SectionCommentBox>
 
             {riskDocView === "owner" && (
               <div className="animate-in slide-in-from-top-4 duration-500 space-y-8">
@@ -827,9 +771,12 @@ function DpoInProgressDetailContent() {
 
 export default function DPOInProgressDetailPage() {
   return (
-    <Suspense
-      fallback={<div className="p-8 text-[#5F5E5E]">กำลังโหลด...</div>}
-    >
+    <Suspense fallback={
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+            <div className="w-12 h-12 border-4 border-[#ED393C]/10 border-t-[#ED393C] rounded-full animate-spin"></div>
+            <p className="text-[15px] font-bold text-[#5F5E5E] animate-pulse">กำลังโหลดหน้าเอกสาร...</p>
+        </div>
+    }>
       <DpoInProgressDetailContent />
     </Suspense>
   );
