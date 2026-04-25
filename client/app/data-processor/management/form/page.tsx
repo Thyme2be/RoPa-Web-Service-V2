@@ -16,7 +16,7 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { SectionStatus } from "@/types/enums";
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
+import { useProcessor } from "@/context/ProcessorContext";
 import { cn } from "@/lib/utils";
 
 function DataProcessorFormContent() {
@@ -28,9 +28,14 @@ function DataProcessorFormContent() {
     const companyParam = searchParams.get("company");
     const dueDateParam = searchParams.get("dueDate");
 
-    const { getById, submitDpSection, getProcessorById, saveProcessorRecord, fetchFullProcessorRecord, fetchProcessorSnapshot } = useRopa();
+    const { submitDpSection, saveProcessorRecord, fetchFullProcessorRecord, fetchProcessorSnapshot } = useProcessor();
     const [isLoadingFull, setIsLoadingFull] = useState(false);
-    const [isLocked, setIsLocked] = useState(true);
+    const viewMode = searchParams.get("mode") === "view";
+    const isNewCreate = searchParams.get("mode") === "create";
+
+    // Strict Locking: ล็อก form ทันทีสำหรับเอกสารเดิม
+    // จะปลดล็อกอัตโนมัติเฉพาะกรณี: 1. กำลังสร้างใหม่ (mode=create) 2. กำลังแก้ไขฉบับร่าง (snapshotId)
+    const [isLocked, setIsLocked] = useState(!isNewCreate && !snapshotId);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isDraftSuccessOpen, setIsDraftSuccessOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -172,7 +177,7 @@ function DataProcessorFormContent() {
             setIsDraftSuccessOpen(true);
         } catch (error) {
             console.error("Save draft failed:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึกฉบับร่าง กรุณาลองใหม่อีกครั้ง");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSaving(false);
         }
@@ -202,7 +207,7 @@ function DataProcessorFormContent() {
             router.push("/data-processor/management/processing");
         } catch (error) {
             console.error("Submit failed:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmitting(false);
         }
@@ -265,6 +270,26 @@ function DataProcessorFormContent() {
         });
     };
 
+    const getCompletedSteps = () => {
+        const completed = [];
+        // Section 1: General Info
+        if (form.title_prefix && form.first_name && form.last_name && form.email && form.address && form.phone) completed.push(1);
+        // Section 2: Activity Details
+        if (form.controller_name && form.processor_name && form.controller_address && form.processing_activity && form.purpose_of_processing) completed.push(2);
+        // Section 3: Stored Info
+        if (form.personal_data_items && form.personal_data_items.length > 0 && form.data_categories && form.data_categories.length > 0 && form.data_types && form.data_types.length > 0) completed.push(3);
+        // Section 4: Retention Info
+        if (form.storage_types && form.storage_types.length > 0 && form.storage_methods && form.storage_methods.length > 0 && (form.retention_value || 0) > 0 && form.retention_unit) completed.push(4);
+        // Section 5: Legal Info
+        const isTransferComplete = form.has_cross_border_transfer === false || (form.has_cross_border_transfer === true && form.transfer_country && form.transfer_method);
+        if (form.legal_basis && isTransferComplete) completed.push(5);
+        // Section 6: Security Measures
+        if (form.org_measures || form.access_control_measures || form.technical_measures || form.responsibility_measures || form.physical_measures || form.audit_measures) completed.push(6);
+        return completed;
+    };
+
+    const completedSteps = getCompletedSteps();
+
     return (
         <div className="flex min-h-screen bg-background text-foreground">
             <Sidebar />
@@ -280,31 +305,37 @@ function DataProcessorFormContent() {
                     isProcessor={true}
                 />
 
+                <div className="bg-[#F6F3F2] border-b border-[#E5E2E1]/50 sticky top-[72px] z-30 px-10 flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                        <Stepper completedSteps={completedSteps} variant="processor" />
+                    </div>
+                    {!isNewCreate && (
+                        <button
+                            onClick={() => setIsLocked(!isLocked)}
+                            className={cn(
+                                "flex items-center gap-2 h-[42px] px-4 rounded-md transition-all font-bold shrink-0 border border-[#E5E2E1] bg-[#F8F9FA] mb-1",
+                                isLocked
+                                    ? "text-[#ED393C] hover:bg-red-50"
+                                    : "text-[#00666E] hover:bg-green-50"
+                            )}
+                        >
+                            <span className={cn("material-symbols-outlined text-[20px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
+                                {isLocked ? "edit" : "check_circle"}
+                            </span>
+                            <span className="text-[14px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
+                        </button>
+                    )}
+                </div>
+
                 {isLoadingFull ? (
                     <div className="flex-1 flex items-center justify-center pt-20">
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลดข้อมูลเอกสาร...</p>
+                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลด...</p>
                         </div>
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto pt-8 pb-36 space-y-6 animate-in fade-in duration-1000">
-                        <div className="px-10 flex justify-end">
-                            <button
-                                onClick={() => setIsLocked(!isLocked)}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold shrink-0 mt-[-36px]",
-                                    isLocked
-                                        ? "text-[#ED393C] border-none hover:bg-[#ED393C]/5"
-                                        : "text-[#00666E] border-none hover:bg-[#00666E]/5"
-                                )}
-                            >
-                                <span className={cn("material-symbols-outlined text-[22px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
-                                    {isLocked ? "edit_square" : "check_circle"}
-                                </span>
-                                <span className="text-[15px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
-                            </button>
-                        </div>
 
                         <div className="px-10 space-y-8">
                             {(() => {
@@ -349,44 +380,56 @@ function DataProcessorFormContent() {
 
                 {/* Footer Action Bar (Fixed Red as per request) */}
                 <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
-                    <button
-                        onClick={() => router.back()}
-                        className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
-                    >
-                        ยกเลิก
-                    </button>
+                    <div className={cn("flex items-center justify-between w-full", isLocked ? "justify-center gap-4" : "")}>
+                        <button
+                            onClick={() => router.back()}
+                            className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                        >
+                            {isLocked ? "กลับ" : "ยกเลิก"}
+                        </button>
 
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={handleSaveDraft}
-                            disabled={isSaving || isSubmitting}
-                            className={cn(
-                                "bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap flex items-center gap-2",
-                                (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
-                            )}
-                        >
-                            {isSaving ? (
-                                <>
-                                    <span className="w-4 h-4 border-2 border-[#5C403D]/30 border-t-[#5C403D] rounded-full animate-spin" />
-                                    กำลังบันทึก...
-                                </>
-                            ) : "บันทึกฉบับร่าง"}
-                        </button>
-                        <button
-                            onClick={handleFinalConfirm}
-                            disabled={isSaving || isSubmitting}
-                            className={cn(
-                                "bg-logout-gradient text-white px-20 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2",
-                                (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
-                            )}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    กำลังดำเนินการ...
-                                </>
-                            ) : "บันทึก"}
-                        </button>
+                        {isLocked ? (
+                            <button
+                                onClick={() => setIsLocked(false)}
+                                className="bg-[#ED393C] text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">edit_square</span>
+                                แก้ไขเอกสาร
+                            </button>
+                        ) : (
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleSaveDraft}
+                                    disabled={isSaving || isSubmitting}
+                                    className={cn(
+                                        "bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-10 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap flex items-center gap-2",
+                                        (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
+                                    )}
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <span className="w-4 h-4 border-2 border-[#5C403D]/30 border-t-[#5C403D] rounded-full animate-spin" />
+                                            กำลังบันทึก...
+                                        </>
+                                    ) : "บันทึกฉบับร่าง"}
+                                </button>
+                                <button
+                                    onClick={handleFinalConfirm}
+                                    disabled={isSaving || isSubmitting}
+                                    className={cn(
+                                        "bg-logout-gradient text-white px-20 h-[52px] rounded-full font-black text-base shadow-xl shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2",
+                                        (isSaving || isSubmitting) && "opacity-50 cursor-not-allowed"
+                                    )}
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            กำลังดำเนินการ...
+                                        </>
+                                    ) : "บันทึก"}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>

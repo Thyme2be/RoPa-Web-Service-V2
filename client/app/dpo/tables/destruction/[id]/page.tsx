@@ -17,7 +17,7 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useRopa } from "@/context/RopaContext";
+
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -189,7 +189,7 @@ function DpoDestructionDetailContent() {
 
     const [activeTab, setActiveTab] = useState("owner");
     const [riskDocView, setRiskDocView] = useState<"none" | "owner" | "processor">("none");
-    const { getById, getProcessorById } = useRopa();
+
 
     // Destruction Review State
     const [destructionStatus, setDestructionStatus] = useState<"approve" | "reject" | "none">("none");

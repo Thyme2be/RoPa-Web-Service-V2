@@ -77,10 +77,11 @@ class DocumentDeletionRequestModel(Base):
     dpo_decision = Column(decision_enum, nullable=True)
     dpo_reason = Column(Text, nullable=True)
     status = Column(deletion_request_status_enum, nullable=False, default='PENDING')
-    requested_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     decided_at = Column(DateTime(timezone=True), nullable=True)
 
     document = relationship("RopaDocumentModel", back_populates="deletion_requests")
+    requester = relationship("UserModel", foreign_keys=[requested_by])
+    reviewer = relationship("UserModel", foreign_keys=[dpo_id])
 
 
 class DocumentParticipantModel(Base):

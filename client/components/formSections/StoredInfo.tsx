@@ -51,7 +51,7 @@ export default function StoredInfo({ form, handleChange, errors, disabled, varia
                                 "เบอร์โทรศัพท์",
                                 "อื่นๆ",
                             ]}
-                            selectedValues={form?.personal_data_items || []}
+                            selectedValues={Array.isArray(form?.personal_data_items) ? form.personal_data_items : (form?.personal_data_items ? [form.personal_data_items] : [])}
                             onChange={(values: string[]) => {
                                 handleChange({ target: { name: "personal_data_items", value: values } } as any);
                             }}

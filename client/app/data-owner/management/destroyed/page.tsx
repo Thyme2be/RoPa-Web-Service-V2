@@ -7,17 +7,21 @@ import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
 import Select from "@/components/ui/Select";
 
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 
 export default function RopaDestroyedPage() {
-    const { destroyedRecords: contextDestroyedRecords, refresh } = useRopa();
+    const { destroyedRecords: contextDestroyedRecords, destroyedMeta, fetchDestroyedTable, refresh } = useOwner();
+
+    const [page, setPage] = useState(1);
+    const router = useRouter();
 
     useEffect(() => {
         refresh();
     }, [refresh]);
-    const router = useRouter();
-    
-    const [page, setPage] = useState(1);
+
+    useEffect(() => {
+        fetchDestroyedTable(page, 3);
+    }, [page, fetchDestroyedTable]);
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
@@ -60,7 +64,8 @@ export default function RopaDestroyedPage() {
     });
 
     const ITEMS_PER_PAGE = 3;
-    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice(0, ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(destroyedMeta.total / ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -76,7 +81,7 @@ export default function RopaDestroyedPage() {
                         </h1>
                     </div>
 
-                    <DocumentFilterBar 
+                    <DocumentFilterBar
                         statusValue={statusFilter}
                         onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         statusOptions={[
@@ -120,19 +125,26 @@ export default function RopaDestroyedPage() {
                                                 {record.deletion_approved_at ? new Date(record.deletion_approved_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <div className="text-[#9CA3AF] italic text-[11px] text-center">Metadata Only</div>
+                                                <div className="flex items-center justify-center">
+                                                    <ActionIconWithTooltip
+                                                        icon="visibility"
+                                                        tooltipText="ดูเอกสาร"
+                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                    />
+                                                </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>
                                     ))
                                 )}
                             </DocumentTableBody>
                         </DocumentTable>
-                        <DocumentPagination 
-                            current={page} 
-                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={filteredRecords.length}
+                        <DocumentPagination
+                            current={page}
+                            totalPages={Math.max(1, totalPages)}
+                            totalItems={destroyedMeta.total}
                             itemsPerPage={ITEMS_PER_PAGE}
-                            onChange={setPage} 
+                            onChange={setPage}
                         />
                     </DocumentListCard>
                 </div>

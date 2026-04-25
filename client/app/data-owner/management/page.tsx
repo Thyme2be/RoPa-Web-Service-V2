@@ -4,41 +4,62 @@ import React, { useEffect } from "react";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Link from "next/link";
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import { cn } from "@/lib/utils";
 
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
+
 export default function RopaSelectionPage() {
-    const { activeRecords, sentRecords, approvedRecords, destroyedRecords, refresh } = useRopa();
+    const { refresh, isLoading, error, clearError } = useOwner();
 
     useEffect(() => {
         refresh();
     }, [refresh]);
 
+    if (error) {
+        return (
+            <div className="flex min-h-screen bg-background">
+                <Sidebar />
+                <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
+                    <ErrorState
+                        title="ไม่สามารถโหลดข้อมูลได้"
+                        message={error}
+                        onRetry={() => { clearError(); refresh(); }}
+                    />
+                </main>
+            </div>
+        );
+    }
+
     const menus = [
-        { 
-            title: "ตารางแสดงเอกสารที่ดำเนินการ", 
+        {
+            title: "ตารางแสดงเอกสารที่ดำเนินการ",
             href: "/data-owner/management/processing",
             icon: "format_list_bulleted"
         },
-        { 
-            title: "ตารางแสดงเอกสารที่ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", 
+        {
+            title: "ตารางแสดงเอกสารที่ส่งให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล",
             href: "/data-owner/management/submitted",
             icon: "format_list_bulleted"
         },
-        { 
-            title: "ตารางแสดงเอกสารที่ได้รับการอนุมัติจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล", 
+        {
+            title: "ตารางแสดงเอกสารที่ได้รับการอนุมัติจากเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล",
             href: "/data-owner/management/approved",
             icon: "format_list_bulleted"
         },
-        { 
-            title: "ตารางแสดงเอกสารที่ถูกทำลายเสร็จสิ้น", 
+        {
+            title: "ตารางแสดงเอกสารที่ถูกทำลายเสร็จสิ้น",
             href: "/data-owner/management/destroyed",
             icon: "format_list_bulleted"
         },
     ];
 
+    if (isLoading) {
+        return <LoadingState fullPage message="กำลังโหลด..." />;
+    }
     return (
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-background relative">
             <Sidebar />
 
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">

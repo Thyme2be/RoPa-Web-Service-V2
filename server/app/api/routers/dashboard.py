@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import func, text, and_, or_, exists, cast, Date, extract
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload, load_only
 
 from app.api.deps import get_db, get_current_user
 from app.core.rbac import Role, require_roles
@@ -88,7 +88,7 @@ router = APIRouter()
 )
 def org_dashboard(
     period: str = Query(
-        "30_days", description="Filter period: 7_days, 30_days, overdue, custom, all"
+        "30_days", description="Filter period: 7_days, 30_days, 6_months, 1_year, overdue, custom, all"
     ),
     custom_date: Optional[str] = Query(
         None, description="Format YYYY-MM-DD. Required if period=custom"
@@ -114,6 +114,16 @@ def _get_org_metrics_internal(
         base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=7))
     elif period == "30_days":
         base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=30))
+    elif period == "6_months":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=180))
+    elif period == "1_year":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=365))
+    elif period == "this_month":
+        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        base_filters.append(RopaDocumentModel.created_at >= cutoff)
+    elif period == "this_year":
+        cutoff = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        base_filters.append(RopaDocumentModel.created_at >= cutoff)
     elif period == "overdue":
         base_filters.append(RopaDocumentModel.due_date < now)
         base_filters.append(RopaDocumentModel.status.notin_(["COMPLETED", "EXPIRED"]))
@@ -283,39 +293,59 @@ def _get_owner_metrics_internal(db: Session, user_id: int, period: str = "all"):
     """
     Robust version of Data Owner metrics calculation
     """
-    try:
-        now = datetime.now(timezone.utc)
-        uid = user_id
-        base_q = db.query(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid)
+    now = datetime.now(timezone.utc)
+    uid = user_id
+    base_q = db.query(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid)
 
-        if period == "weekly":
-            base_q = base_q.filter(
-                RopaDocumentModel.created_at >= now - timedelta(days=7)
-            )
-        elif period == "monthly":
-            base_q = base_q.filter(
-                RopaDocumentModel.created_at >= now - timedelta(days=30)
-            )
-        elif period == "6months":
-            base_q = base_q.filter(
-                RopaDocumentModel.created_at >= now - timedelta(days=180)
-            )
-        elif period == "yearly":
-            base_q = base_q.filter(
-                RopaDocumentModel.created_at >= now - timedelta(days=365)
-            )
+    base_filters = []
+    if period == "7_days":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=7))
+    elif period == "30_days":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=30))
+    elif period == "6_months":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=180))
+    elif period == "1_year":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=365))
 
-        doc_ids_q = base_q.with_entities(RopaDocumentModel.id)
+    base_q = db.query(RopaDocumentModel).filter(RopaDocumentModel.created_by == uid, *base_filters)
 
-        # 1. Total
-        total = base_q.count()
+    doc_ids_q = db.query(RopaDocumentModel.id).filter(RopaDocumentModel.created_by == uid, *base_filters)
 
-        # 2. Needs Fix (DO / DP)
-        needs_fix_do = (
-            db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+    # 1. Total
+    total = base_q.count()
+
+    # 2. Needs Fix (DO / DP)
+    needs_fix_do = (
+        db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+        .join(
+            ReviewFeedbackModel,
+            ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id,
+        )
+        .join(
+            RopaDocumentModel,
+            RopaDocumentModel.id == DocumentReviewCycleModel.document_id,
+        )
+        .filter(
+            RopaDocumentModel.id.in_(doc_ids_q),
+            ReviewFeedbackModel.to_user_id == uid,
+            ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
+        )
+        .scalar()
+        or 0
+    )
+
+    dp_fix_from_dpo = set(
+        row[0]
+        for row in (
+            db.query(DocumentReviewCycleModel.document_id)
             .join(
                 ReviewFeedbackModel,
                 ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id,
+            )
+            .join(
+                ProcessorAssignmentModel,
+                ProcessorAssignmentModel.document_id
+                == DocumentReviewCycleModel.document_id,
             )
             .join(
                 RopaDocumentModel,
@@ -323,229 +353,207 @@ def _get_owner_metrics_internal(db: Session, user_id: int, period: str = "all"):
             )
             .filter(
                 RopaDocumentModel.id.in_(doc_ids_q),
-                ReviewFeedbackModel.to_user_id == uid,
+                ReviewFeedbackModel.to_user_id
+                == ProcessorAssignmentModel.processor_id,
                 ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
             )
-            .scalar()
-            or 0
+            .all()
         )
-
-        dp_fix_from_dpo = set(
-            row[0]
-            for row in (
-                db.query(DocumentReviewCycleModel.document_id)
-                .join(
-                    ReviewFeedbackModel,
-                    ReviewFeedbackModel.review_cycle_id == DocumentReviewCycleModel.id,
-                )
-                .join(
-                    ProcessorAssignmentModel,
-                    ProcessorAssignmentModel.document_id
-                    == DocumentReviewCycleModel.document_id,
-                )
-                .join(
-                    RopaDocumentModel,
-                    RopaDocumentModel.id == DocumentReviewCycleModel.document_id,
-                )
-                .filter(
-                    RopaDocumentModel.id.in_(doc_ids_q),
-                    ReviewFeedbackModel.to_user_id
-                    == ProcessorAssignmentModel.processor_id,
-                    ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
-                )
-                .all()
-            )
-        )
-        dp_fix_from_do = set(
-            row[0]
-            for row in (
-                db.query(RopaDocumentModel.id)
-                .join(
-                    RopaProcessorSectionModel,
-                    RopaProcessorSectionModel.document_id == RopaDocumentModel.id,
-                )
-                .join(
-                    ReviewFeedbackModel,
-                    ReviewFeedbackModel.target_id == RopaProcessorSectionModel.id,
-                )
-                .filter(
-                    RopaDocumentModel.id.in_(doc_ids_q),
-                    ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
-                )
-                .all()
-            )
-        )
-        needs_fix_dp = len(dp_fix_from_dpo | dp_fix_from_do)
-
-        # 3. Risk Levels
-        _risk_base = (
-            db.query(RopaRiskAssessmentModel)
+    )
+    dp_fix_from_do = set(
+        row[0]
+        for row in (
+            db.query(RopaDocumentModel.id)
             .join(
-                RopaDocumentModel,
-                RopaRiskAssessmentModel.document_id == RopaDocumentModel.id,
-            )
-            .filter(RopaDocumentModel.id.in_(doc_ids_q))
-        )
-        risk_low = _risk_base.filter(
-            RopaRiskAssessmentModel.risk_level == RiskLevelEnum.LOW
-        ).count()
-        risk_medium = _risk_base.filter(
-            RopaRiskAssessmentModel.risk_level == RiskLevelEnum.MEDIUM
-        ).count()
-        risk_high = _risk_base.filter(
-            RopaRiskAssessmentModel.risk_level == RiskLevelEnum.HIGH
-        ).count()
-
-        # 4. Under Review
-        under_review_storage = base_q.filter(
-            RopaDocumentModel.status == DocumentStatusEnum.UNDER_REVIEW,
-            RopaDocumentModel.deletion_status.is_(None),
-        ).count()
-        under_review_deletion = base_q.filter(
-            RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETE_PENDING,
-        ).count()
-
-        # 5. Pending (Drafts)
-        pending_do = (
-            db.query(func.count(RopaOwnerSectionModel.id))
-            .join(
-                RopaDocumentModel,
-                RopaOwnerSectionModel.document_id == RopaDocumentModel.id,
-            )
-            .filter(
-                RopaDocumentModel.id.in_(doc_ids_q),
-                RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
-                RopaOwnerSectionModel.status == RopaSectionEnum.DRAFT,
-            )
-            .scalar()
-            or 0
-        )
-        pending_dp = (
-            db.query(func.count(RopaProcessorSectionModel.id))
-            .join(
-                RopaDocumentModel,
+                RopaProcessorSectionModel,
                 RopaProcessorSectionModel.document_id == RopaDocumentModel.id,
             )
-            .filter(
-                RopaDocumentModel.id.in_(doc_ids_q),
-                RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
-                RopaProcessorSectionModel.status == RopaSectionEnum.DRAFT,
-            )
-            .scalar()
-            or 0
-        )
-
-        # 6. Completed
-        completed = base_q.filter(
-            RopaDocumentModel.status == DocumentStatusEnum.COMPLETED
-        ).count()
-
-        # 7. Sensitive Documents
-        from app.models.section_owner import OwnerDataTypeModel
-
-        sensitive = (
-            db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id)))
             .join(
-                OwnerDataTypeModel,
-                OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id,
-            )
-            .join(
-                RopaDocumentModel,
-                RopaOwnerSectionModel.document_id == RopaDocumentModel.id,
+                ReviewFeedbackModel,
+                ReviewFeedbackModel.target_id == RopaProcessorSectionModel.id,
             )
             .filter(
                 RopaDocumentModel.id.in_(doc_ids_q),
-                OwnerDataTypeModel.is_sensitive == True,
+                ReviewFeedbackModel.status == FeedbackStatusEnum.OPEN,
             )
-            .scalar()
-            or 0
+            .all()
         )
+    )
+    needs_fix_dp = len(dp_fix_from_dpo | dp_fix_from_do)
 
-        # 8. Overdue DP
-        overdue_dp = (
-            db.query(func.count(ProcessorAssignmentModel.id))
-            .join(
-                RopaDocumentModel,
-                ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
-            )
-            .filter(
-                RopaDocumentModel.id.in_(doc_ids_q),
-                RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
-                ProcessorAssignmentModel.due_date != None,
-                ProcessorAssignmentModel.due_date <= now,
-                ProcessorAssignmentModel.status != AssignmentStatusEnum.SUBMITTED,
-            )
-            .scalar()
-            or 0
+    # 3. Risk Levels
+    _risk_base = (
+        db.query(RopaRiskAssessmentModel)
+        .join(
+            RopaDocumentModel,
+            RopaRiskAssessmentModel.document_id == RopaDocumentModel.id,
         )
+        .filter(RopaDocumentModel.id.in_(doc_ids_q))
+    )
+    risk_low = _risk_base.filter(
+        RopaRiskAssessmentModel.risk_level == RiskLevelEnum.LOW
+    ).count()
+    risk_medium = _risk_base.filter(
+        RopaRiskAssessmentModel.risk_level == RiskLevelEnum.MEDIUM
+    ).count()
+    risk_high = _risk_base.filter(
+        RopaRiskAssessmentModel.risk_level == RiskLevelEnum.HIGH
+    ).count()
 
-        # 11. Deleted
-        deleted = base_q.filter(
-            RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETED
-        ).count()
+    # 4. Under Review
+    under_review_storage = base_q.filter(
+        RopaDocumentModel.status == DocumentStatusEnum.UNDER_REVIEW,
+        RopaDocumentModel.deletion_status.is_(None),
+    ).count()
+    under_review_deletion = base_q.filter(
+        RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETE_PENDING,
+    ).count()
 
-        # 9/10 simplified
-        annual_not_reviewed = base_q.filter(
+    # 5. Pending (Drafts)
+    pending_do = (
+        db.query(func.count(RopaOwnerSectionModel.id))
+        .join(
+            RopaDocumentModel,
+            RopaOwnerSectionModel.document_id == RopaDocumentModel.id,
+        )
+        .filter(
+            RopaDocumentModel.id.in_(doc_ids_q),
+            RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
+            RopaOwnerSectionModel.status == RopaSectionEnum.DRAFT,
+        )
+        .scalar()
+        or 0
+    )
+    pending_dp = (
+        db.query(func.count(RopaProcessorSectionModel.id))
+        .join(
+            RopaDocumentModel,
+            RopaProcessorSectionModel.document_id == RopaDocumentModel.id,
+        )
+        .filter(
+            RopaDocumentModel.id.in_(doc_ids_q),
+            RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
+            RopaProcessorSectionModel.status == RopaSectionEnum.DRAFT,
+        )
+        .scalar()
+        or 0
+    )
+
+    # 6. Completed
+    completed = base_q.filter(
+        RopaDocumentModel.status == DocumentStatusEnum.COMPLETED
+    ).count()
+
+    # 7. Sensitive Documents
+    from app.models.section_owner import OwnerDataTypeModel
+
+    sensitive = (
+        db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id)))
+        .join(
+            OwnerDataTypeModel,
+            OwnerDataTypeModel.owner_section_id == RopaOwnerSectionModel.id,
+        )
+        .join(
+            RopaDocumentModel,
+            RopaOwnerSectionModel.document_id == RopaDocumentModel.id,
+        )
+        .filter(
+            RopaDocumentModel.id.in_(doc_ids_q),
+            func.lower(OwnerDataTypeModel.type) == "sensitive",
+        )
+        .scalar()
+        or 0
+    )
+
+    # 8. Overdue DP
+    overdue_dp = (
+        db.query(func.count(ProcessorAssignmentModel.id))
+        .join(
+            RopaDocumentModel,
+            ProcessorAssignmentModel.document_id == RopaDocumentModel.id,
+        )
+        .filter(
+            RopaDocumentModel.id.in_(doc_ids_q),
+            RopaDocumentModel.status == DocumentStatusEnum.IN_PROGRESS,
+            ProcessorAssignmentModel.due_date != None,
+            ProcessorAssignmentModel.due_date <= now,
+            ProcessorAssignmentModel.status != AssignmentStatusEnum.SUBMITTED,
+        )
+        .scalar()
+        or 0
+    )
+
+    # 11. Deleted
+    deleted = base_q.filter(
+        RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETED
+    ).count()
+
+    # 9/10 simplified
+    annual_not_reviewed = base_q.filter(
+        RopaDocumentModel.status == DocumentStatusEnum.COMPLETED,
+        RopaDocumentModel.next_review_due_at <= now,
+    ).count()
+    annual_reviewed = (
+        db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+        .join(
+            RopaDocumentModel,
+            DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
+        )
+        .filter(
+            RopaDocumentModel.id.in_(doc_ids_q),
             RopaDocumentModel.status == DocumentStatusEnum.COMPLETED,
-            RopaDocumentModel.next_review_due_at <= now,
-        ).count()
-        annual_reviewed = (
-            db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
-            .join(
-                RopaDocumentModel,
-                DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
-            )
-            .filter(
-                RopaDocumentModel.id.in_(doc_ids_q),
-                RopaDocumentModel.status == DocumentStatusEnum.COMPLETED,
-                DocumentReviewCycleModel.status == ReviewStatusEnum.APPROVED,
-                DocumentReviewCycleModel.cycle_number > 1,
-            )
-            .scalar()
-            or 0
+            DocumentReviewCycleModel.status == ReviewStatusEnum.APPROVED,
+            DocumentReviewCycleModel.cycle_number > 1,
         )
+        .scalar()
+        or 0
+    )
 
-        return OwnerDashboardResponse(
-            total_documents=total,
-            needs_fix_do_count=needs_fix_do,
-            needs_fix_dp_count=needs_fix_dp,
-            risk_low_count=risk_low,
-            risk_medium_count=risk_medium,
-            risk_high_count=risk_high,
-            under_review_storage_count=under_review_storage,
-            under_review_deletion_count=under_review_deletion,
-            pending_do_count=pending_do,
-            pending_dp_count=pending_dp,
-            completed_count=completed,
-            sensitive_document_count=sensitive,
-            overdue_dp_count=overdue_dp,
-            annual_reviewed_count=annual_reviewed,
-            annual_not_reviewed_count=annual_not_reviewed,
-            destruction_due_count=0,
-            deleted_count=deleted,
-        )
-    except Exception as e:
-        print(f"Error in _get_owner_metrics: {str(e)}")
-        # Return Zeroed Response on Failure
-        return OwnerDashboardResponse(
-            total_documents=0,
-            needs_fix_do_count=0,
-            needs_fix_dp_count=0,
-            risk_low_count=0,
-            risk_medium_count=0,
-            risk_high_count=0,
-            under_review_storage_count=0,
-            under_review_deletion_count=0,
-            pending_do_count=0,
-            pending_dp_count=0,
-            completed_count=0,
-            sensitive_document_count=0,
-            overdue_dp_count=0,
-            annual_reviewed_count=0,
-            annual_not_reviewed_count=0,
-            destruction_due_count=0,
-            deleted_count=0,
-        )
+    # ── Card 10: เอกสารที่ครบกำหนดทำลาย (รอยื่นคำร้อง) ──────────────────
+    # เอกสาร COMPLETED ที่ถึงกำหนดทำลายแล้ว (retention หมดอายุ) และยังไม่ได้ยื่นคำร้องลบ
+    destruction_due = 0
+    completed_docs = db.query(RopaDocumentModel).options(
+        joinedload(RopaDocumentModel.owner_section).load_only(RopaOwnerSectionModel.retention_value, RopaOwnerSectionModel.retention_unit),
+        selectinload(RopaDocumentModel.processor_sections).load_only(RopaProcessorSectionModel.retention_value, RopaProcessorSectionModel.retention_unit)
+    ).filter(
+        RopaDocumentModel.id.in_(doc_ids_q),
+        RopaDocumentModel.status == DocumentStatusEnum.COMPLETED,
+        RopaDocumentModel.deletion_status.is_(None)
+    ).all()
+    for d in completed_docs:
+        target_sec = d.owner_section or (d.processor_sections[0] if d.processor_sections else None)
+        if target_sec and target_sec.retention_value and target_sec.retention_unit and d.last_approved_at:
+            rv = target_sec.retention_value
+            ru = target_sec.retention_unit.upper()
+            dest_date = None
+            if ru == "DAYS": dest_date = d.last_approved_at + timedelta(days=rv)
+            elif ru == "MONTHS": dest_date = d.last_approved_at + timedelta(days=rv * 30)
+            elif ru == "YEARS": dest_date = d.last_approved_at + timedelta(days=rv * 365)
+            
+            if dest_date:
+                if dest_date.tzinfo is None: dest_date = dest_date.replace(tzinfo=timezone.utc)
+                if dest_date <= now:
+                    destruction_due += 1
+
+    return OwnerDashboardResponse(
+        total_documents=total,
+        needs_fix_do_count=needs_fix_do,
+        needs_fix_dp_count=needs_fix_dp,
+        risk_low_count=risk_low,
+        risk_medium_count=risk_medium,
+        risk_high_count=risk_high,
+        under_review_storage_count=under_review_storage,
+        under_review_deletion_count=under_review_deletion,
+        pending_do_count=pending_do,
+        pending_dp_count=pending_dp,
+        completed_count=completed,
+        sensitive_document_count=sensitive,
+        overdue_dp_count=overdue_dp,
+        annual_reviewed_count=annual_reviewed,
+        annual_not_reviewed_count=annual_not_reviewed,
+        destruction_due_count=destruction_due,
+        deleted_count=deleted,
+    )
 
 
 def _get_processor_metrics_internal(db: Session, user_id: int):
@@ -627,104 +635,120 @@ def _get_auditor_metrics_internal(db: Session, user_id: int):
     )
 
 
-def _get_dpo_metrics_internal(db: Session, user_id: int):
+def _get_dpo_metrics_internal(db: Session, user_id: int, period: str = "all"):
     now = datetime.now(timezone.utc)
+    base_filters = [ReviewDpoAssignmentModel.dpo_id == user_id]
+    
+    cutoff = None
+    if period == "7_days":
+        cutoff = now - timedelta(days=7)
+    elif period == "30_days":
+        cutoff = now - timedelta(days=30)
+    elif period == "6_months":
+        cutoff = now - timedelta(days=180)
+    elif period == "1_year":
+        cutoff = now - timedelta(days=365)
+    elif period == "this_month":
+        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "this_year":
+        cutoff = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if cutoff:
+        base_filters.append(ReviewDpoAssignmentModel.assigned_at >= cutoff)
+
     total_assigned = (
         db.query(ReviewDpoAssignmentModel.id)
-        .filter(ReviewDpoAssignmentModel.dpo_id == user_id)
+        .filter(*base_filters)
         .count()
     )
-    rev_needed = (
-        db.query(ReviewFeedbackModel.target_type, func.count(ReviewFeedbackModel.id))
-        .join(
-            DocumentReviewCycleModel,
-            DocumentReviewCycleModel.id == ReviewFeedbackModel.review_cycle_id,
-        )
-        .join(
-            ReviewDpoAssignmentModel,
-            ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id,
-        )
-        .filter(
-            ReviewDpoAssignmentModel.dpo_id == user_id,
-            DocumentReviewCycleModel.status == "CHANGES_REQUESTED",
-            ReviewFeedbackModel.status == "OPEN",
-        )
-        .group_by(ReviewFeedbackModel.target_type)
-        .all()
+
+    # 1. Revision Needed
+    rev_q = db.query(ReviewFeedbackModel.target_type, func.count(ReviewFeedbackModel.id)).join(
+        DocumentReviewCycleModel, DocumentReviewCycleModel.id == ReviewFeedbackModel.review_cycle_id
+    ).join(
+        ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == user_id,
+        DocumentReviewCycleModel.status == "CHANGES_REQUESTED",
+        ReviewFeedbackModel.status == "OPEN",
     )
+    if cutoff:
+        rev_q = rev_q.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff)
+    rev_needed = rev_q.group_by(ReviewFeedbackModel.target_type).all()
+
     rev_map = {str(getattr(r[0], "value", r[0])): r[1] for r in rev_needed}
-    risks = (
-        db.query(
-            RopaRiskAssessmentModel.risk_level, func.count(RopaRiskAssessmentModel.id)
-        )
-        .join(
-            RopaDocumentModel,
-            RopaDocumentModel.id == RopaRiskAssessmentModel.document_id,
-        )
-        .join(
-            DocumentReviewCycleModel,
-            DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
-        )
-        .join(
-            ReviewDpoAssignmentModel,
-            ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id,
-        )
-        .filter(ReviewDpoAssignmentModel.dpo_id == user_id)
-        .group_by(RopaRiskAssessmentModel.risk_level)
-        .all()
-    )
+
+    # 2. Risk Overview
+    risk_q = db.query(
+        RopaRiskAssessmentModel.risk_level, func.count(RopaRiskAssessmentModel.id)
+    ).join(
+        RopaDocumentModel, RopaDocumentModel.id == RopaRiskAssessmentModel.document_id
+    ).join(
+        DocumentReviewCycleModel, DocumentReviewCycleModel.document_id == RopaDocumentModel.id
+    ).join(
+        ReviewDpoAssignmentModel, ReviewDpoAssignmentModel.review_cycle_id == DocumentReviewCycleModel.id
+    ).filter(ReviewDpoAssignmentModel.dpo_id == user_id)
+    
+    if cutoff:
+        risk_q = risk_q.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff)
+    
+    risks = risk_q.group_by(RopaRiskAssessmentModel.risk_level).all()
+
     risk_map = {str(getattr(r[0], "value", r[0])): r[1] for r in risks}
     low_risk = risk_map.get("LOW", 0)
     med_risk = risk_map.get("MEDIUM", 0)
     high_risk = risk_map.get("HIGH", 0)
-    for_archiving = (
-        db.query(ReviewDpoAssignmentModel.id)
-        .join(
-            DocumentReviewCycleModel,
-            DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id,
-        )
-        .filter(
-            ReviewDpoAssignmentModel.dpo_id == user_id,
-            DocumentReviewCycleModel.status == "IN_REVIEW",
-        )
-        .count()
+
+    # 3. For Archiving
+    arch_q = db.query(ReviewDpoAssignmentModel.id).join(
+        DocumentReviewCycleModel, DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == user_id,
+        DocumentReviewCycleModel.status == "IN_REVIEW",
     )
-    for_destruction = (
-        db.query(DocumentDeletionRequestModel.id)
-        .filter(
-            DocumentDeletionRequestModel.dpo_id == user_id,
-            DocumentDeletionRequestModel.status == "PENDING",
-        )
-        .count()
+    if cutoff:
+        arch_q = arch_q.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff)
+    for_archiving = arch_q.count()
+
+    # 4. For Destruction
+    dest_q = db.query(DocumentDeletionRequestModel.id).filter(
+        DocumentDeletionRequestModel.dpo_id == user_id,
+        DocumentDeletionRequestModel.status == "PENDING",
     )
-    auditor_tasks = (
-        db.query(AuditorAssignmentModel.status, func.count(AuditorAssignmentModel.id))
-        .filter(AuditorAssignmentModel.assigned_by == user_id)
-        .group_by(AuditorAssignmentModel.status)
-        .all()
+    if cutoff:
+        dest_q = dest_q.filter(DocumentDeletionRequestModel.requested_at >= cutoff)
+    for_destruction = dest_q.count()
+
+    # 5. Auditor Status
+    aud_q = db.query(AuditorAssignmentModel.status, func.count(AuditorAssignmentModel.id)).filter(
+        AuditorAssignmentModel.assigned_by == user_id
     )
+    if cutoff:
+        aud_q = aud_q.filter(AuditorAssignmentModel.created_at >= cutoff)
+    auditor_tasks = aud_q.group_by(AuditorAssignmentModel.status).all()
+    
     aud_status_map = {str(getattr(r[0], "value", r[0])): r[1] for r in auditor_tasks}
-    approved_total = (
-        db.query(ReviewDpoAssignmentModel.id)
-        .join(
-            DocumentReviewCycleModel,
-            DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id,
-        )
-        .filter(
-            ReviewDpoAssignmentModel.dpo_id == user_id,
-            DocumentReviewCycleModel.status == "APPROVED",
-        )
-        .count()
+
+    # 6. Approved Total
+    app_q = db.query(ReviewDpoAssignmentModel.id).join(
+        DocumentReviewCycleModel, DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id
+    ).filter(
+        ReviewDpoAssignmentModel.dpo_id == user_id,
+        DocumentReviewCycleModel.status == "APPROVED",
     )
-    aud_delayed = (
-        db.query(AuditorAssignmentModel.id)
-        .filter(
-            AuditorAssignmentModel.assigned_by == user_id,
-            AuditorAssignmentModel.status != "VERIFIED",
-            AuditorAssignmentModel.due_date < now,
-        )
-        .count()
+    if cutoff:
+        app_q = app_q.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff)
+    approved_total = app_q.count()
+
+    # 7. Auditor Delayed
+    delay_q = db.query(AuditorAssignmentModel.id).filter(
+        AuditorAssignmentModel.assigned_by == user_id,
+        AuditorAssignmentModel.status != "VERIFIED",
+        AuditorAssignmentModel.due_date < now,
     )
+    if cutoff:
+        delay_q = delay_q.filter(AuditorAssignmentModel.created_at >= cutoff)
+    aud_delayed = delay_q.count()
     return DpoDashboardResponse(
         total_reviewed={"count": total_assigned},
         revision_needed={
@@ -750,10 +774,28 @@ def _get_dpo_metrics_internal(db: Session, user_id: int):
     )
 
 
-def _get_executive_metrics_internal(db: Session):
+def _get_executive_metrics_internal(db: Session, period: str = "all"):
     """
     Robust version of Executive metrics calculation
     """
+    now = datetime.now(timezone.utc)
+    # Standardized period filtering
+    base_filters = []
+    if period == "7_days":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=7))
+    elif period == "30_days":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=30))
+    elif period == "6_months":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=180))
+    elif period == "1_year":
+        base_filters.append(RopaDocumentModel.created_at >= now - timedelta(days=365))
+    elif period == "this_month":
+        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        base_filters.append(RopaDocumentModel.created_at >= cutoff)
+    elif period == "this_year":
+        cutoff = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        base_filters.append(RopaDocumentModel.created_at >= cutoff)
+
     try:
         from app.models.document import RopaRiskAssessmentModel
         from app.models.section_owner import RopaOwnerSectionModel, OwnerDataTypeModel
@@ -761,7 +803,7 @@ def _get_executive_metrics_internal(db: Session):
         from app.models.assignment import ProcessorAssignmentModel
         from app.models.workflow import ReviewFeedbackModel
 
-        all_docs = db.query(RopaDocumentModel).all()
+        all_docs = db.query(RopaDocumentModel).filter(*base_filters).all()
 
         # ROPA status - more robust aggregation
         draft_count = 0
@@ -842,7 +884,7 @@ def _get_executive_metrics_internal(db: Session):
             total=len(all_docs),
         )
 
-        # Risk by department
+        # Risk by department - filter by base_filters
         dept_rows = (
             db.query(
                 UserModel.department,
@@ -859,7 +901,7 @@ def _get_executive_metrics_internal(db: Session):
                 RopaRiskAssessmentModel,
                 RopaRiskAssessmentModel.document_id == RopaDocumentModel.id,
             )
-            .filter(UserModel.department.isnot(None))
+            .filter(UserModel.department.isnot(None), *base_filters)
             .group_by(UserModel.department, RopaRiskAssessmentModel.risk_level)
             .all()
         )
@@ -887,7 +929,7 @@ def _get_executive_metrics_internal(db: Session):
             for dept, v in risk_map.items()
         ]
 
-        # Sensitive docs by department
+        # Sensitive docs by department - filter by base_filters
         sensitive_rows = (
             db.query(
                 UserModel.department,
@@ -905,7 +947,8 @@ def _get_executive_metrics_internal(db: Session):
             )
             .filter(
                 UserModel.department.isnot(None),
-                OwnerDataTypeModel.is_sensitive == True,
+                func.lower(OwnerDataTypeModel.type) == "sensitive",
+                *base_filters
             )
             .group_by(UserModel.department)
             .all()
@@ -915,22 +958,24 @@ def _get_executive_metrics_internal(db: Session):
             for dept, cnt in sensitive_rows
         ]
 
-        # Other global counters
+        # Other global counters - filter by base_filters
         pending_do = (
             db.query(func.count(RopaOwnerSectionModel.id))
-            .filter(RopaOwnerSectionModel.status == RopaSectionEnum.DRAFT)
+            .join(RopaDocumentModel, RopaOwnerSectionModel.document_id == RopaDocumentModel.id)
+            .filter(RopaOwnerSectionModel.status == RopaSectionEnum.DRAFT, *base_filters)
             .scalar()
             or 0
         )
         pending_dp = (
             db.query(func.count(RopaProcessorSectionModel.id))
-            .filter(RopaProcessorSectionModel.status == RopaSectionEnum.DRAFT)
+            .join(RopaDocumentModel, RopaProcessorSectionModel.document_id == RopaDocumentModel.id)
+            .filter(RopaProcessorSectionModel.status == RopaSectionEnum.DRAFT, *base_filters)
             .scalar()
             or 0
         )
         approved_total = (
             db.query(func.count(RopaDocumentModel.id))
-            .filter(RopaDocumentModel.status == DocumentStatusEnum.COMPLETED)
+            .filter(RopaDocumentModel.status == DocumentStatusEnum.COMPLETED, *base_filters)
             .scalar()
             or 0
         )
@@ -939,6 +984,7 @@ def _get_executive_metrics_internal(db: Session):
             .filter(
                 RopaDocumentModel.status == DocumentStatusEnum.UNDER_REVIEW,
                 RopaDocumentModel.deletion_status.is_(None),
+                *base_filters
             )
             .scalar()
             or 0
@@ -946,7 +992,8 @@ def _get_executive_metrics_internal(db: Session):
         for_destruction = (
             db.query(func.count(RopaDocumentModel.id))
             .filter(
-                RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETE_PENDING
+                RopaDocumentModel.deletion_status == DeletionStatusEnum.DELETE_PENDING,
+                *base_filters
             )
             .scalar()
             or 0
@@ -961,7 +1008,7 @@ def _get_executive_metrics_internal(db: Session):
         available_depts = [d[0] for d in all_depts]
 
         return ExecutiveDashboardResponse(
-            selected_period="all",
+            selected_period=period,
             ropa_status_overview=ropa_status,
             risk_by_department=risk_by_dept,
             sensitive_docs_by_department=sensitive_by_dept,
@@ -1047,10 +1094,11 @@ def auditor_dashboard(
     tags=["Dashboard (DPO)"],
 )
 def dpo_dashboard(
+    period: str = Query("all", description="Filter period: 7_days, 30_days, 6_months, 1_year, all"),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
-    return _get_dpo_metrics_internal(db, current_user.id)
+    return _get_dpo_metrics_internal(db, current_user.id, period)
 
 
 @router.get(
@@ -1061,7 +1109,7 @@ def dpo_dashboard(
 )
 def user_stats_dashboard(
     period: str = Query(
-        "30_days", description="Filter period: 7_days, 30_days, overdue, custom"
+        "30_days", description="Filter period: 7_days, 30_days, 6_months, 1_year, overdue, custom"
     ),
     custom_date: Optional[str] = Query(
         None, description="Format YYYY-MM-DD. Required if period=custom"
@@ -1076,6 +1124,10 @@ def user_stats_dashboard(
         base_filters.append(UserModel.created_at >= now - timedelta(days=7))
     elif period == "30_days":
         base_filters.append(UserModel.created_at >= now - timedelta(days=30))
+    elif period == "6_months":
+        base_filters.append(UserModel.created_at >= now - timedelta(days=180))
+    elif period == "1_year":
+        base_filters.append(UserModel.created_at >= now - timedelta(days=365))
     elif period == "custom":
         if not custom_date:
             raise HTTPException(
@@ -1223,7 +1275,7 @@ def user_stats_dashboard(
 )
 def list_dpo_documents(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
-    days_filter: Optional[int] = Query(None, description="Days filter"),
+    period: str = Query("all", description="Filter period: 7_days, 30_days, 6_months, 1_year, all"),
     search: Optional[str] = Query(
         None, description="Search by title or document number"
     ),
@@ -1267,8 +1319,23 @@ def list_dpo_documents(
         .filter(ReviewDpoAssignmentModel.dpo_id == current_user.id)
     )
 
-    if days_filter:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
+    # Standardized period filtering
+    now = datetime.now(timezone.utc)
+    cutoff_date = None
+    if period == "7_days":
+        cutoff_date = now - timedelta(days=7)
+    elif period == "30_days":
+        cutoff_date = now - timedelta(days=30)
+    elif period == "6_months":
+        cutoff_date = now - timedelta(days=180)
+    elif period == "1_year":
+        cutoff_date = now - timedelta(days=365)
+    elif period == "this_month":
+        cutoff_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "this_year":
+        cutoff_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if cutoff_date:
         query = query.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff_date)
 
     if search:
@@ -1369,7 +1436,7 @@ def list_dpo_documents(
 )
 def list_dpo_destruction_requests(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
-    days_filter: Optional[int] = Query(None, description="Days filter"),
+    period: str = Query("all", description="Filter period: 7_days, 30_days, 6_months, 1_year, all"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
@@ -1404,8 +1471,23 @@ def list_dpo_destruction_requests(
         .filter(DocumentDeletionRequestModel.dpo_id == current_user.id)
     )
 
-    if days_filter:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
+    # Standardized period filtering
+    now = datetime.now(timezone.utc)
+    cutoff_date = None
+    if period == "7_days":
+        cutoff_date = now - timedelta(days=7)
+    elif period == "30_days":
+        cutoff_date = now - timedelta(days=30)
+    elif period == "6_months":
+        cutoff_date = now - timedelta(days=180)
+    elif period == "1_year":
+        cutoff_date = now - timedelta(days=365)
+    elif period == "this_month":
+        cutoff_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "this_year":
+        cutoff_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if cutoff_date:
         query = query.filter(DocumentDeletionRequestModel.requested_at >= cutoff_date)
 
     if status_filter:
@@ -1522,7 +1604,7 @@ def review_destruction_request(
 )
 def list_dpo_auditor_assignments(
     status_filter: Optional[str] = Query(None, description="Filter logic by status"),
-    days_filter: Optional[int] = Query(None, description="Days filter"),
+    period: str = Query("all", description="Filter period: 7_days, 30_days, 6_months, 1_year, all"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
@@ -1557,8 +1639,23 @@ def list_dpo_auditor_assignments(
         .filter(AuditorAssignmentModel.assigned_by == current_user.id)
     )
 
-    if days_filter:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_filter)
+    # Standardized period filtering
+    now = datetime.now(timezone.utc)
+    cutoff_date = None
+    if period == "7_days":
+        cutoff_date = now - timedelta(days=7)
+    elif period == "30_days":
+        cutoff_date = now - timedelta(days=30)
+    elif period == "6_months":
+        cutoff_date = now - timedelta(days=180)
+    elif period == "1_year":
+        cutoff_date = now - timedelta(days=365)
+    elif period == "this_month":
+        cutoff_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "this_year":
+        cutoff_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if cutoff_date:
         query = query.filter(AuditorAssignmentModel.created_at >= cutoff_date)
 
     if status_filter:

@@ -9,6 +9,7 @@ import {
   StatusBadge,
 } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+import TableLoading from "@/components/ui/TableLoading";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
@@ -50,9 +51,9 @@ function InProgressTableContent() {
 
       let statusFilter = "";
       if (selectedStatus === "รอตรวจสอบ") statusFilter = "IN_REVIEW";
-      else if (selectedStatus === "รอส่วนของ Data Owner")
+      else if (selectedStatus === "รอส่วนของ Data Owner แก้ไข")
         statusFilter = "ACTION_REQUIRED_DO";
-      else if (selectedStatus === "รอส่วนของ Data processor")
+      else if (selectedStatus === "รอส่วนของ Data Processor แก้ไข")
         statusFilter = "ACTION_REQUIRED_DP";
       else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "APPROVED";
 
@@ -103,13 +104,16 @@ function InProgressTableContent() {
       case "IN_REVIEW":
         return "รอตรวจสอบ";
       case "ACTION_REQUIRED_DO":
-        return "ต้องแก้ไข"; // Simplified for StatusBadge
+        return "รอส่วนของ Data Owner แก้ไข";
       case "ACTION_REQUIRED_DP":
-        return "ต้องแก้ไข";
+        return "รอส่วนของ Data Processor แก้ไข";
       case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
+      case "INITIAL":
+      case "PENDING":
+        return "ยังไม่ได้ตรวจสอบ";
       default:
-        return "ฉบับร่าง";
+        return apiStatus;
     }
   };
 
@@ -118,13 +122,13 @@ function InProgressTableContent() {
       case "IN_REVIEW":
         return "รอตรวจสอบ";
       case "ACTION_REQUIRED_DO":
-        return "รอส่วนของ Data Owner";
+        return "รอส่วนของ Data Owner แก้ไข";
       case "ACTION_REQUIRED_DP":
-        return "รอส่วนของ Data processor";
+        return "รอส่วนของ Data Processor แก้ไข";
       case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
       default:
-        return "ฉบับร่าง";
+        return "ยังไม่ได้ตรวจสอบ";
     }
   };
 
@@ -220,7 +224,7 @@ function InProgressTableContent() {
       fetchDocuments(); // Refresh list
     } catch (err: any) {
       console.error("Assign auditor error:", err);
-      alert(`เกิดข้อผิดพลาด: ${err.message}`);
+      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmittingAssignment(false);
     }
@@ -259,12 +263,12 @@ function InProgressTableContent() {
                 { label: "ทั้งหมด", value: "ทั้งหมด" },
                 { label: "รอตรวจสอบ", value: "รอตรวจสอบ" },
                 {
-                  label: "รอส่วนของ Data Owner",
-                  value: "รอส่วนของ Data Owner",
+                  label: "รอส่วนของ Data Owner แก้ไข",
+                  value: "รอส่วนของ Data Owner แก้ไข",
                 },
                 {
-                  label: "รอส่วนของ Data processor",
-                  value: "รอส่วนของ Data processor",
+                  label: "รอส่วนของ Data Processor แก้ไข",
+                  value: "รอส่วนของ Data Processor แก้ไข",
                 },
                 { label: "ตรวจสอบเสร็จสิ้น", value: "ตรวจสอบเสร็จสิ้น" },
               ]}
@@ -305,7 +309,7 @@ function InProgressTableContent() {
               <table className="w-full text-center border-collapse">
                 <thead className="relative z-20">
                   <tr className="border-b border-[#E5E2E1]/40">
-                    <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">
+                    <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">
                       ชื่อเอกสาร
                     </th>
                     <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">
@@ -334,14 +338,7 @@ function InProgressTableContent() {
                 </thead>
                 <tbody className="divide-y divide-[#E5E2E1]/10">
                   {loading ? (
-                    <tr key={"loading"}>
-                      <td
-                        colSpan={6}
-                        className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse"
-                      >
-                        กำลังโหลดข้อมูล...
-                      </td>
-                    </tr>
+                    <TableLoading colSpan={6} />
                   ) : error ? (
                     <tr key={"error"}>
                       <td
@@ -376,7 +373,7 @@ function InProgressTableContent() {
                         <td className="py-4">
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
                             {doc.review_status === "IN_REVIEW" ||
-                            doc.review_status === "APPROVED" ? (
+                              doc.review_status === "APPROVED" ? (
                               <StatusBadge
                                 status={getUIStatus(doc.review_status) as any}
                               />
@@ -385,18 +382,16 @@ function InProgressTableContent() {
                                 <span
                                   className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.owner_status)} shadow-sm`}
                                 >
-                                  Data Owner:{" "}
                                   {doc.owner_status === "done"
-                                    ? "เสร็จสิ้น"
-                                    : "ต้องแก้ไข"}
+                                    ? "Data Owner ดำเนินการเสร็จสิ้น"
+                                    : "รอส่วนของ Data Owner"}
                                 </span>
                                 <span
                                   className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.processor_status)} shadow-sm`}
                                 >
-                                  Data Processor:{" "}
                                   {doc.processor_status === "done"
-                                    ? "เสร็จสิ้น"
-                                    : "ต้องแก้ไข"}
+                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
+                                    : "รอส่วนของ Data Processor"}
                                 </span>
                               </div>
                             )}

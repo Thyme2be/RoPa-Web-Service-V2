@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { ListCard, StatusBadge, GenericFilterBar, Pagination } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+import TableLoading from "@/components/ui/TableLoading";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -33,7 +34,7 @@ function DestructionTableContent() {
 
         try {
             const daysFilter = selectedDateRange === "ภายใน 7 วัน" ? 7 : (selectedDateRange === "ภายใน 30 วัน" ? 30 : 0);
-            
+
             let statusFilter = "";
             if (selectedStatus === "รอตรวจสอบทำลาย") statusFilter = "PENDING";
             else if (selectedStatus === "อนุมัติการทำลาย") statusFilter = "APPROVED";
@@ -172,9 +173,7 @@ function DestructionTableContent() {
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E2E1]/10">
                                     {loading ? (
-                                        <tr>
-                                            <td colSpan={6} className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse">กำลังโหลดข้อมูล...</td>
-                                        </tr>
+                                        <TableLoading colSpan={6} />
                                     ) : error ? (
                                         <tr>
                                             <td colSpan={6} className="py-12 text-center text-[#ED393C] font-black">{error}</td>
@@ -199,9 +198,9 @@ function DestructionTableContent() {
                                             </td>
                                             <td className="py-4">
                                                 <div className="flex justify-center">
-                                                    <Link 
-                                                        href={`/dpo/tables/destruction/${doc.raw_document_id}`} 
-                                                        title="ดูรายละเอียดและทำลาย" 
+                                                    <Link
+                                                        href={`/dpo/tables/destruction/${doc.raw_document_id}`}
+                                                        title="ดูรายละเอียดและทำลาย"
                                                         className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
                                                     >
                                                         <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>visibility</span>

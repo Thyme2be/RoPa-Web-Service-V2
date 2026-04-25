@@ -24,35 +24,43 @@ export default function SaveConfirmModal({
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200">
             {/* Modal Container */}
-            <div className="relative bg-white w-full max-w-[540px] rounded-[48px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] p-12 flex flex-col items-center animate-in zoom-in-95 duration-300">
+            <div className="relative bg-white w-full max-w-[620px] rounded-[48px] shadow-[0_20px_60px_rgba(0,0,0,0.2)] p-14 flex flex-col items-center animate-in zoom-in-95 duration-300">
                 
                 {/* Close Button */}
                 <button 
                     onClick={onClose}
-                    className="absolute top-8 right-10 p-2 text-[#1B1C1C] hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center font-bold"
+                    className="absolute top-10 right-12 p-2 text-[#1B1C1C] hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center font-bold"
                 >
-                    <span className="material-symbols-outlined text-[32px] font-bold">
+                    <span className="material-symbols-outlined text-[36px] font-bold">
                         close
                     </span>
                 </button>
 
                 {/* Content */}
-                <div className="mt-4 mb-10 text-center">
-                    <h2 className="text-[36px] font-black text-[#1B1C1C] mb-4 tracking-tight leading-tight">
+                <div className="mt-8 mb-14 text-center space-y-4">
+                    <h2 className="text-[42px] font-black text-[#1B1C1C] tracking-tight leading-tight">
                         {title}
                     </h2>
-                    <p className="text-[20px] font-medium text-[#5F5E5E] px-4 leading-relaxed">
+                    <p className="text-[22px] font-medium text-[#5F5E5E] px-8 leading-relaxed opacity-90">
                         {description}
                     </p>
                 </div>
 
-                {/* Action Button */}
-                <button
-                    onClick={onConfirm}
-                    className="w-[320px] h-[72px] bg-gradient-to-r from-[#ED393C] to-[#9E1A1D] text-white text-[22px] font-black rounded-3xl shadow-[0_12px_24px_rgba(237,57,60,0.3)] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center"
-                >
-                    {confirmText}
-                </button>
+                {/* Action Buttons */}
+                <div className="flex items-center gap-6 w-full justify-center">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 max-w-[200px] h-[64px] border border-[#E5E2E1] text-[#1B1C1C] text-[18px] font-bold rounded-3xl hover:bg-gray-50 active:scale-[0.98] transition-all"
+                    >
+                        ยกเลิก
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="flex-1 max-w-[300px] h-[64px] bg-gradient-to-r from-[#ED393C] to-[#9E1A1D] text-white text-[18px] font-black rounded-3xl shadow-[0_10px_20px_rgba(237,57,60,0.25)] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center"
+                    >
+                        {confirmText}
+                    </button>
+                </div>
             </div>
         </div>
     );

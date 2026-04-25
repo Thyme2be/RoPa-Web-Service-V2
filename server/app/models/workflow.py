@@ -70,3 +70,6 @@ class ReviewDpoAssignmentModel(Base):
     dpo_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     assignment_method = Column(String, nullable=True)
+
+    cycle = relationship("DocumentReviewCycleModel")
+    dpo = relationship("UserModel")

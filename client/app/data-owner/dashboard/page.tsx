@@ -1,38 +1,77 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
 import DonutChart from "@/components/ui/DonutChart";
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import Select from "@/components/ui/Select";
 
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
+
 export default function DashboardPage() {
-  const { getDashboardStats, refresh, fetchOwnerDashboard, isLoading } =
-    useRopa();
-  const [timeFilter, setTimeFilter] = React.useState("all");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const { 
+    ownerDashboardData,
+    getDashboardStats, 
+    refresh, 
+    fetchOwnerDashboard, 
+    isLoading, 
+    error, 
+    clearError,
+    currentPeriod,
+    setCurrentPeriod
+  } = useOwner();
 
-  // Initial refresh
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  // URL State Management
+  const periodParam = searchParams.get("period") || "all";
 
-  // Handle filter change
+  // Initial Data Fetch & Sync URL with Context
   useEffect(() => {
-    if (timeFilter !== "all" || true) {
-      // Always refresh when filter state changes if we want live updates
-      fetchOwnerDashboard(timeFilter);
+    // Fetch if data is missing or period changed
+    if (!ownerDashboardData || periodParam !== currentPeriod) {
+      refresh(periodParam);
     }
-  }, [timeFilter, fetchOwnerDashboard]);
+  }, [periodParam, refresh, currentPeriod, ownerDashboardData]);
+
+  const handleFilterChange = (newPeriod: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("period", newPeriod);
+    router.push(`?${params.toString()}`);
+  };
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
+          <ErrorState 
+            title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" 
+            message={error} 
+            onRetry={() => { clearError(); refresh(periodParam); }} 
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // Use full-page loading until data is ready
+  if (isLoading || !ownerDashboardData) {
+    return <LoadingState fullPage message="กำลังโหลด..." />;
+  }
 
   const stats = getDashboardStats();
 
   const timeOptions = [
-    { label: "สัปดาห์นี้", value: "weekly" },
-    { label: "เดือนนี้", value: "monthly" },
-    { label: "6 เดือน", value: "6months" },
-    { label: "1 ปี", value: "yearly" },
+    { label: "7 วันล่าสุด", value: "7_days" },
+    { label: "30 วันล่าสุด", value: "30_days" },
+    { label: "6 เดือนล่าสุด", value: "6_months" },
+    { label: "1 ปีล่าสุด", value: "1_year" },
     { label: "ทั้งหมด", value: "all" },
   ];
 
@@ -49,9 +88,16 @@ export default function DashboardPage() {
       <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
         <TopBar hideSearch={true} minimal={true} />
 
+        {/* Optional: Add a subtle loading bar if isLoading is true but data exists */}
+        {isLoading && (
+          <div className="fixed top-0 left-0 w-full h-1 z-50 overflow-hidden bg-transparent">
+             <div className="h-full bg-primary animate-progress origin-left"></div>
+          </div>
+        )}
+
         <div className="p-10 space-y-8">
           {/* Welcome Header */}
-          <div className="flex justify-between items">
+          <div className="flex justify-between items-start">
             <div className="space-y-1">
               <h1 className="text-4xl font-black text-[#1B1C1C]">
                 แดชบอร์ดสรุปข้อมูล
@@ -64,22 +110,13 @@ export default function DashboardPage() {
               <Select
                 label="ช่วงเวลา"
                 name="timeFilter"
-                value={timeFilter}
+                value={periodParam}
                 options={timeOptions}
-                onChange={(e) => setTimeFilter(e.target.value)}
+                onChange={(e) => handleFilterChange(e.target.value)}
               />
             </div>
           </div>
 
-          {/* Loading State Overlay */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span className="ml-3 text-sm font-medium text-muted-foreground italic">
-                กำลังอัปเดตข้อมูล...
-              </span>
-            </div>
-          )}
 
           {/* Status Overview Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

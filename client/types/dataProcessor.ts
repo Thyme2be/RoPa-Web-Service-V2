@@ -88,3 +88,31 @@ export interface RopaProcessorRecord {
 }
 
 export type ProcessorRecord = RopaProcessorRecord;
+ 
+export interface ProcessorAssignedTableItem {
+    id: string; // Alias for document_id
+    document_id: string;
+    document_number?: string;
+    title?: string;
+    do_name?: string;
+    processor_section_id?: string;
+    processor_section_status?: SectionStatus;
+    assignment_status: string;
+    due_date?: string;
+    received_at?: string;
+    is_sent: boolean;
+    owner_title?: string;
+    owner_first_name?: string;
+    owner_last_name?: string;
+    status: { label: string; code: string };
+    has_open_feedback: boolean;
+    created_at: string;
+}
+ 
+export interface ProcessorDraftTableItem {
+    document_id: string;
+    document_number?: string;
+    title?: string;
+    processor_section_id?: string;
+    last_saved_at?: string;
+}

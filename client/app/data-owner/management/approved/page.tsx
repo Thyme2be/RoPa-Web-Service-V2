@@ -8,7 +8,7 @@ import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable,
 import Select from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
-import { useRopa } from "@/context/RopaContext";
+import { useOwner } from "@/context/OwnerContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
 
 // ─── Formatting ────────────────────────────────────────────────────────────────
@@ -23,15 +23,20 @@ function formatDate(dateStr: string | undefined | null) {
 
 
 export default function RopaApprovedPage() {
-    const { approvedRecords: contextApprovedRecords, requestDelete, annualReview, refresh } = useRopa();
+    const { approvedRecords: contextApprovedRecords, approvedMeta, fetchApprovedTable, requestDelete, annualReview, refresh } = useOwner();
+
+    const [page, setPage] = useState(1);
+    const router = useRouter();
 
     useEffect(() => {
         refresh();
     }, [refresh]);
-    const router = useRouter();
 
-    const [page, setPage] = useState(1);
+    useEffect(() => {
+        fetchApprovedTable(page, 3);
+    }, [page, fetchApprovedTable]);
     const [statusFilter, setStatusFilter] = useState("all");
+    const [annualFilter, setAnnualFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
 
@@ -50,7 +55,7 @@ export default function RopaApprovedPage() {
                 alert("ส่งตรวจสอบรายปีสำเร็จ เอกสารถูกย้ายไปที่ตารางรอดำเนินการ (Submitted)");
             } catch (error) {
                 console.error("Failed to submit annual review:", error);
-                alert("เกิดข้อผิดพลาดในการส่งตรวจสอบรายปี");
+                alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
             } finally {
                 setIsSubmitting(false);
             }
@@ -59,6 +64,7 @@ export default function RopaApprovedPage() {
 
     const handleClearFilters = () => {
         setStatusFilter("all");
+        setAnnualFilter("all");
         setDateFilter("all");
         setCustomDate("");
         setPage(1);
@@ -68,9 +74,14 @@ export default function RopaApprovedPage() {
         // Status Filter
         let matchStatus = true;
         if (statusFilter !== "all") {
-            // In Approved table, everything is already finished
             const isDoneFilter = ["done", "done_all", "done_owner", "done_processor"].includes(statusFilter);
             matchStatus = isDoneFilter;
+        }
+
+        // Annual Review Filter
+        let matchAnnual = true;
+        if (annualFilter !== "all") {
+            matchAnnual = record.annual_review_status === annualFilter;
         }
 
         // Date Filter
@@ -92,14 +103,15 @@ export default function RopaApprovedPage() {
                 matchDate = cDate.getTime() === aDate.getTime();
             }
         } else if (dateFilter !== "all" && !record.last_approved_at) {
-            matchDate = false; // If filtering by date but no date available, hide it
+            matchDate = false;
         }
 
-        return matchStatus && matchDate;
+        return matchStatus && matchAnnual && matchDate;
     });
 
     const ITEMS_PER_PAGE = 3;
-    const paginatedRecords = filteredRecords.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedRecords = filteredRecords.slice(0, ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(approvedMeta.total / ITEMS_PER_PAGE);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2] text-foreground">
@@ -116,11 +128,14 @@ export default function RopaApprovedPage() {
                     </div>
 
                     <DocumentFilterBar
-                        statusValue={statusFilter}
-                        onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
+                        statusLabel="ตรวจสอบรายปี"
+                        statusValue={annualFilter}
+                        onStatusChange={(val) => { setAnnualFilter(val); setPage(1); }}
                         statusOptions={[
                             { label: "ทั้งหมด", value: "all" },
-                            { label: "ตรวจสอบเสร็จสิ้น", value: "done" }
+                            { label: "ตรวจสอบแล้ว", value: "REVIEWED" },
+                            { label: "ยังไม่ได้ตรวจสอบ", value: "NOT_REVIEWED" },
+                            { label: "อยู่ระหว่างตรวจสอบ", value: "PENDING" },
                         ]}
                         dateValue={dateFilter}
                         onDateChange={(val) => { setDateFilter(val); setPage(1); }}
@@ -135,27 +150,26 @@ export default function RopaApprovedPage() {
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[20%]" align="left" className="whitespace-nowrap !text-[12px] pl-6">ชื่อเอกสาร</DocumentTableHeader>
                                 <DocumentTableHeaderWithTooltip
-                                    width="w-[14%]"
+                                    width="w-[15%]"
                                     className="whitespace-nowrap !text-[12px]"
                                     title="ชื่อ DO"
                                     tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Owner</span> หมายถึง ผู้รับผิดชอบข้อมูล</p>}
                                 />
                                 <DocumentTableHeaderWithTooltip
-                                    width="w-[16%]"
+                                    width="w-[15%]"
                                     className="whitespace-nowrap !text-[12px]"
                                     title="ชื่อ DPO"
                                     tooltipText={<p><span className="font-bold text-[#1B1C1C]">Data Protection Officer</span> หมายถึง<br />เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</p>}
                                 />
                                 <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">วันที่อนุมัติ</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">วันครบกำหนดทำลาย</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">สถานะ</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">ตรวจสอบรายปี</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[15%]" className="whitespace-nowrap !text-[12px]">วันครบกำหนดทำลาย</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[13%]" className="whitespace-nowrap !text-[12px]">ตรวจสอบรายปี</DocumentTableHeader>
                                 <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedRecords.length === 0 ? (
                                     <DocumentTableRow>
-                                        <DocumentTableCell colSpan={8} align="center">
+                                        <DocumentTableCell colSpan={7} align="center">
                                             <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารที่ได้รับการอนุมัติ</span>
                                         </DocumentTableCell>
                                     </DocumentTableRow>
@@ -174,9 +188,6 @@ export default function RopaApprovedPage() {
                                             </DocumentTableCell>
                                             <DocumentTableCell className="text-[#5C403D] font-medium">
                                                 {formatDate(record.destruction_date)}
-                                            </DocumentTableCell>
-                                            <DocumentTableCell>
-                                                <StatusBadge status="ตรวจสอบเสร็จสิ้น" />
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold text-white whitespace-nowrap ${record.annual_review_status === "REVIEWED" ? "bg-[#2C8C00]" : (record.annual_review_status === "NOT_REVIEWED" ? "bg-[#ED393C]" : "bg-[#FF9800]")}`}>
@@ -201,7 +212,7 @@ export default function RopaApprovedPage() {
                                                     <ActionIconWithTooltip
                                                         icon="cancel_schedule_send"
                                                         disabled={record.deletion_status === "DELETE_PENDING" || isSubmitting}
-                                                        tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ส่งคำขอลบให้เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"}
+                                                        tooltipText={record.deletion_status === "DELETE_PENDING" ? "รอยื่นคำร้องขอทำลาย" : "ส่งคำขอลบให้ DPO"}
                                                         buttonClassName={record.deletion_status === "DELETE_PENDING" ? "text-amber-500 cursor-not-allowed" : "text-[#5F5E5E] hover:text-[#ED393C]"}
                                                         onClick={() => record.deletion_status !== "DELETE_PENDING" && handleRequestDelete(record.document_id)}
                                                     />
@@ -214,8 +225,8 @@ export default function RopaApprovedPage() {
                         </DocumentTable>
                         <DocumentPagination
                             current={page}
-                            totalPages={Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE))}
-                            totalItems={filteredRecords.length}
+                            totalPages={Math.max(1, totalPages)}
+                            totalItems={approvedMeta.total}
                             itemsPerPage={ITEMS_PER_PAGE}
                             onChange={setPage}
                         />

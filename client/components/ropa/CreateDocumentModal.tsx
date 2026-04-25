@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import ThaiDatePicker from "@/components/ui/ThaiDatePicker";
 import Select from "@/components/ui/Select";
-import { ropaService } from "@/services/ropaService";
-import { useRopa } from "@/context/RopaContext";
+import { ownerService } from "@/services/ownerService";
 
 interface CreateDocumentModalProps {
     isOpen: boolean;
@@ -19,14 +18,13 @@ export default function CreateDocumentModal({ isOpen, onClose, onCreate }: Creat
     const [companies, setCompanies] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [companyError, setCompanyError] = useState("");
-    const { activeRecords, sentRecords, approvedRecords } = useRopa();
 
     useEffect(() => {
         if (isOpen) {
             const fetchCompanies = async () => {
                 setIsLoading(true);
                 try {
-                    const data = await ropaService.getProcessorCompanies();
+                    const data = await ownerService.getProcessorCompanies();
                     setCompanies(data);
                 } catch (error) {
                     console.error("Failed to fetch companies:", error);
@@ -52,7 +50,7 @@ export default function CreateDocumentModal({ isOpen, onClose, onCreate }: Creat
 
         if (val) {
             try {
-                const res = await ropaService.checkProcessorAvailability(val);
+                const res = await ownerService.checkProcessorAvailability(val);
                 if (!res.available) {
                     setCompanyError(res.message || "ไม่พบผู้ประมวลผลข้อมูลส่วนบุคคลในบริษัทนี้");
                 }

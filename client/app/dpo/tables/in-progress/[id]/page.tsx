@@ -523,7 +523,7 @@ function DpoInProgressDetailContent() {
   if (loading)
     return (
       <div className="p-8 text-[#5F5E5E] animate-pulse font-bold">
-        กำลังโหลดข้อมูลเอกสาร...
+        กำลังโหลด...
       </div>
     );
   if (error)
@@ -784,7 +784,7 @@ function DpoInProgressDetailContent() {
 export default function DPOInProgressDetailPage() {
   return (
     <Suspense
-      fallback={<div className="p-8 text-[#5F5E5E]">กำลังโหลดฟอร์ม...</div>}
+      fallback={<div className="p-8 text-[#5F5E5E]">กำลังโหลด...</div>}
     >
       <DpoInProgressDetailContent />
     </Suspense>

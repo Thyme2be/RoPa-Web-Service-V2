@@ -23,7 +23,10 @@ interface RiskAssessmentProps {
     onSubmit: (probability: number, impact: number) => void;
     onCancel: () => void;
     disabled?: boolean;
+    dpRawStatus?: string;
+    dpIsSent?: boolean;
 }
+
 
 function ScorePicker({
     label,
@@ -84,7 +87,10 @@ export default function RiskAssessment({
     onSubmit,
     onCancel,
     disabled = false,
+    dpRawStatus,
+    dpIsSent
 }: RiskAssessmentProps) {
+
     const [probability, setProbability] = useState(existingRisk?.probability ?? 0);
     const [impact, setImpact] = useState(existingRisk?.impact ?? 0);
 
@@ -105,15 +111,20 @@ export default function RiskAssessment({
 
     // ─── Blocked: DP not done ─────────────────────────────────────────────────
     if (dpStatus !== "done") {
+        const isWaitingForReSubmit = dpIsSent && dpRawStatus === "DRAFT";
         return (
             <div className="flex flex-col items-center justify-center py-40 text-center text-[#5F5E5E]">
                 <p className="text-[22px] leading-relaxed max-w-[600px]">
                     &ldquo;ไม่สามารถประเมินความเสี่ยงได้<br />
-                    เนื่องจากในส่วนของผู้ประมวลผลข้อมูลส่วนบุคคลยังไม่ดำเนินการ&rdquo;
+                    {isWaitingForReSubmit 
+                        ? "เนื่องจากผู้ประมวลผลข้อมูลมีการแก้ไขข้อมูลหรือถูกส่งกลับไปแก้ไข (สถานะฉบับร่าง) กรุณารอให้ผู้ประมวลผลกด 'บันทึก' ยืนยันข้อมูลอีกครั้ง"
+                        : "เนื่องจากในส่วนของผู้ประมวลผลข้อมูลส่วนบุคคลยังไม่ดำเนินการ"
+                    }&rdquo;
                 </p>
             </div>
         );
     }
+
 
     // ─── Ready: Both done ─────────────────────────────────────────────────────
     const content = (

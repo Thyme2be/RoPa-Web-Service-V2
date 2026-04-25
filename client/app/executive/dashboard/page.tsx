@@ -1,5 +1,7 @@
 "use client";
 
+import React, { useState, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Select from "@/components/ui/Select";
@@ -8,56 +10,95 @@ import RiskAnalysisCard from "@/components/dashboard/RiskAnalysisCard";
 import SensitiveDataCard from "@/components/dashboard/SensitiveDataCard";
 import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
 import { DonutData } from "@/components/ui/DonutChart";
-import { useState, useEffect } from "react";
-import { useRopa } from "@/context/RopaContext";
+import { useExecutive } from "@/context/ExecutiveContext";
 
-// Removed hardcoded DEPT_OPTIONS to use dynamic departments from API
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
 
 const PERIOD_OPTIONS = [
     { label: "7 วันล่าสุด", value: "7_days" },
     { label: "30 วันล่าสุด", value: "30_days" },
-    { label: "เดือนนี้", value: "this_month" },
-    { label: "ปีนี้", value: "this_year" },
+    { label: "6 เดือนล่าสุด", value: "6_months" },
+    { label: "1 ปีล่าสุด", value: "1_year" },
     { label: "ทั้งหมด", value: "all" },
 ];
 
 export default function ExecutiveDashboard() {
-    const { executiveDashboardData, fetchExecutiveData, isLoading } = useRopa();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const { 
+        executiveDashboardData, 
+        fetchExecutiveData, 
+        isLoading, 
+        error, 
+        clearError, 
+        refresh,
+        currentPeriod 
+    } = useExecutive();
+    
     const data = executiveDashboardData;
-    const [period, setPeriod] = useState("all");
-    const [selectedDept, setSelectedDept] = useState("IT");
+    
+    // URL State Management
+    const periodParam = searchParams.get("period") || "all";
+    const deptParam = searchParams.get("dept") || "";
+    
+    const [selectedDept, setSelectedDept] = useState(deptParam || "IT");
 
-    // Fetch data when period or department changes
+    // Initial Data Fetch & Sync URL with Context
     useEffect(() => {
-        fetchExecutiveData(period, selectedDept);
-    }, [period, selectedDept]);
+        if (periodParam !== currentPeriod || !data) {
+            refresh(periodParam);
+        }
+    }, [periodParam, refresh, currentPeriod, data]);
 
     // Update selectedDept if current selection is not in available departments
     useEffect(() => {
         if (data?.available_departments && data.available_departments.length > 0) {
-            if (!data.available_departments.includes(selectedDept)) {
+            if (!selectedDept || !data.available_departments.includes(selectedDept)) {
                 setSelectedDept(data.available_departments[0]);
             }
         }
-    }, [data?.available_departments]);
+    }, [data?.available_departments, selectedDept]);
 
-    if (!data && isLoading) {
+    const handleFilterChange = (newPeriod: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("period", newPeriod);
+        router.push(`?${params.toString()}`);
+    };
+
+    const handleDeptChange = (newDept: string) => {
+        setSelectedDept(newDept);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("dept", newDept);
+        router.push(`?${params.toString()}`);
+    };
+
+    if (error) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#F8F9FA]">
-                <div className="text-xl font-bold text-gray-400">กำลังโหลดข้อมูล...</div>
+            <div className="flex min-h-screen bg-[#F6F3F2]">
+                <Sidebar />
+                <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
+                    <ErrorState 
+                        title="ไม่สามารถโหลดข้อมูลแดชบอร์ดผู้บริหารได้" 
+                        message={error} 
+                        onRetry={() => { clearError(); refresh(periodParam); }} 
+                    />
+                </main>
             </div>
         );
     }
 
-    // ─── Data Mapping ────────────────────────────────────────────────────────
+    if (isLoading || !data) {
+        return <LoadingState fullPage message="กำลังโหลด..." />;
+    }
 
-    // Ensure we have arrays even if data is loading or backend has empty response
-    const riskByDept = data?.risk_by_department || [];
-    const sensitiveByDept = data?.sensitive_docs_by_department || [];
-    const statusOverview = data?.ropa_status_overview;
-    const pendingDocs = data?.pending_documents;
-    const approvedDocs = data?.approved_documents;
-    const pendingDpo = data?.pending_dpo_review;
+    // ─── Data Mapping ────────────────────────────────────────────────────────
+    const riskByDept = data.risk_by_department || [];
+    const sensitiveByDept = data.sensitive_docs_by_department || [];
+    const statusOverview = data.ropa_status_overview;
+    const pendingDocs = data.pending_documents;
+    const approvedDocs = data.approved_documents;
+    const pendingDpo = data.pending_dpo_review;
 
     const ropaStatusData: DonutData[] = [
         { label: "ฉบับร่าง", value: statusOverview?.draft ?? 0, color: "#F0EDED" },
@@ -66,7 +107,6 @@ export default function ExecutiveDashboard() {
         { label: "เสร็จสมบูรณ์", value: statusOverview?.completed ?? 0, color: "#2C8C00" },
     ];
 
-    // Map risk data for the current department
     const currentDeptRisk = riskByDept.find((d: any) => d.department === selectedDept) || {
         low: 0, medium: 0, high: 0, total: 0
     };
@@ -77,7 +117,6 @@ export default function ExecutiveDashboard() {
         { label: "ความเสี่ยงสูง (3)", value: currentDeptRisk.high || 0, color: "#FB8827" },
     ];
 
-    // Map sensitive data items
     const sensitiveSummary = sensitiveByDept.map((item: any) => ({
         dept: item.department,
         count: item.count
@@ -92,9 +131,14 @@ export default function ExecutiveDashboard() {
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
                 <TopBar isExecutive pageTitle="แดชบอร์ดสรุปข้อมูล" hideSearch />
 
-                <div className={`flex-1 p-10 space-y-10 max-w-[1440px] w-full mx-auto transition-all duration-300 ${isLoading ? 'opacity-50 grayscale-[0.2]' : 'opacity-100'}`}>
+                {isLoading && (
+                  <div className="fixed top-0 left-0 w-full h-1 z-50 overflow-hidden bg-transparent">
+                     <div className="h-full bg-primary animate-progress origin-left"></div>
+                  </div>
+                )}
 
-                    {/* ── Page Header ─────────────────────────────────────── */}
+                <div className="flex-1 p-10 space-y-10 max-w-[1440px] w-full mx-auto relative transition-all duration-300">
+
                     <div className="flex justify-between items-end">
                         <div className="flex flex-col gap-2">
                             <h1 className="text-[32px] font-black text-foreground tracking-tight leading-none">
@@ -108,9 +152,9 @@ export default function ExecutiveDashboard() {
                             <Select
                                 label="ช่วงเวลา"
                                 name="period"
-                                value={period}
+                                value={periodParam}
                                 options={PERIOD_OPTIONS}
-                                onChange={(e) => setPeriod(e.target.value)}
+                                onChange={(e) => handleFilterChange(e.target.value)}
                                 rounding="2xl"
                                 labelClassName="text-foreground"
                                 bgColor="#FAFAFA"
@@ -119,17 +163,15 @@ export default function ExecutiveDashboard() {
                         </div>
                     </div>
 
-                    {/* ── ROPA Status (org-wide) ───────────────────────────── */}
                     <RopaStatusCard data={ropaStatusData} />
 
-                    {/* ── Risk + Sensitive (filtered by dept) ─────────────── */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                         <RiskAnalysisCard
                             data={riskData}
                             totalDocuments={currentDeptRisk.total || 0}
-                            departments={(data?.available_departments || []).map((d: string) => ({ label: `แผนก ${d}`, value: d }))}
+                            departments={(data.available_departments || []).map((d: string) => ({ label: `แผนก ${d}`, value: d }))}
                             selectedDept={selectedDept}
-                            onDeptChange={(v) => setSelectedDept(v)}
+                            onDeptChange={(v) => handleDeptChange(v)}
                         />
                         <SensitiveDataCard
                             items={sensitiveSummary}
@@ -137,22 +179,19 @@ export default function ExecutiveDashboard() {
                         />
                     </div>
 
-                    {/* ── Bottom Metrics ────────────────── */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-10">
-                        {/* Pending — 2 col */}
                         <div className="lg:col-span-2">
                             <DashboardSummaryCard
                                 icon="hourglass_empty"
                                 label="เอกสารที่รอดำเนินการ"
                                 accentColor="info"
                                 splitValues={[
-                                    { label: "ผู้รับผิดชอบข้อมูล", value: pendingDocs?.data_owner_count ?? 0 },
-                                    { label: "ผู้ประมวลผลข้อมูลส่วนบุคคล", value: pendingDocs?.data_processor_count ?? 0 },
+                                    { label: "Data Owner", value: pendingDocs?.data_owner_count ?? 0 },
+                                    { label: "Data Processor", value: pendingDocs?.data_processor_count ?? 0 },
                                 ]}
                             />
                         </div>
 
-                        {/* Approved — 1 col */}
                         <DashboardSummaryCard
                             icon="check_circle"
                             label="เอกสารที่ได้รับการอนุมัติ"
@@ -161,8 +200,6 @@ export default function ExecutiveDashboard() {
                             accentColor="success"
                         />
 
-
-                        {/* DPO Review — full width */}
                         <div className="lg:col-span-3">
                             <DashboardSummaryCard
                                 icon="hourglass_empty"

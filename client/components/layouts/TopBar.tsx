@@ -16,7 +16,9 @@ export default function TopBar({
     hideSearch,
     hasError,
     minimal,
-    formMode
+    formMode,
+    searchQuery,
+    onSearchChange
 }: any) {
     const { user } = useAuth();
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
@@ -106,6 +108,8 @@ export default function TopBar({
                             className="bg-[#F6F3F2] border-none rounded-lg pl-10 pr-4 py-2 text-sm w-64 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
                             placeholder="ค้นหา..."
                             type="text"
+                            value={searchQuery || ""}
+                            onChange={onSearchChange}
                         />
                     </div>
                 )}

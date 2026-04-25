@@ -15,6 +15,13 @@ export interface UserRead {
   is_active: boolean;
 }
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface OwnerDashboardData {
   total_documents: number;
   needs_fix_do_count: number;
@@ -174,7 +181,9 @@ export type OwnerRecord = {
   is_sent?: boolean;
   owner_status?: { code: string; label: string };
   processor_status?: { code: string; label: string };
+  document_status?: string;
 };
+
 
 // --- Table Item Interfaces (Matching Backend Schemas) ---
 

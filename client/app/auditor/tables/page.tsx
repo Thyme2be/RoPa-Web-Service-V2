@@ -10,6 +10,7 @@ import {
   StatusBadge,
 } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+import TableLoading from "@/components/ui/TableLoading";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -187,7 +188,7 @@ function AuditorTableContent() {
               <table className="w-full text-center border-collapse">
                 <thead className="relative z-20">
                   <tr className="border-b border-[#E5E2E1]/40">
-                    <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">
+                    <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">
                       ชื่อเอกสาร
                     </th>
                     <th className="py-3 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">
@@ -208,15 +209,8 @@ function AuditorTableContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E2E1]/10">
-                  {loading ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="py-12 text-center text-[#5F5E5E] font-medium italic animate-pulse"
-                      >
-                        กำลังดึงข้อมูล...
-                      </td>
-                    </tr>
+                   {loading ? (
+                    <TableLoading colSpan={6} />
                   ) : error ? (
                     <tr>
                       <td

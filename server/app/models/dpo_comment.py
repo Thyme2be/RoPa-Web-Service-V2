@@ -11,10 +11,12 @@ class DpoSectionCommentModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("ropa_documents.id", ondelete="CASCADE"), nullable=False, index=True)
     section_key = Column(String, nullable=False, index=True) # e.g. DO_SEC_1, DP_SEC_1, DO_RISK
+    review_cycle_id = Column(UUID(as_uuid=True), ForeignKey("document_review_cycles.id", ondelete="CASCADE"), nullable=True, index=True)
     comment = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     document = relationship("RopaDocumentModel")
+    review_cycle = relationship("DocumentReviewCycleModel")
     creator = relationship("UserModel")

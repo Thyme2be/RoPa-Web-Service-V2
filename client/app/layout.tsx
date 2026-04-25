@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
-import { RopaProvider } from "@/context/RopaContext";
+import { AppProviders } from "@/context/Providers";
+import { Toaster } from "react-hot-toast";
 
 const sarabun = Sarabun({
   variable: "--font-sarabun",
@@ -33,9 +34,10 @@ export default function RootLayout({
       </head>
       <body className={`${sarabun.className} h-full`}>
         <AuthProvider>
-          <RopaProvider>
+          <AppProviders>
             {children}
-          </RopaProvider>
+            <Toaster position="top-right" />
+          </AppProviders>
         </AuthProvider>
       </body>
     </html>

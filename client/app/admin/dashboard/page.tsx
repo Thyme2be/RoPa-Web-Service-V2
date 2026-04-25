@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import RopaDonutChart from "@/components/ui/RopaDonutChart";
 
 interface DashboardData {
@@ -144,6 +144,9 @@ function UserListCard({ data }: { data: any }) {
     );
 }
 
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
+
 export default function DashboardPage() {
     const [activeTab, setActiveTab] = useState<"documents" | "users">("documents");
     const [timeRange, setTimeRange] = useState<"7_days" | "30_days" | "all">("30_days");
@@ -152,7 +155,7 @@ export default function DashboardPage() {
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async () => {
         setLoading(true);
 
         const token = localStorage.getItem("token");
@@ -192,22 +195,22 @@ export default function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [timeRange, API_BASE_URL]);
 
     useEffect(() => {
         fetchDashboardData();
-    }, [timeRange]);
+    }, [fetchDashboardData]);
 
-    if (loading) {
-        return <div className="flex h-full items-center justify-center p-8 text-on-surface-variant">กำลังโหลดข้อมูล...</div>;
+    if (loading || !data) {
+        return <LoadingState fullPage message="กำลังโหลด..." />;
     }
 
     if (!data) {
-        return <div className="flex h-full items-center justify-center p-8 text-[#B90A1E]">ไม่สามารถโหลดข้อมูลแดชบอร์ดได้</div>;
+        return <ErrorState title="ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" message="เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล" onRetry={fetchDashboardData} />;
     }
 
     return (
-        <div className="space-y-8 pb-12 max-w-[1440px] mx-auto">
+        <div className="space-y-8 pb-12 max-w-[1440px] mx-auto relative">
             {/* Header and Tabs */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
@@ -252,6 +255,10 @@ export default function DashboardPage() {
                             >
                                 <option value="7_days">7 วันล่าสุด</option>
                                 <option value="30_days">30 วันล่าสุด</option>
+                                <option value="6_months">6 เดือนล่าสุด</option>
+                                <option value="1_year">1 ปีล่าสุด</option>
+                                <option value="this_month">เดือนนี้</option>
+                                <option value="this_year">ปีนี้</option>
                                 <option value="all">ทั้งหมด</option>
                             </select>
                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-sm">

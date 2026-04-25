@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, contains_eager
 
@@ -60,6 +60,7 @@ from app.schemas.owner import (
 )
 from app.schemas.processor import (
     ProcessorAssignedTableItem,
+    ProcessorAssignedTablePaginated,
     ProcessorDraftTableItem,
     ProcessorSectionFullRead,
     ProcessorSectionSave,
@@ -408,10 +409,13 @@ def delete_processor_snapshot(
 
 @router.get(
     "/tables/assigned",
-    response_model=ProcessorAssignedTableResponse,
-    summary="ตารางเอกสารของ Data Processor (แยก 2 กลุ่ม)",
+    response_model=ProcessorAssignedTablePaginated,
+    summary="ตารางเอกสารของ Data Processor (Active Items พร้อม Pagination)",
 )
 def get_assigned_table(
+    page: int = 1,
+    limit: int = 3,
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.PROCESSOR)),
 ):
@@ -423,15 +427,10 @@ def get_assigned_table(
     """
     uid = current_user.id
 
-    # 1. Fetch assignments with related data in one go
-    assignments = (
+    # Base query
+    query = (
         db.query(ProcessorAssignmentModel)
         .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
-        .options(
-            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.creator),
-            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.processor_sections),
-            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.owner_section)
-        )
         .filter(
             ProcessorAssignmentModel.processor_id == uid,
             or_(
@@ -439,7 +438,32 @@ def get_assigned_table(
                 RopaDocumentModel.deletion_status != "DELETED",
             ),
         )
+    )
+
+    # Search Logic
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                RopaDocumentModel.document_number.ilike(search_pattern),
+                RopaDocumentModel.title.ilike(search_pattern)
+            )
+        )
+
+    # Total count for pagination
+    total_items = query.count()
+    total_pages = (total_items + limit - 1) // limit
+
+    # Fetch paginated assignments
+    assignments = (
+        query.options(
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.creator),
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.processor_sections),
+            contains_eager(ProcessorAssignmentModel.document).joinedload(RopaDocumentModel.owner_section)
+        )
         .order_by(ProcessorAssignmentModel.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
         .all()
     )
 
@@ -522,8 +546,13 @@ def get_assigned_table(
             ))
 
     return {
-        "active": active_items,
-        "drafts": draft_items,
+        "items": active_items,
+        "meta": {
+            "total": total_items,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
     }
 
 
@@ -702,7 +731,11 @@ def submit_processor_section(
     )
     if assignment:
         assignment.status = "SUBMITTED"
-    section.is_sent = False  # บันทึกฟอร์มเสร็จเฉยๆ ยังไม่ส่งให้ DO
+    
+    # หากเคยส่งแล้ว (is_sent=True) ให้คงไว้ เพื่อให้ DO เห็นความคืบหน้า/การแก้ไขทันที
+    # และเพื่อให้ DO สามารถประเมินความเสี่ยงต่อได้หากเป็นการแก้ไขเล็กน้อย
+    # section.is_sent = False  # ลบการรีเซ็ตออก
+    
     db.commit()
     db.refresh(section)
     return _load_processor_section_full(section, db, Role.PROCESSOR)
