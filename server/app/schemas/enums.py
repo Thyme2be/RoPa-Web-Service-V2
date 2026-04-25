@@ -26,6 +26,7 @@ class UserRoleEnum(str, Enum):
     AUDITOR = 'AUDITOR'
     ADMIN = 'ADMIN'
     EXECUTIVE = 'EXECUTIVE'
+    NONE = 'NONE'
 
 class DocumentStatusEnum(str, Enum):
     IN_PROGRESS = 'IN_PROGRESS'
