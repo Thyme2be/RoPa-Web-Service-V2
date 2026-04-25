@@ -212,6 +212,44 @@ class OwnerSectionSave(BaseModel):
 
 
 # =============================================================================
+# Feedback Batch (POST /owner/documents/{id}/processor-section/feedback)
+# =============================================================================
+
+class SectionFeedbackItem(BaseModel):
+    """
+    รายการ feedback 1 หัวข้อ
+    - section_number: section ที่ต้องแก้ไข (1-6 สำหรับ DP)
+    - field_name: ชื่อ field ที่ต้องการให้แก้ไข (optional)
+    - comment: คำอธิบายว่าต้องแก้ไขอะไร
+    """
+    section_number: int
+    field_name: Optional[str] = None
+    comment: str
+
+class FeedbackBatch(BaseModel):
+    """
+    Payload สำหรับปุ่ม "ส่งคำร้องขอเปลี่ยนแปลง" ในหน้า Tab 2
+    ส่ง feedback ทั้งหมดที่ DO stage ไว้ให้ DP ในครั้งเดียว
+    """
+    items: List[SectionFeedbackItem]
+
+class FeedbackRead(BaseModel):
+    id: UUID
+    review_cycle_id: Optional[UUID]
+    section_number: Optional[int]
+    from_user_id: int
+    to_user_id: int
+    target_type: FeedbackTargetEnum
+    target_id: UUID
+    field_name: Optional[str]
+    comment: Optional[str]
+    status: str
+    created_at: datetime
+    resolved_at: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+# =============================================================================
 # Owner Section Full Read (GET /owner/documents/{id}/section)
 # =============================================================================
 
@@ -283,6 +321,7 @@ class OwnerSectionFullRead(BaseModel):
     physical_measures: Optional[str] = None
     audit_measures: Optional[str] = None
     document_status: Optional[str] = None
+    suggestions: List[dict] = []
 
 
     model_config = {"from_attributes": True}
@@ -376,42 +415,6 @@ class DoSuggestionUpdate(BaseModel):
     suggestion: Optional[str] = None
 
 
-# =============================================================================
-# Feedback Batch (POST /owner/documents/{id}/processor-section/feedback)
-# =============================================================================
-
-class SectionFeedbackItem(BaseModel):
-    """
-    รายการ feedback 1 หัวข้อ
-    - section_number: section ที่ต้องแก้ไข (1-6 สำหรับ DP)
-    - field_name: ชื่อ field ที่ต้องการให้แก้ไข (optional)
-    - comment: คำอธิบายว่าต้องแก้ไขอะไร
-    """
-    section_number: int
-    field_name: Optional[str] = None
-    comment: str
-
-class FeedbackBatch(BaseModel):
-    """
-    Payload สำหรับปุ่ม "ส่งคำร้องขอเปลี่ยนแปลง" ในหน้า Tab 2
-    ส่ง feedback ทั้งหมดที่ DO stage ไว้ให้ DP ในครั้งเดียว
-    """
-    items: List[SectionFeedbackItem]
-
-class FeedbackRead(BaseModel):
-    id: UUID
-    review_cycle_id: Optional[UUID]
-    section_number: Optional[int]
-    from_user_id: int
-    to_user_id: int
-    target_type: FeedbackTargetEnum
-    target_id: UUID
-    field_name: Optional[str]
-    comment: Optional[str]
-    status: str
-    created_at: datetime
-    resolved_at: Optional[datetime]
-    model_config = {"from_attributes": True}
 
 
 # =============================================================================

@@ -11,6 +11,7 @@ import {
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
+import { cn } from "@/lib/utils";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -109,6 +110,8 @@ function InProgressTableContent() {
         return "รอส่วนของ Data Processor แก้ไข";
       case "APPROVED":
         return "ตรวจสอบเสร็จสิ้น";
+      case "CHANGES_REQUESTED":
+        return "รอการแก้ไข";
       case "INITIAL":
       case "PENDING":
         return "ยังไม่ได้ตรวจสอบ";
@@ -373,7 +376,8 @@ function InProgressTableContent() {
                         <td className="py-4">
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
                             {doc.review_status === "IN_REVIEW" ||
-                              doc.review_status === "APPROVED" ? (
+                              doc.review_status === "APPROVED" ||
+                              doc.review_status === "CHANGES_REQUESTED" ? (
                               <StatusBadge
                                 status={getUIStatus(doc.review_status) as any}
                               />
@@ -412,12 +416,18 @@ function InProgressTableContent() {
                               </span>
                             </Link>
                             <button
+                              disabled={doc.review_status !== "APPROVED"}
                               onClick={() => {
                                 setSelectedDocId(doc.raw_document_id);
                                 setIsSendModalOpen(true);
                               }}
-                              title="ส่งให้ผู้ตรวจสอบ"
-                              className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
+                              title={doc.review_status === "APPROVED" ? "ส่งให้ผู้ตรวจสอบ" : "ต้องตรวจสอบให้เสร็จสิ้นก่อนส่ง"}
+                              className={cn(
+                                "w-9 h-9 rounded-full flex items-center justify-center transition-all",
+                                doc.review_status === "APPROVED"
+                                  ? "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]/60 cursor-pointer"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
+                              )}
                             >
                               <span
                                 className="material-symbols-outlined text-[20px]"

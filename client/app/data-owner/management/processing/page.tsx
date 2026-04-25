@@ -39,14 +39,20 @@ function formatDate(dateStr: string | undefined | null) {
 }
 
 // ─── Status Badge ──────────────────────────────────────────────────────────────
-function StatusBadge({ done, label }: { done: boolean; label: string }) {
+function StatusBadge({ code, label }: { code: string; label: string }) {
+  const styles: Record<string, string> = {
+    DO_DONE: "bg-[#107C41] text-white",      // Green
+    DP_DONE: "bg-[#107C41] text-white",      // Green
+    WAITING_DO: "bg-[#FFC107] text-[#5C403D]", // Yellow
+    WAITING_DP: "bg-[#FFC107] text-[#5C403D]", // Yellow
+    DPO_REJECTED: "bg-[#ED393C] text-white",   // Red
+  };
+
   return (
     <span
       className={cn(
         "px-2.5 py-1 rounded-[6px] text-[10px] font-bold whitespace-nowrap min-w-[140px] text-center shadow-sm",
-        done
-          ? "bg-[#107C41] text-white" // Vibrant Green matching the image
-          : "bg-[#FFC107] text-[#5C403D]", // Solid Yellow matching the image
+        styles[code] || "bg-[#9CA3AF] text-white",
       )}
     >
       {label}
@@ -186,15 +192,8 @@ export default function ManagementProcessingPage() {
     router.push(`/data-owner/management/form?id=${id}&mode=deletion`);
   };
 
-  const getDoLabel = (r: ActiveTableItem) =>
-    r.owner_status?.code === "DO_DONE"
-      ? "Data Owner ดำเนินการเสร็จสิ้น"
-      : "รอส่วนของ Data Owner";
-
-  const getDpLabel = (r: ActiveTableItem) =>
-    r.processor_status?.code === "DP_DONE"
-      ? "Data Processor ดำเนินการเสร็จสิ้น"
-      : "รอส่วนของ Data Processor";
+  const getDoLabel = (r: ActiveTableItem) => r.owner_status?.label || "รอส่วนของ Data Owner";
+  const getDpLabel = (r: ActiveTableItem) => r.processor_status?.label || "รอส่วนของ Data Processor";
 
 
   const totalDraftPages = Math.max(1, Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE));
@@ -373,11 +372,11 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
                           <StatusBadge
-                            done={record.owner_status?.code === "DO_DONE"}
+                            code={record.owner_status?.code || "WAITING_DO"}
                             label={getDoLabel(record)}
                           />
                           <StatusBadge
-                            done={record.processor_status?.code === "DP_DONE"}
+                            code={record.processor_status?.code || "WAITING_DP"}
                             label={getDpLabel(record)}
                           />
                         </div>

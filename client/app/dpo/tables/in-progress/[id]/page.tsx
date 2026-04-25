@@ -419,25 +419,23 @@ function DpoInProgressDetailContent() {
   };
 
   const DO_KEY_MAP: Record<string, string> = {
-    "ข้อมูลทั่วไป (DO)": "DO_SEC_1",
-    "ชื่อกิจกรรมและวัตถุประสงค์ (DO)": "DO_SEC_2",
-    "รายละเอียดกิจกรรม (DO)": "DO_SEC_2",
-    "รายละเอียดของกิจกรรมและวัตถุประสงค์ (DO)": "DO_SEC_3",
-    "ข้อมูลที่จัดเก็บ (DO)": "DO_SEC_4",
-    "ระยะเวลาการเก็บรักษา (DO)": "DO_SEC_5",
-    "ฐานทางกฎหมาย (DO)": "DO_SEC_6",
-    "มาตรการรักษาความปลอดภัย (DO)": "DO_SEC_7",
-    "ช่องทางการใช้สิทธิของเจ้าของข้อมูล (DO)": "DO_SEC_8",
-    การประเมินความเสี่ยง: "DO_RISK",
+    "ข้อมูลทั่วไป": "1",
+    "ช่องทางใช้สิทธิ": "2",
+    "กิจกรรมประมวลผล": "3",
+    "ข้อมูลที่จัดเก็บ": "4",
+    "ระยะเวลาการเก็บรักษา": "5",
+    "ฐานทางกฎหมาย": "6",
+    "มาตรการรักษาความปลอดภัย": "7",
+    "การประเมินความเสี่ยง": "risk",
   };
 
   const DP_KEY_MAP: Record<string, string> = {
-    "ข้อมูลทั่วไป (DP)": "DP_SEC_1",
-    "กิจกรรมประมวลผล (DP)": "DP_SEC_2",
-    "ข้อมูลที่จัดเก็บ (DP)": "DP_SEC_3",
-    "ระยะเวลาการเก็บรักษา (DP)": "DP_SEC_4",
-    "ฐานทางกฎหมาย (DP)": "DP_SEC_5",
-    "มาตรการรักษาความปลอดภัย (DP)": "DP_SEC_6",
+    "ข้อมูลทั่วไป (DP)": "1",
+    "กิจกรรมประมวลผล (DP)": "2",
+    "ข้อมูลที่จัดเก็บ (DP)": "3",
+    "ระยะเวลาการเก็บรักษา (DP)": "4",
+    "ฐานทางกฎหมาย (DP)": "5",
+    "มาตรการรักษาความปลอดภัย (DP)": "6",
   };
 
   const saveComments = async (isFinal: boolean) => {
@@ -447,6 +445,7 @@ function DpoInProgressDetailContent() {
     const doComments = Object.entries(sectionFeedbacks)
       .filter(([key, text]) => DO_KEY_MAP[key] && text.trim() !== "")
       .map(([key, text]) => ({
+        section_id: DO_KEY_MAP[key],
         section_key: DO_KEY_MAP[key],
         comment: text,
       }));
@@ -454,15 +453,29 @@ function DpoInProgressDetailContent() {
     const dpComments = Object.entries(sectionFeedbacks)
       .filter(([key, text]) => DP_KEY_MAP[key] && text.trim() !== "")
       .map(([key, text]) => ({
+        section_id: DP_KEY_MAP[key],
         section_key: DP_KEY_MAP[key],
         comment: text,
       }));
 
     const promises = [];
 
-    // Save DO group if has comments or if it's the final submission
-    if (doComments.length > 0 || isFinal) {
-      promises.push(
+    const hasDoComments = doComments.length > 0;
+    const hasDpComments = dpComments.length > 0;
+    const hasAnyComments = hasDoComments || hasDpComments;
+
+    // Determine target status and finality
+    const effectiveIsFinal = isFinal && !hasAnyComments;
+    
+    let targetStatus = undefined;
+    if (isFinal) {
+      if (hasAnyComments) targetStatus = "REJECTED";
+      else targetStatus = "APPROVED";
+    }
+
+    // Save DO group
+    if (hasDoComments || (isFinal && !hasDpComments)) {
+      promises.push(() =>
         fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
           method: "POST",
           headers: {
@@ -472,15 +485,16 @@ function DpoInProgressDetailContent() {
           body: JSON.stringify({
             group: "DO",
             comments: doComments,
-            is_final: isFinal,
+            is_final: effectiveIsFinal,
+            status: targetStatus,
           }),
         }),
       );
     }
 
-    // Save DP group if has comments
-    if (dpComments.length > 0) {
-      promises.push(
+    // Save DP group
+    if (hasDpComments || (isFinal && !hasDoComments)) {
+      promises.push(() =>
         fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
           method: "POST",
           headers: {
@@ -490,16 +504,24 @@ function DpoInProgressDetailContent() {
           body: JSON.stringify({
             group: "DP",
             comments: dpComments,
-            is_final: false,
+            is_final: effectiveIsFinal,
+            status: targetStatus,
           }),
         }),
       );
     }
 
     try {
-      await Promise.all(promises);
-    } catch (err) {
+      for (const request of promises) {
+        const response = await request();
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`บันทึกไม่สำเร็จ: ${errorText || response.statusText}`);
+        }
+      }
+    } catch (err: any) {
       console.error("Save comments error:", err);
+      throw err;
     }
   };
 
@@ -522,14 +544,32 @@ function DpoInProgressDetailContent() {
 
   if (loading)
     return (
-      <div className="p-8 text-[#5F5E5E] animate-pulse font-bold">
-        กำลังโหลด...
+      <div className="p-8 space-y-8">
+        <div className="h-14 bg-gray-100 rounded-2xl animate-pulse w-full" />
+        <div className="space-y-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-2xl shadow-sm h-64 animate-pulse border-l-4 border-gray-200" />
+          ))}
+        </div>
       </div>
     );
+
   if (error)
     return (
-      <div className="p-8 text-[#ED393C] font-bold">
-        เกิดข้อผิดพลาด: {error}
+      <div className="p-8">
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-red-600 text-3xl">error</span>
+          </div>
+          <h3 className="text-xl font-bold text-red-900">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+          <p className="text-red-700 font-medium">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors"
+          >
+            ลองใหม่อีกครั้ง
+          </button>
+        </div>
       </div>
     );
 
@@ -685,6 +725,10 @@ function DpoInProgressDetailContent() {
                 "การประเมินความเสี่ยง",
               )}
               onToggleFeedback={() => toggleFeedback("การประเมินความเสี่ยง")}
+              feedbackData={(form as any).suggestions?.filter((s: any) => s.section === "DO_RISK" || s.section_id === "risk").map((s: any) => ({
+                content: s.comment,
+                created_at: s.date
+              })) || []}
             />
 
             {openFeedbackSections.includes("การประเมินความเสี่ยง") && (

@@ -80,7 +80,11 @@ export default function LoginPage() {
         </div>
 
         {/* Liquid Glass Card */}
-        <form onSubmit={handleSubmit} className="w-full rounded-2xl border border-white/70 p-8 sm:p-10 flex flex-col gap-4 relative shadow-[0_8px_32px_0_rgba(0,0,0,0.6)] backdrop-blur-xl overflow-hidden">
+        <form 
+          onSubmit={handleSubmit} 
+          method="post"
+          className="w-full rounded-2xl border border-white/70 p-8 sm:p-10 flex flex-col gap-4 relative shadow-[0_8px_32px_0_rgba(0,0,0,0.6)] backdrop-blur-xl overflow-hidden"
+        >
           <h1 className="text-[36px] font-bold text-white text-center tracking-wide drop-shadow-md">
             เข้าสู่ระบบ
           </h1>
@@ -96,7 +100,6 @@ export default function LoginPage() {
             <input
               type="text"
               id="username"
-              name="username"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -122,7 +125,6 @@ export default function LoginPage() {
             <input
               type="password"
               id="password"
-              name="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -44,6 +44,7 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "เสร็จสมบูรณ์": "bg-[#228B15] text-white",               // Reference Green (Processor)
         "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
+        "รอการแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
         "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)

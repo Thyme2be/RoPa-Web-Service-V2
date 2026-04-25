@@ -1349,9 +1349,11 @@ def list_dpo_documents(
 
     if status_filter:
         s_filter = status_filter.lower()
-        if "รอ" in s_filter or s_filter == "pending":
+        if "รอ" in s_filter or s_filter == "pending" or s_filter == "in_review":
             query = query.filter(DocumentReviewCycleModel.status == "IN_REVIEW")
-        elif "เสร็จสิ้น" in s_filter or s_filter == "completed":
+        elif "แก้ไข" in s_filter or "action_required" in s_filter or s_filter == "changes_requested":
+            query = query.filter(DocumentReviewCycleModel.status == "CHANGES_REQUESTED")
+        elif "เสร็จสิ้น" in s_filter or s_filter == "completed" or s_filter == "approved":
             query = query.filter(DocumentReviewCycleModel.status == "APPROVED")
         # Additional manual status filters can go here
 
@@ -1765,18 +1767,23 @@ def save_document_comments(
     # "ทับไปเลย" (Overwrite) inside the group
     # We delete existing comments for this group in this document
     if group == "DO":
-        # Handles both DO_SEC_1..7 and DO_RISK
+        # Handles both DO_SEC_1..7, DO_RISK and new numeric IDs
         db.query(DpoSectionCommentModel).filter(
             DpoSectionCommentModel.document_id == document_id,
             or_(
-                DpoSectionCommentModel.section_key.like("DO_SEC_%"),
-                DpoSectionCommentModel.section_key == "DO_RISK",
+                DpoSectionCommentModel.section_key.like("DO_%"),
+                DpoSectionCommentModel.section_key == "risk",
+                DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7"])
             ),
         ).delete(synchronize_session=False)
     else:
+        # Handles DP_SEC_1..6 and new numeric IDs
         db.query(DpoSectionCommentModel).filter(
             DpoSectionCommentModel.document_id == document_id,
-            DpoSectionCommentModel.section_key.like(f"{group}_SEC_%"),
+            or_(
+                DpoSectionCommentModel.section_key.like(f"{group}_%"),
+                DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6"])
+            ),
         ).delete(synchronize_session=False)
 
     # Insert new comments
@@ -1806,7 +1813,22 @@ def save_document_comments(
     now = datetime.now(timezone.utc)
 
     if cycle and payload.is_final:
-        cycle.status = "APPROVED" if is_approved else "CHANGES_REQUESTED"
+        # Check if there are ANY comments in the database for this document (across all groups)
+        db.flush() # Ensure current batch comments are visible to the query
+        existing_comments_count = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.document_id == document_id).count()
+        
+        has_any_feedback = existing_comments_count > 0
+        
+        # Determine final status:
+        # If there's any feedback in the DB, it MUST be CHANGES_REQUESTED
+        if has_any_feedback:
+            target_status = "CHANGES_REQUESTED"
+        elif payload.status == "REJECTED": # Explicit override
+            target_status = "CHANGES_REQUESTED"
+        else:
+            target_status = "APPROVED"
+
+        cycle.status = target_status
         cycle.reviewed_at = now
         cycle.reviewed_by = current_user.id
         db.add(cycle)
@@ -1831,6 +1853,19 @@ def save_document_comments(
             else:
                 # CHANGES_REQUESTED -> Move back to Table 1 (Active/Processing)
                 doc.status = "IN_PROGRESS"
+                
+                # ALSO reset the specific section status to DRAFT so they can edit
+                if group == "DO":
+                    owner_sec = db.query(RopaOwnerSectionModel).filter(RopaOwnerSectionModel.document_id == document_id).first()
+                    if owner_sec:
+                        owner_sec.status = "DRAFT"
+                        db.add(owner_sec)
+                elif group == "DP":
+                    proc_sec = db.query(RopaProcessorSectionModel).filter(RopaProcessorSectionModel.document_id == document_id).first()
+                    if proc_sec:
+                        proc_sec.status = "DRAFT"
+                        proc_sec.is_sent = False # Force send back to DO workflow
+                        db.add(proc_sec)
 
             db.add(doc)
 
@@ -2005,37 +2040,28 @@ def list_documents_from_dpo(
                 ui_status = "DPO_APPROVED"
                 ui_label = "ตรวจสอบเสร็จสิ้น"
         elif internal_status == "CHANGES_REQUESTED":
-            # Check if comments belong to DO or DP
-            has_do_comments = (
-                db.query(DpoSectionCommentModel)
-                .filter(
-                    DpoSectionCommentModel.document_id == doc.id,
-                    DpoSectionCommentModel.section_key.like("DO_%"),
-                )
-                .first()
-                is not None
-            )
-
-            has_dp_comments = (
-                db.query(DpoSectionCommentModel)
-                .filter(
-                    DpoSectionCommentModel.document_id == doc.id,
-                    DpoSectionCommentModel.section_key.like("DP_%"),
-                )
-                .first()
-                is not None
-            )
+            # Check if comments exist in DB to determine who needs to take action
+            all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.document_id == doc.id).all()
+            
+            # Simple check: if any comment exists, someone needs to fix it.
+            # We can try to guess the role from the key or just default to DO.
+            has_comments = len(all_comments) > 0
+            
+            # For more precision, we'd need a 'group' column in DpoSectionCommentModel.
+            # Since we don't have it, we use the key patterns.
+            has_dp_related = any(c.section_key.startswith("DP_") or c.section_key in ["1", "2", "3", "4", "5", "6"] for c in all_comments)
+            has_do_related = any(c.section_key.startswith("DO_") or c.section_key in ["1", "2", "3", "4", "5", "6", "7", "risk"] for c in all_comments)
 
             if role == Role.PROCESSOR:
-                if has_dp_comments:
+                if has_dp_related:
                     ui_status = "ACTION_REQUIRED_DP"
                 else:
-                    ui_status = "IN_REVIEW"  # Nothing for DP to do yet
+                    ui_status = "IN_REVIEW"
             else:
-                if has_do_comments:
+                if has_do_related:
                     ui_status = "ACTION_REQUIRED_DO"
-                elif has_dp_comments:
-                    ui_status = "WAITING_FOR_DP"  # DO is waiting for DP
+                elif has_dp_related:
+                    ui_status = "WAITING_FOR_DP"
                 else:
                     ui_status = "IN_REVIEW"
 

@@ -102,6 +102,10 @@ def _processor_status_badge(
             return ProcessorStatusBadge(label="รอ Data Processor แก้ไข", code="DP_NEED_FIX")
         return ProcessorStatusBadge(label="รอตรวจสอบ", code="WAITING_CHECK")
     
+    if has_open_feedback:
+        # DO or DPO rejected
+        return ProcessorStatusBadge(label="DPO แจ้งแก้ไข", code="DPO_REJECTED")
+
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 
 
@@ -162,7 +166,7 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
         )
 
     # Fetch feedbacks related to this processor section
-    feedbacks = (
+    feedbacks_list = (
         db.query(ReviewFeedbackModel)
         .filter(
             ReviewFeedbackModel.target_type == "PROCESSOR_SECTION",
@@ -170,6 +174,36 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
         )
         .all()
     )
+    
+    # Map to list of objects (dictionaries) so we can append DPO comments
+    feedbacks = [ReviewFeedbackOut.model_validate(fb).model_dump() for fb in feedbacks_list]
+
+    # ALSO: Fetch DPO comments for this document that are meant for DP
+    dpo_comms = db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == section.document_id,
+        or_(
+            DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)]),
+            DpoSectionCommentModel.section_key.like("DP_SEC_%")
+        )
+    ).all()
+
+    for comm in dpo_comms:
+        # Map DPO comment to the same structure as ReviewFeedback
+        feedbacks.append({
+            "id": comm.id,
+            "review_cycle_id": comm.review_cycle_id,
+            "section_number": 1, # Placeholder
+            "from_user_id": comm.created_by,
+            "to_user_id": section.processor_id,
+            "target_type": "PROCESSOR_SECTION",
+            "target_id": section.id,
+            "field_name": comm.section_key, # Use key as field name for context
+            "comment": comm.comment,
+            "status": "OPEN",
+            "created_at": comm.created_at,
+            "resolved_at": None,
+            "from_user_name": "DPO Suggestion" # Helpful for UI
+        })
 
     # relationships are now eagerly loaded
     personal_data_items = section.personal_data_items
@@ -489,7 +523,11 @@ def get_assigned_table(
     if doc_ids:
         comms = db.query(DpoSectionCommentModel.document_id).filter(
             DpoSectionCommentModel.document_id.in_(doc_ids),
-            DpoSectionCommentModel.section_key.like("DP_SEC_%")
+            # Support both old DP_SEC_ prefixed keys and new numeric keys (1-6)
+            or_(
+                DpoSectionCommentModel.section_key.like("DP_SEC_%"),
+                DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)])
+            )
         ).all()
         open_dpo_comments_docs = {c.document_id for c in comms}
 
@@ -710,6 +748,7 @@ def submit_processor_section(
     _replace_processor_sub_tables(section.id, payload, db)
 
     section.status = RopaSectionEnum.SUBMITTED
+    section.is_sent = True
     section.updated_by = current_user.id
     
     db.commit()
@@ -736,6 +775,16 @@ def submit_processor_section(
     # และเพื่อให้ DO สามารถประเมินความเสี่ยงต่อได้หากเป็นการแก้ไขเล็กน้อย
     # section.is_sent = False  # ลบการรีเซ็ตออก
     
+    # ALSO: Clear DPO comments for DP sections because the user has fixed them
+    # Keys for DP: "1", "2", "3", "4", "5", "6" (and old DP_SEC_ keys)
+    db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id,
+        or_(
+            DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)]),
+            DpoSectionCommentModel.section_key.like("DP_SEC_%")
+        )
+    ).delete(synchronize_session=False)
+
     db.commit()
     db.refresh(section)
     return _load_processor_section_full(section, db, Role.PROCESSOR)
