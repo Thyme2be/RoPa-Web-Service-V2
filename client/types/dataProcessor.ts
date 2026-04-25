@@ -46,6 +46,7 @@ export interface RopaProcessorRecord {
   storage_methods: ProcessorSubItem[];
 
   data_source_other?: string;
+  storage_methods_other?: string;
   retention_value?: number;
   retention_unit?: string;
   access_condition?: string;

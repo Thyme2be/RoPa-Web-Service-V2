@@ -72,6 +72,7 @@ function DataProcessorFormContent() {
         access_control_measures: "",
         responsibility_measures: "",
         audit_measures: "",
+        storage_methods_other: "",
         suggestions: []
     });
 
@@ -118,32 +119,44 @@ function DataProcessorFormContent() {
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
 
-        // Step 1: General
-        if (!form.controller_name) newErrors.controller_name = "กรุณาระบุชื่อผู้ควบคุมข้อมูล";
-        if (!form.processor_name) newErrors.processor_name = "กรุณาระบุชื่อผู้ประมวลผลข้อมูล";
+        // Step 1: General Info (GeneralInfo component)
         if (!form.title_prefix) newErrors.title_prefix = "กรุณาระบุคำนำหน้า";
         if (!form.first_name) newErrors.first_name = "กรุณาระบุชื่อ";
         if (!form.last_name) newErrors.last_name = "กรุณาระบุนามสกุล";
+        if (!form.email) newErrors.email = "กรุณาระบุอีเมล";
+        if (!form.address) newErrors.address = "กรุณาระบุที่อยู่";
+        if (!form.phone || form.phone.length !== 10) newErrors.phone = "กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก";
 
-        // Step 2: Activity
+        // Step 2: Activity Details (ActivityDetails component)
+        if (!form.controller_name) newErrors.controller_name = "กรุณาระบุชื่อผู้ควบคุมข้อมูล";
+        if (!form.processor_name) newErrors.processor_name = "กรุณาระบุชื่อผู้ประมวลผลข้อมูล";
         if (!form.controller_address) newErrors.controller_address = "กรุณาระบุที่อยู่ผู้ควบคุมข้อมูล";
         if (!form.processing_activity) newErrors.processing_activity = "กรุณาระบุกิจกรรมการประมวลผล";
         if (!form.purpose_of_processing) newErrors.purpose_of_processing = "กรุณาระบุวัตถุประสงค์";
 
-        // Step 3: Stored Info
-        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ข้อมูล";
+        // Step 3: Stored Info (StoredInfo component)
         if (!form.personal_data_items || form.personal_data_items.length === 0) newErrors.personal_data_items = "กรุณาประเภทข้อมูล";
+        if (!form.data_categories || form.data_categories.length === 0) newErrors.data_categories = "กรุณาเลือกหมวดหมู่ข้อมูล";
         if (!form.data_types || form.data_types.length === 0) newErrors.data_types = "กรุณาเลือกประเภทข้อมูล";
 
-        // Step 4: Retention
+        // Step 4: Retention Info (RetentionInfo component)
         if (!form.collection_methods || form.collection_methods.length === 0) newErrors.collection_methods = "กรุณาเลือกวิธีการได้มา";
         if (!form.data_sources || form.data_sources.length === 0) newErrors.data_sources = "กรุณาเลือกแหล่งที่มา";
+        if (!form.storage_types || form.storage_types.length === 0) newErrors.storage_types = "กรุณาเลือกประเภทการจัดเก็บ";
+        if (!form.storage_methods || form.storage_methods.length === 0) newErrors.storage_methods = "กรุณาเลือกวิธีการเก็บรักษา";
         if (!form.retention_value || Number(form.retention_value) <= 0) newErrors.retention_value = "กรุณาระบุระยะเวลา";
-        if (!form.phone || form.phone.length !== 10) newErrors.phone = "กรุณาระบุเบอร์โทรศัพท์ให้ครบ 10 หลัก";
         if (!form.access_condition) newErrors.access_condition = "กรุณาระบุการควบคุมการเข้าถึง";
+        if (!form.deletion_method) newErrors.deletion_method = "กรุณาระบุวิธีการลบหรือทำลายข้อมูล";
 
-        // Step 5: Legal
+        // Step 5: Legal Info (LegalInfo component)
         if (!form.legal_basis) newErrors.legal_basis = "กรุณาระบุฐานการประมวลผล";
+        if (form.has_cross_border_transfer) {
+            if (!form.transfer_country) newErrors.transfer_country = "กรุณาระบุประเทศปลายทาง";
+            if (!form.transfer_company) newErrors.transfer_company = "กรุณาระบุชื่อบริษัทปลายทาง";
+            if (!form.transfer_method) newErrors.transfer_method = "กรุณาระบุวิธีการโอนข้อมูล";
+            if (!form.transfer_protection_standard) newErrors.transfer_protection_standard = "กรุณาระบุมาตรฐานการคุ้มครอง";
+            if (!form.transfer_exception) newErrors.transfer_exception = "กรุณาระบุข้อยกเว้น";
+        }
 
         // Step 6: Security (Optional)
         // All fields in Section 6 are now optional as per request
@@ -279,9 +292,27 @@ function DataProcessorFormContent() {
         // Section 3: Stored Info
         if (form.personal_data_items && form.personal_data_items.length > 0 && form.data_categories && form.data_categories.length > 0 && form.data_types && form.data_types.length > 0) completed.push(3);
         // Section 4: Retention Info
-        if (form.storage_types && form.storage_types.length > 0 && form.storage_methods && form.storage_methods.length > 0 && (form.retention_value || 0) > 0 && form.retention_unit) completed.push(4);
+        const hasCollection = Array.isArray(form.collection_methods) && form.collection_methods.length > 0;
+        const hasSources = Array.isArray(form.data_sources) && form.data_sources.length > 0;
+        const hasStorageTypes = Array.isArray(form.storage_types) && form.storage_types.length > 0;
+        const hasStorageMethods = Array.isArray(form.storage_methods) && form.storage_methods.length > 0;
+        const hasRetentionValue = form.retention_value !== undefined && form.retention_value !== null && Number(form.retention_value) > 0;
+        const hasRetentionUnit = !!form.retention_unit || true; // UI defaults to YEARS if empty
+        const hasAccessCondition = !!form.access_condition?.toString().trim();
+        const hasDeletionMethod = !!form.deletion_method?.toString().trim();
+
+        if (hasCollection && hasSources && hasStorageTypes && hasStorageMethods && hasRetentionValue && hasRetentionUnit && hasAccessCondition && hasDeletionMethod) {
+            completed.push(4);
+        }
         // Section 5: Legal Info
-        const isTransferComplete = form.has_cross_border_transfer === false || (form.has_cross_border_transfer === true && form.transfer_country && form.transfer_method);
+        const isTransferComplete = form.has_cross_border_transfer === false || (
+            form.has_cross_border_transfer === true &&
+            form.transfer_country &&
+            form.transfer_method &&
+            form.transfer_company &&
+            form.transfer_protection_standard &&
+            form.transfer_exception
+        );
         if (form.legal_basis && isTransferComplete) completed.push(5);
         // Section 6: Security Measures
         if (form.org_measures || form.access_control_measures || form.technical_measures || form.responsibility_measures || form.physical_measures || form.audit_measures) completed.push(6);

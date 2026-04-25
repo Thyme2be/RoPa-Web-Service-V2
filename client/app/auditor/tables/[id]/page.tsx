@@ -328,15 +328,7 @@ function AuditorDetailContent() {
                     }));
                 }
 
-                // 2. Fetch DPO comments
-                const commentRes = await fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (commentRes.ok) {
-                    const comments = await commentRes.json();
-                    setDpoComments(comments);
-                }
-
+                // 2. Map processor section ... (comment fetching removed)
             } catch (err: any) {
                 console.error("Fetch detail error:", err);
                 setError(err.message);
@@ -441,8 +433,8 @@ function AuditorDetailContent() {
                             onSubmit={emptyHandler}
                             onCancel={() => setActiveTab("owner")}
                             readOnly={true}
-                            showFeedback={true}
-                            feedbackData={dpoComments}
+                            showFeedback={false}
+                            feedbackData={[]}
                             showViewSections={false}
                         />
 

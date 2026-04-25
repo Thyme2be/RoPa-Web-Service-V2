@@ -94,14 +94,14 @@ export default function DPOTopBar() {
                 )}
 
                 <div className="flex items-center gap-2">
-                    <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
+                    <div className="h-8 w-px bg-neutral-300 mx-2"></div>
 
                     <div className="flex flex-col items-end">
                         <span className="text-xs font-bold text-neutral-900">
                             {user ? `${user.first_name} ${user.last_name}` : "กำลังโหลด..."}
                         </span>
                         <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                            เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล
+                            {user?.role?.toUpperCase() === "AUDITOR" ? "ผู้ตรวจสอบ" : "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"}
                         </span>
                     </div>
                 </div>

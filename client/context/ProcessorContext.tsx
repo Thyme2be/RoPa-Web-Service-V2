@@ -244,6 +244,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
         await withToast(
             (async () => {
                  await processorService.submitProcessorSection(id, payload);
+                 await fetchProcessorAssignedTable(processorAssignedMeta.page, processorAssignedMeta.limit);
                  await refresh();
             })(),
             { loading: 'กำลังส่งข้อมูล...', success: 'ส่งข้อมูลส่วนนี้สำเร็จ!' }
@@ -254,6 +255,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
         await withToast(
             (async () => {
                  await processorService.dispatchProcessorSection(id);
+                 await fetchProcessorAssignedTable(processorAssignedMeta.page, processorAssignedMeta.limit);
                  await refresh();
             })(),
             { loading: 'กำลังส่งข้อมูล...', success: 'ส่งข้อมูลสำเร็จ!' }

@@ -100,6 +100,8 @@ def _processor_status_badge(
     if proc_section and proc_section.status == "SUBMITTED":
         if has_open_feedback:
             return ProcessorStatusBadge(label="รอ Data Processor แก้ไข", code="DP_NEED_FIX")
+        if not proc_section.is_sent:
+            return ProcessorStatusBadge(label="กรอกข้อมูลเสร็จสิ้น (รอส่ง)", code="WAITING_CHECK")
         return ProcessorStatusBadge(label="รอตรวจสอบ", code="WAITING_CHECK")
     
     if has_open_feedback:
@@ -748,7 +750,7 @@ def submit_processor_section(
     _replace_processor_sub_tables(section.id, payload, db)
 
     section.status = RopaSectionEnum.SUBMITTED
-    section.is_sent = True
+    section.is_sent = False
     section.updated_by = current_user.id
     
     db.commit()

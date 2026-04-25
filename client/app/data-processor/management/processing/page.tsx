@@ -422,52 +422,34 @@ export default function ManagementProcessingPage() {
                               )
                             }
                           />
-                          {record.is_sent ? (
-                            <div className="text-[#107C41] p-2">
-                              <ActionIconWithTooltip
-                                icon="send"
-                                disabled={true}
-                                tooltipText={
-                                  record.status?.code ===
-                                    "WAITING_CHECK"
-                                    ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
-                                    : "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
-                                }
-                                buttonClassName={
-                                  record.status?.code === "WAITING_DP"
-                                    ? "text-[#9CA3AF]"
-                                    : "text-[#5F5E5E]"
-                                }
-                                onClick={() =>
-                                  setSubmitConfirm({
-                                    open: true,
-                                    id: record.id,
-                                  })
-                                }
-                              />
-                            </div>
-                          ) : (
+                          <div className={cn("p-2", record.is_sent && "text-[#107C41]")}>
                             <ActionIconWithTooltip
                               icon="send"
                               disabled={
+                                record.is_sent ||
+                                record.status?.code === "CHECK_DONE" ||
                                 record.status?.code === "WAITING_DP" ||
                                 record.status?.code === "DP_NEED_FIX"
                               }
                               tooltipText={
-                                (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
-                                  ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
-                                  : "ส่งข้อมูลให้ Data Owner ตรวจสอบ"
+                                record.is_sent
+                                  ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
+                                  : record.status?.code === "CHECK_DONE"
+                                    ? "ดำเนินการตรวจสอบเสร็จสิ้นแล้ว"
+                                    : (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
+                                      ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
+                                      : "ส่งข้อมูลให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
                               }
-                              buttonClassName={
-                                (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
+                              buttonClassName={cn(
+                                (record.is_sent || record.status?.code === "CHECK_DONE" || record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
                                   ? "text-[#9CA3AF]"
                                   : "text-[#5F5E5E] hover:text-[#00666E]"
-                              }
+                              )}
                               onClick={() =>
                                 setSubmitConfirm({ open: true, id: record.id })
                               }
                             />
-                          )}
+                          </div>
                         </div>
                       </DocumentTableCell>
                     </DocumentTableRow>
