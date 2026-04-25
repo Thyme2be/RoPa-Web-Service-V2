@@ -244,6 +244,7 @@ class FeedbackRead(BaseModel):
     field_name: Optional[str]
     comment: Optional[str]
     status: str
+    from_user_name: Optional[str] = None
     created_at: datetime
     resolved_at: Optional[datetime]
     model_config = {"from_attributes": True}
@@ -252,6 +253,17 @@ class FeedbackRead(BaseModel):
 # =============================================================================
 # Owner Section Full Read (GET /owner/documents/{id}/section)
 # =============================================================================
+
+class DpoSuggestionRead(BaseModel):
+    """Comment จาก DPO ที่ส่งมาถึง DO (DO_SEC_*)"""
+    id: str
+    section: str            # เช่น DO_SEC_1, DO_RISK
+    section_id: str         # เช่น 1, 2, 3, risk
+    comment: Optional[str]
+    reviewer: str
+    date: str
+    status: str
+    role: str
 
 class OwnerSectionFullRead(BaseModel):
     """
@@ -321,7 +333,7 @@ class OwnerSectionFullRead(BaseModel):
     physical_measures: Optional[str] = None
     audit_measures: Optional[str] = None
     document_status: Optional[str] = None
-    suggestions: List[dict] = []
+    suggestions: List[DpoSuggestionRead] = []
 
 
     model_config = {"from_attributes": True}

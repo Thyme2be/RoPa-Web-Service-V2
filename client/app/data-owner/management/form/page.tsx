@@ -135,7 +135,7 @@ function ManagementFormContent() {
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at, reviewer: "Data Owner (ผู้รับผิดชอบข้อมูล)" })).reverse()[0]!] : undefined}
+                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at, reviewer: f.from_user_name || "Data Owner (ผู้รับผิดชอบข้อมูล)" })).reverse()[0]!] : undefined}
                 canReview={viewMode}
                 onReviewClick={() => handleReviewClick(id)}
                 isProcessor={true}

@@ -178,7 +178,7 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
     )
     
     # Map to list of objects (dictionaries) so we can append DPO comments
-    feedbacks = [ReviewFeedbackOut.model_validate(fb).model_dump() for fb in feedbacks_list]
+    feedbacks = [FeedbackRead.model_validate(fb).model_dump() for fb in feedbacks_list]
 
     # ALSO: Fetch DPO comments for this document that are meant for DP
     dpo_comms = db.query(DpoSectionCommentModel).filter(
@@ -190,11 +190,21 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
     ).all()
 
     for comm in dpo_comms:
+        # Extract section number from key like "DP_SEC_1"
+        s_num = 1
+        try:
+            if comm.section_key.startswith("DP_SEC_"):
+                s_num = int(comm.section_key.replace("DP_SEC_", ""))
+            else:
+                s_num = int(comm.section_key)
+        except:
+            pass
+
         # Map DPO comment to the same structure as ReviewFeedback
         feedbacks.append({
             "id": comm.id,
             "review_cycle_id": comm.review_cycle_id,
-            "section_number": 1, # Placeholder
+            "section_number": s_num,
             "from_user_id": comm.created_by,
             "to_user_id": section.processor_id,
             "target_type": "PROCESSOR_SECTION",
@@ -204,7 +214,7 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
             "status": "OPEN",
             "created_at": comm.created_at,
             "resolved_at": None,
-            "from_user_name": "DPO Suggestion" # Helpful for UI
+            "from_user_name": "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)"
         })
 
     # relationships are now eagerly loaded

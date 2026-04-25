@@ -375,9 +375,19 @@ function InProgressTableContent() {
                         </td>
                         <td className="py-4">
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
-                            {doc.review_status === "IN_REVIEW" ||
-                              doc.review_status === "APPROVED" ||
-                              doc.review_status === "CHANGES_REQUESTED" ? (
+                            {doc.review_status === "CHANGES_REQUESTED" ? (
+                              <div className="flex flex-col gap-1">
+                                {doc.owner_status === "edit" && (
+                                  <StatusBadge status="รอส่วนของ Data Owner แก้ไข" />
+                                )}
+                                {doc.processor_status === "edit" && (
+                                  <StatusBadge status="รอส่วนของ Data Processor แก้ไข" />
+                                )}
+                                {!doc.owner_status && !doc.processor_status && (
+                                  <StatusBadge status="รอการแก้ไข" />
+                                )}
+                              </div>
+                            ) : doc.review_status === "IN_REVIEW" || doc.review_status === "APPROVED" ? (
                               <StatusBadge
                                 status={getUIStatus(doc.review_status) as any}
                               />

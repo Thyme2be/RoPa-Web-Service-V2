@@ -35,7 +35,7 @@ export function GenericFilterBar({ children, onClear }: { children: React.ReactN
 }
 
 // 2. Upgraded RoPaStatusType & StatusBadge
-export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์";
+export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์" | "รอส่วนของ Data Owner แก้ไข" | "รอส่วนของ Data Processor แก้ไข" | "รอการแก้ไข";
 
 export function StatusBadge({ status }: { status: RoPaStatusType }) {
     const styles: Record<string, string> = {
@@ -45,6 +45,8 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
         "รอการแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
+        "รอส่วนของ Data Owner แก้ไข": "bg-[#EF4444] text-white",    // Red
+        "รอส่วนของ Data Processor แก้ไข": "bg-[#EF4444] text-white", // Red
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
         "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)

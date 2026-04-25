@@ -232,7 +232,7 @@ def _load_owner_section_full(
     ds_direct = "direct" in src_list
     ds_indirect = "indirect" in src_list
 
-    return OwnerSectionFullRead(
+    res = OwnerSectionFullRead(
         id=section.id,
         document_id=section.document_id,
         owner_id=section.owner_id,
@@ -285,30 +285,29 @@ def _load_owner_section_full(
         physical_measures=section.physical_measures,
         audit_measures=section.audit_measures,
         document_status=doc_status,
-        feedbacks=[], # Default
+        suggestions=[], 
     )
     
     # Fetch DPO comments for this document that are meant for DO
     dpo_comms = db.query(DpoSectionCommentModel).filter(
         DpoSectionCommentModel.document_id == section.document_id,
         or_(
-            DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7", "risk"]),
+            DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7", "risk", "DO_RISK"]),
             DpoSectionCommentModel.section_key.like("DO_SEC_%")
         )
     ).all()
 
     for comm in dpo_comms:
         # Map DPO comment to the structure expected by the frontend 'suggestions' array
-        # Use section_key as section_id if it's numeric, otherwise map 'risk'
         s_id = comm.section_key
-        if s_id == "risk":
-            # For Risk Assessment, we map to a special ID or keep as 'risk' 
-            # The frontend ManagementFormContent uses 'DO_RISK' or 'risk'
+        if s_id.startswith("DO_SEC_"):
+            s_id = s_id.replace("DO_SEC_", "")
+        elif s_id == "DO_RISK":
             s_id = "risk"
         
         res.suggestions.append({
             "id": str(comm.id),
-            "section": "DO_RISK" if comm.section_key == "risk" else f"DO_SEC_{comm.section_key}",
+            "section": "DO_RISK" if comm.section_key == "risk" or comm.section_key == "DO_RISK" else (comm.section_key if comm.section_key.startswith("DO_SEC_") else f"DO_SEC_{comm.section_key}"),
             "section_id": s_id, 
             "comment": comm.comment,
             "reviewer": "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)",
@@ -425,9 +424,13 @@ def _owner_status_badge(
     last_cycle_status: Optional[str] = None,
 ) -> OwnerStatusBadge:
     if last_cycle_status == "CHANGES_REQUESTED":
-        return OwnerStatusBadge(label="รอส่วนของ Data Owner แก้ไข", code="DPO_REJECTED")
+        # Only show "Waiting for fix" if the status was reset to DRAFT
+        if owner_section and getattr(owner_section.status, "value", owner_section.status) == "DRAFT":
+            return OwnerStatusBadge(label="รอส่วนของ Data Owner แก้ไข", code="DPO_REJECTED")
+        elif owner_section and getattr(owner_section.status, "value", owner_section.status) == "SUBMITTED":
+            return OwnerStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
 
-    if owner_section and owner_section.status == RopaSectionEnum.SUBMITTED:
+    if owner_section and getattr(owner_section.status, "value", owner_section.status) == "SUBMITTED":
         return OwnerStatusBadge(label="Data Owner ดำเนินการเสร็จสิ้น", code="DO_DONE")
     return OwnerStatusBadge(label="รอส่วนของ Data Owner", code="WAITING_DO")
 
@@ -450,10 +453,12 @@ def _processor_status_badge(
     # However, to be consistent with _owner_status_badge, we should ideally check cycle status
     if last_cycle_status == "CHANGES_REQUESTED":
         # Check if the processor section is in DRAFT mode (which we set on rejection)
-        if processor_section and processor_section.status == RopaSectionEnum.DRAFT:
+        if processor_section and getattr(processor_section.status, "value", processor_section.status) == "DRAFT":
              return ProcessorStatusBadge(label="รอส่วนของ Data Processor แก้ไข", code="DPO_REJECTED")
+        elif processor_section and processor_section.is_sent and getattr(processor_section.status, "value", processor_section.status) == "SUBMITTED":
+            return ProcessorStatusBadge(label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE")
 
-    if processor_section and processor_section.is_sent and processor_section.status == RopaSectionEnum.SUBMITTED:
+    if processor_section and processor_section.is_sent and getattr(processor_section.status, "value", processor_section.status) == "SUBMITTED":
         return ProcessorStatusBadge(
             label="Data Processor ดำเนินการเสร็จสิ้น", code="DP_DONE"
         )
@@ -2039,8 +2044,9 @@ def get_processor_section_for_owner(
         raise HTTPException(status_code=404, detail="ไม่พบ Processor Section")
 
     try:
-        # Use standardized helper with Role.OWNER to handle is_sent isolation
-        return _load_processor_section_full(section, db, Role.OWNER)
+        # Use actual user role: DPO should see full data, OWNER gets is_sent isolation
+        requester_role = Role(current_user.role) if current_user.role in [r.value for r in Role] else Role.OWNER
+        return _load_processor_section_full(section, db, requester_role)
     except Exception as e:
         logger.error(
             f"Error loading processor section for owner: {str(e)}", exc_info=True

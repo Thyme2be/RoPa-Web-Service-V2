@@ -1429,6 +1429,36 @@ def list_dpo_documents(
         status_enum_val = str(getattr(cycle.status, "value", cycle.status))
         reviewed_dt = cycle.reviewed_at if status_enum_val != "IN_REVIEW" else None
 
+        # Determine owner_status and processor_status based on DPO comments
+        owner_status = None
+        processor_status = None
+        
+        if status_enum_val == "CHANGES_REQUESTED":
+            # Check for DO comments (starts with DO_ or is risk/DO_RISK)
+            has_do_comments = db.query(exists().where(
+                and_(
+                    DpoSectionCommentModel.document_id == doc.id,
+                    or_(
+                        DpoSectionCommentModel.section_key.like("DO_%"),
+                        DpoSectionCommentModel.section_key == "risk",
+                        DpoSectionCommentModel.section_key == "DO_RISK"
+                    )
+                )
+            )).scalar()
+            
+            # Check for DP comments (starts with DP_)
+            has_dp_comments = db.query(exists().where(
+                and_(
+                    DpoSectionCommentModel.document_id == doc.id,
+                    DpoSectionCommentModel.section_key.like("DP_%")
+                )
+            )).scalar()
+            
+            if has_do_comments:
+                owner_status = "edit"
+            if has_dp_comments:
+                processor_status = "edit"
+
         items.append(
             DpoDocumentTableItem(
                 document_id=doc_code,
@@ -1442,6 +1472,8 @@ def list_dpo_documents(
                     processor_completed=processor_completed,
                 ),
                 review_status=status_enum_val,
+                owner_status=owner_status,
+                processor_status=processor_status,
             )
         )
 
