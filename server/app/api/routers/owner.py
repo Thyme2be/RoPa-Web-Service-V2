@@ -1179,11 +1179,11 @@ def _table2_ui_status_optimized(
             for c in comments
         )
         if has_do_comment:
-            return "WAITING_DO_FIX", "รอ DO แก้ไข"
+            return "WAITING_DO_FIX", "รอส่วนของ Data Owner แก้ไข"
 
         has_dp_comment = any(c.section_key.startswith("DP_SEC_") for c in comments)
         if has_dp_comment:
-            return "WAITING_DP_FIX", "รอ DP แก้ไข"
+            return "WAITING_DP_FIX", "รอส่วนของ Data Processor แก้ไข"
 
     # ReviewAssignment ของ DO ในรอบนี้
     owner_review_assignment = (

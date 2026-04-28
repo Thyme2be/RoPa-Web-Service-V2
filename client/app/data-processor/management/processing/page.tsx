@@ -148,7 +148,7 @@ export default function ManagementProcessingPage() {
 
   const assignedRecords = processorAssignedRecords;
   const draftRecords = processorSnapshots;
-  
+
   const filteredDrafts = draftRecords.filter((record) => {
     if (debouncedSearch) {
       const searchLower = debouncedSearch.toLowerCase();
@@ -245,10 +245,10 @@ export default function ManagementProcessingPage() {
       <div className="flex min-h-screen bg-[#F6F3F2]">
         <Sidebar />
         <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
-          <ErrorState 
-            title="ไม่สามารถโหลดข้อมูลงานที่มอบหมายได้" 
-            description={error} 
-            onRetry={() => { clearError(); refresh(); }} 
+          <ErrorState
+            title="ไม่สามารถโหลดข้อมูลงานที่มอบหมายได้"
+            description={error}
+            onRetry={() => { clearError(); refresh(); }}
             isTable={false}
           />
         </main>
@@ -409,8 +409,8 @@ export default function ManagementProcessingPage() {
                               <ActionIconWithTooltip
                                 icon="send"
                                 disabled={false}
-                                tooltipText="ส่งให้ผู้รับผิดชอบข้อมูล (Data Owner)"
-                                buttonClassName="text-[#ED393C] hover:scale-110 transition-transform"
+                                tooltipText="ส่งให้ผู้รับผิดชอบข้อมูล"
+                                buttonClassName="text-[#5F5E5E] hover:text-[#00666E]"
                                 onClick={() =>
                                   setSubmitConfirm({
                                     open: true,

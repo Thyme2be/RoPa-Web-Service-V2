@@ -188,10 +188,10 @@ export default function RopaSubmittedPage() {
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
                                                     <ActionIconWithTooltip
-                                                        icon="visibility"
-                                                        tooltipText="ดูเอกสาร"
+                                                        icon={record.ui_status === "WAITING_DO_FIX" ? "edit_square" : "visibility"}
+                                                        tooltipText={record.ui_status === "WAITING_DO_FIX" ? "แก้ไขข้อมูลเอกสาร" : "ดูเอกสาร"}
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=${record.ui_status === "WAITING_DO_FIX" ? "edit" : "view"}`)}
                                                     />
 
                                                     {/* ปุ่มส่งคืน: ปรากฏเมื่อสถานะเป็นรอการส่งคืน (หลังจากแก้ไขแล้ว หรือมีเงื่อนไขพร้อมส่ง) */}

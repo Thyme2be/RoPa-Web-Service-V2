@@ -99,12 +99,12 @@ def _processor_status_badge(
     
     if proc_section and proc_section.status == "SUBMITTED":
         if has_open_feedback:
-            return ProcessorStatusBadge(label="รอ Data Processor แก้ไข", code="DP_NEED_FIX")
+            return ProcessorStatusBadge(label="รอส่วนของ Data Processor แก้ไข", code="DP_NEED_FIX")
         return ProcessorStatusBadge(label="รอตรวจสอบ", code="WAITING_CHECK")
     
     if has_open_feedback:
         # DO or DPO rejected
-        return ProcessorStatusBadge(label="DPO แจ้งแก้ไข", code="DPO_REJECTED")
+        return ProcessorStatusBadge(label="รอส่วนของ Data Processor แก้ไข", code="DPO_REJECTED")
 
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 

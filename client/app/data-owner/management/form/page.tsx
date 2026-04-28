@@ -179,7 +179,9 @@ function ManagementFormContent() {
         workflow: "processing",
     });
 
-    const isWaitingDpoApproval = form.document_status === RopaStatus.UNDER_REVIEW || form.document_status === RopaStatus.COMPLETED;
+    const isWaitingDpoApproval = 
+        (form.document_status === RopaStatus.UNDER_REVIEW || form.document_status === RopaStatus.COMPLETED) && 
+        !form.suggestions?.some(s => s.section && s.section.startsWith("DO_"));
 
     const isLockedByDeletion = form.deletion_status === "DELETE_PENDING";
     const effectiveIsLocked = isLocked || isLockedByDeletion || isWaitingDpoApproval;

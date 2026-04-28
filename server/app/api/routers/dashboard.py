@@ -1851,8 +1851,8 @@ def save_document_comments(
                 if doc.document_number and doc.document_number.startswith("DFT-"):
                     doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
             else:
-                # CHANGES_REQUESTED -> Move back to Table 1 (Active/Processing)
-                doc.status = "IN_PROGRESS"
+                # CHANGES_REQUESTED -> Keep in Table 2 (UNDER_REVIEW) but allow editing
+                # doc.status = "IN_PROGRESS" # Removed: Keep as UNDER_REVIEW
                 
                 # ALSO reset the specific section status to DRAFT so they can edit
                 if group == "DO":
@@ -1864,7 +1864,7 @@ def save_document_comments(
                     proc_sec = db.query(RopaProcessorSectionModel).filter(RopaProcessorSectionModel.document_id == document_id).first()
                     if proc_sec:
                         proc_sec.status = "DRAFT"
-                        proc_sec.is_sent = False # Force send back to DO workflow
+                        proc_sec.is_sent = True # Keep is_sent=True so DO can see it while DP is fixing
                         db.add(proc_sec)
 
             db.add(doc)
