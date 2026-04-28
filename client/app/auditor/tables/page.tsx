@@ -73,8 +73,30 @@ function AuditorTableContent() {
       if (!response.ok) throw new Error("ไม่สามารถดึงข้อมูลเอกสารได้");
 
       const data = await response.json();
-      setDocuments(data.items || []);
-      setTotalItems(data.total || 0);
+      const rawItems = data.items || [];
+      // Guard against duplicated document rows from backend joins.
+      const dedupedItems = Object.values(
+        rawItems.reduce((acc: Record<string, any>, item: any) => {
+          const key = String(item.raw_document_id || item.document_id || "");
+          const prev = acc[key];
+          if (!prev) {
+            acc[key] = item;
+            return acc;
+          }
+          const prevTs = new Date(
+            prev.received_date || prev.review_date || 0,
+          ).getTime();
+          const curTs = new Date(
+            item.received_date || item.review_date || 0,
+          ).getTime();
+          if (curTs >= prevTs) {
+            acc[key] = item;
+          }
+          return acc;
+        }, {}),
+      );
+      setDocuments(dedupedItems);
+      setTotalItems(dedupedItems.length);
     } catch (err: any) {
       console.error("Fetch error:", err);
       setError(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
@@ -222,9 +244,9 @@ function AuditorTableContent() {
                       </td>
                     </tr>
                   ) : documents.length > 0 ? (
-                    documents.map((doc) => (
+                    documents.map((doc, index) => (
                       <tr
-                        key={doc.raw_document_id}
+                        key={`${doc.raw_document_id}-${doc.assignment_id || "na"}-${index}`}
                         className="hover:bg-gray-50 transition-colors group"
                       >
                         <td className="py-4 text-[13.5px] font-medium text-left pl-4">
@@ -254,7 +276,7 @@ function AuditorTableContent() {
                         <td className="py-4">
                           <div className="flex justify-center py-1">
                             <StatusBadge
-                              status={getUIStatus(doc.status) as any}
+                              status={getUIStatus(doc.status)}
                             />
                           </div>
                         </td>

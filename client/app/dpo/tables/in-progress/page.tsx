@@ -1,22 +1,25 @@
 "use client";
 import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ListCard,
   Pagination,
   GenericFilterBar,
   StatusBadge,
+  ActionIconWithTooltip,
 } from "@/components/ropa/RopaListComponents";
+import type { RoPaStatusType } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
+import ErrorState from "@/components/ui/ErrorState";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
-import { cn } from "@/lib/utils";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function InProgressTableContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const globalSearchQuery = searchParams.get("search") || "";
 
@@ -31,6 +34,23 @@ function InProgressTableContent() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
   const ITEMS_PER_PAGE = 3;
+  const WAIT_DO = "รอส่วนของ Data Owner แก้ไข" as const;
+  const WAIT_DP = "รอส่วนของ Data Processor แก้ไข" as const;
+  const DONE_DO = "Data Owner ดำเนินการเสร็จสิ้น" as const;
+  const DONE_DP = "Data Processor ดำเนินการเสร็จสิ้น" as const;
+
+  const getParticipantStatuses = (doc: any) => {
+    if (doc.review_status === "CHANGES_REQUESTED") {
+      return {
+        owner: doc.owner_status === "edit" ? WAIT_DO : DONE_DO,
+        processor: doc.processor_status === "edit" ? WAIT_DP : DONE_DP,
+      };
+    }
+    return {
+      owner: DONE_DO,
+      processor: DONE_DP,
+    };
+  };
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -100,7 +120,7 @@ function InProgressTableContent() {
     });
   };
 
-  const getUIStatus = (apiStatus: string) => {
+  const getUIStatus = (apiStatus: string): RoPaStatusType => {
     switch (apiStatus) {
       case "IN_REVIEW":
         return "รอตรวจสอบ";
@@ -116,44 +136,8 @@ function InProgressTableContent() {
       case "PENDING":
         return "ยังไม่ได้ตรวจสอบ";
       default:
-        return apiStatus;
-    }
-  };
-
-  const getDisplayStatus = (apiStatus: string) => {
-    switch (apiStatus) {
-      case "IN_REVIEW":
         return "รอตรวจสอบ";
-      case "ACTION_REQUIRED_DO":
-        return "รอส่วนของ Data Owner แก้ไข";
-      case "ACTION_REQUIRED_DP":
-        return "รอส่วนของ Data Processor แก้ไข";
-      case "APPROVED":
-        return "ตรวจสอบเสร็จสิ้น";
-      default:
-        return "ยังไม่ได้ตรวจสอบ";
     }
-  };
-
-  const getStatusType = (apiStatus: string) => {
-    switch (apiStatus) {
-      case "IN_REVIEW":
-        return "waiting";
-      case "ACTION_REQUIRED_DO":
-        return "edit";
-      case "ACTION_REQUIRED_DP":
-        return "edit";
-      case "APPROVED":
-        return "success";
-      default:
-        return "draft";
-    }
-  };
-
-  const getPairedBadgeColor = (status: string) => {
-    if (status === "done") return "bg-[#228B15] text-white";
-    if (status === "edit") return "bg-[#ED393C] text-white";
-    return "bg-gray-200 text-gray-700";
   };
 
   const tooltipContent = (
@@ -187,6 +171,19 @@ function InProgressTableContent() {
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const filteredDocuments = documents.filter((doc) => {
+    const statuses = getParticipantStatuses(doc);
+    if (selectedStatus === "Data Owner ดำเนินการเสร็จสิ้น") {
+      return statuses.owner === DONE_DO;
+    }
+    if (selectedStatus === "Data Processor ดำเนินการเสร็จสิ้น") {
+      return statuses.processor === DONE_DP;
+    }
+    if (selectedStatus === "ดำเนินการเสร็จสิ้นทั้งสองฝ่าย") {
+      return statuses.owner === DONE_DO && statuses.processor === DONE_DP;
+    }
+    return true;
+  });
 
   const [isSubmittingAssignment, setIsSubmittingAssignment] = useState(false);
 
@@ -222,12 +219,12 @@ function InProgressTableContent() {
         throw new Error(errData.detail || "Failed to assign auditor");
       }
 
-      alert("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
+      toast.success("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
       setIsSendModalOpen(false);
       fetchDocuments(); // Refresh list
     } catch (err: any) {
       console.error("Assign auditor error:", err);
-      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+      toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmittingAssignment(false);
     }
@@ -274,6 +271,9 @@ function InProgressTableContent() {
                   value: "รอส่วนของ Data Processor แก้ไข",
                 },
                 { label: "ตรวจสอบเสร็จสิ้น", value: "ตรวจสอบเสร็จสิ้น" },
+                  { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "Data Owner ดำเนินการเสร็จสิ้น" },
+                  { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "Data Processor ดำเนินการเสร็จสิ้น" },
+                  { label: "ดำเนินการเสร็จสิ้นทั้งสองฝ่าย", value: "ดำเนินการเสร็จสิ้นทั้งสองฝ่าย" },
               ]}
               containerClassName="!w-full"
             />
@@ -340,19 +340,16 @@ function InProgressTableContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E2E1]/10">
-                  {loading ? (
-                    <TableLoading colSpan={6} />
-                  ) : error ? (
-                    <tr key={"error"}>
-                      <td
+                  {(() => {
+                    if (loading) return <TableLoading colSpan={6} />;
+                    if (error) return (
+                      <ErrorState
                         colSpan={6}
-                        className="py-12 text-center text-[#ED393C] font-black"
-                      >
-                        {error}
-                      </td>
-                    </tr>
-                  ) : documents.length > 0 ? (
-                    documents.map((doc) => (
+                        description={error}
+                        onRetry={fetchDocuments}
+                      />
+                    );
+                    if (filteredDocuments.length > 0) return filteredDocuments.map((doc) => (
                       <tr
                         key={doc.raw_document_id}
                         className="hover:bg-gray-50 transition-colors group"
@@ -377,89 +374,89 @@ function InProgressTableContent() {
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
                             {doc.review_status === "CHANGES_REQUESTED" ? (
                               <div className="flex flex-col gap-1">
-                                {doc.owner_status === "edit" && (
-                                  <StatusBadge status="รอส่วนของ Data Owner แก้ไข" />
-                                )}
-                                {doc.processor_status === "edit" && (
-                                  <StatusBadge status="รอส่วนของ Data Processor แก้ไข" />
-                                )}
-                                {!doc.owner_status && !doc.processor_status && (
-                                  <StatusBadge status="รอการแก้ไข" />
-                                )}
+                                <StatusBadge
+                                  status={
+                                    doc.owner_status === "edit"
+                                      ? WAIT_DO
+                                      : DONE_DO
+                                  }
+                                />
+                                <StatusBadge
+                                  status={
+                                    doc.processor_status === "edit"
+                                      ? WAIT_DP
+                                      : DONE_DP
+                                  }
+                                />
                               </div>
                             ) : doc.review_status === "IN_REVIEW" || doc.review_status === "APPROVED" ? (
                               <StatusBadge
-                                status={getUIStatus(doc.review_status) as any}
+                                status={getUIStatus(doc.review_status)}
                               />
                             ) : (
                               <div className="flex flex-col gap-1">
-                                <span
-                                  className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.owner_status)} shadow-sm`}
-                                >
-                                  {doc.owner_status === "done"
-                                    ? "Data Owner ดำเนินการเสร็จสิ้น"
-                                    : "รอส่วนของ Data Owner"}
-                                </span>
-                                <span
-                                  className={`px-3 py-1 rounded-lg text-[10px] font-black inline-block text-center min-w-[180px] ${getPairedBadgeColor(doc.processor_status)} shadow-sm`}
-                                >
-                                  {doc.processor_status === "done"
-                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
-                                    : "รอส่วนของ Data Processor"}
-                                </span>
+                                <StatusBadge
+                                  status={
+                                    doc.owner_status === "done"
+                                      ? "เสร็จสมบูรณ์"
+                                      : "รอส่วนของ Data Owner แก้ไข"
+                                  }
+                                />
+                                <StatusBadge
+                                  status={
+                                    doc.processor_status === "done"
+                                      ? "เสร็จสมบูรณ์"
+                                      : "รอส่วนของ Data Processor แก้ไข"
+                                  }
+                                />
                               </div>
                             )}
                           </div>
                         </td>
                         <td className="py-4">
                           <div className="flex justify-center gap-3">
-                            <Link
-                              href={`/dpo/tables/in-progress/${doc.raw_document_id}`}
-                              title="ดูรายละเอียดและส่งข้อเสนอแนะ"
-                              className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
-                            >
-                              <span
-                                className="material-symbols-outlined text-[20px]"
-                                style={{ fontVariationSettings: "'FILL' 0" }}
-                              >
-                                comment
-                              </span>
-                            </Link>
-                            <button
+                            <ActionIconWithTooltip
+                              icon="comment"
+                              tooltipText="ดูรายละเอียดและส่งข้อเสนอแนะ"
+                              buttonClassName="text-[#5C403D]"
+                              onClick={() =>
+                                router.push(
+                                  `/dpo/tables/in-progress/${doc.raw_document_id}`,
+                                )
+                              }
+                            />
+                            <ActionIconWithTooltip
+                              icon="send"
                               disabled={doc.review_status !== "APPROVED"}
+                              tooltipText={
+                                doc.review_status === "APPROVED"
+                                  ? "ส่งให้ผู้ตรวจสอบ"
+                                  : "ต้องตรวจสอบให้เสร็จสิ้นก่อนส่ง"
+                              }
+                              buttonClassName={
+                                doc.review_status === "APPROVED"
+                                  ? "text-[#5C403D]"
+                                  : "text-gray-400 cursor-not-allowed"
+                              }
                               onClick={() => {
                                 setSelectedDocId(doc.raw_document_id);
                                 setIsSendModalOpen(true);
                               }}
-                              title={doc.review_status === "APPROVED" ? "ส่งให้ผู้ตรวจสอบ" : "ต้องตรวจสอบให้เสร็จสิ้นก่อนส่ง"}
-                              className={cn(
-                                "w-9 h-9 rounded-full flex items-center justify-center transition-all",
-                                doc.review_status === "APPROVED"
-                                  ? "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]/60 cursor-pointer"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
-                              )}
-                            >
-                              <span
-                                className="material-symbols-outlined text-[20px]"
-                                style={{ fontVariationSettings: "'FILL' 0" }}
-                              >
-                                send
-                              </span>
-                            </button>
+                            />
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="py-12 text-center text-[#5F5E5E] opacity-60 font-medium"
-                      >
-                        ไม่พบข้อมูลที่ค้นหา
-                      </td>
-                    </tr>
-                  )}
+                    ));
+                    return (
+                      <tr className="animate-in fade-in duration-500">
+                        <td colSpan={6} align="center">
+                          <span className="text-[#9CA3AF] font-bold py-10 block">
+                            ไม่พบเอกสารที่อยู่ระหว่างตรวจสอบ
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
 
@@ -500,7 +497,12 @@ function InProgressTableContent() {
 
 export default function InProgressPage() {
   return (
-    <Suspense fallback={<div className="p-8">กำลังโหลด...</div>}>
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="w-12 h-12 border-4 border-[#ED393C]/10 border-t-[#ED393C] rounded-full animate-spin"></div>
+        <p className="text-[15px] font-bold text-[#5F5E5E] animate-pulse">กำลังโหลดหน้าเอกสาร...</p>
+      </div>
+    }>
       <InProgressTableContent />
     </Suspense>
   );

@@ -24,7 +24,7 @@ export default function RopaSelectionPage() {
                 <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex items-center justify-center p-10">
                     <ErrorState
                         title="ไม่สามารถโหลดข้อมูลได้"
-                        message={error}
+                        description={error}
                         onRetry={() => { clearError(); refresh(); }}
                     />
                 </main>

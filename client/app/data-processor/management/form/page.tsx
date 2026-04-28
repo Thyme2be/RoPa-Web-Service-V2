@@ -18,6 +18,7 @@ import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useProcessor } from "@/context/ProcessorContext";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 function DataProcessorFormContent() {
     const router = useRouter();
@@ -78,6 +79,15 @@ function DataProcessorFormContent() {
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    const getLatestSuggestions = (items: any[] = [], limit = 1) =>
+        [...items]
+            .sort((a, b) => {
+                const aTime = new Date(a?.created_at || a?.date || 0).getTime();
+                const bTime = new Date(b?.created_at || b?.date || 0).getTime();
+                return bTime - aTime;
+            })
+            .slice(0, limit);
+
     // Load existing record or snapshot
     useEffect(() => {
         let isMounted = true;
@@ -85,17 +95,35 @@ function DataProcessorFormContent() {
         const loadFullRecord = async () => {
             if (snapshotId) {
                 setIsLoadingFull(true);
-                const snapshotData = await fetchProcessorSnapshot(snapshotId);
-                if (snapshotData && isMounted) {
-                    setForm(prev => ({ ...prev, ...snapshotData }));
-                    setIsLocked(false); // Snapshots are typically loaded for editing
+                try {
+                    const snapshotData = await fetchProcessorSnapshot(snapshotId);
+                    if (snapshotData && isMounted) {
+                        setForm(prev => ({ ...prev, ...snapshotData }));
+                        setIsLocked(false); // Snapshots are typically loaded for editing
+                    } else if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลฉบับร่างได้");
+                    }
+                } catch (error) {
+                    console.warn("Failed to load processor snapshot:", error);
+                    if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลฉบับร่างได้");
+                    }
                 }
                 setIsLoadingFull(false);
             } else if (recordId) {
                 setIsLoadingFull(true);
-                const fullRecord = await fetchFullProcessorRecord(recordId);
-                if (fullRecord && isMounted) {
-                    setForm(prev => ({ ...prev, ...fullRecord }));
+                try {
+                    const fullRecord = await fetchFullProcessorRecord(recordId);
+                    if (fullRecord && isMounted) {
+                        setForm(prev => ({ ...prev, ...fullRecord }));
+                    } else if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลเอกสารได้");
+                    }
+                } catch (error) {
+                    console.warn("Failed to load processor record:", error);
+                    if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลเอกสารได้");
+                    }
                 }
                 setIsLoadingFull(false);
             }
@@ -174,7 +202,7 @@ function DataProcessorFormContent() {
                     element.scrollIntoView({ behavior: "smooth", block: "center" });
                 } else {
                     // Fallback alert if element not found in DOM
-                    alert(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
+                    toast.error(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
                 }
             }, 100);
 
@@ -190,7 +218,7 @@ function DataProcessorFormContent() {
             setIsDraftSuccessOpen(true);
         } catch (error) {
             console.error("Save draft failed:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSaving(false);
         }
@@ -220,7 +248,7 @@ function DataProcessorFormContent() {
             router.push("/data-processor/management/processing");
         } catch (error) {
             console.error("Submit failed:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmitting(false);
         }
@@ -305,15 +333,17 @@ function DataProcessorFormContent() {
             completed.push(4);
         }
         // Section 5: Legal Info
-        const isTransferComplete = form.has_cross_border_transfer === false || (
-            form.has_cross_border_transfer === true &&
+        // Treat undefined/null as "no transfer" for view mode data compatibility.
+        // Only require transfer detail fields when user explicitly selected true.
+        const hasCrossBorderTransfer = form.has_cross_border_transfer === true;
+        const isTransferComplete = !hasCrossBorderTransfer || (
             form.transfer_country &&
             form.transfer_method &&
             form.transfer_company &&
             form.transfer_protection_standard &&
             form.transfer_exception
         );
-        if (form.legal_basis && isTransferComplete) completed.push(5);
+        if (form.legal_basis?.toString().trim() && isTransferComplete) completed.push(5);
         // Section 6: Security Measures
         if (form.org_measures || form.access_control_measures || form.technical_measures || form.responsibility_measures || form.physical_measures || form.audit_measures) completed.push(6);
         return completed;
@@ -374,6 +404,7 @@ function DataProcessorFormContent() {
                                     // key is format like dp-1, dp-2 ...
                                     const sectionNo = parseInt(id.replace("dp-", ""), 10);
                                     const sectionFeedbacks = form.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
+                                    const latestFeedbacks = getLatestSuggestions(sectionFeedbacks, 1);
                                     
                                     return (
                                         <InlineFeedbackWrapper
@@ -382,7 +413,7 @@ function DataProcessorFormContent() {
                                             isDraftingFeedback={false}
                                             onFeedbackChange={() => { }}
                                             feedbackText=""
-                                            existingSuggestions={sectionFeedbacks.map((f: any) => ({
+                                            existingSuggestions={latestFeedbacks.map((f: any) => ({
                                                 text: f.comment,
                                                 date: f.created_at
                                             }))}
@@ -413,7 +444,7 @@ function DataProcessorFormContent() {
                 <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/50 p-6 px-10 flex items-center justify-between z-40">
                     <div className={cn("flex items-center justify-between w-full", isLocked ? "justify-center gap-4" : "")}>
                         <button
-                            onClick={() => router.back()}
+                            onClick={() => router.push("/data-processor/management/processing")}
                             className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                         >
                             {isLocked ? "กลับ" : "ยกเลิก"}

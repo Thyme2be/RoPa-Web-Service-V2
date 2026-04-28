@@ -80,6 +80,28 @@ from app.schemas.dpo_comment import DpoCommentBulkRequest, DpoCommentRead
 router = APIRouter()
 
 
+_TITLE_PREFIX_VALUES = {"นาย", "นาง", "นางสาว", "mr", "mrs", "ms", "miss", "dr"}
+
+
+def _resolve_document_title(doc: RopaDocumentModel, owner_sec: Optional[RopaOwnerSectionModel]) -> str:
+    raw_title = (doc.title or "").strip()
+    normalized = raw_title.lower().replace(".", "")
+
+    owner_prefix = ""
+    if owner_sec and owner_sec.title_prefix:
+        owner_prefix = owner_sec.title_prefix.strip().lower().replace(".", "")
+
+    # Source-of-truth is the document title entered by DO.
+    # Fallback to owner section fields only when title is clearly just a prefix.
+    if raw_title and normalized not in _TITLE_PREFIX_VALUES and normalized != owner_prefix:
+        return raw_title
+    if owner_sec and owner_sec.processing_activity and owner_sec.processing_activity.strip():
+        return owner_sec.processing_activity.strip()
+    if owner_sec and owner_sec.purpose_of_processing and owner_sec.purpose_of_processing.strip():
+        return owner_sec.purpose_of_processing.strip()
+    return raw_title or "ไม่มีชื่อเอกสาร"
+
+
 @router.get(
     "/dashboard",
     response_model=AdminDashboardResponse,
@@ -1400,12 +1422,6 @@ def list_dpo_documents(
             assignment = row.AuditorAssignmentModel
             assigned_at = assignment.created_at
 
-        doc_code = f"RP-{doc_year}-{doc_number:02d}"
-        display_title = f"{doc_code} {doc.title or 'ไม่มีชื่อเอกสาร'}"
-
-        full_name = filter(None, [user.title, user.first_name, user.last_name])
-        data_owner_name = " ".join(full_name) or "ไม่ระบุ"
-
         owner_sec = (
             db.query(RopaOwnerSectionModel)
             .filter(RopaOwnerSectionModel.document_id == doc.id)
@@ -1416,6 +1432,13 @@ def list_dpo_documents(
             .filter(RopaProcessorSectionModel.document_id == doc.id)
             .first()
         )
+
+        resolved_title = _resolve_document_title(doc, owner_sec)
+        doc_code = f"RP-{doc_year}-{doc_number:02d}"
+        display_title = f"{doc_code} {resolved_title}"
+
+        full_name = filter(None, [user.title, user.first_name, user.last_name])
+        data_owner_name = " ".join(full_name) or "ไม่ระบุ"
 
         owner_completed = bool(
             owner_sec
@@ -1438,6 +1461,7 @@ def list_dpo_documents(
             has_do_comments = db.query(exists().where(
                 and_(
                     DpoSectionCommentModel.document_id == doc.id,
+                    DpoSectionCommentModel.status == "OPEN",
                     or_(
                         DpoSectionCommentModel.section_key.like("DO_%"),
                         DpoSectionCommentModel.section_key == "risk",
@@ -1450,6 +1474,7 @@ def list_dpo_documents(
             has_dp_comments = db.query(exists().where(
                 and_(
                     DpoSectionCommentModel.document_id == doc.id,
+                    DpoSectionCommentModel.status == "OPEN",
                     DpoSectionCommentModel.section_key.like("DP_%")
                 )
             )).scalar()
@@ -1664,6 +1689,22 @@ def list_dpo_auditor_assignments(
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
+    owner_user = aliased(UserModel)
+    latest_auditor_assignment_sub = (
+        db.query(
+            AuditorAssignmentModel.id.label("assignment_id"),
+            AuditorAssignmentModel.document_id.label("document_id"),
+            func.row_number()
+            .over(
+                partition_by=AuditorAssignmentModel.document_id,
+                order_by=AuditorAssignmentModel.created_at.desc(),
+            )
+            .label("rn"),
+        )
+        .filter(AuditorAssignmentModel.assigned_by == current_user.id)
+        .subquery()
+    )
+
     # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
     doc_seq_subquery = db.query(
         RopaDocumentModel.id.label("doc_id"),
@@ -1681,6 +1722,7 @@ def list_dpo_auditor_assignments(
             AuditorAssignmentModel,
             RopaDocumentModel,
             UserModel,
+            owner_user,
             doc_seq_subquery.c.doc_year,
             doc_seq_subquery.c.doc_number,
         )
@@ -1689,7 +1731,15 @@ def list_dpo_auditor_assignments(
             AuditorAssignmentModel.document_id == RopaDocumentModel.id,
         )
         .join(UserModel, AuditorAssignmentModel.auditor_id == UserModel.id)
+        .join(owner_user, RopaDocumentModel.created_by == owner_user.id)
         .join(doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id)
+        .join(
+            latest_auditor_assignment_sub,
+            and_(
+                latest_auditor_assignment_sub.c.assignment_id == AuditorAssignmentModel.id,
+                latest_auditor_assignment_sub.c.rn == 1,
+            ),
+        )
         .filter(AuditorAssignmentModel.assigned_by == current_user.id)
     )
 
@@ -1733,22 +1783,40 @@ def list_dpo_auditor_assignments(
     for row in results:
         assign = row.AuditorAssignmentModel
         doc = row.RopaDocumentModel
-        user = row.UserModel
+        auditor_user = row.UserModel
+        owner_user_row = row[3]
         doc_year = int(row.doc_year)
         doc_number = int(row.doc_number)
 
         doc_code = f"RP-{doc_year}-{doc_number:02d}"
-        display_title = f"{doc_code} {doc.title or 'ไม่มีชื่อเอกสาร'}"
+        owner_sec = (
+            db.query(RopaOwnerSectionModel)
+            .filter(RopaOwnerSectionModel.document_id == doc.id)
+            .first()
+        )
+        resolved_title = _resolve_document_title(doc, owner_sec)
+        display_title = resolved_title
 
-        full_name = filter(None, [user.title, user.first_name, user.last_name])
-        auditor_name = " ".join(full_name) or "ไม่ระบุ"
+        auditor_full_name = filter(
+            None, [auditor_user.title, auditor_user.first_name, auditor_user.last_name]
+        )
+        auditor_name = " ".join(auditor_full_name) or "ไม่ระบุ"
+        owner_full_name = filter(
+            None,
+            [
+                owner_user_row.title,
+                owner_user_row.first_name,
+                owner_user_row.last_name,
+            ],
+        )
+        data_owner_name = " ".join(owner_full_name) or "ไม่ระบุ"
 
         status_enum_val = str(getattr(assign.status, "value", assign.status))
 
         # Assumption: reviewed_at is assignment status completion or cycle end.
         # For simplicity and based on mockup, we show completion date if status is COMPLETED.
         reviewed_at = None
-        if status_enum_val == "COMPLETED":
+        if status_enum_val == "VERIFIED":
             # We can use updated_at if available in model, but AuditorAssignmentModel doesn't have it.
             # I'll use assigned_at + due_date for now or just None if not tracked.
             # Actually, I'll return None for now unless I find a better place.
@@ -1758,7 +1826,9 @@ def list_dpo_auditor_assignments(
             DpoAuditorAssignmentTableItem(
                 assignment_id=str(assign.id),
                 document_id=doc_code,
+                raw_document_id=doc.id,
                 title=display_title,
+                data_owner_name=data_owner_name,
                 auditor_name=auditor_name,
                 assigned_at=assign.created_at,
                 reviewed_at=reviewed_at,
@@ -1785,7 +1855,10 @@ def get_document_comments(
     check_document_access(document_id, current_user, db)
     comments = (
         db.query(DpoSectionCommentModel)
-        .filter(DpoSectionCommentModel.document_id == document_id)
+        .filter(
+            DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.status == "OPEN",
+        )
         .all()
     )
     return comments
@@ -1816,42 +1889,36 @@ def save_document_comments(
             is_approved = False
             break
 
-    # "ทับไปเลย" (Overwrite) inside the group
-    # We delete existing comments for this group in this document
+    # Resolve existing open comments in the same group, then insert latest ones.
     if group == "DO":
         # Handles both DO_SEC_1..7, DO_RISK and new numeric IDs
         db.query(DpoSectionCommentModel).filter(
             DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.status == "OPEN",
             or_(
                 DpoSectionCommentModel.section_key.like("DO_%"),
                 DpoSectionCommentModel.section_key == "risk",
                 DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7"])
             ),
-        ).delete(synchronize_session=False)
+        ).update(
+            {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+            synchronize_session=False,
+        )
     else:
         # Handles DP_SEC_1..6 and new numeric IDs
         db.query(DpoSectionCommentModel).filter(
             DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.status == "OPEN",
             or_(
                 DpoSectionCommentModel.section_key.like(f"{group}_%"),
                 DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6"])
             ),
-        ).delete(synchronize_session=False)
-
-    # Insert new comments
-    for item in payload.comments:
-        if not item.comment or not item.comment.strip():
-            continue
-
-        new_comment = DpoSectionCommentModel(
-            document_id=document_id,
-            section_key=item.section_key,
-            comment=item.comment,
-            created_by=current_user.id,
+        ).update(
+            {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+            synchronize_session=False,
         )
-        db.add(new_comment)
 
-    # Update Cycle Status and Date ONLY if is_final is True
+    # Find active cycle first so new comments are tied to the current review round.
     cycle = (
         db.query(DocumentReviewCycleModel)
         .filter(
@@ -1861,13 +1928,58 @@ def save_document_comments(
         .order_by(DocumentReviewCycleModel.requested_at.desc())
         .first()
     )
+    # Some legacy records may not have an IN_REVIEW cycle at this moment.
+    # Fallback to latest cycle so final confirmation can still transition status.
+    if cycle is None:
+        cycle = (
+            db.query(DocumentReviewCycleModel)
+            .filter(DocumentReviewCycleModel.document_id == document_id)
+            .order_by(DocumentReviewCycleModel.requested_at.desc())
+            .first()
+        )
+
+    # Insert new comments
+    for item in payload.comments:
+        if not item.comment or not item.comment.strip():
+            continue
+
+        new_comment = DpoSectionCommentModel(
+            document_id=document_id,
+            review_cycle_id=cycle.id if cycle else None,
+            section_key=item.section_key,
+            comment=item.comment,
+            status="OPEN",
+            created_by=current_user.id,
+        )
+        db.add(new_comment)
+
+    # Update Cycle Status and Date ONLY if is_final is True
 
     now = datetime.now(timezone.utc)
+
+    if payload.is_final and cycle is None:
+        latest_cycle_no = (
+            db.query(func.max(DocumentReviewCycleModel.cycle_number))
+            .filter(DocumentReviewCycleModel.document_id == document_id)
+            .scalar()
+            or 0
+        )
+        cycle = DocumentReviewCycleModel(
+            document_id=document_id,
+            cycle_number=latest_cycle_no + 1,
+            requested_by=current_user.id,
+            status="IN_REVIEW",
+        )
+        db.add(cycle)
+        db.flush()
 
     if cycle and payload.is_final:
         # Check if there are ANY comments in the database for this document (across all groups)
         db.flush() # Ensure current batch comments are visible to the query
-        existing_comments_count = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.document_id == document_id).count()
+        existing_comments_count = db.query(DpoSectionCommentModel).filter(
+            DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.status == "OPEN",
+        ).count()
         
         has_any_feedback = existing_comments_count > 0
         
@@ -1893,30 +2005,20 @@ def save_document_comments(
         )
         if doc:
             if cycle.status == "APPROVED":
-                # Check if there's any active auditor assignment
-                has_auditor = db.query(exists().where(
-                    and_(
-                        AuditorAssignmentModel.document_id == document_id,
-                        AuditorAssignmentModel.status != "VERIFIED"
-                    )
-                )).scalar()
-                
-                if has_auditor:
-                    # Keep it as UNDER_REVIEW if an auditor is assigned
-                    doc.status = "UNDER_REVIEW"
-                else:
-                    doc.status = "COMPLETED"
-                    doc.last_approved_at = now
-                    # Calculate next review due date
-                    interval = doc.review_interval_days or 365
-                    doc.next_review_due_at = now + timedelta(days=interval)
+                # Final DPO approval marks document as completed for DO/DP.
+                # Auditor flow is tracked separately by auditor assignments.
+                doc.status = "COMPLETED"
+                doc.last_approved_at = now
+                # Calculate next review due date
+                interval = doc.review_interval_days or 365
+                doc.next_review_due_at = now + timedelta(days=interval)
 
-                    # Transform document_number prefix from DFT- to RP-
-                    if doc.document_number and doc.document_number.startswith("DFT-"):
-                        doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
+                # Transform document_number prefix from DFT- to RP-
+                if doc.document_number and doc.document_number.startswith("DFT-"):
+                    doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
             else:
-                # CHANGES_REQUESTED -> Move back to Table 1 (Active/Processing)
-                doc.status = "IN_PROGRESS"
+                # CHANGES_REQUESTED -> Keep in Table 2 (UNDER_REVIEW) but allow editing
+                # doc.status = "IN_PROGRESS" # Removed: Keep as UNDER_REVIEW
                 
                 # ALSO reset the specific section status to DRAFT so they can edit
                 if group == "DO":
@@ -2151,7 +2253,10 @@ def list_documents_from_dpo(
                     ui_label = "ตรวจสอบเสร็จสิ้น"
             elif internal_status == "CHANGES_REQUESTED":
                 # Check if comments exist in DB to determine who needs to take action
-                all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.document_id == doc.id).all()
+                all_comments = db.query(DpoSectionCommentModel).filter(
+                    DpoSectionCommentModel.document_id == doc.id,
+                    DpoSectionCommentModel.status == "OPEN",
+                ).all()
                 
                 # Simple check: if any comment exists, someone needs to fix it.
                 # We can try to guess the role from the key or just default to DO.

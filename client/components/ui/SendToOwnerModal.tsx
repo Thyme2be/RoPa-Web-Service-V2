@@ -21,7 +21,7 @@ export default function SendToOwnerModal({
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 animate-in fade-in duration-300">
             {/* Backdrop */}
-            <div 
+            <div
                 className="absolute inset-0 bg-[#1B1C1C]/40 backdrop-blur-[2px]"
                 onClick={onClose}
             ></div>
@@ -29,7 +29,7 @@ export default function SendToOwnerModal({
             {/* Modal Content */}
             <div className="bg-white w-full max-w-[540px] rounded-[48px] shadow-2xl relative p-14 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
                 {/* Close Button */}
-                <button 
+                <button
                     onClick={onClose}
                     className="absolute top-8 right-8 p-2 text-[#1B1C1C] hover:bg-black/5 rounded-full transition-colors group"
                 >

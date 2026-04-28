@@ -221,6 +221,10 @@ export interface SentToDpoTableItem {
   reviewed_at: string;
   due_date: string;
   deletion_status?: string | null;
+  has_do_open_comment?: boolean;
+  has_dp_open_comment?: boolean;
+  owner_review_status?: string | null;
+  processor_review_status?: string | null;
 }
 
 export interface ApprovedTableItem {

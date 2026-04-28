@@ -13,6 +13,7 @@ class DpoSectionCommentModel(Base):
     section_key = Column(String, nullable=False, index=True) # e.g. DO_SEC_1, DP_SEC_1, DO_RISK
     review_cycle_id = Column(UUID(as_uuid=True), ForeignKey("document_review_cycles.id", ondelete="CASCADE"), nullable=True, index=True)
     comment = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="OPEN", index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

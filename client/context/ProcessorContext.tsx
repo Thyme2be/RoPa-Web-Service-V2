@@ -247,7 +247,7 @@ export function ProcessorProvider({ children }: { children: ReactNode }) {
                  await fetchProcessorAssignedTable(processorAssignedMeta.page, processorAssignedMeta.limit);
                  await refresh();
             })(),
-            { loading: 'กำลังส่งข้อมูล...', success: 'ส่งข้อมูลส่วนนี้สำเร็จ!' }
+            { loading: 'กำลังส่งข้อมูล...', success: 'บันทึกข้อมูลสำเร็จ!' }
         );
     };
 

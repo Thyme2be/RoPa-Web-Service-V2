@@ -3,7 +3,7 @@
 import Input from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 
-export default function ActivityDetails({ form, handleChange, errors, disabled, variant = "owner" }: any) {
+export default function ActivityDetails({ form, handleChange, errors, disabled, variant = "owner", hideHeader = false }: any) {
     const isProcessor = variant === "processor";
     const primaryColor = isProcessor ? "#00666E" : "#ED393C";
     const markerColor = "#ED393C"; // Fixed RED for required markers as per request
@@ -12,23 +12,22 @@ export default function ActivityDetails({ form, handleChange, errors, disabled, 
     const sectionTitle = isProcessor ? "ส่วนที่ 2 : รายละเอียดกิจกรรม" : "ส่วนที่ 2 : รายละเอียดของกิจกรรมและวัตถุประสงค์";
 
     return (
-        <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px]",
-            borderLColor
-        )}>
+        <div className="space-y-0">
             {/* Header: Activity Icon */}
-            <div className="flex items-center gap-4 px-8 py-6">
-                <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
-                    <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
-                        accessibility_new
-                    </span>
+            {!hideHeader && (
+                <div className="flex items-center gap-4 px-8 py-6">
+                    <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
+                        <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
+                            accessibility_new
+                        </span>
+                    </div>
+                    <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
+                        {sectionTitle}
+                    </h2>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
-                    {sectionTitle}
-                </h2>
-            </div>
+            )}
 
-            <div className="px-8 pb-8 space-y-6">
+            <div className={cn("px-8 pb-8 space-y-6", hideHeader && "pt-4")}>
                 {!isProcessor ? (
                     <>
                         <div className="grid grid-cols-1">

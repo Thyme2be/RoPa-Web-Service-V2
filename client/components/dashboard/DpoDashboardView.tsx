@@ -152,11 +152,15 @@ function SummaryCard({ title, value, unit, subtitle, icon, color = "primary", bo
 
     return (
         <div className={`bg-white p-6 rounded-xl shadow-[0px_4px_16px_rgba(0,0,0,0.04)] border-b-4 ${borderColor} flex flex-col justify-between h-full`}>
-            <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 rounded-lg bg-surface-container shadow-sm border border-neutral-100">
+            <div className="flex items-start gap-3 mb-4">
+                <div className="p-2.5 rounded-lg bg-surface-container shadow-sm border border-neutral-100 shrink-0">
                     <span className="material-symbols-outlined text-[#5F5E5E] text-[24px]" style={{ fontVariationSettings: "'FILL' 0" }}>{icon}</span>
                 </div>
-                {subtitle && <p className="text-[14px] font-bold text-[#5F5E5E] text-right leading-tight">{subtitle}</p>}
+                {subtitle && (
+                    <p className="text-[14px] font-bold text-[#5F5E5E] leading-tight flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
+                        {subtitle}
+                    </p>
+                )}
             </div>
             
             <div>
@@ -164,7 +168,9 @@ function SummaryCard({ title, value, unit, subtitle, icon, color = "primary", bo
                     <span className={`text-[32px] font-black ${colorClasses[color] || colorClasses.primary}`}>{value}</span>
                     {unit && <span className="text-[14px] font-bold text-[#5F5E5E]">{unit}</span>}
                 </div>
-                <h4 className="text-[14px] font-bold text-[#5F5E5E] leading-snug">{title}</h4>
+                <h4 className="text-[14px] font-bold text-[#5F5E5E] leading-snug whitespace-nowrap overflow-hidden text-ellipsis">
+                    {title}
+                </h4>
             </div>
         </div>
     );

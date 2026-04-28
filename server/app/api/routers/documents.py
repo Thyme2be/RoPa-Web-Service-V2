@@ -376,11 +376,5 @@ def assign_auditor(
     )
     db.add(auditor_assignment)
     
-    # Update Document Status to UNDER_REVIEW
-    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
-    if doc:
-        doc.status = DocumentStatusEnum.UNDER_REVIEW
-        db.add(doc)
-        
     db.commit()
     return {"message": "Auditor assigned successfully."}

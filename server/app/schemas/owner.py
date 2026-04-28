@@ -273,6 +273,7 @@ class OwnerSectionFullRead(BaseModel):
     id: UUID
     document_id: UUID
     owner_id: int
+    title: Optional[str] = None
     status: RopaSectionEnum
     updated_at: datetime
 
@@ -485,6 +486,10 @@ class SentToDpoTableItem(BaseModel):
     reviewed_at: Optional[datetime]
     due_date: Optional[datetime]
     deletion_status: Optional[str] = None
+    has_do_open_comment: bool = False
+    has_dp_open_comment: bool = False
+    owner_review_status: Optional[str] = None
+    processor_review_status: Optional[str] = None
 
 class ApprovedTableItem(BaseModel):
     """

@@ -3,27 +3,58 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export default function TopBar({
-    documentName,
-    handleChange,
-    status,
-    isProcessor,
     isExecutive,
     pageTitle,
     showBack,
     backUrl,
     hideSearch,
-    hasError,
     minimal,
     formMode,
     searchQuery,
     onSearchChange
 }: any) {
     const { user } = useAuth();
+    const pathname = usePathname();
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
+    const [internalSearchQuery, setInternalSearchQuery] = React.useState(searchParams.get("search") || "");
 
-    const displayStatus = status === "submitted" ? "ส่งแล้ว" : status === "active" ? "ใช้งาน" : "ฉบับร่าง";
+    const isFormRoute = pathname.includes("/management/form");
+    const isTableMenuPage = pathname === "/admin/tables" || pathname === "/dpo/tables";
+    const isDocumentTableRoute =
+        pathname.includes("/tables/") ||
+        pathname === "/auditor/tables" ||
+        pathname.includes("/management/processing") ||
+        pathname.includes("/management/submitted") ||
+        pathname.includes("/management/approved") ||
+        pathname.includes("/management/destroyed");
+
+    const effectiveFormMode = formMode || isFormRoute;
+    const shouldShowSearch = !effectiveFormMode && !isTableMenuPage && (isDocumentTableRoute || !hideSearch);
+    const effectiveSearchQuery = searchQuery ?? internalSearchQuery;
+
+    React.useEffect(() => {
+        setInternalSearchQuery(searchParams.get("search") || "");
+    }, [searchParams]);
+
+    const handleInternalSearchChange = (e: any) => {
+        const value = e?.target?.value ?? "";
+        setInternalSearchQuery(value);
+
+        if (onSearchChange) {
+            onSearchChange(e);
+            return;
+        }
+
+        const params = new URLSearchParams(searchParams.toString());
+        if (value) params.set("search", value);
+        else params.delete("search");
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     // Standardized role display based on real user data
     const userRole = user?.role === "EXECUTIVE" ? "ผู้บริหารระดับสูง" :
@@ -50,7 +81,7 @@ export default function TopBar({
     return (
         <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 border-b border-[#F6F3F2]">
             <div className="flex items-center gap-4 group h-full">
-                {(!minimal && !formMode) || (formMode && showBack) ? (
+                {(!minimal && !effectiveFormMode) || (effectiveFormMode && showBack) ? (
                     <>
                         {showBack && (
                             <button
@@ -60,46 +91,25 @@ export default function TopBar({
                                 <span className="material-symbols-outlined text-secondary text-[22px]">chevron_left</span>
                             </button>
                         )}
-                        {!formMode && pageTitle && (
+                        {!effectiveFormMode && pageTitle && (
                             <h2 className="text-[17px] font-bold text-[#1B1C1C] tracking-tight">{pageTitle}</h2>
                         )}
-                        {!formMode && !pageTitle && (
+                        {!effectiveFormMode && !pageTitle && (
                             <>
-                                <div className={`flex items-center gap-1 bg-white border ${hasError ? 'border-[#ED393C] shadow-[0_0_0_3px_rgba(237,57,60,0.15)] ring-1 ring-[#ED393C]' : 'border-[#E5E2E1]'} rounded-lg px-3 py-1.5 shadow-sm transition-all ${!isProcessor && !hasError ? "hover:border-primary/30" : ""} ${isProcessor ? "opacity-80" : ""}`}>
-                                    <input
-                                        className={`font-headline font-bold tracking-tight text-neutral-900 text-[15px] bg-transparent border-none outline-none w-auto min-w-[220px] ${isProcessor ? "cursor-default" : ""}`}
-                                        value={documentName || ""}
-                                        name="documentName"
-                                        placeholder="ตั้งชื่อเอกสาร..."
-                                        type="text"
-                                        onChange={handleChange}
-                                        readOnly={isProcessor}
-                                    />
-                                    {!isProcessor && (
-                                        <span className="material-symbols-outlined text-neutral-400 text-primary transition-colors text-[18px]">
-                                            edit
-                                        </span>
-                                    )}
-                                </div>
-                                <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest">
-                                    โหมด{displayStatus}
-                                </span>
                             </>
                         )}
                     </>
                 ) : null}
-                {formMode && (
+                {effectiveFormMode && (
                     <div className="flex items-center gap-4">
-                        <h1 className="text-[20px] font-black text-[#1B1C1C] tracking-tight">
-                            {pageTitle || "ข้อมูลลูกค้า"}
-                        </h1>
+                        <h2 className="text-[17px] font-bold text-[#1B1C1C] tracking-tight">ข้อมูลลูกค้า</h2>
                     </div>
                 )}
             </div>
 
             {/* Notifications & Account */}
             <div className="flex items-center gap-6 relative h-full">
-                {!hideSearch && !formMode && (
+                {shouldShowSearch && (
                     <div className="relative group hidden lg:block">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
                             search
@@ -108,14 +118,14 @@ export default function TopBar({
                             className="bg-[#F6F3F2] border-none rounded-lg pl-10 pr-4 py-2 text-sm w-64 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
                             placeholder="ค้นหา..."
                             type="text"
-                            value={searchQuery || ""}
-                            onChange={onSearchChange}
+                            value={effectiveSearchQuery}
+                            onChange={handleInternalSearchChange}
                         />
                     </div>
                 )}
 
                 <div className="flex items-center gap-4 h-full">
-                    {!minimal && !formMode && (
+                    {!minimal && !effectiveFormMode && (
                         <>
                             <button
                                 onClick={() => setIsNotifyOpen(!isNotifyOpen)}

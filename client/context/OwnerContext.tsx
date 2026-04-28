@@ -14,7 +14,7 @@ import { ownerService } from "@/services/ownerService";
 import { api } from "@/lib/api";
 import { RopaStatus, CollectionMethod, RetentionUnit } from "@/types/enums";
 import { useAuth } from "./AuthContext";
-import { withToast } from "@/lib/toastHelper";
+import { withToast, getErrorMessage } from "@/lib/toastHelper";
 
 interface OwnerContextType {
     records: OwnerRecord[];
@@ -146,7 +146,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
             setOwnerDashboardData(data);
         } catch (err: any) {
             console.error("Failed to fetch owner dashboard:", err);
-            setError(err.response?.data?.detail || "ไม่สามารถโหลดข้อมูลสถิติได้ กรุณาลองใหม่อีกครั้ง");
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
         }
@@ -187,7 +187,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
             
         } catch (error: any) {
             console.error("Failed to refresh Owner data:", error);
-            setError(error.response?.data?.detail || "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+            setError(getErrorMessage(error));
         } finally {
             setIsLoading(false);
         }
@@ -200,7 +200,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     const mapToOwnerRecord = (data: any): OwnerRecord => {
         return {
             id: data.document_id,
-            document_name: data.title || data.title_prefix || "",
+            document_name: data.title || "",
             title_prefix: data.title_prefix || "",
             first_name: data.first_name || "",
             last_name: data.last_name || "",

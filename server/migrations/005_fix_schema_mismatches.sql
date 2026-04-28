@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS dpo_section_comments (
     document_id uuid NOT NULL REFERENCES ropa_documents(id) ON DELETE CASCADE,
     section_key varchar NOT NULL,
     comment text,
+    status varchar(20) NOT NULL DEFAULT 'OPEN',
     created_by int NOT NULL REFERENCES users(id),
     created_at timestamp with time zone DEFAULT NOW(),
     updated_at timestamp with time zone DEFAULT NOW()
@@ -32,6 +33,10 @@ CREATE TABLE IF NOT EXISTS dpo_section_comments (
 
 CREATE INDEX IF NOT EXISTS idx_dpo_section_comments_document_id ON dpo_section_comments(document_id);
 CREATE INDEX IF NOT EXISTS idx_dpo_section_comments_section_key ON dpo_section_comments(section_key);
+
+-- Ensure existing installations also get the status column/index
+ALTER TABLE dpo_section_comments ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'OPEN';
+CREATE INDEX IF NOT EXISTS idx_dpo_section_comments_status ON dpo_section_comments(status);
 
 -- 3. Add missing columns to existing tables
 ALTER TABLE ropa_processor_sections ADD COLUMN IF NOT EXISTS do_suggestion text;

@@ -8,6 +8,7 @@ import RetentionInfo from "@/components/formSections/RetentionInfo";
 import LegalInfo from "@/components/formSections/LegalInfo";
 import SecurityMeasures from "@/components/formSections/SecurityMeasures";
 import RightsChannel from "@/components/formSections/RightsChannel";
+import SectionCommentBox from "@/components/ropa/SectionCommentBox";
 import DpoRiskAssessment from "@/components/ropa/DpoRiskAssessment";
 import Input from "@/components/ui/Input";
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
@@ -36,11 +37,8 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
     const sectionTitle = isProcessor ? "ส่วนที่ 2 : รายละเอียดกิจกรรม" : "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์";
 
     return (
-        <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden",
-            borderLColor
-        )}>
-            <div className="flex items-center gap-4 px-8 py-6">
+        <div className="space-y-6">
+            <div className="flex items-center gap-4 px-0 py-0 mb-6">
                 <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
                     <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
                         accessibility_new
@@ -50,84 +48,30 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                     {sectionTitle}
                 </h2>
             </div>
+            {!isProcessor ? (
+                <>
+                    <div className="grid grid-cols-1">
+                        <Input
+                            label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
+                            required
+                            name="data_subject_name"
+                            value={form?.data_subject_name || ""}
+                            placeholder="ระบุเจ้าของข้อมูล (เช่น บริษัท A)"
+                            onChange={handleChange}
+                            error={errors?.data_subject_name}
+                            disabled={disabled}
+                            focusColor={primaryColor}
+                            requiredColor={markerColor}
+                        />
+                    </div>
 
-            <div className="px-8 pb-8 space-y-6">
-                {!isProcessor ? (
-                    <>
-                        <div className="grid grid-cols-1">
-                            <Input
-                                label="ชื่อเจ้าของข้อมูลส่วนบุคคล"
-                                required
-                                name="data_subject_name"
-                                value={form?.data_subject_name || ""}
-                                placeholder="ระบุเจ้าของข้อมูล (เช่น บริษัท A)"
-                                onChange={handleChange}
-                                error={errors?.data_subject_name}
-                                disabled={disabled}
-                                focusColor={primaryColor}
-                                requiredColor={markerColor}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <Input
-                                label="กิจกรรมประมวลผล"
-                                required
-                                name="processing_activity"
-                                value={form?.processing_activity || ""}
-                                placeholder="ระบุกิจกรรมประมวลผล (เช่น การรับสมัครพนักงาน)"
-                                onChange={handleChange}
-                                error={errors?.processing_activity}
-                                disabled={disabled}
-                                focusColor={primaryColor}
-                                requiredColor={markerColor}
-                            />
-                            <Input
-                                label="วัตถุประสงค์การประมวลผล"
-                                required
-                                name="purpose_of_processing"
-                                value={form?.purpose_of_processing || ""}
-                                placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อรับสมัครบุคคลเข้าทำงาน)"
-                                onChange={handleChange}
-                                error={errors?.purpose_of_processing}
-                                disabled={disabled}
-                                focusColor={primaryColor}
-                                requiredColor={markerColor}
-                            />
-                        </div>
-                    </>
-                ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                        <Input
-                            label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-                            required
-                            name="processor_name"
-                            value={form?.processor_name || ""}
-                            placeholder="ระบุชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
-                            onChange={handleChange}
-                            error={errors?.processor_name}
-                            disabled={disabled}
-                            focusColor={primaryColor}
-                            requiredColor={markerColor}
-                        />
-                        <Input
-                            label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
-                            required
-                            name="controllerAddress"
-                            value={form?.controllerAddress || ""}
-                            placeholder="ระบุที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
-                            onChange={handleChange}
-                            error={errors?.controllerAddress}
-                            disabled={disabled}
-                            focusColor={primaryColor}
-                            requiredColor={markerColor}
-                        />
                         <Input
                             label="กิจกรรมประมวลผล"
                             required
                             name="processing_activity"
                             value={form?.processing_activity || ""}
-                            placeholder="ระบุกิจกรรมประมวลผล (เช่น ดำเนินการตามสัญญาว่าจ้าง)"
+                            placeholder="ระบุกิจกรรมประมวลผล (เช่น การรับสมัครพนักงาน)"
                             onChange={handleChange}
                             error={errors?.processing_activity}
                             disabled={disabled}
@@ -135,11 +79,11 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             requiredColor={markerColor}
                         />
                         <Input
-                            label="วัตถุประสงค์ของการประมวลผล"
+                            label="วัตถุประสงค์การประมวลผล"
                             required
                             name="purpose_of_processing"
                             value={form?.purpose_of_processing || ""}
-                            placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อจัดจ้าง ออกแบบ/พัฒนาระบบ)"
+                            placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อรับสมัครบุคคลเข้าทำงาน)"
                             onChange={handleChange}
                             error={errors?.purpose_of_processing}
                             disabled={disabled}
@@ -147,8 +91,59 @@ function LocalActivityDetails({ form, handleChange, errors, disabled, variant = 
                             requiredColor={markerColor}
                         />
                     </div>
-                )}
-            </div>
+                </>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <Input
+                        label="ชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
+                        required
+                        name="processor_name"
+                        value={form?.processor_name || ""}
+                        placeholder="ระบุชื่อผู้ประมวลผลข้อมูลส่วนบุคคล"
+                        onChange={handleChange}
+                        error={errors?.processor_name}
+                        disabled={disabled}
+                        focusColor={primaryColor}
+                        requiredColor={markerColor}
+                    />
+                    <Input
+                        label="ที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
+                        required
+                        name="controllerAddress"
+                        value={form?.controllerAddress || ""}
+                        placeholder="ระบุที่อยู่ผู้ควบคุมข้อมูลส่วนบุคคล"
+                        onChange={handleChange}
+                        error={errors?.controllerAddress}
+                        disabled={disabled}
+                        focusColor={primaryColor}
+                        requiredColor={markerColor}
+                    />
+                    <Input
+                        label="กิจกรรมประมวลผล"
+                        required
+                        name="processing_activity"
+                        value={form?.processing_activity || ""}
+                        placeholder="ระบุกิจกรรมประมวลผล (เช่น ดำเนินการตามสัญญาว่าจ้าง)"
+                        onChange={handleChange}
+                        error={errors?.processing_activity}
+                        disabled={disabled}
+                        focusColor={primaryColor}
+                        requiredColor={markerColor}
+                    />
+                    <Input
+                        label="วัตถุประสงค์ของการประมวลผล"
+                        required
+                        name="purpose_of_processing"
+                        value={form?.purpose_of_processing || ""}
+                        placeholder="ระบุวัตถุประสงค์การประมวลผล (เช่น เพื่อจัดจ้าง ออกแบบ/พัฒนาระบบ)"
+                        onChange={handleChange}
+                        error={errors?.purpose_of_processing}
+                        disabled={disabled}
+                        focusColor={primaryColor}
+                        requiredColor={markerColor}
+                    />
+                </div>
+            )}
         </div>
     );
 }
@@ -365,9 +360,17 @@ function DpoDestructionDetailContent() {
                 {activeTab === "owner" && (
                     <div className="space-y-12 pb-32">
                         {ownerSections.map((sec, idx) => (
-                            <div key={idx}>
+                            <SectionCommentBox
+                                key={idx}
+                                isOpen={false}
+                                onToggle={() => { }}
+                                value=""
+                                onChange={() => { }}
+                                readOnly={true}
+                                variant="do"
+                            >
                                 <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
-                            </div>
+                            </SectionCommentBox>
                         ))}
                     </div>
                 )}
@@ -376,9 +379,17 @@ function DpoDestructionDetailContent() {
                 {activeTab === "processor" && (
                     <div className="space-y-12 pb-32">
                         {processorSections.map((sec, idx) => (
-                            <div key={idx}>
+                            <SectionCommentBox
+                                key={idx}
+                                isOpen={false}
+                                onToggle={() => { }}
+                                value=""
+                                onChange={() => { }}
+                                readOnly={true}
+                                variant="dp"
+                            >
                                 <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
-                            </div>
+                            </SectionCommentBox>
                         ))}
                     </div>
                 )}

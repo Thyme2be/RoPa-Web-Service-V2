@@ -4,7 +4,7 @@ import Input from "@/components/ui/Input";
 import Checkbox from "@/components/ui/Checkbox";
 import { cn } from "@/lib/utils";
 
-export default function LegalInfo({ form, handleChange, errors, disabled, variant = "owner" }: any) {
+export default function LegalInfo({ form, handleChange, errors, disabled, variant = "owner", hideHeader = false }: any) {
     const isProcessor = variant === "processor";
     const primaryColor = isProcessor ? "#00666E" : "#ED393C";
     const lightBg = isProcessor ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
@@ -14,23 +14,22 @@ export default function LegalInfo({ form, handleChange, errors, disabled, varian
     const isTransfer = form?.internationalTransfer?.isTransfer;
 
     return (
-        <div className={cn(
-            "bg-white rounded-2xl shadow-sm border-l-[6px]",
-            borderLColor
-        )}>
+        <div className="space-y-0">
             {/* Header: Legal Basis and Transfer */}
-            <div className="flex items-center gap-4 px-8 py-6">
-                <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
-                    <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
-                        verified_user
-                    </span>
+            {!hideHeader && (
+                <div className="flex items-center gap-4 px-8 py-6">
+                    <div className={cn("p-2.5 rounded-xl flex items-center justify-center", lightBg)}>
+                        <span className="material-symbols-outlined text-2xl font-bold" style={{ color: primaryColor }}>
+                            verified_user
+                        </span>
+                    </div>
+                    <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
+                        {sectionTitle}
+                    </h2>
                 </div>
-                <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
-                    {sectionTitle}
-                </h2>
-            </div>
+            )}
 
-            <div className="px-8 pb-10 space-y-8">
+            <div className={cn("px-8 pb-10 space-y-8", hideHeader && "pt-4")}>
                 <div className={cn("grid grid-cols-1 gap-y-6", !isProcessor && "md:grid-cols-2 gap-x-12")}>
                     <Input
                         label="ฐานในการประมวลผล"

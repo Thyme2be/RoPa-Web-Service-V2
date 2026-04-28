@@ -10,6 +10,7 @@ export default function GeneralInfo({
   errors,
   disabled,
   variant = "owner",
+  hideHeader = false,
 }: any) {
   const isProcessor = variant === "processor";
   const primaryColor = isProcessor ? "#00666E" : "#ED393C";
@@ -28,35 +29,32 @@ export default function GeneralInfo({
   const markerColor = "#ED393C";
 
   return (
-    <div
-      className={cn(
-        "bg-white rounded-2xl shadow-sm border-l-[6px]",
-        borderLColor,
-      )}
-    >
+    <div className="space-y-0">
       {/* Header: Icon and Section Title to match image */}
-      <div className="flex items-center gap-4 px-8 py-6">
-        <div
-          className={cn(
-            "p-2.5 rounded-xl flex items-center justify-center",
-            lightBg,
-          )}
-        >
-          <span
-            className="material-symbols-outlined text-red-brand text-2xl font-bold"
-            style={{ color: primaryColor }}
+      {!hideHeader && (
+        <div className="flex items-center gap-4 px-8 py-6">
+          <div
+            className={cn(
+              "p-2.5 rounded-xl flex items-center justify-center",
+              lightBg,
+            )}
           >
-            person_edit
-          </span>
+            <span
+              className="material-symbols-outlined text-red-brand text-2xl font-bold"
+              style={{ color: primaryColor }}
+            >
+              person_edit
+            </span>
+          </div>
+          <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
+            {isProcessor
+              ? "ส่วนที่ 1 : รายละเอียดของผู้ประมวลผล"
+              : "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA"}
+          </h2>
         </div>
-        <h2 className="font-bold text-[18px] text-[#5F5E5E] tracking-tight">
-          {isProcessor
-            ? "ส่วนที่ 1 : รายละเอียดของผู้ประมวลผล"
-            : "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA"}
-        </h2>
-      </div>
+      )}
 
-      <div className="px-8 pb-10">
+      <div className={cn("px-8 pb-10 space-y-6", hideHeader && "pt-4")}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
           {/* Left Column: Name-Surname and Email */}
           <div className="space-y-6">

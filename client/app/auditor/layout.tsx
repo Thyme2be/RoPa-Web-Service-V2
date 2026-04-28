@@ -11,12 +11,20 @@ import { useAuth } from "@/context/AuthContext";
 export default function AuditorLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout } = useAuth();
+    const { logout } = useAuth();
 
     const [docName, setDocName] = React.useState("รายละเอียดเอกสาร");
+    const [searchQuery, setSearchQuery] = React.useState("");
     const isTablesPage = pathname.startsWith("/auditor/tables");
     const isDetailPage = pathname.match(/\/auditor\/tables\/[^\/]+/);
     const docId = isDetailPage ? pathname.split('/').pop() : "";
+
+    React.useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            setSearchQuery(params.get("search") || "");
+        }
+    }, [pathname]);
 
     React.useEffect(() => {
         if (isDetailPage && docId) {
@@ -53,14 +61,13 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
         }
     };
 
-    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            const val = (e.target as HTMLInputElement).value;
-            const params = new URLSearchParams(window.location.search);
-            if (val) params.set("search", val);
-            else params.delete("search");
-            router.push(`${pathname}?${params.toString()}`);
-        }
+    const handleSearchChange = (e: any) => {
+        const val = e.target.value;
+        setSearchQuery(val);
+        const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+        if (val) params.set("search", val);
+        else params.delete("search");
+        router.push(`${pathname}?${params.toString()}`);
     };
 
     return (
@@ -100,53 +107,14 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
                 </aside>
 
                 <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
-                    {/* TopBar-like Header */}
-                    <header className="sticky top-0 z-40 bg-[#FCF9F8] flex justify-between items-center px-8 h-16 w-full border-b border-[#F6F3F2]">
-                        <div className="flex-1 flex items-center">
-                            {isDetailPage && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[20px] font-bold text-neutral-900">{docName}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                            {/* Search Bar - only for the list page */}
-                            {!isDetailPage && (
-                                <div className="relative group lg:block">
-                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-lg">
-                                        search
-                                    </span>
-                                    <input
-                                        className="bg-[#F6F3F2] border-none rounded-2xl pl-10 pr-4 py-2 text-sm w-80 focus:ring-1 focus:ring-primary/40 transition-all outline-none"
-                                        placeholder="ค้นหา..."
-                                        type="text"
-                                        onKeyDown={handleSearch}
-                                        defaultValue={new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("search") || ""}
-                                    />
-                                </div>
-                            )}
-
-                            <div className="flex items-center gap-2">
-                                <div className="h-8 w-[1px] bg-neutral-300 mx-2"></div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-xs font-bold text-neutral-900">
-                                        {user ? (
-                                            user.first_name 
-                                                ? `${user.title || ""} ${user.first_name} ${user.last_name || ""}`.trim() 
-                                                : user.username
-                                        ) : "กำลังโหลด..."}
-                                    </span>
-                                    <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-                                        {user?.role === "AUDITOR" ? "ผู้ตรวจสอบ" : 
-                                         user?.role === "DPO" ? "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล" :
-                                         user?.role === "ADMIN" ? "ผู้ดูแลระบบ" :
-                                         user?.role || "ผู้ใช้งาน"}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </header>
+                    <TopBar
+                        showBack={!!isDetailPage}
+                        backUrl="/auditor/tables"
+                        pageTitle={isDetailPage ? docName : " "}
+                        hideSearch={!!isDetailPage}
+                        searchQuery={searchQuery}
+                        onSearchChange={handleSearchChange}
+                    />
 
                     {/* Main Content */}
                     <main className="flex-1 p-8 overflow-y-auto">

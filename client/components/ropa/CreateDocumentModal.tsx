@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import ThaiDatePicker from "@/components/ui/ThaiDatePicker";
 import Select from "@/components/ui/Select";
 import { ownerService } from "@/services/ownerService";
+import toast from "react-hot-toast";
 
 interface CreateDocumentModalProps {
     isOpen: boolean;
@@ -69,11 +70,11 @@ export default function CreateDocumentModal({ isOpen, onClose, onCreate }: Creat
 
     const handleCreate = () => {
         if (!name || !company || !dueDate) {
-            alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+            toast.error("กรุณากรอกข้อมูลให้ครบถ้วน");
             return;
         }
         if (companyError) {
-            alert(companyError);
+            toast.error(companyError);
             return;
         }
         onCreate({ name, company, dueDate });

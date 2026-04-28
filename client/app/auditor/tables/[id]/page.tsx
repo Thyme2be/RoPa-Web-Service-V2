@@ -15,6 +15,7 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -386,13 +387,13 @@ function AuditorDetailContent() {
                 {activeTab === "owner" && (
                     <div className="space-y-12 pb-32">
                         {[
-                            { title: "ข้อมูลทั่วไป", component: GeneralInfo },
-                            { title: "ช่องทางใช้สิทธิ", component: RightsChannel },
-                            { title: "กิจกรรมประมวลผล", component: LocalActivityDetails },
-                            { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo },
-                            { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo },
-                            { title: "ฐานทางกฎหมาย", component: LegalInfo },
-                            { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
+                            { title: "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", component: GeneralInfo },
+                            { title: "ส่วนที่ 2 : ช่องทางการติดต่อกรณีต้องการใช้สิทธิ", component: RightsChannel },
+                            { title: "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์", component: LocalActivityDetails },
+                            { title: "ส่วนที่ 4 : ข้อมูลส่วนบุคคลที่จัดเก็บ", component: StoredInfo },
+                            { title: "ส่วนที่ 5 : การเก็บรักษาข้อมูล", component: RetentionInfo },
+                            { title: "ส่วนที่ 6 : ฐานทางกฎหมาย (Legal Basis)", component: LegalInfo },
+                            { title: "ส่วนที่ 7 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                         ].map((sec, idx) => (
                             <div key={idx}>
                                 <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
@@ -405,12 +406,12 @@ function AuditorDetailContent() {
                 {activeTab === "processor" && (
                     <div className="space-y-12 pb-32">
                         {[
-                            { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo },
-                            { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails },
-                            { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo },
-                            { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo },
-                            { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo },
-                            { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
+                            { title: "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", component: GeneralInfo },
+                            { title: "ส่วนที่ 2 : รายละเอียดกิจกรรม", component: LocalActivityDetails },
+                            { title: "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", component: StoredInfo },
+                            { title: "ส่วนที่ 4 : การเก็บรักษาข้อมูล", component: RetentionInfo },
+                            { title: "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", component: LegalInfo },
+                            { title: "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                         ].map((sec, idx) => (
                             <div key={idx}>
                                 <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
@@ -444,13 +445,13 @@ function AuditorDetailContent() {
                                 <h3 className="text-xl font-black text-[#1B1C1C]">ข้อมูลส่วนของผู้รับผิดชอบข้อมูล</h3>
                                 <div className="space-y-12">
                                     {[
-                                        { title: "ข้อมูลทั่วไป", component: GeneralInfo },
-                                        { title: "ช่องทางใช้สิทธิ", component: RightsChannel },
-                                        { title: "กิจกรรมประมวลผล", component: LocalActivityDetails },
-                                        { title: "ข้อมูลที่จัดเก็บ", component: StoredInfo },
-                                        { title: "ระยะเวลาการเก็บรักษา", component: RetentionInfo },
-                                        { title: "ฐานทางกฎหมาย", component: LegalInfo },
-                                        { title: "มาตรการรักษาความปลอดภัย", component: SecurityMeasures },
+                                        { title: "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", component: GeneralInfo },
+                                        { title: "ส่วนที่ 2 : ช่องทางการติดต่อกรณีต้องการใช้สิทธิ", component: RightsChannel },
+                                        { title: "ส่วนที่ 3 : รายละเอียดของกิจกรรมและวัตถุประสงค์", component: LocalActivityDetails },
+                                        { title: "ส่วนที่ 4 : ข้อมูลส่วนบุคคลที่จัดเก็บ", component: StoredInfo },
+                                        { title: "ส่วนที่ 5 : การเก็บรักษาข้อมูล", component: RetentionInfo },
+                                        { title: "ส่วนที่ 6 : ฐานทางกฎหมาย (Legal Basis)", component: LegalInfo },
+                                        { title: "ส่วนที่ 7 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                                     ].map((sec, idx) => (
                                         <div key={idx}>
                                             <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
@@ -466,12 +467,12 @@ function AuditorDetailContent() {
                                 <h3 className="text-xl font-black text-[#1B1C1C]">ข้อมูลส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล</h3>
                                 <div className="space-y-12">
                                     {[
-                                        { title: "ข้อมูลทั่วไป (DP)", component: GeneralInfo },
-                                        { title: "กิจกรรมประมวลผล (DP)", component: LocalActivityDetails },
-                                        { title: "ข้อมูลที่จัดเก็บ (DP)", component: StoredInfo },
-                                        { title: "ระยะเวลาการเก็บรักษา (DP)", component: RetentionInfo },
-                                        { title: "ฐานทางกฎหมาย (DP)", component: LegalInfo },
-                                        { title: "มาตรการรักษาความปลอดภัย (DP)", component: SecurityMeasures },
+                                        { title: "ส่วนที่ 1 : รายละเอียดของผู้ลงบันทึก RoPA", component: GeneralInfo },
+                                        { title: "ส่วนที่ 2 : รายละเอียดกิจกรรม", component: LocalActivityDetails },
+                                        { title: "ส่วนที่ 3 : ข้อมูลส่วนบุคคลที่จัดเก็บ", component: StoredInfo },
+                                        { title: "ส่วนที่ 4 : การเก็บรักษาข้อมูล", component: RetentionInfo },
+                                        { title: "ส่วนที่ 5 : ฐานทางกฎหมาย (Legal Basis)", component: LegalInfo },
+                                        { title: "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                                     ].map((sec, idx) => (
                                         <div key={idx}>
                                             <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
@@ -533,7 +534,7 @@ function AuditorDetailContent() {
                             if (!res.ok) throw new Error("Verification failed");
                         } catch (err) {
                             console.error("Audit verification error:", err);
-                            alert("เกิดข้อผิดพลาดในการยืนยันการตรวจสอบ");
+                            toast.error("เกิดข้อผิดพลาดในการยืนยันการตรวจสอบ");
                             return;
                         }
                     } else {

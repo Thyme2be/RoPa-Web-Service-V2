@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import InlineFeedbackWrapper from "./InlineFeedbackWrapper";
+import SectionCommentBox, { CommentSuggestion } from "./SectionCommentBox";
 
 interface RiskAssessmentProps {
     doStatus: "pending" | "done";
@@ -29,11 +29,11 @@ interface RiskAssessmentProps {
 }
 
 
-function ScorePicker({
+function ScaleSelector({
     label,
     value,
     onChange,
-    disabled,
+    disabled = false,
 }: {
     label: string;
     value: number;
@@ -41,30 +41,33 @@ function ScorePicker({
     disabled?: boolean;
 }) {
     return (
-        <div className={cn("space-y-4", disabled && "opacity-80")}>
-            <p className="text-[15px] font-bold text-[#1B1C1C]">{label}</p>
-            <div className="flex items-end gap-6">
+        <div className="space-y-6">
+            <p className="text-[17px] font-bold text-[#1B1C1C]">{label}</p>
+            <div className="relative flex items-center justify-between px-4 max-w-[450px]">
+                {/* Connecting Line */}
+                <div className="absolute left-[36px] right-[36px] h-[1px] bg-[#E5E2E1] top-[20px]" />
+
                 {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                        key={n}
-                        disabled={disabled}
-                        onClick={() => onChange(n)}
-                        className={cn(
-                            "flex flex-col items-center gap-2 group",
-                            disabled && "cursor-default"
-                        )}
-                    >
-                        <div
+                    <div key={n} className="flex flex-col items-center gap-4 relative z-10">
+                        <button
+                            onClick={() => !disabled && onChange(n)}
+                            disabled={disabled}
+                            style={{
+                                backgroundColor: value === n ? "#ED393C" : "#FFFFFF",
+                                borderColor: value === n ? "#ED393C" : "#D1C8C6"
+                            }}
                             className={cn(
-                                "w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all",
-                                value === n
-                                    ? "border-primary bg-primary text-white scale-110 shadow-lg shadow-primary/30"
-                                    : "border-[#D1C8C6] bg-white text-[#5F5E5E] hover:border-primary/50"
+                                "w-10 h-10 rounded-full border transition-all flex items-center justify-center",
+                                value === n && "shadow-md"
                             )}
-                        >
-                            <span className="text-sm font-black">{n}</span>
-                        </div>
-                    </button>
+                        />
+                        <span className={cn(
+                            "text-sm font-bold",
+                            value === n ? "text-[#ED393C]" : "text-[#5F5E5E]"
+                        )}>
+                            {n}
+                        </span>
+                    </div>
                 ))}
             </div>
         </div>
@@ -95,6 +98,11 @@ export default function RiskAssessment({
 
     const [probability, setProbability] = useState(existingRisk?.probability ?? 0);
     const [impact, setImpact] = useState(existingRisk?.impact ?? 0);
+
+    // Sync selected score to parent page state (used by footer confirm button).
+    useEffect(() => {
+        onSubmit(probability, impact);
+    }, [probability, impact, onSubmit]);
 
     const total = probability * impact;
     const level = total === 0 ? "-" : total < 8 ? "ต่ำ" : total < 15 ? "ปานกลาง" : "สูง";
@@ -129,24 +137,21 @@ export default function RiskAssessment({
 
     // ─── Ready: Both done ─────────────────────────────────────────────────────
     const content = (
-        <div className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-primary p-8 space-y-8">
-            <div className="flex items-center gap-4">
-                <div className="bg-primary/5 p-2.5 rounded-xl">
-                    <span className="material-symbols-outlined text-primary text-2xl">assessment</span>
-                </div>
+        <div className="space-y-12">
+            <div className="flex items-center justify-between">
                 <h2 className="font-black text-xl text-[#1B1C1C] tracking-tight">
                     ความเสี่ยงที่ผู้รับผิดชอบข้อมูลจำเป็นต้องประเมิน
                 </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
-                <ScorePicker
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-12">
+                <ScaleSelector
                     label="ประเมินโอกาสที่จะเกิดเหตุ"
                     value={probability}
                     onChange={setProbability}
                     disabled={disabled}
                 />
-                <ScorePicker
+                <ScaleSelector
                     label="ความเสียหายที่อาจจะขึ้น"
                     value={impact}
                     onChange={setImpact}
@@ -154,35 +159,35 @@ export default function RiskAssessment({
                 />
             </div>
 
-            <div className="space-y-6 pt-4 border-t border-[#F6F3F2]">
-                <div className="flex items-center gap-4">
-                    <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[280px]">
+            <div className="space-y-6 pt-10 border-t border-[#E5E2E1]/60">
+                <div className="flex items-center gap-6">
+                    <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[240px]">
                         ความเสี่ยงโดยรวมจากการประเมิน
                     </label>
-                    <div className="h-12 w-[180px] bg-white border border-[#E5E2E1] rounded-lg px-4 flex items-center shadow-sm">
-                        <span className="text-[17px] font-bold text-[#1B1C1C]">
+                    <div className="h-14 w-[220px] bg-white border border-[#E5E2E1] rounded-xl px-6 flex items-center justify-center shadow-sm">
+                        <span className="text-[19px] font-black text-[#1B1C1C]">
                             {total > 0 ? total : ""}
                         </span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
                     <label className="text-[17px] font-black text-[#1B1C1C] tracking-tight min-w-[150px]">
                         ระดับความเสี่ยง
                     </label>
-                    <div className="h-12 w-[250px] bg-white border border-[#E5E2E1] rounded-lg px-4 flex items-center shadow-sm">
+                    <div className="h-14 min-w-[220px] bg-white border border-[#E5E2E1] rounded-xl px-6 flex items-center justify-center shadow-sm">
                         {total > 0 && (
                             <span className={cn(
                                 "text-[17px] font-black",
-                                level === "ต่ำ" ? "text-green-600" : level === "ปานกลาง" ? "text-amber-600" : "text-red-600"
+                                total <= 6 ? "text-green-600" : total <= 14 ? "text-amber-600" : "text-red-600"
                             )}>
-                                {level}
+                                {total <= 6 ? "ความเสี่ยงต่ำ" : total <= 14 ? "ความเสี่ยงปานกลาง" : "ความเสี่ยงสูง"}
                             </span>
                         )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 pt-4">
+                <div className="flex items-center gap-6 pt-6">
                     <p className="text-[17px] font-black text-[#1B1C1C] tracking-tight">
                         ดูข้อมูลในเอกสาร เพื่อประกอบการประเมินความเสี่ยง
                     </p>
@@ -190,10 +195,10 @@ export default function RiskAssessment({
                         <button
                             onClick={onViewDoSection}
                             className={cn(
-                                "px-6 py-2.5 rounded-md font-bold text-sm transition-all border shadow-sm",
+                                "px-8 h-12 rounded-xl font-bold text-[14px] transition-all border shadow-sm",
                                 activeView === "owner" 
-                                    ? "bg-primary text-white border-primary" 
-                                    : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white"
+                                    ? "bg-[#ED393C] text-white border-[#ED393C]" 
+                                    : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white cursor-pointer"
                             )}
                         >
                             ส่วนของผู้รับผิดชอบข้อมูล
@@ -201,58 +206,45 @@ export default function RiskAssessment({
                         <button
                             onClick={onViewDpSection}
                             className={cn(
-                                "px-6 py-2.5 rounded-md font-bold text-sm transition-all border shadow-sm",
+                                "px-8 h-12 rounded-xl font-bold text-[14px] transition-all border shadow-sm",
                                 activeView === "processor" 
-                                    ? "bg-primary text-white border-primary" 
-                                    : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white"
+                                    ? "bg-[#ED393C] text-white border-[#ED393C]" 
+                                    : "bg-[#F9F9F9] text-[#1B1C1C] border-[#E5E2E1] hover:bg-white cursor-pointer"
                             )}
                         >
                             ส่วนของผู้ประมวลผลข้อมูลส่วนบุคคล
                         </button>
                     </div>
                 </div>
+
+                <div className={cn("transition-all duration-500 overflow-hidden", activeView !== "none" ? "mt-8 opacity-100" : "max-h-0 opacity-0")}>
+                    {/* The parent page handles rendering the actual component based on activeView state change triggered by the buttons above */}
+                </div>
             </div>
         </div>
     );
 
+    const mappedSuggestions: CommentSuggestion[] = dpoSuggestion ? [{
+        text: dpoSuggestion.comment,
+        date: dpoSuggestion.date,
+        reviewer: "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)"
+    }] : [];
+
     return (
-        <div className="space-y-8 pb-32">
-            <InlineFeedbackWrapper
-                title="ส่วนที่ 3 : การประเมินความเสี่ยง"
-                isDraftingFeedback={false}
-                onFeedbackChange={() => {}}
-                feedbackText=""
-                existingSuggestions={dpoSuggestion ? [{ text: dpoSuggestion.comment, date: dpoSuggestion.date, reviewer: "DPO (เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล)" }] : undefined}
-                canReview={false}
+        <div className="space-y-8 pb-4">
+            <SectionCommentBox
+                isOpen={false}
+                onToggle={() => {}}
+                value=""
+                onChange={() => {}}
+                suggestions={mappedSuggestions}
+                readOnly={true}
+                variant="risk"
             >
                 {content}
-            </InlineFeedbackWrapper>
+            </SectionCommentBox>
 
-            {/* Footer Actions */}
-            <div className="flex items-center justify-between pt-8">
-                <button
-                    onClick={onCancel}
-                    className="flex items-center justify-center px-10 h-[52px] bg-[#F6F3F2] border border-[#E5E2E1] rounded-2xl font-bold text-[#5F5E5E] transition-all hover:bg-white hover:border-primary/30"
-                >
-                    ยกเลิก
-                </button>
-                <button
-                    disabled={disabled}
-                    onClick={() => {
-                        if (probability === 0 || impact === 0) {
-                            alert("กรุณาเลือกระดับโอกาสและความเสียหายก่อน");
-                            return;
-                        }
-                        onSubmit(probability, impact);
-                    }}
-                    className={cn(
-                        "bg-logout-gradient leading-none text-white px-10 h-[52px] rounded-2xl font-bold text-[15px] tracking-tight shadow-lg shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all",
-                        disabled && "opacity-0 pointer-events-none" // Hide submit button in disabled view
-                    )}
-                >
-                    ยืนยันการส่งการประเมิน
-                </button>
-            </div>
+            {/* Footer Actions moved to Page Level to match DPO style */}
         </div>
     );
 }

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { StatusBadge } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 
 import { useOwner } from "@/context/OwnerContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
+import toast from "react-hot-toast";
 
 export default function RopaSubmittedPage() {
     const { sentRecords, sentMeta, sendBackToDpo, deleteRecord, refresh, fetchSentTable } = useOwner();
@@ -22,6 +24,8 @@ export default function RopaSubmittedPage() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [dateFilter, setDateFilter] = useState("all");
     const [customDate, setCustomDate] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
 
     useEffect(() => {
         refresh();
@@ -31,25 +35,77 @@ export default function RopaSubmittedPage() {
         fetchSentTable(page, 3);
     }, [page, fetchSentTable]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     const handleClearFilters = () => {
         setStatusFilter("all");
         setDateFilter("all");
         setCustomDate("");
+        setSearchQuery("");
+        setDebouncedSearch("");
         setPage(1);
+    };
+
+    const WAITING_REVIEW = "รอตรวจสอบ" as const;
+    const WAIT_DO = "รอส่วนของ Data Owner แก้ไข" as const;
+    const WAIT_DP = "รอส่วนของ Data Processor แก้ไข" as const;
+    const DONE_DO = "Data Owner ดำเนินการเสร็จสิ้น" as const;
+    const DONE_DP = "Data Processor ดำเนินการเสร็จสิ้น" as const;
+
+    const getParticipantStatuses = (record: any) => {
+        const uiStatus = record.ui_status;
+        const hasDoOpenComment = !!record.has_do_open_comment;
+        const hasDpOpenComment = !!record.has_dp_open_comment;
+
+        // Primary source: explicit per-party open feedback flags from backend
+        if (hasDoOpenComment || hasDpOpenComment) {
+            return {
+                doStatus: hasDoOpenComment ? WAIT_DO : DONE_DO,
+                dpStatus: hasDpOpenComment ? WAIT_DP : DONE_DP,
+            };
+        }
+
+        // Backward-compatible fallback when flags are not available yet
+        if (uiStatus === "WAITING_DO_FIX") {
+            return { doStatus: WAIT_DO, dpStatus: DONE_DP };
+        }
+        if (uiStatus === "WAITING_DP_FIX") {
+            return { doStatus: DONE_DO, dpStatus: WAIT_DP };
+        }
+
+        // WAITING_REVIEW / COMPLETED / DO_DONE / DP_DONE -> show as role completion pair
+        return { doStatus: DONE_DO, dpStatus: DONE_DP };
     };
 
     // ─── Filter Logic ────────────────────────────────────────────────────────
     const filteredRecords = sentRecords.filter(record => {
+        const statuses = getParticipantStatuses(record);
+        const doWaiting = statuses.doStatus === WAIT_DO;
+        const dpWaiting = statuses.dpStatus === WAIT_DP;
+        const doDone = statuses.doStatus === DONE_DO;
+        const dpDone = statuses.dpStatus === DONE_DP;
+
         // Status Filter
         let matchStatus = true;
         if (statusFilter !== "all") {
             switch (statusFilter) {
-                case "wait_all": matchStatus = record.ui_status === "WAITING_REVIEW"; break;
-                case "wait_owner": matchStatus = record.ui_status === "WAITING_DO_FIX"; break;
-                case "wait_processor": matchStatus = record.ui_status === "WAITING_DP_FIX"; break;
-                case "done_all": matchStatus = record.ui_status === "COMPLETED"; break;
-                case "done_owner": matchStatus = record.ui_status === "DO_DONE"; break;
-                case "done_processor": matchStatus = record.ui_status === "DP_DONE"; break;
+                case "waiting_review":
+                    matchStatus =
+                        record.ui_status === "WAITING_REVIEW" &&
+                        !record.reviewed_at &&
+                        !record.has_do_open_comment &&
+                        !record.has_dp_open_comment;
+                    break;
+                case "wait_owner": matchStatus = doWaiting; break;
+                case "wait_processor": matchStatus = dpWaiting; break;
+                case "done_all": matchStatus = doDone && dpDone; break;
+                case "done_owner": matchStatus = doDone; break;
+                case "done_processor": matchStatus = dpDone; break;
                 default: matchStatus = false;
             }
         }
@@ -72,7 +128,19 @@ export default function RopaSubmittedPage() {
             matchDate = false;
         }
 
-        return matchStatus && matchDate;
+        let matchSearch = true;
+        if (debouncedSearch.trim()) {
+            const q = debouncedSearch.toLowerCase().trim();
+            matchSearch =
+                (record.document_number?.toLowerCase() || "").includes(q) ||
+                (record.title?.toLowerCase() || "").includes(q) ||
+                (record.dpo_name?.toLowerCase() || "").includes(q) ||
+                (record.ui_status_label?.toLowerCase() || "").includes(q) ||
+                (statuses.doStatus.toLowerCase()).includes(q) ||
+                (statuses.dpStatus.toLowerCase()).includes(q);
+        }
+
+        return matchStatus && matchDate && matchSearch;
     });
 
     const ITEMS_PER_PAGE = 3;
@@ -86,20 +154,9 @@ export default function RopaSubmittedPage() {
             setSendBackConfirm({ open: false, id: "" });
         } catch (error) {
             console.error("Failed to send back to DPO:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmitting(false);
-        }
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "WAITING_REVIEW": return "bg-[#6B7280] text-white"; // Gray
-            case "WAITING_DO_FIX": return "bg-[#FFC107] text-[#1B1C1C]"; // Yellow
-            case "WAITING_DP_FIX": return "bg-[#FFC107] text-[#1B1C1C]"; // Yellow
-            case "DO_DONE": return "bg-[#107C41] text-white"; // Green
-            case "DP_DONE": return "bg-[#107C41] text-white"; // Green
-            default: return "bg-[#E5E7EB] text-[#6B7280]";
         }
     };
 
@@ -108,7 +165,17 @@ export default function RopaSubmittedPage() {
             <Sidebar />
 
             <main className="w-[calc(100vw-var(--sidebar-width))] ml-[var(--sidebar-width)] min-h-screen flex flex-col">
-                <TopBar showBack={false} backUrl="/data-owner/management" pageTitle=" " hideSearch={true} />
+                <TopBar
+                    showBack={false}
+                    backUrl="/data-owner/management"
+                    pageTitle=" "
+                    hideSearch={false}
+                    searchQuery={searchQuery}
+                    onSearchChange={(e: any) => {
+                        setSearchQuery(e.target.value);
+                        setPage(1);
+                    }}
+                />
 
                 <div className="p-10 space-y-10">
                     <div className="flex justify-between items-center">
@@ -122,12 +189,12 @@ export default function RopaSubmittedPage() {
                         onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         statusOptions={[
                             { label: "ทั้งหมด", value: "all" },
-                            { label: "รอตรวจสอบ", value: "wait_all" },
+                            { label: "รอตรวจสอบ", value: "waiting_review" },
                             { label: "รอส่วนของ Data Owner แก้ไข", value: "wait_owner" },
                             { label: "รอส่วนของ Data Processor แก้ไข", value: "wait_processor" },
                             { label: "ตรวจสอบเสร็จสิ้น", value: "done_all" },
-                            { label: "ผู้รับผิดชอบข้อมูลดำเนินการเสร็จสิ้น", value: "done_owner" },
-                            { label: "ผู้ประมวลผลข้อมูลส่วนบุคคลดำเนินการเสร็จสิ้น", value: "done_processor" }
+                            { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "done_owner" },
+                            { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "done_processor" }
                         ]}
                         dateValue={dateFilter}
                         onDateChange={(val) => { setDateFilter(val); setPage(1); }}
@@ -179,30 +246,60 @@ export default function RopaSubmittedPage() {
                                                 {record.reviewed_at ? new Date(record.reviewed_at).toLocaleDateString("th-TH") : "—"}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold min-w-[150px] text-center whitespace-nowrap ${getStatusColor(record.ui_status)}`}>
-                                                        {record.ui_status_label}
-                                                    </span>
-                                                </div>
+                                                {record.ui_status === "WAITING_REVIEW" &&
+                                                !record.reviewed_at &&
+                                                !record.has_do_open_comment &&
+                                                !record.has_dp_open_comment ? (
+                                                    <div className="flex justify-center">
+                                                        <StatusBadge status={WAITING_REVIEW} />
+                                                    </div>
+                                                ) : (
+                                                    (() => {
+                                                        const statuses = getParticipantStatuses(record);
+                                                        return (
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <StatusBadge status={statuses.doStatus} />
+                                                                <StatusBadge status={statuses.dpStatus} />
+                                                            </div>
+                                                        );
+                                                    })()
+                                                )}
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <ActionIconWithTooltip
-                                                        icon="visibility"
-                                                        tooltipText="ดูเอกสาร"
-                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
-                                                    />
+                                                    {(() => {
+                                                        const statuses = getParticipantStatuses(record);
+                                                        const bothDone = statuses.doStatus === DONE_DO && statuses.dpStatus === DONE_DP;
+                                                        const hasBeenReviewedByDpo = !!record.reviewed_at;
+                                                        const canSendBackToDpo = bothDone && hasBeenReviewedByDpo;
 
-                                                    {/* ปุ่มส่งคืน: ปรากฏเมื่อสถานะเป็นรอการส่งคืน (หลังจากแก้ไขแล้ว หรือมีเงื่อนไขพร้อมส่ง) */}
-                                                    {(record.ui_status === "WAITING_DO_FIX" || record.ui_status === "DO_DONE" || record.ui_status === "WAITING_REVIEW") && (
+                                                        const sendTooltip = canSendBackToDpo
+                                                            ? "ส่งการแก้ไขคืน DPO"
+                                                            : !hasBeenReviewedByDpo
+                                                                ? "ต้องรอ DPO ตรวจและส่งกลับมาก่อน"
+                                                                : statuses.doStatus !== DONE_DO
+                                                                    ? "กรุณาแก้ไขส่วนของ Data Owner ให้เสร็จก่อน"
+                                                                    : "ต้องรอ Data Processor แก้ไขให้เสร็จก่อน";
+
+                                                        return (
+                                                            <>
+                                                    <ActionIconWithTooltip
+                                                        icon={record.ui_status === "WAITING_DO_FIX" ? "edit_square" : "visibility"}
+                                                        tooltipText={record.ui_status === "WAITING_DO_FIX" ? "แก้ไขข้อมูลเอกสาร" : "ดูเอกสาร"}
+                                                        buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=${record.ui_status === "WAITING_DO_FIX" ? "edit" : "view"}`)}
+                                                    />
                                                         <ActionIconWithTooltip
                                                             icon="send"
-                                                            tooltipText="ส่งการแก้ไขคืน DPO"
-                                                            buttonClassName="text-[#5F5E5E] hover:text-[#2C8C00]"
-                                                            onClick={() => setSendBackConfirm({ open: true, id: record.document_id })}
-                                                        />
-                                                    )}
+                                                        disabled={!canSendBackToDpo}
+                                                        tooltipText={sendTooltip}
+                                                        buttonClassName={
+                                                            canSendBackToDpo
+                                                                ? "text-[#5F5E5E] hover:text-[#2C8C00]"
+                                                                : "text-[#9CA3AF] cursor-not-allowed"
+                                                        }
+                                                        onClick={() => canSendBackToDpo && setSendBackConfirm({ open: true, id: record.document_id })}
+                                                    />
 
                                                     {/* ปุ่มขอลบ: นำทางไปยังแถบทำลายในหน้าฟอร์ม */}
                                                     <ActionIconWithTooltip 
@@ -211,6 +308,9 @@ export default function RopaSubmittedPage() {
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#ED393C]"
                                                         onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=deletion`)}
                                                     />
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </DocumentTableCell>
                                         </DocumentTableRow>

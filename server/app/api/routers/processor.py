@@ -90,23 +90,21 @@ def _processor_status_badge(
     """
     Unified status badge for Data Processor based on the document lifecycle:
     1. CHECK_DONE   = Document is COMPLETED
-    2. DP_NEED_FIX  = DP submitted (SUBMITTED) but has open feedback
-    3. WAITING_CHECK = DP submitted (SUBMITTED) and waiting for verification
+    2. WAITING_CHECK = DP submitted (SUBMITTED) and ready to send/waiting for verification
+    3. DP_NEED_FIX  = DP has open feedback and has not re-submitted yet
     4. WAITING_DP   = DP hasn't submitted (DRAFT or no section)
     """
     if doc_status == "COMPLETED":
         return ProcessorStatusBadge(label="ตรวจสอบเสร็จสิ้น", code="CHECK_DONE")
     
     if proc_section and proc_section.status == "SUBMITTED":
-        if has_open_feedback:
-            return ProcessorStatusBadge(label="รอ Data Processor แก้ไข", code="DP_NEED_FIX")
         if not proc_section.is_sent:
             return ProcessorStatusBadge(label="กรอกข้อมูลเสร็จสิ้น (รอส่ง)", code="WAITING_CHECK")
         return ProcessorStatusBadge(label="รอตรวจสอบ", code="WAITING_CHECK")
     
     if has_open_feedback:
         # DO or DPO rejected
-        return ProcessorStatusBadge(label="DPO แจ้งแก้ไข", code="DPO_REJECTED")
+        return ProcessorStatusBadge(label="รอส่วนของ Data Processor แก้ไข", code="DP_NEED_FIX")
 
     return ProcessorStatusBadge(label="รอส่วนของ Data Processor", code="WAITING_DP")
 
@@ -172,7 +170,8 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
         db.query(ReviewFeedbackModel)
         .filter(
             ReviewFeedbackModel.target_type == "PROCESSOR_SECTION",
-            ReviewFeedbackModel.target_id == section.id
+            ReviewFeedbackModel.target_id == section.id,
+            ReviewFeedbackModel.status == "OPEN",
         )
         .all()
     )
@@ -183,6 +182,7 @@ def _load_processor_section_full(section: RopaProcessorSectionModel, db: Session
     # ALSO: Fetch DPO comments for this document that are meant for DP
     dpo_comms = db.query(DpoSectionCommentModel).filter(
         DpoSectionCommentModel.document_id == section.document_id,
+        DpoSectionCommentModel.status == "OPEN",
         or_(
             DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)]),
             DpoSectionCommentModel.section_key.like("DP_SEC_%")
@@ -535,6 +535,7 @@ def get_assigned_table(
     if doc_ids:
         comms = db.query(DpoSectionCommentModel.document_id).filter(
             DpoSectionCommentModel.document_id.in_(doc_ids),
+            DpoSectionCommentModel.status == "OPEN",
             # Support both old DP_SEC_ prefixed keys and new numeric keys (1-6)
             or_(
                 DpoSectionCommentModel.section_key.like("DP_SEC_%"),
@@ -762,14 +763,22 @@ def submit_processor_section(
     section.status = RopaSectionEnum.SUBMITTED
     section.is_sent = False
     section.updated_by = current_user.id
+
+    # เมื่อ DP บันทึกการแก้ไขในฟอร์มแล้ว ให้ถือว่า DP ปิดงานแก้ไขฝั่งตัวเองทันที
+    # เพื่อให้ตารางฝั่ง DO เห็นสถานะ DP เป็น "เสร็จสิ้น" ทันที
+    db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id,
+        DpoSectionCommentModel.status == "OPEN",
+        or_(
+            DpoSectionCommentModel.section_key.like("DP_SEC_%"),
+            DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)]),
+        ),
+    ).update(
+        {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
     
     db.commit()
-    # ปิด open feedbacks ทั้งหมดที่ DO ส่งมาให้ DP (เมื่อ DP submit = แก้ไขแล้ว)
-    db.query(ReviewFeedbackModel).filter(
-        ReviewFeedbackModel.to_user_id == current_user.id,
-        ReviewFeedbackModel.target_id == section.id,
-        ReviewFeedbackModel.status == "OPEN",
-    ).update({"status": "RESOLVED", "resolved_at": datetime.now(timezone.utc)})
 
     # เปลี่ยน assignment status = SUBMITTED ด้วย
     assignment = (
@@ -787,16 +796,6 @@ def submit_processor_section(
     # และเพื่อให้ DO สามารถประเมินความเสี่ยงต่อได้หากเป็นการแก้ไขเล็กน้อย
     # section.is_sent = False  # ลบการรีเซ็ตออก
     
-    # ALSO: Clear DPO comments for DP sections because the user has fixed them
-    # Keys for DP: "1", "2", "3", "4", "5", "6" (and old DP_SEC_ keys)
-    db.query(DpoSectionCommentModel).filter(
-        DpoSectionCommentModel.document_id == document_id,
-        or_(
-            DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)]),
-            DpoSectionCommentModel.section_key.like("DP_SEC_%")
-        )
-    ).delete(synchronize_session=False)
-
     db.commit()
     db.refresh(section)
     return _load_processor_section_full(section, db, Role.PROCESSOR)
@@ -836,6 +835,31 @@ def send_processor_section(
         raise HTTPException(status_code=400, detail="กรุณากรอกข้อมูลและกดบันทึกในฟอร์มให้เสร็จสิ้นก่อนส่ง")
 
     section.is_sent = True
+
+    # แบบ 1: ถือว่า "เคลียร์ข้อเสนอแนะ" ตอนผู้แก้กดส่งกลับผู้ขอแล้วเท่านั้น
+    db.query(ReviewFeedbackModel).filter(
+        ReviewFeedbackModel.to_user_id == current_user.id,
+        ReviewFeedbackModel.target_id == section.id,
+        ReviewFeedbackModel.status == "OPEN",
+    ).update(
+        {"status": "RESOLVED", "resolved_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
+
+    # เคลียร์ DPO comments ฝั่ง DP เมื่อ DP กดส่งกลับแล้ว
+    # รองรับทั้ง key แบบเก่า (DP_SEC_*) และแบบใหม่เลข section (1..6)
+    db.query(DpoSectionCommentModel).filter(
+        DpoSectionCommentModel.document_id == document_id,
+        DpoSectionCommentModel.status == "OPEN",
+        or_(
+            DpoSectionCommentModel.section_key.like("DP_SEC_%"),
+            DpoSectionCommentModel.section_key.in_([str(i) for i in range(1, 7)]),
+        ),
+    ).update(
+        {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
+
     db.commit()
     return MessageResponse(message="ส่งข้อมูลให้ Data Owner เรียบร้อยแล้ว")
 
@@ -878,6 +902,7 @@ def get_received_feedbacks(
             .filter(
                 ReviewFeedbackModel.to_user_id == current_user.id,
                 ReviewFeedbackModel.target_id == proc_section.id,
+                ReviewFeedbackModel.status == "OPEN",
             )
             .order_by(ReviewFeedbackModel.created_at.desc())
             .all()
@@ -889,6 +914,7 @@ def get_received_feedbacks(
         db.query(DpoSectionCommentModel)
         .filter(
             DpoSectionCommentModel.document_id == document_id,
+            DpoSectionCommentModel.status == "OPEN",
             DpoSectionCommentModel.section_key.like("DP_SEC_%"),
         )
         .order_by(DpoSectionCommentModel.created_at.desc())
