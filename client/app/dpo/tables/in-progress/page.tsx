@@ -123,42 +123,6 @@ function InProgressTableContent() {
     }
   };
 
-  const getDisplayStatus = (apiStatus: string) => {
-    switch (apiStatus) {
-      case "IN_REVIEW":
-        return "รอตรวจสอบ";
-      case "ACTION_REQUIRED_DO":
-        return "รอส่วนของ Data Owner แก้ไข";
-      case "ACTION_REQUIRED_DP":
-        return "รอส่วนของ Data Processor แก้ไข";
-      case "APPROVED":
-        return "ตรวจสอบเสร็จสิ้น";
-      default:
-        return "ยังไม่ได้ตรวจสอบ";
-    }
-  };
-
-  const getStatusType = (apiStatus: string) => {
-    switch (apiStatus) {
-      case "IN_REVIEW":
-        return "waiting";
-      case "ACTION_REQUIRED_DO":
-        return "edit";
-      case "ACTION_REQUIRED_DP":
-        return "edit";
-      case "APPROVED":
-        return "success";
-      default:
-        return "draft";
-    }
-  };
-
-  const getPairedBadgeColor = (status: string) => {
-    if (status === "done") return "bg-[#228B15] text-white";
-    if (status === "edit") return "bg-[#ED393C] text-white";
-    return "bg-gray-200 text-gray-700";
-  };
-
   const tooltipContent = (
     <div className="bg-white text-[#5C403D] p-5 rounded-[24px] shadow-[0_10px_40px_rgba(0,0,0,0.2)] text-left border border-[#E5E2E1]/60 w-max max-w-[450px]">
       <div className="flex flex-col gap-3">

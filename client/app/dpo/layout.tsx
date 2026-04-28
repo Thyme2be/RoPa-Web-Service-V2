@@ -1,5 +1,5 @@
 import DPOSidebar from "@/components/layouts/DPOSidebar";
-import DPOTopBar from "@/components/layouts/DPOTopBar";
+import TopBar from "@/components/layouts/TopBar";
 import DPOGuard from "@/components/auth/DPOGuard";
 
 export default function DPOLayout({ children }: { children: React.ReactNode }) {
@@ -11,7 +11,7 @@ export default function DPOLayout({ children }: { children: React.ReactNode }) {
 
                 <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
                     {/* TopBar */}
-                    <DPOTopBar />
+                    <TopBar hideSearch />
 
                     {/* Main Content */}
                     <main className="flex-1 p-8 overflow-y-auto">

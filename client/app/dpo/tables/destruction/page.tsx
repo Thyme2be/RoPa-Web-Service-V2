@@ -81,30 +81,12 @@ function DestructionTableContent() {
         });
     };
 
-    const getStatusType = (apiStatus: string) => {
-        switch (apiStatus) {
-            case "PENDING": return "warning";
-            case "APPROVED": return "success";
-            case "REJECTED": return "edit";
-            default: return "neutral";
-        }
-    };
-
     const getDisplayStatus = (apiStatus: string): RoPaStatusType => {
         switch (apiStatus) {
             case "PENDING": return "รอตรวจสอบทำลาย";
             case "APPROVED": return "อนุมัติการทำลาย";
             case "REJECTED": return "ไม่อนุมัติการทำลาย";
             default: return "รอตรวจสอบทำลาย";
-        }
-    };
-
-    const getStatusColor = (type: string) => {
-        switch (type) {
-            case "success": return "bg-[#228B15] text-white"; // Green
-            case "warning": return "bg-[#FFCC00] text-[#5C403D]"; // Yellow
-            case "edit": return "bg-[#ED393C] text-white"; // Red
-            default: return "bg-gray-200 text-gray-700";
         }
     };
 

@@ -1,5 +1,5 @@
 import AdminSidebar from "@/components/layouts/AdminSidebar";
-import AdminTopBar from "@/components/layouts/AdminTopBar";
+import TopBar from "@/components/layouts/TopBar";
 import AdminGuard from "@/components/auth/AdminGuard";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                 <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
                     {/* TopBar */}
-                    <AdminTopBar />
+                    <TopBar hideSearch />
 
                     {/* Main Content */}
                     <main className="flex-1 p-8 overflow-y-auto">

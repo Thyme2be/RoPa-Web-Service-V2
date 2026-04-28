@@ -126,39 +126,6 @@ function AuditorSubmissionTableContent() {
         });
     };
 
-    const getStatusType = (apiStatus: string) => {
-        switch (apiStatus) {
-            case "PENDING":
-            case "IN_REVIEW":
-                return "warning";
-            case "COMPLETED":
-            case "VERIFIED":
-                return "success";
-            default: return "neutral";
-        }
-    };
-
-    const getDisplayStatus = (apiStatus: string) => {
-        switch (apiStatus) {
-            case "PENDING":
-            case "IN_REVIEW":
-                return "รอตรวจสอบ";
-            case "COMPLETED":
-            case "VERIFIED":
-                return "ตรวจสอบเสร็จสิ้น";
-            default: return apiStatus;
-        }
-    };
-
-    const getStatusColor = (type: string) => {
-        switch (type) {
-            case "success": return "bg-[#228B15] text-white"; // Green
-            case "warning": return "bg-[#FFCC00] text-[#5C403D]"; // Yellow
-            case "edit": return "bg-[#ED393C] text-white"; // Red
-            default: return "bg-gray-200 text-gray-700";
-        }
-    };
-
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
 

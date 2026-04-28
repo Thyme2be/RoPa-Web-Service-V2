@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
 import Select from "@/components/ui/Select";
-import RopaStatusCard from "@/components/dashboard/RopaStatusCard";
-import RiskAnalysisCard from "@/components/dashboard/RiskAnalysisCard";
-import SensitiveDataCard from "@/components/dashboard/SensitiveDataCard";
-import DashboardSummaryCard from "@/components/dashboard/DashboardSummaryCard";
-import { DonutData } from "@/components/ui/DonutChart";
+import ExecutiveDashboardView from "@/components/dashboard/ExecutiveDashboardView";
 import { useExecutive } from "@/context/ExecutiveContext";
 
 import LoadingState from "@/components/ui/LoadingState";
@@ -28,7 +24,6 @@ export default function ExecutiveDashboard() {
     const searchParams = useSearchParams();
     const { 
         executiveDashboardData, 
-        fetchExecutiveData, 
         isLoading, 
         error, 
         clearError, 
@@ -40,10 +35,6 @@ export default function ExecutiveDashboard() {
     
     // URL State Management
     const periodParam = searchParams.get("period") || "all";
-    const deptParam = searchParams.get("dept") || "";
-    
-    const [selectedDept, setSelectedDept] = useState(deptParam || "IT");
-
     // Initial Data Fetch & Sync URL with Context
     useEffect(() => {
         if (periodParam !== currentPeriod || !data) {
@@ -51,25 +42,9 @@ export default function ExecutiveDashboard() {
         }
     }, [periodParam, refresh, currentPeriod, data]);
 
-    // Update selectedDept if current selection is not in available departments
-    useEffect(() => {
-        if (data?.available_departments && data.available_departments.length > 0) {
-            if (!selectedDept || !data.available_departments.includes(selectedDept)) {
-                setSelectedDept(data.available_departments[0]);
-            }
-        }
-    }, [data?.available_departments, selectedDept]);
-
     const handleFilterChange = (newPeriod: string) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("period", newPeriod);
-        router.push(`?${params.toString()}`);
-    };
-
-    const handleDeptChange = (newDept: string) => {
-        setSelectedDept(newDept);
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("dept", newDept);
         router.push(`?${params.toString()}`);
     };
 
@@ -91,38 +66,6 @@ export default function ExecutiveDashboard() {
     if (isLoading || !data) {
         return <LoadingState fullPage message="กำลังโหลด..." />;
     }
-
-    // ─── Data Mapping ────────────────────────────────────────────────────────
-    const riskByDept = data.risk_by_department || [];
-    const sensitiveByDept = data.sensitive_docs_by_department || [];
-    const statusOverview = data.ropa_status_overview;
-    const pendingDocs = data.pending_documents;
-    const approvedDocs = data.approved_documents;
-    const pendingDpo = data.pending_dpo_review;
-
-    const ropaStatusData: DonutData[] = [
-        { label: "ฉบับร่าง", value: statusOverview?.draft ?? 0, color: "#F0EDED" },
-        { label: "รอดำเนินการ", value: statusOverview?.pending ?? 0, color: "#FFCC00" },
-        { label: "รอตรวจสอบ", value: statusOverview?.under_review ?? 0, color: "#ED393C" },
-        { label: "เสร็จสมบูรณ์", value: statusOverview?.completed ?? 0, color: "#2C8C00" },
-    ];
-
-    const currentDeptRisk = riskByDept.find((d: any) => d.department === selectedDept) || {
-        low: 0, medium: 0, high: 0, total: 0
-    };
-
-    const riskData: DonutData[] = [
-        { label: "ความเสี่ยงต่ำ (1)", value: currentDeptRisk.low || 0, color: "#B4F534" },
-        { label: "ความเสี่ยงปานกลาง (2)", value: currentDeptRisk.medium || 0, color: "#F9A506" },
-        { label: "ความเสี่ยงสูง (3)", value: currentDeptRisk.high || 0, color: "#FB8827" },
-    ];
-
-    const sensitiveSummary = sensitiveByDept.map((item: any) => ({
-        dept: item.department,
-        count: item.count
-    }));
-
-    const totalSensitive = sensitiveSummary.reduce((acc: number, item: any) => acc + item.count, 0);
 
     return (
         <div className="flex min-h-screen bg-[#F6F3F2]">
@@ -163,55 +106,7 @@ export default function ExecutiveDashboard() {
                         </div>
                     </div>
 
-                    <RopaStatusCard data={ropaStatusData} />
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                        <RiskAnalysisCard
-                            data={riskData}
-                            totalDocuments={currentDeptRisk.total || 0}
-                            departments={(data.available_departments || []).map((d: string) => ({ label: `แผนก ${d}`, value: d }))}
-                            selectedDept={selectedDept}
-                            onDeptChange={(v) => handleDeptChange(v)}
-                        />
-                        <SensitiveDataCard
-                            items={sensitiveSummary}
-                            totalCount={totalSensitive}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-10">
-                        <div className="lg:col-span-2">
-                            <DashboardSummaryCard
-                                icon="hourglass_empty"
-                                label="เอกสารที่รอดำเนินการ"
-                                accentColor="info"
-                                splitValues={[
-                                    { label: "Data Owner", value: pendingDocs?.data_owner_count ?? 0 },
-                                    { label: "Data Processor", value: pendingDocs?.data_processor_count ?? 0 },
-                                ]}
-                            />
-                        </div>
-
-                        <DashboardSummaryCard
-                            icon="check_circle"
-                            label="เอกสารที่ได้รับการอนุมัติ"
-                            value={approvedDocs?.total ?? 0}
-                            subLabel="เอกสารทั้งหมดของผู้รับผิดชอบข้อมูล"
-                            accentColor="success"
-                        />
-
-                        <div className="lg:col-span-3">
-                            <DashboardSummaryCard
-                                icon="hourglass_empty"
-                                label="เอกสารรอเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคลตรวจสอบ"
-                                accentColor="info"
-                                splitValues={[
-                                    { label: "อยู่ระหว่างตรวจสอบเพื่อจัดเก็บเอกสาร", value: pendingDpo?.for_archiving ?? 0 },
-                                    { label: "อยู่ระหว่างตรวจสอบเพื่อทำลายเอกสาร", value: pendingDpo?.for_destruction ?? 0 },
-                                ]}
-                            />
-                        </div>
-                    </div>
+                    <ExecutiveDashboardView stats={data} />
 
                 </div>
             </main>
