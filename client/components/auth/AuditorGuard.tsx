@@ -8,9 +8,6 @@ export default function AuditorGuard({ children }: { children: React.ReactNode }
     const router = useRouter();
 
     useEffect(() => {
-        // Temporarily disabled for UI viewing
-        setStatus("authorized");
-        /*
         const checkAuditor = async () => {
             const token = localStorage.getItem("token");
             if (!token) {
@@ -44,8 +41,7 @@ export default function AuditorGuard({ children }: { children: React.ReactNode }
             }
         };
 
-        // checkAuditor();
-        */
+        checkAuditor();
     }, []);
 
     if (status === "loading") {

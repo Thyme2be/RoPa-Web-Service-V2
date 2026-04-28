@@ -43,6 +43,7 @@ class UserRead(UserBase):
 
 class UserUpdate(BaseModel):
     title: Optional[str] = None
+    email: Optional[str] = None
     first_name: Optional[str] = None
     password: Optional[str] = None
     last_name: Optional[str] = None

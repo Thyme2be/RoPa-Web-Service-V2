@@ -8,9 +8,6 @@ export default function DPOGuard({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
-        // Temporarily disabled for UI viewing
-        setStatus("authorized");
-        /*
         const checkDPO = async () => {
             const token = localStorage.getItem("token");
             if (!token) {
@@ -44,8 +41,7 @@ export default function DPOGuard({ children }: { children: React.ReactNode }) {
             }
         };
 
-        // checkDPO();
-        */
+        checkDPO();
     }, []);
 
     if (status === "loading") {

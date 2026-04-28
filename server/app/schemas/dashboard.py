@@ -169,6 +169,8 @@ class DpoDocumentTableItem(BaseModel):
     reviewed_at: Optional[datetime] = None
     status_flags: DocumentStatusFlags
     review_status: str
+    owner_status: Optional[str] = None
+    processor_status: Optional[str] = None
 
 
 class PaginatedDpoDocumentTableResponse(BaseModel):

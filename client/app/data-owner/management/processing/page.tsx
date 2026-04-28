@@ -172,10 +172,6 @@ export default function ManagementProcessingPage() {
     router.push(`/data-owner/management/form?id=${id}&mode=deletion`);
   };
 
-  const getDoLabel = (r: ActiveTableItem) => r.owner_status?.label || "รอส่วนของ Data Owner";
-  const getDpLabel = (r: ActiveTableItem) => r.processor_status?.label || "รอส่วนของ Data Processor";
-
-
   const totalDraftPages = Math.max(1, Math.ceil(filteredDrafts.length / DRAFT_ITEMS_PER_PAGE));
 
   const paginatedDrafts = filteredDrafts.slice(
@@ -353,12 +349,18 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
                           <StatusBadge
-                            code={record.owner_status?.code || "WAITING_DO"}
-                            label={getDoLabel(record)}
+                            status={
+                              record.owner_status?.code === "DO_DONE"
+                                ? "เสร็จสมบูรณ์"
+                                : "รอส่วนของ Data Owner แก้ไข"
+                            }
                           />
                           <StatusBadge
-                            code={record.processor_status?.code || "WAITING_DP"}
-                            label={getDpLabel(record)}
+                            status={
+                              record.processor_status?.code === "DP_DONE"
+                                ? "เสร็จสมบูรณ์"
+                                : "รอส่วนของ Data Processor แก้ไข"
+                            }
                           />
                         </div>
                       </DocumentTableCell>

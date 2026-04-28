@@ -22,6 +22,7 @@ function AuditorSubmissionTableContent() {
     const [selectedDateRange, setSelectedDateRange] = useState("ทั้งหมด");
     const [isSendModalOpen, setIsSendModalOpen] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+    const [isSubmittingAssignment, setIsSubmittingAssignment] = useState(false);
 
     const ITEMS_PER_PAGE = 3;
 
@@ -67,6 +68,49 @@ function AuditorSubmissionTableContent() {
         }
     };
 
+    const handleAssignAuditor = async (data: any) => {
+        if (!selectedDocId) return;
+        setIsSubmittingAssignment(true);
+        const token = localStorage.getItem("token");
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/documents/${selectedDocId}/assign-auditor`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        title: data.prefix,
+                        first_name: data.firstName,
+                        last_name: data.lastName,
+                        auditor_type: data.auditorType.toUpperCase(),
+                        department: data.department,
+                        due_date: data.dueDate
+                            ? new Date(data.dueDate).toISOString()
+                            : new Date().toISOString(),
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.detail || "Failed to assign auditor");
+            }
+
+            alert("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
+            setIsSendModalOpen(false);
+            fetchAuditorAssignments(); // Refresh list
+        } catch (err: any) {
+            console.error("Assign auditor error:", err);
+            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+        } finally {
+            setIsSubmittingAssignment(false);
+        }
+    };
+
     useEffect(() => {
         fetchAuditorAssignments();
     }, [currentPage, selectedStatus, selectedDateRange, globalSearchQuery]);
@@ -79,6 +123,39 @@ function AuditorSubmissionTableContent() {
             month: '2-digit',
             year: 'numeric'
         });
+    };
+
+    const getStatusType = (apiStatus: string) => {
+        switch (apiStatus) {
+            case "PENDING":
+            case "IN_REVIEW":
+                return "warning";
+            case "COMPLETED":
+            case "VERIFIED":
+                return "success";
+            default: return "neutral";
+        }
+    };
+
+    const getDisplayStatus = (apiStatus: string) => {
+        switch (apiStatus) {
+            case "PENDING":
+            case "IN_REVIEW":
+                return "รอตรวจสอบ";
+            case "COMPLETED":
+            case "VERIFIED":
+                return "ตรวจสอบเสร็จสิ้น";
+            default: return apiStatus;
+        }
+    };
+
+    const getStatusColor = (type: string) => {
+        switch (type) {
+            case "success": return "bg-[#228B15] text-white"; // Green
+            case "warning": return "bg-[#FBBF24] text-[#5C403D]"; // Yellow
+            case "edit": return "bg-[#ED393C] text-white"; // Red
+            default: return "bg-gray-200 text-gray-700";
+        }
     };
 
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -168,7 +245,13 @@ function AuditorSubmissionTableContent() {
                                                 <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.auditor_name || "-"}</td>
                                                 <td className="py-4">
                                                     <div className="flex justify-center py-1">
-                                                        <StatusBadge code={doc.status} />
+                                                        <StatusBadge
+                                                            status={
+                                                                doc.status === "PENDING" || doc.status === "IN_REVIEW"
+                                                                    ? "รอตรวจสอบ"
+                                                                    : "ตรวจสอบเสร็จสิ้น"
+                                                            }
+                                                        />
                                                     </div>
                                                 </td>
                                                 <td className="py-4">
@@ -223,10 +306,8 @@ function AuditorSubmissionTableContent() {
             <SendToAuditorModal
                 isOpen={isSendModalOpen}
                 onClose={() => setIsSendModalOpen(false)}
-                onConfirm={async (data) => {
-                    console.log("Sending to auditor for doc:", selectedDocId, data);
-                    setIsSendModalOpen(false);
-                }}
+                onConfirm={handleAssignAuditor}
+                isLoading={isSubmittingAssignment}
             />
         </div>
     );

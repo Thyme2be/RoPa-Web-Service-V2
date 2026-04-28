@@ -135,7 +135,7 @@ function ManagementFormContent() {
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at, reviewer: "Data Owner (ผู้รับผิดชอบข้อมูล)" })).reverse()[0]!] : undefined}
+                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at, reviewer: f.from_user_name || "Data Owner (ผู้รับผิดชอบข้อมูล)" })).reverse()[0]!] : undefined}
                 canReview={viewMode}
                 onReviewClick={() => handleReviewClick(id)}
                 isProcessor={true}
@@ -472,8 +472,10 @@ function ManagementFormContent() {
     ) ? "done" : "pending";
     
     // Risk assessment is editable if both sections are done AND not yet under review/completed by DPO
+    // OR if it's a DPO feedback round (indicated by existing suggestions) and DO is done
     const isOwner = user?.role === "OWNER";
-    const canEditRisk = isOwner && doStatus === "done" && dpStatus === "done" && !isWaitingDpoApproval && !isLockedByDeletion && !isLocked;
+    const hasDpoFeedback = (form.suggestions && form.suggestions.length > 0) || record?.owner_status?.code === "DPO_REJECTED" || record?.processor_status?.code === "DPO_REJECTED";
+    const canEditRisk = isOwner && doStatus === "done" && (dpStatus === "done" || hasDpoFeedback) && !isWaitingDpoApproval && !isLockedByDeletion && !isLocked;
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -677,7 +679,7 @@ function ManagementFormContent() {
 
                                         existingRisk={form.risk_assessment}
                                         dpoSuggestion={(() => {
-                                            const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK");
+                                            const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK" || s.section_id === "risk" || s.section === "risk");
                                             return riskSuggestion ? { comment: riskSuggestion.comment, date: riskSuggestion.date } : undefined;
                                         })()}
                                         activeView={riskDocView}
@@ -686,6 +688,7 @@ function ManagementFormContent() {
                                         onSubmit={handleRiskSubmit}
                                         onCancel={() => setActiveTab("owner")}
                                         disabled={!canEditRisk}
+                                        hasDpoFeedback={hasDpoFeedback}
                                     />
 
                                     {/* Render view forms below the Risk Assessment UI without switching tabs */}

@@ -8,6 +8,7 @@ import {
   GenericFilterBar,
   StatusBadge,
 } from "@/components/ropa/RopaListComponents";
+import type { RoPaStatusType } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
 import ErrorState from "@/components/ui/ErrorState";
@@ -101,7 +102,7 @@ function InProgressTableContent() {
     });
   };
 
-  const getUIStatus = (apiStatus: string) => {
+  const getUIStatus = (apiStatus: string): RoPaStatusType => {
     switch (apiStatus) {
       case "IN_REVIEW":
         return "รอตรวจสอบ";
@@ -117,7 +118,7 @@ function InProgressTableContent() {
       case "PENDING":
         return "ยังไม่ได้ตรวจสอบ";
       default:
-        return apiStatus;
+        return "รอตรวจสอบ";
     }
   };
 
@@ -373,20 +374,37 @@ function InProgressTableContent() {
                         </td>
                         <td className="py-4">
                           <div className="flex flex-col gap-1 items-center justify-center py-1">
-                            {doc.review_status === "IN_REVIEW" ||
-                              doc.review_status === "APPROVED" ||
-                              doc.review_status === "CHANGES_REQUESTED" ? (
+                            {doc.review_status === "CHANGES_REQUESTED" ? (
+                              <div className="flex flex-col gap-1">
+                                {doc.owner_status === "edit" && (
+                                  <StatusBadge status="รอส่วนของ Data Owner แก้ไข" />
+                                )}
+                                {doc.processor_status === "edit" && (
+                                  <StatusBadge status="รอส่วนของ Data Processor แก้ไข" />
+                                )}
+                                {!doc.owner_status && !doc.processor_status && (
+                                  <StatusBadge status="รอการแก้ไข" />
+                                )}
+                              </div>
+                            ) : doc.review_status === "IN_REVIEW" || doc.review_status === "APPROVED" ? (
                               <StatusBadge
-                                code={doc.review_status}
-                                label={getUIStatus(doc.review_status)}
+                                status={getUIStatus(doc.review_status)}
                               />
                             ) : (
                               <div className="flex flex-col gap-1">
                                 <StatusBadge
-                                  code={doc.owner_status === "done" ? "DO_DONE" : "WAITING_DO"}
+                                  status={
+                                    doc.owner_status === "done"
+                                      ? "เสร็จสมบูรณ์"
+                                      : "รอส่วนของ Data Owner แก้ไข"
+                                  }
                                 />
                                 <StatusBadge
-                                  code={doc.processor_status === "done" ? "DP_DONE" : "WAITING_DP"}
+                                  status={
+                                    doc.processor_status === "done"
+                                      ? "เสร็จสมบูรณ์"
+                                      : "รอส่วนของ Data Processor แก้ไข"
+                                  }
                                 />
                               </div>
                             )}

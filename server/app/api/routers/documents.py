@@ -32,6 +32,7 @@ from app.schemas.document import (
     AuditorAssignRequest,
     DeletionRequestRead,
 )
+from app.schemas.enums import DocumentStatusEnum
 from app.schemas.user import UserRead
 from pydantic import BaseModel
 from typing import List
@@ -351,6 +352,7 @@ def assign_auditor(
             UserModel.title.ilike(payload.title),
             UserModel.first_name.ilike(payload.first_name),
             UserModel.last_name.ilike(payload.last_name),
+            UserModel.role == Role.AUDITOR,
         )
         .first()
     )
@@ -373,5 +375,12 @@ def assign_auditor(
         due_date=payload.due_date,
     )
     db.add(auditor_assignment)
+    
+    # Update Document Status to UNDER_REVIEW
+    doc = db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    if doc:
+        doc.status = DocumentStatusEnum.UNDER_REVIEW
+        db.add(doc)
+        
     db.commit()
     return {"message": "Auditor assigned successfully."}

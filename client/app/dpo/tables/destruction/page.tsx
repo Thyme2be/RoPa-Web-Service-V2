@@ -3,6 +3,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { ListCard, StatusBadge, GenericFilterBar, Pagination } from "@/components/ropa/RopaListComponents";
+import type { RoPaStatusType } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
 import ErrorState from "@/components/ui/ErrorState";
@@ -89,12 +90,12 @@ function DestructionTableContent() {
         }
     };
 
-    const getDisplayStatus = (apiStatus: string) => {
+    const getDisplayStatus = (apiStatus: string): RoPaStatusType => {
         switch (apiStatus) {
             case "PENDING": return "รอตรวจสอบทำลาย";
             case "APPROVED": return "อนุมัติการทำลาย";
             case "REJECTED": return "ไม่อนุมัติการทำลาย";
-            default: return apiStatus;
+            default: return "รอตรวจสอบทำลาย";
         }
     };
 
@@ -196,7 +197,7 @@ function DestructionTableContent() {
                                                 <td className="py-4">
                                                     <div className="flex justify-center py-1">
                                                         <StatusBadge
-                                                            label={getDisplayStatus(doc.status)}
+                                                            status={getDisplayStatus(doc.status)}
                                                         />
                                                     </div>
                                                 </td>

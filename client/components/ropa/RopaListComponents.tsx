@@ -4,7 +4,6 @@ import React from "react";
 import { 
     Pagination as OriginalPagination,
     ActionButton as OriginalActionButton,
-    StatusBadge as OriginalStatusBadge,
     RoPaStatusType as OriginalRoPaStatusType
 } from "./ListComponents";
 import { cn } from "@/lib/utils";
@@ -36,59 +35,36 @@ export function GenericFilterBar({ children, onClear }: { children: React.ReactN
 }
 
 // 2. Upgraded RoPaStatusType & StatusBadge
-export type RoPaStatusType = OriginalRoPaStatusType | string;
+export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์" | "รอส่วนของ Data Owner แก้ไข" | "รอส่วนของ Data Processor แก้ไข" | "รอการแก้ไข" | "รอตรวจสอบทำลาย" | "อนุมัติการทำลาย" | "ไม่อนุมัติการทำลาย" | "ยังไม่ได้ตรวจสอบ";
 
-export function StatusBadge({ code, label }: { code?: string; label?: string }) {
-    // 1. Mapping for Status Codes (Backend Codes)
-    const codeStyles: Record<string, { bg: string; text: string; label: string }> = {
-        // Completed States (Green)
-        "DO_DONE": { bg: "bg-[#107C41]", text: "text-white", label: "Data Owner ดำเนินการเสร็จสิ้น" },
-        "DP_DONE": { bg: "bg-[#107C41]", text: "text-white", label: "Data Processor ดำเนินการเสร็จสิ้น" },
-        "CHECK_DONE": { bg: "bg-[#107C41]", text: "text-white", label: "ตรวจสอบเสร็จสิ้น" },
-        "APPROVED": { bg: "bg-[#107C41]", text: "text-white", label: "อนุมัติแล้ว" },
-        "เสร็จสมบูรณ์": { bg: "bg-[#107C41]", text: "text-white", label: "เสร็จสมบูรณ์" },
-
-        // Waiting States (Yellow)
-        "WAITING_DO": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอส่วนของ Data Owner" },
-        "WAITING_DP": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอส่วนของ Data Processor" },
-        "WAITING_CHECK": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอตรวจสอบ" },
-        "DP_NEED_FIX": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอ Data Processor แก้ไข" },
-        "DPO_REJECTED": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอ Data Owner แก้ไข" },
-        "รอดำเนินการ": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอดำเนินการ" },
-        "ต้องแก้ไข": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอแก้ไข" },
-
-        // Rejected / Unapproved States (Red)
-        "REJECTED": { bg: "bg-[#ED393C]", text: "text-white", label: "ไม่อนุมัติ" },
-        "ไม่อนุมัติ": { bg: "bg-[#ED393C]", text: "text-white", label: "ไม่อนุมัติ" },
-
-        // Neutral/Draft States (Gray)
-        "DRAFT": { bg: "bg-[#9CA3AF]", text: "text-white", label: "ฉบับร่าง" },
-        "ฉบับร่าง": { bg: "bg-[#9CA3AF]", text: "text-white", label: "ฉบับร่าง" },
-
-        // Additional Backend Enums Synchronization
-        "EXPIRED": { bg: "bg-[#ED393C]", text: "text-white", label: "หมดอายุ" },
-        "DELETE_PENDING": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รออนุมัติทำลาย" },
-        "PENDING": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอดำเนินการ" },
-        "DELETED": { bg: "bg-[#107C41]", text: "text-white", label: "ทำลายแล้ว" },
-        "UNDER_REVIEW": { bg: "bg-[#FFC107]", text: "text-[#5C403D]", label: "รอตรวจสอบ" },
-        "COMPLETED": { bg: "bg-[#107C41]", text: "text-white", label: "เสร็จสมบูรณ์" },
-    };
-
-    // 2. Logic to determine look and feel
-    // Prioritize Code mapping, then Label mapping, then default to Label text with Gray background
-    const config = (code && codeStyles[code]) || (label && codeStyles[label]) || {
-        bg: "bg-[#9CA3AF]",
-        text: "text-white",
-        label: label || code || "ไม่ระบุ"
+export function StatusBadge({ status }: { status: RoPaStatusType }) {
+    const styles: Record<string, string> = {
+        "อนุมัติ": "bg-[#228B15] text-white",                    // Reference Green
+        "ตรวจสอบเสร็จสิ้น": "bg-[#228B15] text-white",           // Reference Green (Review)
+        "เสร็จสมบูรณ์": "bg-[#228B15] text-white",               // Reference Green (Processor)
+        "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
+        "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
+        "รอการแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
+        "รอส่วนของ Data Owner แก้ไข": "bg-[#EF4444] text-white",    // Red
+        "รอส่วนของ Data Processor แก้ไข": "bg-[#EF4444] text-white", // Red
+        "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
+        "รอตรวจสอบทำลาย": "bg-[#FBBF24] text-[#5C403D]",          // Yellow
+        "อนุมัติการทำลาย": "bg-[#228B15] text-white",             // Green
+        "ไม่อนุมัติการทำลาย": "bg-[#EF4444] text-white",          // Red
+        "ยังไม่ได้ตรวจสอบ": "bg-[#9CA3AF] text-white",             // Gray
+        "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
+        "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
+        "ฉบับร่าง": "bg-[#9CA3AF] text-white",                    // Secondary Gray
+        "กำลังใช้งาน": "bg-[#228B15] text-white",               // Green
+        "ปิดการใช้งาน": "bg-[#ED393C] text-white"                 // Red
     };
 
     return (
         <span className={cn(
-            config.bg, 
-            config.text,
+            styles[status] || styles["ฉบับร่าง"],
             "px-2.5 py-1 rounded-[6px] text-[10px] font-bold whitespace-nowrap min-w-[140px] text-center shadow-sm inline-block"
         )}>
-            {label || config.label}
+            {status}
         </span>
     );
 }

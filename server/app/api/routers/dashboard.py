@@ -1279,11 +1279,19 @@ def list_dpo_documents(
     search: Optional[str] = Query(
         None, description="Search by title or document number"
     ),
+    days_filter: Optional[int] = Query(None, description="Filter by number of days (frontend legacy)"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(require_roles(Role.DPO)),
+    current_user: UserRead = Depends(require_roles(Role.DPO, Role.AUDITOR)),
 ):
+    # Handle days_filter from frontend
+    if days_filter is not None and period == "all":
+        if days_filter == 7:
+            period = "7_days"
+        elif days_filter == 30:
+            period = "30_days"
+
     # CTE to compute sequence number (RP-YYYY-XX)
     doc_seq_subquery = db.query(
         RopaDocumentModel.id.label("doc_id"),
@@ -1299,7 +1307,6 @@ def list_dpo_documents(
     query = (
         db.query(
             RopaDocumentModel,
-            ReviewDpoAssignmentModel,
             DocumentReviewCycleModel,
             UserModel,
             doc_seq_subquery.c.doc_year,
@@ -1310,14 +1317,25 @@ def list_dpo_documents(
             DocumentReviewCycleModel,
             RopaDocumentModel.id == DocumentReviewCycleModel.document_id,
         )
-        .join(
-            ReviewDpoAssignmentModel,
-            DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id,
-        )
         .join(UserModel, RopaDocumentModel.created_by == UserModel.id)
         .join(doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id)
-        .filter(ReviewDpoAssignmentModel.dpo_id == current_user.id)
     )
+
+    assigned_at_col = None
+
+    if current_user.role == Role.DPO:
+        query = query.join(
+            ReviewDpoAssignmentModel,
+            DocumentReviewCycleModel.id == ReviewDpoAssignmentModel.review_cycle_id,
+        ).add_entity(ReviewDpoAssignmentModel).filter(ReviewDpoAssignmentModel.dpo_id == current_user.id)
+        assigned_at_col = ReviewDpoAssignmentModel.assigned_at
+    else:
+        # Auditor Role
+        query = query.join(
+            AuditorAssignmentModel,
+            RopaDocumentModel.id == AuditorAssignmentModel.document_id,
+        ).add_entity(AuditorAssignmentModel).filter(AuditorAssignmentModel.auditor_id == current_user.id)
+        assigned_at_col = AuditorAssignmentModel.created_at
 
     # Standardized period filtering
     now = datetime.now(timezone.utc)
@@ -1335,8 +1353,8 @@ def list_dpo_documents(
     elif period == "this_year":
         cutoff_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    if cutoff_date:
-        query = query.filter(ReviewDpoAssignmentModel.assigned_at >= cutoff_date)
+    if cutoff_date and assigned_at_col is not None:
+        query = query.filter(assigned_at_col >= cutoff_date)
 
     if search:
         search_term = f"%{search}%"
@@ -1359,7 +1377,7 @@ def list_dpo_documents(
 
     total = query.count()
     results = (
-        query.order_by(ReviewDpoAssignmentModel.assigned_at.desc())
+        query.order_by(assigned_at_col.desc())
         .offset((page - 1) * limit)
         .limit(limit)
         .all()
@@ -1367,18 +1385,20 @@ def list_dpo_documents(
 
     items = []
 
-    # from fastapi.encoders import jsonable_encoder
-    # import json
-
     for row in results:
         doc = row.RopaDocumentModel
-        # doc_json = json.dumps(jsonable_encoder(doc), indent=2, default=str)
-        # print(f"doc_json={doc_json}")
-        assignment = row.ReviewDpoAssignmentModel
         cycle = row.DocumentReviewCycleModel
         user = row.UserModel
         doc_year = int(row.doc_year)
         doc_number = int(row.doc_number)
+
+        # Get assignment-specific data
+        if current_user.role == Role.DPO:
+            assignment = row.ReviewDpoAssignmentModel
+            assigned_at = assignment.assigned_at
+        else:
+            assignment = row.AuditorAssignmentModel
+            assigned_at = assignment.created_at
 
         doc_code = f"RP-{doc_year}-{doc_number:02d}"
         display_title = f"{doc_code} {doc.title or 'ไม่มีชื่อเอกสาร'}"
@@ -1409,19 +1429,51 @@ def list_dpo_documents(
         status_enum_val = str(getattr(cycle.status, "value", cycle.status))
         reviewed_dt = cycle.reviewed_at if status_enum_val != "IN_REVIEW" else None
 
+        # Determine owner_status and processor_status based on DPO comments
+        owner_status = None
+        processor_status = None
+        
+        if status_enum_val == "CHANGES_REQUESTED":
+            # Check for DO comments (starts with DO_ or is risk/DO_RISK)
+            has_do_comments = db.query(exists().where(
+                and_(
+                    DpoSectionCommentModel.document_id == doc.id,
+                    or_(
+                        DpoSectionCommentModel.section_key.like("DO_%"),
+                        DpoSectionCommentModel.section_key == "risk",
+                        DpoSectionCommentModel.section_key == "DO_RISK"
+                    )
+                )
+            )).scalar()
+            
+            # Check for DP comments (starts with DP_)
+            has_dp_comments = db.query(exists().where(
+                and_(
+                    DpoSectionCommentModel.document_id == doc.id,
+                    DpoSectionCommentModel.section_key.like("DP_%")
+                )
+            )).scalar()
+            
+            if has_do_comments:
+                owner_status = "edit"
+            if has_dp_comments:
+                processor_status = "edit"
+
         items.append(
             DpoDocumentTableItem(
                 document_id=doc_code,
                 raw_document_id=doc.id,
                 title=display_title,
                 data_owner_name=data_owner_name,
-                assigned_at=assignment.assigned_at,
+                assigned_at=assigned_at,
                 reviewed_at=reviewed_dt,
                 status_flags=DocumentStatusFlags(
                     owner_completed=owner_completed,
                     processor_completed=processor_completed,
                 ),
                 review_status=status_enum_val,
+                owner_status=owner_status,
+                processor_status=processor_status,
             )
         )
 
@@ -1841,15 +1893,27 @@ def save_document_comments(
         )
         if doc:
             if cycle.status == "APPROVED":
-                doc.status = "COMPLETED"
-                doc.last_approved_at = now
-                # Calculate next review due date
-                interval = doc.review_interval_days or 365
-                doc.next_review_due_at = now + timedelta(days=interval)
+                # Check if there's any active auditor assignment
+                has_auditor = db.query(exists().where(
+                    and_(
+                        AuditorAssignmentModel.document_id == document_id,
+                        AuditorAssignmentModel.status != "VERIFIED"
+                    )
+                )).scalar()
+                
+                if has_auditor:
+                    # Keep it as UNDER_REVIEW if an auditor is assigned
+                    doc.status = "UNDER_REVIEW"
+                else:
+                    doc.status = "COMPLETED"
+                    doc.last_approved_at = now
+                    # Calculate next review due date
+                    interval = doc.review_interval_days or 365
+                    doc.next_review_due_at = now + timedelta(days=interval)
 
-                # Transform document_number prefix from DFT- to RP-
-                if doc.document_number and doc.document_number.startswith("DFT-"):
-                    doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
+                    # Transform document_number prefix from DFT- to RP-
+                    if doc.document_number and doc.document_number.startswith("DFT-"):
+                        doc.document_number = doc.document_number.replace("DFT-", "RP-", 1)
             else:
                 # CHANGES_REQUESTED -> Keep in Table 2 (UNDER_REVIEW) but allow editing
                 # doc.status = "IN_PROGRESS" # Removed: Keep as UNDER_REVIEW
@@ -1864,7 +1928,7 @@ def save_document_comments(
                     proc_sec = db.query(RopaProcessorSectionModel).filter(RopaProcessorSectionModel.document_id == document_id).first()
                     if proc_sec:
                         proc_sec.status = "DRAFT"
-                        proc_sec.is_sent = True # Keep is_sent=True so DO can see it while DP is fixing
+                        # proc_sec.is_sent = False # Keep is_sent so DO can see feedback
                         db.add(proc_sec)
 
             db.add(doc)
@@ -1896,7 +1960,7 @@ def list_documents_from_dpo(
     limit: int = Query(10, ge=1, le=1000),
     status: Optional[str] = Query(
         None,
-        description="FILTER: IN_REVIEW, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, DPO_APPROVED",
+        description="FILTER: IN_REVIEW, ACTION_REQUIRED_DO, ACTION_REQUIRED_DP, COMPLETED",
     ),
     search: Optional[str] = Query(None, description="Search by title or doc number"),
     date_range: Optional[str] = Query(None),
@@ -1941,12 +2005,13 @@ def list_documents_from_dpo(
             .exists()
         )
     elif role == Role.AUDITOR:
-        # Only APPROVED ones
-        DRC = aliased(DocumentReviewCycleModel)
-        access_filter = (
-            db.query(DRC.id)
-            .filter(DRC.document_id == RopaDocumentModel.id, DRC.status == "APPROVED")
-            .exists()
+        # Use an alias to avoid correlation issues with the main query join
+        AA = aliased(AuditorAssignmentModel)
+        access_filter = exists().where(
+            and_(
+                AA.document_id == RopaDocumentModel.id,
+                AA.auditor_id == user_id,
+            )
         )
     else:
         # DPO/Executive might see everything or limited
@@ -1964,6 +2029,21 @@ def list_documents_from_dpo(
         extract("year", RopaDocumentModel.created_at).label("year"),
     ).subquery()
 
+    # Latest Cycle Subquery for deduplication
+    latest_cycle_sub = (
+        db.query(
+            DocumentReviewCycleModel.id.label("cycle_id"),
+            DocumentReviewCycleModel.document_id,
+            func.row_number()
+            .over(
+                partition_by=DocumentReviewCycleModel.document_id,
+                order_by=DocumentReviewCycleModel.requested_at.desc(),
+            )
+            .label("rn"),
+        )
+        .subquery()
+    )
+
     # 3. Base Query
     query = (
         db.query(
@@ -1980,8 +2060,15 @@ def list_documents_from_dpo(
         .select_from(RopaDocumentModel)
         .join(id_cte, id_cte.c.doc_id == RopaDocumentModel.id)
         .outerjoin(
+            latest_cycle_sub,
+            and_(
+                latest_cycle_sub.c.document_id == RopaDocumentModel.id,
+                latest_cycle_sub.c.rn == 1,
+            ),
+        )
+        .outerjoin(
             DocumentReviewCycleModel,
-            DocumentReviewCycleModel.document_id == RopaDocumentModel.id,
+            DocumentReviewCycleModel.id == latest_cycle_sub.c.cycle_id,
         )
         .outerjoin(
             ReviewDpoAssignmentModel,
@@ -2031,39 +2118,62 @@ def list_documents_from_dpo(
         ui_status = "IN_REVIEW"
         ui_label = "รอตรวจสอบ"
 
-        if internal_status == "APPROVED":
-            # For Auditors, if they haven't verified it yet, show as IN_REVIEW (รอตรวจสอบ)
-            if role == Role.AUDITOR and str(getattr(aud_status, "value", aud_status)) != "VERIFIED":
+        # 1. Logic for Auditor or general status check
+        if role == Role.AUDITOR:
+            # For Auditors, check their assignment status OR global document status
+            aud_status_str = str(getattr(aud_status, "value", aud_status))
+            doc_status_str = str(getattr(doc.status, "value", doc.status))
+
+            if "." in aud_status_str:
+                aud_status_str = aud_status_str.split(".")[-1]
+            if "." in doc_status_str:
+                doc_status_str = doc_status_str.split(".")[-1]
+
+            if aud_status_str == "VERIFIED":
+                ui_status = "COMPLETED"
+                ui_label = "ตรวจสอบเสร็จสิ้น"
+            else:
                 ui_status = "IN_REVIEW"
                 ui_label = "รอตรวจสอบ"
-            else:
-                ui_status = "DPO_APPROVED"
+        else:
+            # 2. Check if document is COMPLETED globally for other roles
+            if str(getattr(doc.status, "value", doc.status)) == "COMPLETED":
+                ui_status = "COMPLETED"
                 ui_label = "ตรวจสอบเสร็จสิ้น"
-        elif internal_status == "CHANGES_REQUESTED":
-            # Check if comments exist in DB to determine who needs to take action
-            all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.document_id == doc.id).all()
-            
-            # Simple check: if any comment exists, someone needs to fix it.
-            # We can try to guess the role from the key or just default to DO.
-            has_comments = len(all_comments) > 0
-            
-            # For more precision, we'd need a 'group' column in DpoSectionCommentModel.
-            # Since we don't have it, we use the key patterns.
-            has_dp_related = any(c.section_key.startswith("DP_") or c.section_key in ["1", "2", "3", "4", "5", "6"] for c in all_comments)
-            has_do_related = any(c.section_key.startswith("DO_") or c.section_key in ["1", "2", "3", "4", "5", "6", "7", "risk"] for c in all_comments)
+            # 3. Otherwise check current cycle status
+            elif internal_status == "APPROVED":
+                # Even if DPO approved, if it's not COMPLETED globally, it's still being reviewed (e.g. by Auditor)
+                if str(getattr(doc.status, "value", doc.status)) == "UNDER_REVIEW":
+                    ui_status = "IN_REVIEW"
+                    ui_label = "รอตรวจสอบ"
+                else:
+                    ui_status = "COMPLETED"
+                    ui_label = "ตรวจสอบเสร็จสิ้น"
+            elif internal_status == "CHANGES_REQUESTED":
+                # Check if comments exist in DB to determine who needs to take action
+                all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.document_id == doc.id).all()
+                
+                # Simple check: if any comment exists, someone needs to fix it.
+                # We can try to guess the role from the key or just default to DO.
+                has_comments = len(all_comments) > 0
+                
+                # For more precision, we'd need a 'group' column in DpoSectionCommentModel.
+                # Since we don't have it, we use the key patterns.
+                has_dp_related = any(c.section_key.startswith("DP_") or c.section_key in ["1", "2", "3", "4", "5", "6"] for c in all_comments)
+                has_do_related = any(c.section_key.startswith("DO_") or c.section_key in ["1", "2", "3", "4", "5", "6", "7", "risk"] for c in all_comments)
 
-            if role == Role.PROCESSOR:
-                if has_dp_related:
-                    ui_status = "ACTION_REQUIRED_DP"
+                if role == Role.PROCESSOR:
+                    if has_dp_related:
+                        ui_status = "ACTION_REQUIRED_DP"
+                    else:
+                        ui_status = "IN_REVIEW"
                 else:
-                    ui_status = "IN_REVIEW"
-            else:
-                if has_do_related:
-                    ui_status = "ACTION_REQUIRED_DO"
-                elif has_dp_related:
-                    ui_status = "WAITING_FOR_DP"
-                else:
-                    ui_status = "IN_REVIEW"
+                    if has_do_related:
+                        ui_status = "ACTION_REQUIRED_DO"
+                    elif has_dp_related:
+                        ui_status = "WAITING_FOR_DP"
+                    else:
+                        ui_status = "IN_REVIEW"
 
         # Filter by Status if requested
         if status and ui_status != status:

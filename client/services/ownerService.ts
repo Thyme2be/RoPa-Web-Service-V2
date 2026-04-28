@@ -135,4 +135,9 @@ export const ownerService = {
         const response = await api.get(`/owner/documents/${documentId}/processor-section`);
         return response.data;
     },
+
+    getRiskAssessment: async (documentId: string) => {
+        const response = await api.get(`/owner/documents/${documentId}/risk`);
+        return response.data;
+    },
 };

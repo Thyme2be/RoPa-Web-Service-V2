@@ -199,18 +199,23 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
-    if payload.password:
-        user.password_hash = get_password_hash(payload.password)
+    update_data = payload.model_dump(exclude_unset=True)
+
+    if "password" in update_data and update_data["password"]:
+        user.password_hash = get_password_hash(update_data.pop("password"))
+    elif "password" in update_data:
+        update_data.pop("password") # Remove empty password if present
+
+    if "email" in update_data and update_data["email"] != user.email:
+        if db.query(UserModel).filter(UserModel.email == update_data["email"]).first():
+            raise HTTPException(status_code=409, detail=f"Email '{update_data['email']}' already registered.")
     
-    if payload.title is not None: user.title = payload.title
-    if payload.first_name is not None: user.first_name = payload.first_name
-    if payload.last_name is not None: user.last_name = payload.last_name
-    if payload.username is not None: user.username = payload.username
-    if payload.status is not None: user.status = payload.status
-    if payload.role is not None: user.role = payload.role
-    if payload.department is not None: user.department = payload.department
-    if payload.company_name is not None: user.company_name = payload.company_name
-    if payload.auditor_type is not None: user.auditor_type = payload.auditor_type
+    if "username" in update_data and update_data["username"] != user.username:
+        if db.query(UserModel).filter(UserModel.username == update_data["username"]).first():
+            raise HTTPException(status_code=409, detail=f"Username '{update_data['username']}' already registered.")
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
 
     db.commit()
     db.refresh(user)

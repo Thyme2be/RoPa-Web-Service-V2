@@ -168,6 +168,35 @@ function LocalActivityDetails({
   );
 }
 
+const DO_KEY_MAP: Record<string, string> = {
+  "ข้อมูลทั่วไป": "DO_SEC_1",
+  "ช่องทางใช้สิทธิ": "DO_SEC_2",
+  "กิจกรรมประมวลผล": "DO_SEC_3",
+  "ข้อมูลที่จัดเก็บ": "DO_SEC_4",
+  "ระยะเวลาการเก็บรักษา": "DO_SEC_5",
+  "ฐานทางกฎหมาย": "DO_SEC_6",
+  "มาตรการรักษาความปลอดภัย": "DO_SEC_7",
+  "การประเมินความเสี่ยง": "DO_RISK",
+};
+
+const DP_KEY_MAP: Record<string, string> = {
+  "ข้อมูลทั่วไป (DP)": "DP_SEC_1",
+  "กิจกรรมประมวลผล (DP)": "DP_SEC_2",
+  "ข้อมูลที่จัดเก็บ (DP)": "DP_SEC_3",
+  "ระยะเวลาการเก็บรักษา (DP)": "DP_SEC_4",
+  "ฐานทางกฎหมาย (DP)": "DP_SEC_5",
+  "มาตรการรักษาความปลอดภัย (DP)": "DP_SEC_6",
+};
+
+const REVERSE_DO_KEY_MAP: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(DO_KEY_MAP).map(([k, v]) => [v, k])),
+  risk: "การประเมินความเสี่ยง",
+};
+
+const REVERSE_DP_KEY_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(DP_KEY_MAP).map(([k, v]) => [v, k]),
+);
+
 /**
  * DPO Management Form Page (Detail View)
  * Located at: client/app/dpo/tables/in-progress/[id]/page.tsx
@@ -270,6 +299,10 @@ function DpoInProgressDetailContent() {
           status: docData.status as RopaStatus,
           risk_assessment: mapRisk(docData.risk_assessment || os.risk_assessment),
           processing_status: { do_status: "done", dp_status: "done" },
+          // Map field name mismatches between backend and UI components
+          access_condition: os.access_control_policy || os.access_condition || "",
+          rejectionNote: os.refusal_handling || os.rejectionNote || "",
+          transfer_company: os.transfer_in_group || os.transfer_company || "",
           // Map array items to strings
           personal_data_items: extractArr(os.personal_data_items, "type"),
           data_categories: extractArr(os.data_categories, "category"),
@@ -318,6 +351,9 @@ function DpoInProgressDetailContent() {
             processing_activity: ps.processing_activity,
             purpose_of_processing: ps.purpose_of_processing || ps.purpose,
             status: (docProcessorData.status || ps.status) as RopaStatus,
+            // Map field name mismatches between backend and UI components
+            access_condition: ps.access_condition || "",
+            transfer_company: ps.transfer_company || "",
             // Map array items to strings
             personal_data_items: extractArr(ps.personal_data_items, "type"),
             data_categories: extractArr(ps.data_categories, "category"),
@@ -348,6 +384,40 @@ function DpoInProgressDetailContent() {
           }
         } catch (err) {
           console.error("Failed to fetch risk assessment:", err);
+        }
+
+        // Fetch existing DPO comments
+        try {
+          const commentsResponse = await fetch(
+            `${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          if (commentsResponse.ok) {
+            const commentsData = await commentsResponse.json();
+            const feedbacks: Record<string, string> = {};
+            const openSections: string[] = [];
+
+            commentsData.forEach((c: any) => {
+              const thaiLabel =
+                REVERSE_DO_KEY_MAP[c.section_key] ||
+                REVERSE_DP_KEY_MAP[c.section_key];
+              if (thaiLabel && c.comment) {
+                feedbacks[thaiLabel] = c.comment;
+                if (!openSections.includes(thaiLabel)) {
+                  openSections.push(thaiLabel);
+                }
+              }
+            });
+
+            if (Object.keys(feedbacks).length > 0) {
+              setSectionFeedbacks(feedbacks);
+              setOpenFeedbackSections(openSections);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch comments:", err);
         }
       } catch (err: any) {
         console.error("Fetch detail error:", err);
@@ -395,25 +465,6 @@ function DpoInProgressDetailContent() {
     router.push("/dpo/tables/in-progress");
   };
 
-  const DO_KEY_MAP: Record<string, string> = {
-    "ข้อมูลทั่วไป": "1",
-    "ช่องทางใช้สิทธิ": "2",
-    "กิจกรรมประมวลผล": "3",
-    "ข้อมูลที่จัดเก็บ": "4",
-    "ระยะเวลาการเก็บรักษา": "5",
-    "ฐานทางกฎหมาย": "6",
-    "มาตรการรักษาความปลอดภัย": "7",
-    "การประเมินความเสี่ยง": "risk",
-  };
-
-  const DP_KEY_MAP: Record<string, string> = {
-    "ข้อมูลทั่วไป (DP)": "1",
-    "กิจกรรมประมวลผล (DP)": "2",
-    "ข้อมูลที่จัดเก็บ (DP)": "3",
-    "ระยะเวลาการเก็บรักษา (DP)": "4",
-    "ฐานทางกฎหมาย (DP)": "5",
-    "มาตรการรักษาความปลอดภัย (DP)": "6",
-  };
 
   const saveComments = async (isFinal: boolean) => {
     const token = localStorage.getItem("token");
@@ -440,9 +491,6 @@ function DpoInProgressDetailContent() {
     const hasDoComments = doComments.length > 0;
     const hasDpComments = dpComments.length > 0;
     const hasAnyComments = hasDoComments || hasDpComments;
-
-    // Determine target status and finality
-    const effectiveIsFinal = isFinal && !hasAnyComments;
     
     let targetStatus = undefined;
     if (isFinal) {
@@ -450,8 +498,10 @@ function DpoInProgressDetailContent() {
       else targetStatus = "APPROVED";
     }
 
+
     // Save DO group
     if (hasDoComments || (isFinal && !hasDpComments)) {
+      const isThisFinal = isFinal && !hasDpComments;
       promises.push(() =>
         fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
           method: "POST",
@@ -462,15 +512,16 @@ function DpoInProgressDetailContent() {
           body: JSON.stringify({
             group: "DO",
             comments: doComments,
-            is_final: effectiveIsFinal,
-            status: targetStatus,
+            is_final: isThisFinal,
+            status: isThisFinal ? targetStatus : undefined,
           }),
         }),
       );
     }
 
     // Save DP group
-    if (hasDpComments || (isFinal && !hasDoComments)) {
+    if (hasDpComments) {
+      const isThisFinal = isFinal;
       promises.push(() =>
         fetch(`${API_BASE_URL}/dashboard/dpo/documents/${recordId}/comments`, {
           method: "POST",
@@ -481,8 +532,8 @@ function DpoInProgressDetailContent() {
           body: JSON.stringify({
             group: "DP",
             comments: dpComments,
-            is_final: effectiveIsFinal,
-            status: targetStatus,
+            is_final: isThisFinal,
+            status: isThisFinal ? targetStatus : undefined,
           }),
         }),
       );
@@ -655,43 +706,50 @@ function DpoInProgressDetailContent() {
 
         {activeTab === "risk" && (
           <div className="mt-4 pb-32 space-y-8">
-            <SectionCommentBox
-              isOpen={openFeedbackSections.includes("การประเมินความเสี่ยง")}
-              onToggle={() => toggleFeedback("การประเมินความเสี่ยง")}
-              value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
-              onChange={(text) =>
-                setSectionFeedbacks((prev) => ({
-                  ...prev,
-                  ["การประเมินความเสี่ยง"]: text,
-                }))
+            <DpoRiskAssessment
+              key={recordId}
+              doStatus="done"
+              dpStatus="done"
+              existingRisk={form.risk_assessment as any}
+              activeView={riskDocView}
+              onViewDoSection={() =>
+                setRiskDocView((prev) => (prev === "owner" ? "none" : "owner"))
               }
-              variant="risk"
-              suggestions={(form as any).suggestions?.filter((s: any) => s.section === "DO_RISK" || s.section_id === "risk").map((s: any) => ({
-                text: s.comment,
-                date: s.date,
-                reviewer: "DPO"
+              onViewDpSection={() =>
+                setRiskDocView((prev) =>
+                  prev === "processor" ? "none" : "processor",
+                )
+              }
+              onSubmit={emptyHandler}
+              onCancel={() => setActiveTab("owner")}
+              readOnly={true}
+              isFeedbackOpen={openFeedbackSections.includes(
+                "การประเมินความเสี่ยง",
+              )}
+              onToggleFeedback={() => toggleFeedback("การประเมินความเสี่ยง")}
+              feedbackData={(form as any).suggestions?.filter((s: any) => s.section === "DO_RISK" || s.section_id === "DO_RISK" || s.section_id === "risk").map((s: any) => ({
+                content: s.comment,
+                created_at: s.date
               })) || []}
-            >
-              <DpoRiskAssessment
-                key={recordId}
-                doStatus="done"
-                dpStatus="done"
-                existingRisk={form.risk_assessment as any}
-                activeView={riskDocView}
-                onViewDoSection={() =>
-                  setRiskDocView((prev) => (prev === "owner" ? "none" : "owner"))
-                }
-                onViewDpSection={() =>
-                  setRiskDocView((prev) =>
-                    prev === "processor" ? "none" : "processor",
-                  )
-                }
-                onSubmit={emptyHandler}
-                onCancel={() => setActiveTab("owner")}
-                readOnly={true}
-                showFeedback={false} // Disable internal feedback UI as it's wrapped now
-              />
-            </SectionCommentBox>
+            />
+
+            {openFeedbackSections.includes("การประเมินความเสี่ยง") && (
+              <div className="bg-white rounded-[20px] shadow-sm border-l-[6px] border-l-[#ED393C] p-6 animate-in slide-in-from-top-4 duration-300">
+                <div className="bg-[#F6F3F2]/60 rounded-xl p-4">
+                  <textarea
+                    className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
+                    placeholder="ระบุข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
+                    value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
+                    onChange={(e) =>
+                      setSectionFeedbacks((prev) => ({
+                        ...prev,
+                        ["การประเมินความเสี่ยง"]: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             {riskDocView === "owner" && (
               <div className="animate-in slide-in-from-top-4 duration-500 space-y-8">

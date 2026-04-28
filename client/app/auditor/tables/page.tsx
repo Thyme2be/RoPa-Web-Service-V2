@@ -50,7 +50,7 @@ function AuditorTableContent() {
       let apiStatus = "";
       if (selectedStatus === "รอตรวจสอบ") apiStatus = "IN_REVIEW";
       else if (selectedStatus === "ตรวจสอบเสร็จสิ้น")
-        apiStatus = "DPO_APPROVED";
+        apiStatus = "COMPLETED";
 
       const queryParams = new URLSearchParams({
         page: currentPage.toString(),
@@ -106,6 +106,7 @@ function AuditorTableContent() {
       case "ACTION_REQUIRED_DP":
         return "ต้องแก้ไข";
       case "DPO_APPROVED":
+      case "COMPLETED":
         return "ตรวจสอบเสร็จสิ้น";
       default:
         return "ฉบับร่าง";
@@ -253,7 +254,7 @@ function AuditorTableContent() {
                         <td className="py-4">
                           <div className="flex justify-center py-1">
                             <StatusBadge
-                              label={getUIStatus(doc.status)}
+                              status={getUIStatus(doc.status)}
                             />
                           </div>
                         </td>

@@ -379,15 +379,14 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
                           <StatusBadge
-                            code={record.status?.code || "WAITING_DP"}
-                            label={
+                            status={
                               record.status?.code === "WAITING_DO"
-                                ? "รอส่วนของ Data Owner"
+                                ? "รอส่วนของ Data Owner แก้ไข"
                                 : record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX"
-                                  ? "รอส่วนของ Data Processor"
+                                  ? "รอส่วนของ Data Processor แก้ไข"
                                   : record.status?.code === "CHECK_DONE"
-                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
-                                    : record.status?.label || "Data Processor ดำเนินการเสร็จสิ้น"
+                                    ? "เสร็จสมบูรณ์"
+                                    : "เสร็จสมบูรณ์"
                             }
                           />
                         </div>
@@ -404,31 +403,34 @@ export default function ManagementProcessingPage() {
                               )
                             }
                           />
-                          {record.is_sent ? (
-                            <div className="text-[#ED393C] p-2">
-                              <ActionIconWithTooltip
-                                icon="send"
-                                disabled={false}
-                                tooltipText="ส่งให้ผู้รับผิดชอบข้อมูล"
-                                buttonClassName="text-[#5F5E5E] hover:text-[#00666E]"
-                                onClick={() =>
-                                  setSubmitConfirm({
-                                    open: true,
-                                    id: record.id,
-                                  })
-                                }
-                              />
-                            </div>
-                          ) : (
-                            <div className="p-2 opacity-40">
-                              <ActionIconWithTooltip
-                                icon="send"
-                                disabled={true}
-                                tooltipText="กรุณาบันทึกข้อมูลในแบบฟอร์มให้เรียบร้อยก่อนส่ง"
-                                buttonClassName="text-[#9CA3AF] cursor-not-allowed"
-                              />
-                            </div>
-                          )}
+                          <div className={cn("p-2", record.is_sent && "text-[#107C41]")}>
+                            <ActionIconWithTooltip
+                              icon="send"
+                              disabled={
+                                record.is_sent ||
+                                record.status?.code === "CHECK_DONE" ||
+                                record.status?.code === "WAITING_DP" ||
+                                record.status?.code === "DP_NEED_FIX"
+                              }
+                              tooltipText={
+                                record.is_sent
+                                  ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
+                                  : record.status?.code === "CHECK_DONE"
+                                    ? "ดำเนินการตรวจสอบเสร็จสิ้นแล้ว"
+                                    : (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
+                                      ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
+                                      : "ส่งข้อมูลให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
+                              }
+                              buttonClassName={cn(
+                                (record.is_sent || record.status?.code === "CHECK_DONE" || record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
+                                  ? "text-[#9CA3AF]"
+                                  : "text-[#5F5E5E] hover:text-[#00666E]"
+                              )}
+                              onClick={() =>
+                                setSubmitConfirm({ open: true, id: record.id })
+                              }
+                            />
+                          </div>
                         </div>
                       </DocumentTableCell>
                     </DocumentTableRow>

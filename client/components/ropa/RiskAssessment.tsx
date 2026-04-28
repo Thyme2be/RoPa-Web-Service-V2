@@ -25,6 +25,7 @@ interface RiskAssessmentProps {
     disabled?: boolean;
     dpRawStatus?: string;
     dpIsSent?: boolean;
+    hasDpoFeedback?: boolean;
 }
 
 
@@ -91,7 +92,8 @@ export default function RiskAssessment({
     onCancel,
     disabled = false,
     dpRawStatus,
-    dpIsSent
+    dpIsSent,
+    hasDpoFeedback = false
 }: RiskAssessmentProps) {
 
     const [probability, setProbability] = useState(existingRisk?.probability ?? 0);
@@ -113,7 +115,7 @@ export default function RiskAssessment({
     }
 
     // ─── Blocked: DP not done ─────────────────────────────────────────────────
-    if (dpStatus !== "done") {
+    if (dpStatus !== "done" && !hasDpoFeedback) {
         const isWaitingForReSubmit = dpIsSent && dpRawStatus === "DRAFT";
         return (
             <div className="flex flex-col items-center justify-center py-40 text-center text-[#5F5E5E]">
@@ -127,7 +129,6 @@ export default function RiskAssessment({
             </div>
         );
     }
-
 
     // ─── Ready: Both done ─────────────────────────────────────────────────────
     const content = (

@@ -193,7 +193,7 @@ function DocumentsPageContent() {
                                         <td className="py-7 text-[12px] font-medium text-[#5F5E5E] italic opacity-80">{doc.activity}</td>
                                         <td className="py-7">
                                             <div className="flex justify-center scale-110">
-                                                <StatusBadge label={doc.status} />
+                                                <StatusBadge status={doc.status} />
                                             </div>
                                         </td>
                                     </tr>

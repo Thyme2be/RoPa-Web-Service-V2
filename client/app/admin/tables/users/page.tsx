@@ -105,7 +105,7 @@ function UsersPageContent() {
             const statusParam = statusFilter ? `&status=${statusFilter}` : "";
 
             const response = await fetch(
-                `${API_BASE_URL}/admin/users?page=${currentPage}&limit=${ITEMS_PER_PAGE}${searchParam}${roleParam}${statusParam}`,
+                `${API_BASE_URL}/admin/users?page=${currentPage}&limit=${ITEMS_PER_PAGE}${searchParam}${roleParam}${statusParam}&t=${Date.now()}`,
                 {
                     headers: {
                         "Authorization": `Bearer ${token}`
@@ -231,13 +231,13 @@ function UsersPageContent() {
 
             setIsCreateModalOpen(false);
             setCreateFormData(initialCreateFormData);
+            setIsEditMode(false);
             fetchUsers();
         } catch (error: any) {
             console.error("Error saving user:", error);
             alert(error.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         } finally {
             setIsCreating(false);
-            setIsEditMode(false);
         }
     };
 
@@ -407,7 +407,7 @@ function UsersPageContent() {
                                         <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{user.department}</td>
                                         <td className="py-7">
                                             <div className="flex justify-center scale-110">
-                                                <StatusBadge label={user.status} />
+                                                <StatusBadge status={user.status} />
                                             </div>
                                         </td>
                                         <td className="py-7">
