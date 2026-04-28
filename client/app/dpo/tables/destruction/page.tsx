@@ -1,8 +1,7 @@
 "use client";
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from "next/link";
-import { ListCard, StatusBadge, GenericFilterBar, Pagination } from "@/components/ropa/RopaListComponents";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ListCard, StatusBadge, GenericFilterBar, Pagination, ActionIconWithTooltip } from "@/components/ropa/RopaListComponents";
 import type { RoPaStatusType } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
@@ -11,6 +10,7 @@ import ErrorState from "@/components/ui/ErrorState";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function DestructionTableContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const globalSearchQuery = searchParams.get("search") || "";
 
@@ -185,13 +185,12 @@ function DestructionTableContent() {
                                                 </td>
                                                 <td className="py-4">
                                                     <div className="flex justify-center">
-                                                        <Link
-                                                            href={`/dpo/tables/destruction/${doc.raw_document_id}`}
-                                                            title="ดูรายละเอียดและทำลาย"
-                                                            className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
-                                                        >
-                                                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>visibility</span>
-                                                        </Link>
+                                                        <ActionIconWithTooltip
+                                                            icon="visibility"
+                                                            tooltipText="ดูรายละเอียดและทำลาย"
+                                                            buttonClassName="text-[#5C403D]"
+                                                            onClick={() => router.push(`/dpo/tables/destruction/${doc.raw_document_id}`)}
+                                                        />
                                                     </div>
                                                 </td>
                                             </tr>

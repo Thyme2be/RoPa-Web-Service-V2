@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import SectionCommentBox, { CommentSuggestion } from "./SectionCommentBox";
 
 interface RiskAssessmentProps {
     doStatus: "pending" | "done";
@@ -189,6 +188,26 @@ export default function DpoRiskAssessment({
                         </div>
                     </div>
                 )}
+                {showFeedback && (
+                    <div className="pt-6">
+                        <button
+                            type="button"
+                            onClick={handleToggleFeedback}
+                            className={cn(
+                                "h-11 px-5 rounded-xl border font-bold text-[14px] transition-all inline-flex items-center gap-2",
+                                isFeedbackOpen
+                                    ? "bg-[#ED393C] text-white border-[#ED393C]"
+                                    : "bg-white text-[#1B1C1C] border-[#E5E2E1] hover:bg-[#F9F9F9] cursor-pointer",
+                            )}
+                        >
+                            <span className="material-symbols-outlined text-[18px]">
+                                {isFeedbackOpen ? "close" : "chat"}
+                            </span>
+                            {isFeedbackOpen ? "ปิดข้อเสนอแนะ" : "เพิ่มข้อเสนอแนะ"}
+                        </button>
+                    </div>
+                )}
+
                 <div className={cn("transition-all duration-500 overflow-hidden", activeView !== "none" ? "mt-8 opacity-100" : "max-h-0 opacity-0")}>
                     {activeView === "owner" && (
                         <div className="animate-in fade-in slide-in-from-top-4 duration-500">

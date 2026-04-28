@@ -394,9 +394,12 @@ export default function ManagementProcessingPage() {
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
                           {(() => {
+                            const hasSubmittedSection =
+                              record.processor_section_status === "SUBMITTED";
                             const hasNeedFixFromDo =
-                              record.status?.code === "DP_NEED_FIX" ||
-                              record.has_open_feedback;
+                              (record.status?.code === "DP_NEED_FIX" ||
+                                record.status?.code === "DPO_REJECTED") &&
+                              !hasSubmittedSection;
 
                             return (
                           <StatusBadge
@@ -431,26 +434,27 @@ export default function ManagementProcessingPage() {
                           <div className={cn(
                             "p-2",
                             record.is_sent &&
-                              record.status?.code !== "DP_NEED_FIX" &&
-                              !record.has_open_feedback &&
+                              record.processor_section_status === "SUBMITTED" &&
                               "text-[#107C41]",
                           )}>
                             {(() => {
-                              // DO feedback means DP must edit and save in form before sending again.
+                              const hasSubmittedSection =
+                                record.processor_section_status === "SUBMITTED";
                               const hasNeedFixFromDo =
-                                record.status?.code === "DP_NEED_FIX" ||
-                                record.has_open_feedback;
-                              const isActuallySent = record.is_sent && !hasNeedFixFromDo;
+                                (record.status?.code === "DP_NEED_FIX" ||
+                                  record.status?.code === "DPO_REJECTED") &&
+                                !hasSubmittedSection;
+                              const isActuallySent = record.is_sent && hasSubmittedSection;
                               const isDisabled =
                                 isActuallySent ||
                                 record.status?.code === "CHECK_DONE" ||
-                                record.status?.code === "WAITING_DP" ||
+                                !hasSubmittedSection ||
                                 hasNeedFixFromDo;
                               const tooltipText = isActuallySent
                                 ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
                                 : record.status?.code === "CHECK_DONE"
                                   ? "ดำเนินการตรวจสอบเสร็จสิ้นแล้ว"
-                                  : record.status?.code === "WAITING_DP"
+                                  : !hasSubmittedSection
                                     ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
                                     : hasNeedFixFromDo
                                       ? "กรุณาแก้ไขและบันทึกในฟอร์มก่อนจึงจะส่งได้"

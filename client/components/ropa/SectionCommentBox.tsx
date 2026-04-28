@@ -184,21 +184,27 @@ export default function SectionCommentBox({
       <div className="relative group">
         {/* Toggle button (top-right corner of the section card) */}
         {!readOnly && (
-          <button
-            type="button"
-            onClick={onToggle}
-            title={isOpen ? "ปิดข้อเสนอแนะ" : "เพิ่มข้อเสนอแนะ"}
-            className={cn(
-              "absolute top-5 right-5 z-10 w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer shadow-sm",
-              isOpen
-                ? config.buttonActive
-                : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]",
-            )}
-          >
-            <span className="material-symbols-outlined text-[20px]">
-              {isOpen ? "close" : "comment"}
-            </span>
-          </button>
+          <div className="absolute top-5 right-5 z-10 group/tooltip">
+            <button
+              type="button"
+              onClick={onToggle}
+              className={cn(
+                "w-10 h-10 rounded-full transition-all flex items-center justify-center cursor-pointer shadow-sm",
+                isOpen
+                  ? config.buttonActive
+                  : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]",
+              )}
+            >
+              <span className="material-symbols-outlined text-[20px]">
+                {isOpen ? "close" : "comment"}
+              </span>
+            </button>
+            <div className="absolute bottom-full mb-2 right-0 w-max opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[60] pointer-events-none">
+              <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] text-center">
+                {isOpen ? "ปิดข้อเสนอแนะ" : "เพิ่มข้อเสนอแนะ"}
+              </div>
+            </div>
+          </div>
         )}
 
         <div

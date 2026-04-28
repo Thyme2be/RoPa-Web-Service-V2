@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ListCard, StatusBadge, Pagination, GenericFilterBar } from "@/components/ropa/RopaListComponents";
+import { ListCard, StatusBadge, Pagination, GenericFilterBar, ActionIconWithTooltip } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
 import ErrorState from "@/components/ui/ErrorState";
@@ -41,8 +41,7 @@ function AuditorSubmissionTableContent() {
             const daysFilter = selectedDateRange === "ภายใน 7 วัน" ? 7 : (selectedDateRange === "ภายใน 30 วัน" ? 30 : 0);
 
             let statusFilter = "";
-            if (selectedStatus === "รอตรวจสอบ") statusFilter = "PENDING";
-            else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "COMPLETED";
+            if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "COMPLETED";
 
             const queryParams = new URLSearchParams({
                 page: currentPage.toString(),
@@ -149,7 +148,6 @@ function AuditorSubmissionTableContent() {
                             onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
                             options={[
                                 { label: "ทั้งหมด", value: "ทั้งหมด" },
-                                { label: "รอตรวจสอบ", value: "รอตรวจสอบ" },
                                 { label: "ตรวจสอบเสร็จสิ้น", value: "ตรวจสอบเสร็จสิ้น" }
                             ]}
                             containerClassName="!w-full"
@@ -200,41 +198,37 @@ function AuditorSubmissionTableContent() {
                                                 onRetry={fetchAuditorAssignments}
                                             />
                                         );
-                                        if (documents.length > 0) return documents.map((doc) => (
-                                            <tr key={doc.raw_document_id} className="hover:bg-gray-50 transition-colors group">
+                                        if (documents.length > 0) return documents.map((doc, index) => {
+                                            const rowKey = `${doc.raw_document_id || doc.document_id || "doc"}-${doc.auditor_name || "na"}-${index}`;
+                                            return (
+                                            <tr key={rowKey} className="hover:bg-gray-50 transition-colors group">
                                                 <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>
-                                                        <span className="text-[#5F5E5E] font-medium tracking-tight">{doc.name}</span>
+                                                        <span className="text-[#5F5E5E] font-medium tracking-tight">{doc.title}</span>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.owner}</td>
-                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.received_date)}</td>
+                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.data_owner_name}</td>
+                                                <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{formatThaiDate(doc.assigned_at)}</td>
                                                 <td className="py-4 text-[13.5px] font-medium text-[#5C403D] text-center">{doc.auditor_name || "-"}</td>
                                                 <td className="py-4">
                                                     <div className="flex justify-center py-1">
-                                                        <StatusBadge
-                                                            status={
-                                                                doc.status === "PENDING" || doc.status === "IN_REVIEW"
-                                                                    ? "รอตรวจสอบ"
-                                                                    : "ตรวจสอบเสร็จสิ้น"
-                                                            }
-                                                        />
+                                                        <StatusBadge status="ตรวจสอบเสร็จสิ้น" />
                                                     </div>
                                                 </td>
                                                 <td className="py-4">
                                                     <div className="flex justify-center">
-                                                        <button
+                                                        <ActionIconWithTooltip
+                                                            icon="send"
+                                                            tooltipText="ส่งให้ผู้ตรวจสอบ"
+                                                            buttonClassName="text-[#5C403D]"
                                                             onClick={() => { setSelectedDocId(doc.raw_document_id); setIsSendModalOpen(true); }}
-                                                            title="ส่งให้ผู้ตรวจสอบ"
-                                                            className="w-9 h-9 rounded-full bg-[#F6F3F2] flex items-center justify-center text-[#5C403D] hover:bg-[#E5E2E1]/60 transition-colors cursor-pointer"
-                                                        >
-                                                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>send</span>
-                                                        </button>
+                                                        />
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ));
+                                            );
+                                        });
                                         return (
                                             <tr className="animate-in fade-in duration-500">
                                                 <td colSpan={6} align="center">

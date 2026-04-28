@@ -25,6 +25,23 @@ function DocumentsPageContent() {
     const ITEMS_PER_PAGE = 3;
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const mapDocumentStatusToThai = (status?: string) => {
+        switch ((status || "").toUpperCase()) {
+            case "DRAFT":
+                return "ฉบับร่าง";
+            case "IN_PROGRESS":
+                return "รอดำเนินการ";
+            case "UNDER_REVIEW":
+            case "REVIEW":
+                return "รอตรวจสอบ";
+            case "COMPLETED":
+                return "เสร็จสมบูรณ์";
+            case "EXPIRED":
+                return "หมดอายุ";
+            default:
+                return status || "-";
+        }
+    };
 
     const fetchDocuments = async () => {
         try {
@@ -43,10 +60,7 @@ function DocumentsPageContent() {
                     department: doc.department || "-",
                     dpo: doc.dpo_name || "-",
                     activity: doc.status === 'COMPLETED' ? `เสร็จสมบูรณ์เมื่อ ${new Date(doc.updated_at).toLocaleDateString('th-TH')}` : `อัปเดตเมื่อ ${new Date(doc.updated_at).toLocaleDateString('th-TH')}`,
-                    status: doc.status === 'DRAFT' ? 'ฉบับร่าง' : 
-                            doc.status === 'IN_PROGRESS' ? 'รอดำเนินการ' : 
-                            doc.status === 'REVIEW' ? 'รอตรวจสอบ' : 
-                            doc.status === 'COMPLETED' ? 'เสร็จสมบูรณ์' : doc.status,
+                    status: mapDocumentStatusToThai(doc.status),
                     timestamp: doc.updated_at
                 }));
 
@@ -120,9 +134,11 @@ function DocumentsPageContent() {
                             onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
                             options={[
                                 { label: "ทั้งหมด", value: "ทั้งหมด" },
+                                { label: "ฉบับร่าง", value: "ฉบับร่าง" },
                                 { label: "รอดำเนินการ", value: "รอดำเนินการ" },
                                 { label: "รอตรวจสอบ", value: "รอตรวจสอบ" },
-                                { label: "เสร็จสมบูรณ์", value: "เสร็จสมบูรณ์" }
+                                { label: "เสร็จสมบูรณ์", value: "เสร็จสมบูรณ์" },
+                                { label: "หมดอายุ", value: "หมดอายุ" },
                             ]}
                             containerClassName="!w-full"
                         />

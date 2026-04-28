@@ -206,7 +206,9 @@ class DpoDestructionReviewRequest(BaseModel):
 class DpoAuditorAssignmentTableItem(BaseModel):
     assignment_id: str
     document_id: str
+    raw_document_id: UUID
     title: str
+    data_owner_name: str
     auditor_name: str
     assigned_at: datetime
     reviewed_at: Optional[datetime] = None

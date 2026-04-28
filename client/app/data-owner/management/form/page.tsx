@@ -207,22 +207,36 @@ function ManagementFormContent() {
         const loadFullRecord = async () => {
             if (recordId) {
                 setIsLoadingFull(true);
+                let loadedAny = false;
+                try {
+                    let fullRecord;
+                    if (snapshotId) {
+                        fullRecord = await fetchOwnerSnapshot(snapshotId);
+                    } else {
+                        fullRecord = await fetchFullOwnerRecord(recordId);
+                    }
 
-                let fullRecord;
-                if (snapshotId) {
-                    fullRecord = await fetchOwnerSnapshot(snapshotId);
-                } else {
-                    fullRecord = await fetchFullOwnerRecord(recordId);
+                    if (fullRecord && isMounted) {
+                        setForm(prev => ({ ...prev, ...fullRecord }));
+                        loadedAny = true;
+                    }
+                } catch (error) {
+                    console.warn("Failed to load owner section:", error);
                 }
 
-                if (fullRecord && isMounted) {
-                    setForm(prev => ({ ...prev, ...fullRecord }));
+                try {
+                    // Also fetch processor data for the other tab if available.
+                    const procRecord = await fetchFullProcessorRecord(recordId);
+                    if (procRecord && isMounted) {
+                        setDpForm(prev => ({ ...prev, ...procRecord }));
+                        loadedAny = true;
+                    }
+                } catch (error) {
+                    console.warn("Failed to load processor section:", error);
                 }
 
-                // Also fetch processor data for the other tab if available
-                const procRecord = await fetchFullProcessorRecord(recordId);
-                if (procRecord && isMounted) {
-                    setDpForm(prev => ({ ...prev, ...procRecord }));
+                if (!loadedAny && isMounted) {
+                    toast.error("ไม่สามารถโหลดข้อมูลเอกสารได้ กรุณาลองใหม่อีกครั้ง");
                 }
                 setIsLoadingFull(false);
                 return;
@@ -493,7 +507,27 @@ function ManagementFormContent() {
     // OR if it's a DPO feedback round (indicated by existing suggestions) and DO is done
     const isOwner = user?.role === "OWNER";
     const hasDpoFeedback = (form.suggestions && form.suggestions.length > 0) || record?.owner_status?.code === "DPO_REJECTED" || record?.processor_status?.code === "DPO_REJECTED";
-    const canEditRisk = isOwner && doStatus === "done" && (dpStatus === "done" || hasDpoFeedback) && !isWaitingDpoApproval && !isLockedByDeletion && !isLocked;
+    // If DPO rejected and DP still has pending fixes, DO must wait DP resubmission first.
+    // If DPO rejected but DP has no pending fix, DO can re-assess risk immediately.
+    const riskSuggestions = (form.suggestions || []).filter((s: any) => {
+        const sid = String(s?.section_id || "").toUpperCase();
+        const section = String(s?.section || "").toUpperCase();
+        return sid === "DO_RISK" || sid === "RISK" || section === "DO_RISK" || section === "RISK";
+    });
+    const latestRiskSuggestion = getLatestSuggestions(riskSuggestions, 1)[0];
+    const hasOpenRiskSuggestion = riskSuggestions.length > 0;
+    const isRiskWaitingResubmitToDpo =
+        hasOpenRiskSuggestion && record?.owner_status?.code === "DO_DONE";
+    const canEditRiskAfterDpoReject = !hasDpoFeedback || !isWaitingDpResubmitGlobal;
+    const canEditRisk =
+        isOwner &&
+        doStatus === "done" &&
+        (dpStatus === "done" || hasDpoFeedback) &&
+        canEditRiskAfterDpoReject &&
+        !isRiskWaitingResubmitToDpo &&
+        !isWaitingDpoApproval &&
+        !isLockedByDeletion &&
+        !isLocked;
 
     // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -541,7 +575,7 @@ function ManagementFormContent() {
                 await submitDoSection(saved.id, saved);
             }
             localStorage.removeItem("ropa_owner_draft");
-            router.push("/data-owner/management/processing");
+            router.push(isNewEdit ? "/data-owner/management/submitted" : "/data-owner/management/processing");
         } catch (error) {
             console.error("Failed to confirm document:", error);
             toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
@@ -632,23 +666,33 @@ function ManagementFormContent() {
                                 />
                             </div>
                             {activeTab !== "destruction" && !isNewCreate && (
-                                <button
-                                    disabled={isLockedByDeletion || isWaitingDpoApproval}
-                                    onClick={() => setIsLocked(!isLocked)}
-                                    className={cn(
-                                        "flex items-center gap-2 h-[42px] px-4 rounded-md transition-all font-bold shrink-0 mb-6 border border-[#E5E2E1] bg-[#F8F9FA]",
-                                        isLocked
-                                            ? "text-[#ED393C] hover:bg-red-50"
-                                            : "text-[#00666E] hover:bg-green-50",
-                                        (isLockedByDeletion || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
+                                <div className="relative group/tooltip shrink-0 mb-6">
+                                    <button
+                                        disabled={isLockedByDeletion || isWaitingDpoApproval}
+                                        onClick={() => setIsLocked(!isLocked)}
+                                        className={cn(
+                                            "flex items-center gap-2 h-[42px] px-4 rounded-md transition-all font-bold border border-[#E5E2E1] bg-[#F8F9FA]",
+                                            isLocked
+                                                ? "text-[#ED393C] hover:bg-red-50"
+                                                : "text-[#00666E] hover:bg-green-50",
+                                            (isLockedByDeletion || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
+                                        )}
+                                    >
+                                        <span className={cn("material-symbols-outlined text-[20px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
+                                            {isLocked ? "edit" : "check_circle"}
+                                        </span>
+                                        <span className="text-[14px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
+                                    </button>
+                                    {(isLockedByDeletion || isWaitingDpoApproval) && (
+                                        <div className="absolute bottom-full mb-2 right-0 w-max opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[60] pointer-events-none">
+                                            <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] text-center">
+                                                {isLockedByDeletion
+                                                    ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ"
+                                                    : "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO"}
+                                            </div>
+                                        </div>
                                     )}
-                                    title={isLockedByDeletion ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ" : isWaitingDpoApproval ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO" : ""}
-                                >
-                                    <span className={cn("material-symbols-outlined text-[20px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
-                                        {isLocked ? "edit" : "check_circle"}
-                                    </span>
-                                    <span className="text-[14px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
-                                </button>
+                                </div>
                             )}
                         </div>
 
@@ -693,25 +737,50 @@ function ManagementFormContent() {
                             {/* ─── Tab: Risk Assessment ────────────────────────────── */}
                             {activeTab === "risk" && (
                                 <div className="mt-4 space-y-8">
-                                    <RiskAssessment
-                                        doStatus={doStatus}
-                                        dpStatus={dpStatus}
-                                        dpRawStatus={dpForm.status}
-                                        dpIsSent={dpForm.is_sent}
-
-                                        existingRisk={form.risk_assessment}
-                                        dpoSuggestion={(() => {
-                                            const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK" || s.section_id === "risk" || s.section === "risk");
-                                            return riskSuggestion ? { comment: riskSuggestion.comment, date: riskSuggestion.date } : undefined;
-                                        })()}
-                                        activeView={riskDocView}
-                                        onViewDoSection={() => setRiskDocView(v => v === "owner" ? "none" : "owner")}
-                                        onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}
-                                        onSubmit={handleRiskSubmit}
-                                        onCancel={() => setActiveTab("owner")}
-                                        disabled={!canEditRisk}
-                                        hasDpoFeedback={hasDpoFeedback}
-                                    />
+                                    {isRiskWaitingResubmitToDpo && (
+                                        <div className="bg-white rounded-[20px] shadow-sm relative overflow-hidden ring-1 ring-black/[0.02] p-6">
+                                            <div className="absolute left-0 top-0 bottom-0 w-[6px] bg-[#ED393C]" />
+                                            <div className="flex items-center justify-between px-4 mb-2">
+                                                <span className="text-[13px] font-black text-[#ED393C] tracking-tight">
+                                                    ข้อเสนอแนะจาก: เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล
+                                                </span>
+                                                {latestRiskSuggestion?.date && (
+                                                    <span className="text-[12px] font-bold text-[#9CA3AF]">
+                                                        {new Date(latestRiskSuggestion.date).toLocaleDateString("th-TH")}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-[15px] font-black text-[#5C403D] leading-relaxed px-4 mb-1">
+                                                การประเมินความเสี่ยงของเอกสาร
+                                            </p>
+                                            <p className="text-[15px] font-bold text-[#1B1C1C] leading-relaxed px-4">
+                                                &ldquo;{latestRiskSuggestion?.comment || "กรุณาแก้ไข"}&rdquo;
+                                            </p>
+                                            <p className="text-[#5F5E5E] text-[13px] font-medium mt-4 px-4">
+                                                ส่งการประเมินกลับไปแล้ว กรุณารอ DPO ตรวจรอบถัดไปก่อนจึงจะประเมินใหม่ได้
+                                            </p>
+                                        </div>
+                                    )}
+                                    {!isRiskWaitingResubmitToDpo && (
+                                        <RiskAssessment
+                                            doStatus={doStatus}
+                                            dpStatus={dpStatus}
+                                            dpRawStatus={dpForm.status}
+                                            dpIsSent={dpForm.is_sent}
+                                            existingRisk={form.risk_assessment}
+                                            dpoSuggestion={(() => {
+                                                const riskSuggestion = form.suggestions?.find(s => s.section === "DO_RISK" || s.section_id === "risk" || s.section === "risk");
+                                                return riskSuggestion ? { comment: riskSuggestion.comment, date: riskSuggestion.date } : undefined;
+                                            })()}
+                                            activeView={riskDocView}
+                                            onViewDoSection={() => setRiskDocView(v => v === "owner" ? "none" : "owner")}
+                                            onViewDpSection={() => setRiskDocView(v => v === "processor" ? "none" : "processor")}
+                                            onSubmit={handleRiskSubmit}
+                                            onCancel={() => setActiveTab("owner")}
+                                            disabled={!canEditRisk}
+                                            hasDpoFeedback={hasDpoFeedback}
+                                        />
+                                    )}
 
                                     {/* Render view forms below the Risk Assessment UI without switching tabs */}
                                     {riskDocView === "owner" && (
@@ -835,10 +904,7 @@ function ManagementFormContent() {
                 {activeTab === "processor" && viewMode ? (
                     <div className="fixed bottom-0 left-[var(--sidebar-width)] right-0 bg-background/80 backdrop-blur-md border-t border-[#E5E2E1]/60 p-6 px-10 flex items-center justify-between z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
                         <button
-                            onClick={() => {
-                                setDraftFeedbacks({});
-                                setActiveFeedbacks({});
-                            }}
+                            onClick={handleCancel}
                             className="bg-white border border-[#E5E2E1] text-[#5C403D] font-bold text-base h-[52px] px-12 rounded-full hover:bg-gray-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                         >
                             ยกเลิก
@@ -887,22 +953,31 @@ function ManagementFormContent() {
                                 {/* Right Group: Draft + Save or Risk Submit */}
                                 <div className="flex items-center gap-4">
                                     {activeTab === "risk" ? (
-                                        <button
-                                            onClick={() => {
-                                                const probability = form.risk_assessment?.probability ?? pendingRisk.probability;
-                                                const impact = form.risk_assessment?.impact ?? pendingRisk.impact;
-                                                if (!probability || !impact) {
-                                                    toast.error("กรุณาประเมินโอกาสและผลกระทบก่อนกดยืนยันการส่งการประเมิน");
-                                                    return;
-                                                }
-                                                setPendingRisk({ probability, impact });
-                                                setIsConfirmRiskOpen(true);
-                                            }}
-                                            disabled={!canEditRisk}
-                                            className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
-                                        >
-                                            ยืนยันการส่งการประเมิน
-                                        </button>
+                                        isRiskWaitingResubmitToDpo ? (
+                                            <button
+                                                disabled
+                                                className="bg-[#9CA3AF] leading-none text-white px-14 h-[52px] rounded-full font-black text-base transition-all whitespace-nowrap opacity-80 cursor-not-allowed"
+                                            >
+                                                รอ DPO ตรวจสอบรอบถัดไป
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    const probability = form.risk_assessment?.probability ?? pendingRisk.probability;
+                                                    const impact = form.risk_assessment?.impact ?? pendingRisk.impact;
+                                                    if (!probability || !impact) {
+                                                        toast.error("กรุณาประเมินโอกาสและผลกระทบก่อนกดยืนยันการส่งการประเมิน");
+                                                        return;
+                                                    }
+                                                    setPendingRisk({ probability, impact });
+                                                    setIsConfirmRiskOpen(true);
+                                                }}
+                                                disabled={!canEditRisk}
+                                                className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                                            >
+                                                ยืนยันการส่งการประเมิน
+                                            </button>
+                                        )
                                     ) : (
                                         <>
                                             <button

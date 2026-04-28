@@ -236,6 +236,7 @@ def _load_owner_section_full(
         id=section.id,
         document_id=section.document_id,
         owner_id=section.owner_id,
+        title=doc.title if doc else None,
         status=section.status,
         updated_at=section.updated_at,
         title_prefix=section.title_prefix,
@@ -291,6 +292,7 @@ def _load_owner_section_full(
     # Fetch DPO comments for this document that are meant for DO
     dpo_comms = db.query(DpoSectionCommentModel).filter(
         DpoSectionCommentModel.document_id == section.document_id,
+        DpoSectionCommentModel.status == "OPEN",
         or_(
             DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7", "risk", "DO_RISK"]),
             DpoSectionCommentModel.section_key.like("DO_SEC_%")
@@ -1188,20 +1190,21 @@ def _table2_ui_status_optimized(
     if not cycle:
         return "WAITING_REVIEW", "รอตรวจสอบ"
 
-    # DPO ใช้ DpoSectionCommentModel + cycle.status = CHANGES_REQUESTED
-    # section_key: DO_SEC_x, DO_RISK = feedback ถึง DO
-    #              DP_SEC_x           = feedback ถึง DP
-    if cycle.status == "CHANGES_REQUESTED":
-        has_do_comment = any(
-            c.section_key.startswith("DO_SEC_") or c.section_key == "DO_RISK"
-            for c in comments
-        )
-        if has_do_comment:
-            return "WAITING_DO_FIX", "รอส่วนของ Data Owner แก้ไข"
-
-        has_dp_comment = any(c.section_key.startswith("DP_SEC_") for c in comments)
-        if has_dp_comment:
-            return "WAITING_DP_FIX", "รอส่วนของ Data Processor แก้ไข"
+    # Source of truth: ถ้ามี feedback ในรอบล่าสุด ให้เป็นสถานะรอแก้ทันที
+    # (ไม่ผูกกับ cycle.status อย่างเดียว เพื่อกันข้อมูลค้างที่ยังเป็น IN_REVIEW)
+    has_do_comment = any(
+        c.section_key.startswith("DO_SEC_")
+        or c.section_key in {"DO_RISK", "risk", "1", "2", "3", "4", "5", "6", "7"}
+        for c in comments
+    )
+    has_dp_comment = any(
+        c.section_key.startswith("DP_SEC_")
+        for c in comments
+    )
+    if has_do_comment:
+        return "WAITING_DO_FIX", "รอส่วนของ Data Owner แก้ไข"
+    if has_dp_comment:
+        return "WAITING_DP_FIX", "รอส่วนของ Data Processor แก้ไข"
 
     # ReviewAssignment ของ DO ในรอบนี้
     owner_review_assignment = (
@@ -1285,17 +1288,49 @@ def get_sent_to_dpo_table(
         if row.review_cycle_id not in dpo_assignment_map:
             dpo_assignment_map[row.review_cycle_id] = row
     
-    all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.review_cycle_id.in_(cycle_ids)).all()
+    all_comments = (
+        db.query(DpoSectionCommentModel)
+        .filter(
+            DpoSectionCommentModel.document_id.in_(doc_ids),
+            DpoSectionCommentModel.status == "OPEN",
+            or_(
+                DpoSectionCommentModel.review_cycle_id.in_(cycle_ids),
+                DpoSectionCommentModel.review_cycle_id.is_(None),
+            ),
+        )
+        .all()
+    )
     comments_map = {}
+    doc_level_comments_map = {}
     for c in all_comments:
-        if c.review_cycle_id not in comments_map: comments_map[c.review_cycle_id] = []
-        comments_map[c.review_cycle_id].append(c)
+        if c.review_cycle_id is not None:
+            if c.review_cycle_id not in comments_map:
+                comments_map[c.review_cycle_id] = []
+            comments_map[c.review_cycle_id].append(c)
+        if c.document_id not in doc_level_comments_map:
+            doc_level_comments_map[c.document_id] = []
+        doc_level_comments_map[c.document_id].append(c)
 
     result = []
     for doc in docs:
         last_cycle = latest_cycles.get(doc.id)
         cycle_comments = comments_map.get(last_cycle.id, []) if last_cycle else []
+        if not cycle_comments:
+            # Backward-compatibility for old rows created without review_cycle_id.
+            cycle_comments = doc_level_comments_map.get(doc.id, [])
         ui_status, ui_label = _table2_ui_status_optimized(doc, last_cycle, uid, cycle_comments, assignments_map)
+        has_do_open_comment = any(
+            c.section_key.startswith("DO_SEC_")
+            or c.section_key in {"DO_RISK", "risk", "1", "2", "3", "4", "5", "6", "7"}
+            for c in cycle_comments
+        )
+        has_dp_open_comment = any(c.section_key.startswith("DP_SEC_") for c in cycle_comments)
+        owner_review_assignment = (
+            assignments_map.get((last_cycle.id, "OWNER")) if last_cycle else None
+        )
+        proc_review_assignment = (
+            assignments_map.get((last_cycle.id, "PROCESSOR")) if last_cycle else None
+        )
         
         dpo_assignment = dpo_assignment_map.get(last_cycle.id) if last_cycle else None
         # `reviewed_by` may be null while cycle is still IN_REVIEW, so prefer DPO assignment.
@@ -1315,6 +1350,10 @@ def get_sent_to_dpo_table(
                 reviewed_at=last_cycle.reviewed_at if last_cycle else None,
                 due_date=doc.due_date,
                 deletion_status=doc.deletion_status,
+                has_do_open_comment=has_do_open_comment,
+                has_dp_open_comment=has_dp_open_comment,
+                owner_review_status=owner_review_assignment.status if owner_review_assignment else None,
+                processor_review_status=proc_review_assignment.status if proc_review_assignment else None,
             )
         )
 
@@ -1578,7 +1617,10 @@ def save_owner_section_draft(
 
     doc = db.query(RopaDocumentModel).filter_by(id=document_id).first()
     if doc and payload.title:
-        doc.title = payload.title
+        incoming_title = payload.title.strip()
+        # Guard against accidental overwrite from title_prefix payloads.
+        if incoming_title and incoming_title != (payload.title_prefix or "").strip():
+            doc.title = incoming_title
 
     scalar_fields = [
         "title_prefix",
@@ -1657,7 +1699,10 @@ def submit_owner_section(
 
     doc = db.query(RopaDocumentModel).filter_by(id=document_id).first()
     if doc and payload.title:
-        doc.title = payload.title
+        incoming_title = payload.title.strip()
+        # Guard against accidental overwrite from title_prefix payloads.
+        if incoming_title and incoming_title != (payload.title_prefix or "").strip():
+            doc.title = incoming_title
 
     scalar_fields = [
         "title_prefix",
@@ -1700,15 +1745,18 @@ def submit_owner_section(
     _replace_owner_sub_tables(section.id, payload, db)
     section.status = "SUBMITTED"
 
-    # ALSO: Clear DPO comments for DO sections because the user has fixed them
-    # Keys for DO: "1", "2", "3", "risk" (and old DO_SEC_ keys)
+    # Mark relevant DPO comments as resolved after DO has submitted fixes.
     db.query(DpoSectionCommentModel).filter(
         DpoSectionCommentModel.document_id == document_id,
+        DpoSectionCommentModel.status == "OPEN",
         or_(
-            DpoSectionCommentModel.section_key.in_(["1", "2", "3", "risk"]),
+            DpoSectionCommentModel.section_key.in_(["1", "2", "3", "4", "5", "6", "7", "risk", "DO_RISK"]),
             DpoSectionCommentModel.section_key.like("DO_SEC_%")
         )
-    ).delete(synchronize_session=False)
+    ).update(
+        {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
 
     db.commit()
     db.refresh(section)
@@ -1926,12 +1974,14 @@ def send_back_to_dpo(
     # → DPO กด "ยืนยัน" ครั้งถัดไปไม่มีผล (cycle ไม่ถูก APPROVED)
     cycle.status = "IN_REVIEW"
 
-    # ลบ DPO comments เก่าออก เพื่อให้ DPO ตรวจรอบใหม่ได้สะอาด
-    # ถ้าไม่ลบ → ตอน DPO กด "ยืนยัน" ครั้งถัดไปโดยไม่เขียน comment
-    # has_any_comment จะเจอ comment เก่า → CHANGES_REQUESTED วนไม่จบ
+    # Resolve all open DPO comments when DO re-submits fixes in this cycle.
     db.query(DpoSectionCommentModel).filter(
-        DpoSectionCommentModel.document_id == document_id
-    ).delete(synchronize_session=False)
+        DpoSectionCommentModel.document_id == document_id,
+        DpoSectionCommentModel.status == "OPEN",
+    ).update(
+        {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
 
     db.commit()
 
@@ -2043,10 +2093,14 @@ def request_annual_review(
 
     doc.status = "UNDER_REVIEW"
 
-    # ลบ DPO comments เก่าออก เพื่อให้ DPO ตรวจรอบใหม่ได้สะอาด
+    # Resolve previous DPO comments before starting annual review cycle.
     db.query(DpoSectionCommentModel).filter(
-        DpoSectionCommentModel.document_id == document_id
-    ).delete(synchronize_session=False)
+        DpoSectionCommentModel.document_id == document_id,
+        DpoSectionCommentModel.status == "OPEN",
+    ).update(
+        {"status": "RESOLVED", "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
 
     db.commit()
 
@@ -2286,6 +2340,7 @@ def get_risk_assessment(
     # Fetch DPO comments for Risk Assessment
     dpo_comms = db.query(DpoSectionCommentModel).filter(
         DpoSectionCommentModel.document_id == document_id,
+        DpoSectionCommentModel.status == "OPEN",
         or_(
             DpoSectionCommentModel.section_key == "DO_RISK",
             DpoSectionCommentModel.section_key == "risk"

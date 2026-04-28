@@ -95,17 +95,35 @@ function DataProcessorFormContent() {
         const loadFullRecord = async () => {
             if (snapshotId) {
                 setIsLoadingFull(true);
-                const snapshotData = await fetchProcessorSnapshot(snapshotId);
-                if (snapshotData && isMounted) {
-                    setForm(prev => ({ ...prev, ...snapshotData }));
-                    setIsLocked(false); // Snapshots are typically loaded for editing
+                try {
+                    const snapshotData = await fetchProcessorSnapshot(snapshotId);
+                    if (snapshotData && isMounted) {
+                        setForm(prev => ({ ...prev, ...snapshotData }));
+                        setIsLocked(false); // Snapshots are typically loaded for editing
+                    } else if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลฉบับร่างได้");
+                    }
+                } catch (error) {
+                    console.warn("Failed to load processor snapshot:", error);
+                    if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลฉบับร่างได้");
+                    }
                 }
                 setIsLoadingFull(false);
             } else if (recordId) {
                 setIsLoadingFull(true);
-                const fullRecord = await fetchFullProcessorRecord(recordId);
-                if (fullRecord && isMounted) {
-                    setForm(prev => ({ ...prev, ...fullRecord }));
+                try {
+                    const fullRecord = await fetchFullProcessorRecord(recordId);
+                    if (fullRecord && isMounted) {
+                        setForm(prev => ({ ...prev, ...fullRecord }));
+                    } else if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลเอกสารได้");
+                    }
+                } catch (error) {
+                    console.warn("Failed to load processor record:", error);
+                    if (isMounted) {
+                        toast.error("ไม่สามารถโหลดข้อมูลเอกสารได้");
+                    }
                 }
                 setIsLoadingFull(false);
             }
@@ -315,15 +333,17 @@ function DataProcessorFormContent() {
             completed.push(4);
         }
         // Section 5: Legal Info
-        const isTransferComplete = form.has_cross_border_transfer === false || (
-            form.has_cross_border_transfer === true &&
+        // Treat undefined/null as "no transfer" for view mode data compatibility.
+        // Only require transfer detail fields when user explicitly selected true.
+        const hasCrossBorderTransfer = form.has_cross_border_transfer === true;
+        const isTransferComplete = !hasCrossBorderTransfer || (
             form.transfer_country &&
             form.transfer_method &&
             form.transfer_company &&
             form.transfer_protection_standard &&
             form.transfer_exception
         );
-        if (form.legal_basis && isTransferComplete) completed.push(5);
+        if (form.legal_basis?.toString().trim() && isTransferComplete) completed.push(5);
         // Section 6: Security Measures
         if (form.org_measures || form.access_control_measures || form.technical_measures || form.responsibility_measures || form.physical_measures || form.audit_measures) completed.push(6);
         return completed;

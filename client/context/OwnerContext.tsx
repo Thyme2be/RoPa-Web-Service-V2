@@ -200,7 +200,7 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
     const mapToOwnerRecord = (data: any): OwnerRecord => {
         return {
             id: data.document_id,
-            document_name: data.title || data.title_prefix || "",
+            document_name: data.title || "",
             title_prefix: data.title_prefix || "",
             first_name: data.first_name || "",
             last_name: data.last_name || "",
