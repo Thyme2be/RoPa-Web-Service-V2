@@ -15,6 +15,7 @@ import ErrorState from "@/components/ui/ErrorState";
 import { CustomTooltip } from "@/components/ui/CustomTooltip";
 import { cn } from "@/lib/utils";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -224,12 +225,12 @@ function InProgressTableContent() {
         throw new Error(errData.detail || "Failed to assign auditor");
       }
 
-      alert("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
+      toast.success("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
       setIsSendModalOpen(false);
       fetchDocuments(); // Refresh list
     } catch (err: any) {
       console.error("Assign auditor error:", err);
-      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+      toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmittingAssignment(false);
     }

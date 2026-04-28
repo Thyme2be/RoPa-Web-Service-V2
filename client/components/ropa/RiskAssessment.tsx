@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import SectionCommentBox, { CommentSuggestion } from "./SectionCommentBox";
 
@@ -98,6 +98,11 @@ export default function RiskAssessment({
 
     const [probability, setProbability] = useState(existingRisk?.probability ?? 0);
     const [impact, setImpact] = useState(existingRisk?.impact ?? 0);
+
+    // Sync selected score to parent page state (used by footer confirm button).
+    useEffect(() => {
+        onSubmit(probability, impact);
+    }, [probability, impact, onSubmit]);
 
     const total = probability * impact;
     const level = total === 0 ? "-" : total < 8 ? "ต่ำ" : total < 15 ? "ปานกลาง" : "สูง";

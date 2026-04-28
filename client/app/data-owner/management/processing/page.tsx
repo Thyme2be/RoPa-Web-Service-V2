@@ -25,6 +25,7 @@ import { OwnerRecord, ActiveTableItem } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
 import { ownerService } from "@/services/ownerService";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
+import toast from "react-hot-toast";
 
 const PROCESSING_ITEMS_PER_PAGE = 3;
 const DRAFT_ITEMS_PER_PAGE = 2;
@@ -131,7 +132,7 @@ export default function ManagementProcessingPage() {
       }
     } catch (error) {
       console.error("Failed to create document:", error);
-      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+      toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     }
   };
 
@@ -160,9 +161,10 @@ export default function ManagementProcessingPage() {
     try {
       await sendToDpo(id);
       setDpoConfirm({ open: false, id: "" });
+      router.push("/data-owner/management/submitted");
     } catch (error) {
       console.error("Failed to send to DPO:", error);
-      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+      toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmitting(false);
     }
@@ -351,15 +353,15 @@ export default function ManagementProcessingPage() {
                           <StatusBadge
                             status={
                               record.owner_status?.code === "DO_DONE"
-                                ? "เสร็จสมบูรณ์"
-                                : "รอส่วนของ Data Owner แก้ไข"
+                                ? "Data Owner ดำเนินการเสร็จสิ้น"
+                                : "รอส่วนของ Data Owner"
                             }
                           />
                           <StatusBadge
                             status={
                               record.processor_status?.code === "DP_DONE"
-                                ? "เสร็จสมบูรณ์"
-                                : "รอส่วนของ Data Processor แก้ไข"
+                                ? "Data Processor ดำเนินการเสร็จสิ้น"
+                                : "รอส่วนของ Data Processor"
                             }
                           />
                         </div>
@@ -560,7 +562,7 @@ export default function ManagementProcessingPage() {
             setDeleteConfirm({ open: false, id: "" });
           } catch (error) {
             console.error("Failed to delete record:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
           } finally {
             setIsSubmitting(false);
           }

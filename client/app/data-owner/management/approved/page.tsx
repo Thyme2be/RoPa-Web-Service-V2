@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import { useOwner } from "@/context/OwnerContext";
 import ConfirmModal from "@/components/ropa/ConfirmModal";
+import toast from "react-hot-toast";
 
 // ─── Formatting ────────────────────────────────────────────────────────────────
 function formatDate(dateStr: string | undefined | null) {
@@ -42,23 +43,23 @@ export default function RopaApprovedPage() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+    const [annualReviewConfirm, setAnnualReviewConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
     const handleRequestDelete = (id: string) => {
         router.push(`/data-owner/management/form?id=${id}&mode=deletion`);
     };
 
     const handleAnnualReview = async (id: string) => {
-        if (confirm("ต้องการส่งเอกสารนี้ให้ DPO ตรวจสอบรอบปีใช่หรือไม่?")) {
-            setIsSubmitting(true);
-            try {
-                await annualReview(id);
-                alert("ส่งตรวจสอบรายปีสำเร็จ เอกสารถูกย้ายไปที่ตารางรอดำเนินการ (Submitted)");
-            } catch (error) {
-                console.error("Failed to submit annual review:", error);
-                alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
-            } finally {
-                setIsSubmitting(false);
-            }
+        setIsSubmitting(true);
+        try {
+            await annualReview(id);
+            toast.success("ส่งตรวจสอบรายปีสำเร็จ เอกสารถูกย้ายไปที่ตารางรอดำเนินการ (Submitted)");
+            setAnnualReviewConfirm({ open: false, id: "" });
+        } catch (error) {
+            console.error("Failed to submit annual review:", error);
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -207,7 +208,7 @@ export default function RopaApprovedPage() {
                                                         disabled={record.annual_review_status !== "NOT_REVIEWED" || isSubmitting}
                                                         tooltipText={record.annual_review_status === "NOT_REVIEWED" ? "ส่งทบทวนรายปี" : "ตรวจสอบรายปีแล้ว"}
                                                         buttonClassName={record.annual_review_status === "NOT_REVIEWED" ? "text-blue-600 hover:text-blue-800" : "text-gray-300 cursor-not-allowed"}
-                                                        onClick={() => record.annual_review_status === "NOT_REVIEWED" && handleAnnualReview(record.document_id)}
+                                                        onClick={() => record.annual_review_status === "NOT_REVIEWED" && setAnnualReviewConfirm({ open: true, id: record.document_id })}
                                                     />
                                                     <ActionIconWithTooltip
                                                         icon="cancel_schedule_send"
@@ -233,6 +234,16 @@ export default function RopaApprovedPage() {
                     </DocumentListCard>
                 </div>
             </main>
+
+            <ConfirmModal
+                isOpen={annualReviewConfirm.open}
+                isLoading={isSubmitting}
+                title="ยืนยันการส่งตรวจสอบรายปี"
+                description="ต้องการส่งเอกสารนี้ให้ DPO ตรวจสอบรอบปีใช่หรือไม่?"
+                confirmText="ยืนยันการส่ง"
+                onConfirm={() => handleAnnualReview(annualReviewConfirm.id)}
+                onCancel={() => setAnnualReviewConfirm({ open: false, id: "" })}
+            />
         </div>
     );
 }

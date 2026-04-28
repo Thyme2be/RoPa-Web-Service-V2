@@ -14,6 +14,7 @@ import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
 import Input from "@/components/ui/Input";
 import ErrorState from "@/components/ui/ErrorState";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus } from "@/types/enums";
@@ -217,6 +218,10 @@ function DpoInProgressDetailContent() {
   const [sectionFeedbacks, setSectionFeedbacks] = useState<
     Record<string, string>
   >({});
+  const [sectionCommentHistory, setSectionCommentHistory] = useState<
+    Record<string, { text: string; date?: string; reviewer?: string }[]>
+  >({});
+  const [isAwaitingResubmission, setIsAwaitingResubmission] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -236,6 +241,8 @@ function DpoInProgressDetailContent() {
     const fetchDetail = async () => {
       if (!recordId) return;
       setLoading(true);
+      setIsAwaitingResubmission(false);
+      setSectionCommentHistory({});
       const token = localStorage.getItem("token");
       if (!token) {
         setError("No token found");
@@ -398,6 +405,10 @@ function DpoInProgressDetailContent() {
             const commentsData = await commentsResponse.json();
             const feedbacks: Record<string, string> = {};
             const openSections: string[] = [];
+            const commentHistory: Record<
+              string,
+              { text: string; date?: string; reviewer?: string }[]
+            > = {};
 
             commentsData.forEach((c: any) => {
               const thaiLabel =
@@ -408,6 +419,16 @@ function DpoInProgressDetailContent() {
                 if (!openSections.includes(thaiLabel)) {
                   openSections.push(thaiLabel);
                 }
+                if (!commentHistory[thaiLabel]) {
+                  commentHistory[thaiLabel] = [];
+                }
+                commentHistory[thaiLabel].push({
+                  text: c.comment,
+                  date: c.created_at,
+                  reviewer:
+                    c.reviewer_name ||
+                    "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล",
+                });
               }
             });
 
@@ -415,6 +436,10 @@ function DpoInProgressDetailContent() {
               setSectionFeedbacks(feedbacks);
               setOpenFeedbackSections(openSections);
             }
+            setSectionCommentHistory(commentHistory);
+            setIsAwaitingResubmission(
+              Object.keys(commentHistory).length > 0,
+            );
           }
         } catch (err) {
           console.error("Failed to fetch comments:", err);
@@ -561,7 +586,7 @@ function DpoInProgressDetailContent() {
       router.push("/dpo/tables/in-progress");
     } catch (err: any) {
       console.error("Submit review error:", err);
-      alert(`Error: ${err.message}`);
+      toast.error(`Error: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -569,6 +594,20 @@ function DpoInProgressDetailContent() {
 
   const isLastTab = activeTab === tabs[tabs.length - 1];
   const emptyHandler = () => {};
+  const getLatestSuggestions = (
+    sectionTitle: string,
+    limit = 2,
+  ): { text: string; date?: string; reviewer?: string }[] => {
+    const history = sectionCommentHistory[sectionTitle] || [];
+    return [...history]
+      .sort((a, b) => {
+        const aTime = new Date(a.date || 0).getTime();
+        const bTime = new Date(b.date || 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, limit)
+      .reverse();
+  };
 
   if (loading)
     return (
@@ -638,6 +677,8 @@ function DpoInProgressDetailContent() {
           onChange={(text) =>
             setSectionFeedbacks((prev) => ({ ...prev, [sec.title]: text }))
           }
+          suggestions={getLatestSuggestions(sec.title, 2)}
+          readOnly={isAwaitingResubmission}
           variant="do"
         >
           <sec.component
@@ -672,6 +713,8 @@ function DpoInProgressDetailContent() {
           onChange={(text) =>
             setSectionFeedbacks((prev) => ({ ...prev, [sec.title]: text }))
           }
+          suggestions={getLatestSuggestions(sec.title, 2)}
+          readOnly={isAwaitingResubmission}
           variant="dp"
         >
           <sec.component
@@ -740,6 +783,7 @@ function DpoInProgressDetailContent() {
                     className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
                     placeholder="ระบุข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
                     value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
+                    disabled={isAwaitingResubmission}
                     onChange={(e) =>
                       setSectionFeedbacks((prev) => ({
                         ...prev,

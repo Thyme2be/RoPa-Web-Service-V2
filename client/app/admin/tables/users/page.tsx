@@ -6,6 +6,7 @@ import ReusableForm, { FormField } from "@/components/ui/ReusableForm";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import { ListCard, Pagination, GenericFilterBar, StatusBadge } from "@/components/ropa/RopaListComponents";
 import Select from "@/components/ui/Select";
+import toast from "react-hot-toast";
 
 function UsersPageContent() {
     const searchParams = useSearchParams();
@@ -235,7 +236,7 @@ function UsersPageContent() {
             fetchUsers();
         } catch (error: any) {
             console.error("Error saving user:", error);
-            alert(error.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+            toast.error(error.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         } finally {
             setIsCreating(false);
         }
@@ -298,7 +299,7 @@ function UsersPageContent() {
             fetchUsers();
         } catch (error) {
             console.error("Error deactivating user:", error);
-            alert("เกิดข้อผิดพลาดในการปิดการใช้งานผู้ใช้");
+            toast.error("เกิดข้อผิดพลาดในการปิดการใช้งานผู้ใช้");
         } finally {
             setIsDeleting(false);
         }

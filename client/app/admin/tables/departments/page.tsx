@@ -2,6 +2,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { ListCard, Pagination } from "@/components/ropa/ListComponents";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import toast from "react-hot-toast";
 
 function ManagementModal({ isOpen, onClose, type, mode, initialData, onSave }: any) {
     const [inputValue, setInputValue] = React.useState(initialData?.name || "");
@@ -158,7 +159,7 @@ function DeptManagementPageContent() {
                 await fetchMasterData();
             } else {
                 console.error("Failed to save", await res.text());
-                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+                toast.error("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
             }
         } catch(e) {
             console.error(e);
@@ -182,7 +183,7 @@ function DeptManagementPageContent() {
                 await fetchMasterData();
             } else {
                 console.error("Failed to delete", await res.text());
-                alert("เกิดข้อผิดพลาดในการลบข้อมูล");
+                toast.error("เกิดข้อผิดพลาดในการลบข้อมูล");
             }
         } catch(e) {
             console.error(e);

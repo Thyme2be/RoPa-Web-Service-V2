@@ -102,7 +102,7 @@ function DestructionTableContent() {
     const getStatusColor = (type: string) => {
         switch (type) {
             case "success": return "bg-[#228B15] text-white"; // Green
-            case "warning": return "bg-[#FBBF24] text-[#5C403D]"; // Yellow
+            case "warning": return "bg-[#FFCC00] text-[#5C403D]"; // Yellow
             case "edit": return "bg-[#ED393C] text-white"; // Red
             default: return "bg-gray-200 text-gray-700";
         }

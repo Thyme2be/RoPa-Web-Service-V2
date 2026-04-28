@@ -28,6 +28,7 @@ interface InlineFeedbackWrapperProps {
 
 export default function InlineFeedbackWrapper({
     children,
+    title,
     isDraftingFeedback,
     onFeedbackChange,
     feedbackText,
@@ -44,6 +45,7 @@ export default function InlineFeedbackWrapper({
 
     return (
         <SectionCommentBox
+            title={title}
             isOpen={isDraftingFeedback}
             onToggle={onReviewClick ?? (() => {})}
             value={feedbackText}

@@ -35,18 +35,22 @@ export function GenericFilterBar({ children, onClear }: { children: React.ReactN
 }
 
 // 2. Upgraded RoPaStatusType & StatusBadge
-export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์" | "รอส่วนของ Data Owner แก้ไข" | "รอส่วนของ Data Processor แก้ไข" | "รอการแก้ไข" | "รอตรวจสอบทำลาย" | "อนุมัติการทำลาย" | "ไม่อนุมัติการทำลาย" | "ยังไม่ได้ตรวจสอบ";
+export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์" | "Data Owner ดำเนินการเสร็จสิ้น" | "Data Processor ดำเนินการเสร็จสิ้น" | "รอส่วนของ Data Owner" | "รอส่วนของ Data Processor" | "รอส่วนของ Data Owner แก้ไข" | "รอส่วนของ Data Processor แก้ไข" | "รอการแก้ไข" | "รอตรวจสอบทำลาย" | "อนุมัติการทำลาย" | "ไม่อนุมัติการทำลาย" | "ยังไม่ได้ตรวจสอบ";
 
 export function StatusBadge({ status }: { status: RoPaStatusType }) {
     const styles: Record<string, string> = {
         "อนุมัติ": "bg-[#228B15] text-white",                    // Reference Green
         "ตรวจสอบเสร็จสิ้น": "bg-[#228B15] text-white",           // Reference Green (Review)
         "เสร็จสมบูรณ์": "bg-[#228B15] text-white",               // Reference Green (Processor)
-        "รอตรวจสอบ": "bg-[#FBBF24] text-white",               // Reference Amber
+        "Data Owner ดำเนินการเสร็จสิ้น": "bg-[#228B15] text-white",
+        "Data Processor ดำเนินการเสร็จสิ้น": "bg-[#228B15] text-white",
+        "รอตรวจสอบ": "bg-[#FFCC00] text-[#5C403D]",           // Yellow + Brown text
         "ต้องแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
         "รอการแก้ไข": "bg-[#EF4444] text-white",                  // Reference Red
-        "รอส่วนของ Data Owner แก้ไข": "bg-[#EF4444] text-white",    // Red
-        "รอส่วนของ Data Processor แก้ไข": "bg-[#EF4444] text-white", // Red
+        "รอส่วนของ Data Owner": "bg-[#FFCC00] text-[#5C403D]",       // Yellow
+        "รอส่วนของ Data Processor": "bg-[#FFCC00] text-[#5C403D]",   // Yellow
+        "รอส่วนของ Data Owner แก้ไข": "bg-[#FFCC00] text-[#5C403D]", // Yellow
+        "รอส่วนของ Data Processor แก้ไข": "bg-[#FFCC00] text-[#5C403D]", // Yellow
         "ไม่เสร็จสมบูรณ์": "bg-[#EF4444] text-white",             // Reference Red (Processor)
         "รอตรวจสอบทำลาย": "bg-[#FBBF24] text-[#5C403D]",          // Yellow
         "อนุมัติการทำลาย": "bg-[#228B15] text-white",             // Green

@@ -23,6 +23,7 @@ import { RopaStatus, SectionStatus } from "@/types/enums";
 import { OwnerRecord } from "@/types/dataOwner";
 import { cn } from "@/lib/utils";
 import SendToOwnerModal from "@/components/ui/SendToOwnerModal";
+import toast from "react-hot-toast";
 
 // ─── Confirm Modal ─────────────────────────────────────────────────────────────
 function ConfirmModal({
@@ -130,7 +131,7 @@ export default function ManagementProcessingPage() {
       setSubmitConfirm({ open: false, id: "" });
     } catch (error) {
       console.error("Failed to submit to DO:", error);
-      alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+      toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
     } finally {
       setIsSubmitting(false);
     }
@@ -144,6 +145,7 @@ export default function ManagementProcessingPage() {
     setStatusFilter("all");
     setDateFilter("all");
     setCustomDate("");
+    setPage(1);
   };
 
   const assignedRecords = processorAssignedRecords;
@@ -223,8 +225,12 @@ export default function ManagementProcessingPage() {
   const PROCESSING_ITEMS_PER_PAGE = 3;
   const DRAFT_ITEMS_PER_PAGE = 2;
 
-  // Now using paginated data from context directly
-  const paginatedProcessing = assignedRecords;
+  const isProcessingFilterActive =
+    statusFilter !== "all" ||
+    dateFilter !== "all";
+
+  // Use filtered records when filters are active so dropdown works as expected
+  const paginatedProcessing = isProcessingFilterActive ? filteredAssigned : assignedRecords;
 
   // Drafts still use client slicing for now as they are usually fewer
   const paginatedDrafts = filteredDrafts.slice(
@@ -287,11 +293,20 @@ export default function ManagementProcessingPage() {
           <DocumentFilterBar
             statusOptions={statusOptions}
             statusValue={statusFilter}
-            onStatusChange={setStatusFilter}
+            onStatusChange={(value) => {
+              setStatusFilter(value);
+              setPage(1);
+            }}
             dateValue={dateFilter}
-            onDateChange={setDateFilter}
+            onDateChange={(value) => {
+              setDateFilter(value);
+              setPage(1);
+            }}
             customDate={customDate}
-            onCustomDateChange={setCustomDate}
+            onCustomDateChange={(value) => {
+              setCustomDate(value);
+              setPage(1);
+            }}
             onClear={handleClearFilters}
           />
 
@@ -378,17 +393,27 @@ export default function ManagementProcessingPage() {
                       </DocumentTableCell>
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
+                          {(() => {
+                            const hasNeedFixFromDo =
+                              record.status?.code === "DP_NEED_FIX" ||
+                              record.has_open_feedback;
+
+                            return (
                           <StatusBadge
                             status={
                               record.status?.code === "WAITING_DO"
-                                ? "รอส่วนของ Data Owner แก้ไข"
-                                : record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX"
+                                ? "รอส่วนของ Data Owner"
+                                : hasNeedFixFromDo
                                   ? "รอส่วนของ Data Processor แก้ไข"
+                                  : record.status?.code === "WAITING_DP"
+                                  ? "รอส่วนของ Data Processor"
                                   : record.status?.code === "CHECK_DONE"
-                                    ? "เสร็จสมบูรณ์"
-                                    : "เสร็จสมบูรณ์"
+                                    ? "Data Processor ดำเนินการเสร็จสิ้น"
+                                    : "Data Processor ดำเนินการเสร็จสิ้น"
                             }
                           />
+                            );
+                          })()}
                         </div>
                       </DocumentTableCell>
                       <DocumentTableCell>
@@ -403,26 +428,41 @@ export default function ManagementProcessingPage() {
                               )
                             }
                           />
-                          <div className={cn("p-2", record.is_sent && "text-[#107C41]")}>
-                            <ActionIconWithTooltip
-                              icon="send"
-                              disabled={
-                                record.is_sent ||
+                          <div className={cn(
+                            "p-2",
+                            record.is_sent &&
+                              record.status?.code !== "DP_NEED_FIX" &&
+                              !record.has_open_feedback &&
+                              "text-[#107C41]",
+                          )}>
+                            {(() => {
+                              // DO feedback means DP must edit and save in form before sending again.
+                              const hasNeedFixFromDo =
+                                record.status?.code === "DP_NEED_FIX" ||
+                                record.has_open_feedback;
+                              const isActuallySent = record.is_sent && !hasNeedFixFromDo;
+                              const isDisabled =
+                                isActuallySent ||
                                 record.status?.code === "CHECK_DONE" ||
                                 record.status?.code === "WAITING_DP" ||
-                                record.status?.code === "DP_NEED_FIX"
-                              }
-                              tooltipText={
-                                record.is_sent
-                                  ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
-                                  : record.status?.code === "CHECK_DONE"
-                                    ? "ดำเนินการตรวจสอบเสร็จสิ้นแล้ว"
-                                    : (record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
-                                      ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
-                                      : "ส่งข้อมูลให้ผู้รับผิดชอบข้อมูลตรวจสอบ"
-                              }
+                                hasNeedFixFromDo;
+                              const tooltipText = isActuallySent
+                                ? "ส่งให้ผู้รับผิดชอบข้อมูลตรวจสอบแล้ว"
+                                : record.status?.code === "CHECK_DONE"
+                                  ? "ดำเนินการตรวจสอบเสร็จสิ้นแล้ว"
+                                  : record.status?.code === "WAITING_DP"
+                                    ? "ท่านต้องกรอกข้อมูลให้เสร็จสิ้นก่อนส่ง"
+                                    : hasNeedFixFromDo
+                                      ? "กรุณาแก้ไขและบันทึกในฟอร์มก่อนจึงจะส่งได้"
+                                    : "ส่งข้อมูลให้ผู้รับผิดชอบข้อมูลตรวจสอบ";
+
+                              return (
+                            <ActionIconWithTooltip
+                              icon="send"
+                              disabled={isDisabled}
+                              tooltipText={tooltipText}
                               buttonClassName={cn(
-                                (record.is_sent || record.status?.code === "CHECK_DONE" || record.status?.code === "WAITING_DP" || record.status?.code === "DP_NEED_FIX")
+                                isDisabled
                                   ? "text-[#9CA3AF]"
                                   : "text-[#5F5E5E] hover:text-[#00666E]"
                               )}
@@ -430,6 +470,8 @@ export default function ManagementProcessingPage() {
                                 setSubmitConfirm({ open: true, id: record.id })
                               }
                             />
+                              );
+                            })()}
                           </div>
                         </div>
                       </DocumentTableCell>
@@ -440,8 +482,8 @@ export default function ManagementProcessingPage() {
             </DocumentTable>
             <DocumentPagination
               current={page}
-              totalPages={processorAssignedMeta.total_pages}
-              totalItems={processorAssignedMeta.total}
+              totalPages={isProcessingFilterActive ? 1 : processorAssignedMeta.total_pages}
+              totalItems={isProcessingFilterActive ? filteredAssigned.length : processorAssignedMeta.total}
               itemsPerPage={PROCESSING_ITEMS_PER_PAGE}
               onChange={setPage}
             />

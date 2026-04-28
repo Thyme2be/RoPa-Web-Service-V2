@@ -18,6 +18,7 @@ import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useProcessor } from "@/context/ProcessorContext";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 function DataProcessorFormContent() {
     const router = useRouter();
@@ -77,6 +78,15 @@ function DataProcessorFormContent() {
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const getLatestSuggestions = (items: any[] = [], limit = 1) =>
+        [...items]
+            .sort((a, b) => {
+                const aTime = new Date(a?.created_at || a?.date || 0).getTime();
+                const bTime = new Date(b?.created_at || b?.date || 0).getTime();
+                return bTime - aTime;
+            })
+            .slice(0, limit);
 
     // Load existing record or snapshot
     useEffect(() => {
@@ -174,7 +184,7 @@ function DataProcessorFormContent() {
                     element.scrollIntoView({ behavior: "smooth", block: "center" });
                 } else {
                     // Fallback alert if element not found in DOM
-                    alert(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
+                    toast.error(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
                 }
             }, 100);
 
@@ -190,7 +200,7 @@ function DataProcessorFormContent() {
             setIsDraftSuccessOpen(true);
         } catch (error) {
             console.error("Save draft failed:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSaving(false);
         }
@@ -220,7 +230,7 @@ function DataProcessorFormContent() {
             router.push("/data-processor/management/processing");
         } catch (error) {
             console.error("Submit failed:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmitting(false);
         }
@@ -374,6 +384,7 @@ function DataProcessorFormContent() {
                                     // key is format like dp-1, dp-2 ...
                                     const sectionNo = parseInt(id.replace("dp-", ""), 10);
                                     const sectionFeedbacks = form.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
+                                    const latestFeedbacks = getLatestSuggestions(sectionFeedbacks, 1);
                                     
                                     return (
                                         <InlineFeedbackWrapper
@@ -382,7 +393,7 @@ function DataProcessorFormContent() {
                                             isDraftingFeedback={false}
                                             onFeedbackChange={() => { }}
                                             feedbackText=""
-                                            existingSuggestions={sectionFeedbacks.map((f: any) => ({
+                                            existingSuggestions={latestFeedbacks.map((f: any) => ({
                                                 text: f.comment,
                                                 date: f.created_at
                                             }))}

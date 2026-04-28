@@ -1118,6 +1118,19 @@ def get_active_table(
     all_assignments = db.query(ReviewAssignmentModel).filter(ReviewAssignmentModel.review_cycle_id.in_(cycle_ids)).all()
     assignments_map = {(a.review_cycle_id, a.role): a for a in all_assignments}
 
+    dpo_assignment_rows = (
+        db.query(ReviewDpoAssignmentModel)
+        .options(joinedload(ReviewDpoAssignmentModel.dpo).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(ReviewDpoAssignmentModel.review_cycle_id.in_(cycle_ids))
+        .order_by(ReviewDpoAssignmentModel.assigned_at.desc())
+        .all()
+    )
+    dpo_assignment_map = {}
+    for row in dpo_assignment_rows:
+        # Keep latest assignment per cycle.
+        if row.review_cycle_id not in dpo_assignment_map:
+            dpo_assignment_map[row.review_cycle_id] = row
+
     # 3. Build Result
     result = []
     for doc in docs:
@@ -1248,11 +1261,29 @@ def get_sent_to_dpo_table(
         .all()
     )
     
-    latest_cycles = {c.document_id: c for c in all_cycles}
+    latest_cycles = {}
+    for c in all_cycles:
+        # all_cycles is already ordered by cycle_number desc,
+        # so keep the first occurrence per document as the latest cycle.
+        if c.document_id not in latest_cycles:
+            latest_cycles[c.document_id] = c
     cycle_ids = [c.id for c in latest_cycles.values()]
     
     all_assignments = db.query(ReviewAssignmentModel).filter(ReviewAssignmentModel.review_cycle_id.in_(cycle_ids)).all()
     assignments_map = {(a.review_cycle_id, a.role): a for a in all_assignments}
+
+    dpo_assignment_rows = (
+        db.query(ReviewDpoAssignmentModel)
+        .options(joinedload(ReviewDpoAssignmentModel.dpo).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(ReviewDpoAssignmentModel.review_cycle_id.in_(cycle_ids))
+        .order_by(ReviewDpoAssignmentModel.assigned_at.desc())
+        .all()
+    )
+    dpo_assignment_map = {}
+    for row in dpo_assignment_rows:
+        # Keep latest assignment per cycle.
+        if row.review_cycle_id not in dpo_assignment_map:
+            dpo_assignment_map[row.review_cycle_id] = row
     
     all_comments = db.query(DpoSectionCommentModel).filter(DpoSectionCommentModel.review_cycle_id.in_(cycle_ids)).all()
     comments_map = {}
@@ -1266,7 +1297,9 @@ def get_sent_to_dpo_table(
         cycle_comments = comments_map.get(last_cycle.id, []) if last_cycle else []
         ui_status, ui_label = _table2_ui_status_optimized(doc, last_cycle, uid, cycle_comments, assignments_map)
         
-        dpo_user = last_cycle.reviewer if last_cycle else None
+        dpo_assignment = dpo_assignment_map.get(last_cycle.id) if last_cycle else None
+        # `reviewed_by` may be null while cycle is still IN_REVIEW, so prefer DPO assignment.
+        dpo_user = dpo_assignment.dpo if dpo_assignment and dpo_assignment.dpo else (last_cycle.reviewer if last_cycle else None)
         proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
         dp_user = proc_assignment.processor if proc_assignment else None
 
@@ -1330,7 +1363,25 @@ def get_approved_table(
         .order_by(DocumentReviewCycleModel.reviewed_at.desc())
         .all()
     )
-    cycles_map = {c.document_id: c for c in approved_cycles}
+    cycles_map = {}
+    for c in approved_cycles:
+        # approved_cycles is ordered by reviewed_at desc,
+        # so keep first occurrence per document as the latest approved cycle.
+        if c.document_id not in cycles_map:
+            cycles_map[c.document_id] = c
+
+    cycle_ids = [c.id for c in cycles_map.values()]
+    dpo_assignment_rows = (
+        db.query(ReviewDpoAssignmentModel)
+        .options(joinedload(ReviewDpoAssignmentModel.dpo).load_only(UserModel.first_name, UserModel.last_name))
+        .filter(ReviewDpoAssignmentModel.review_cycle_id.in_(cycle_ids))
+        .order_by(ReviewDpoAssignmentModel.assigned_at.desc())
+        .all()
+    )
+    dpo_assignment_map = {}
+    for row in dpo_assignment_rows:
+        if row.review_cycle_id not in dpo_assignment_map:
+            dpo_assignment_map[row.review_cycle_id] = row
 
     result = []
     for doc in docs:
@@ -1374,7 +1425,8 @@ def get_approved_table(
                 status, label = "REVIEWED", "ตรวจสอบเสร็จสิ้น"
 
         last_cycle = cycles_map.get(doc.id)
-        dpo_user = last_cycle.reviewer if last_cycle else None
+        dpo_assignment = dpo_assignment_map.get(last_cycle.id) if last_cycle else None
+        dpo_user = dpo_assignment.dpo if dpo_assignment and dpo_assignment.dpo else (last_cycle.reviewer if last_cycle else None)
         proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
         dp_user = proc_assignment.processor if proc_assignment else None
 

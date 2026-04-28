@@ -15,6 +15,7 @@ import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus } from "@/types/enums";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -533,7 +534,7 @@ function AuditorDetailContent() {
                             if (!res.ok) throw new Error("Verification failed");
                         } catch (err) {
                             console.error("Audit verification error:", err);
-                            alert("เกิดข้อผิดพลาดในการยืนยันการตรวจสอบ");
+                            toast.error("เกิดข้อผิดพลาดในการยืนยันการตรวจสอบ");
                             return;
                         }
                     } else {

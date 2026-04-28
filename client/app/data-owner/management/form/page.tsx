@@ -19,10 +19,11 @@ import SaveConfirmModal from "@/components/ropa/SaveConfirmModal";
 import DestructionConfirmModal from "@/components/ropa/DestructionConfirmModal";
 
 import SaveSuccessModal from "@/components/ui/SaveSuccessModal";
+import toast from "react-hot-toast";
 import { OwnerRecord } from "@/types/dataOwner";
 import { ProcessorRecord } from "@/types/dataProcessor";
 import { RopaStatus, SectionStatus, CollectionMethod, RetentionUnit, DataType } from "@/types/enums";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useOwner } from "@/context/OwnerContext";
 import { useProcessor } from "@/context/ProcessorContext";
@@ -82,6 +83,15 @@ function ManagementFormContent() {
     const handleFeedbackChange = (sectionId: string, text: string) => setDraftFeedbacks(prev => ({ ...prev, [sectionId]: text }));
     const handleReviewClick = (sectionId: string) => setActiveFeedbacks(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
 
+    const getLatestSuggestions = (items: any[] = [], limit = 1) =>
+        [...items]
+            .sort((a, b) => {
+                const aTime = new Date(a?.created_at || a?.date || 0).getTime();
+                const bTime = new Date(b?.created_at || b?.date || 0).getTime();
+                return bTime - aTime;
+            })
+            .slice(0, limit);
+
     const handleFeedbackConfirm = async () => {
         if (!recordId) return;
         
@@ -102,22 +112,23 @@ function ManagementFormContent() {
             setDraftFeedbacks({});
             setActiveFeedbacks({});
             setFeedbackModal({ open: false, section: "" }); // Important: Close the modal
-            alert("ส่งคำร้องขอเปลี่ยนแปลงสำเร็จ เอกสารถูกตีกลับไปที่ผู้ประมวลผลแล้ว");
+            toast.success("ส่งคำร้องขอเปลี่ยนแปลงสำเร็จ เอกสารถูกตีกลับไปที่ผู้ประมวลผลแล้ว");
         } catch (e) {
             console.error("Failed to submit feedback batch", e);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 
     const renderDOSection = (id: string, title: string, Component: any) => {
         const suggestions = form.suggestions?.filter(s => s.section_id.toString() === id) || [];
+        const latestSuggestions = getLatestSuggestions(suggestions, 2).reverse();
         return (
             <InlineFeedbackWrapper
                 title={title}
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestions={suggestions.length > 0 ? [suggestions.map(s => ({ text: s.comment, date: s.date, reviewer: s.reviewer })).reverse()[0]!] : undefined}
+                existingSuggestions={latestSuggestions.length > 0 ? latestSuggestions.map((s: any) => ({ text: s.comment, date: s.date, reviewer: s.reviewer })) : undefined}
                 canReview={false}
                 onReviewClick={() => handleReviewClick(id)}
             >
@@ -129,14 +140,15 @@ function ManagementFormContent() {
     const renderDPSection = (id: string, title: string, Component: any) => {
         const sectionNo = parseInt(id.replace("dp-", ""), 10);
         const feedbacks = dpForm.feedbacks?.filter((f: any) => f.section_number === sectionNo) || [];
+        const latestTwoFeedbacks = getLatestSuggestions(feedbacks, 2).reverse();
         return (
             <InlineFeedbackWrapper
                 title={title}
                 isDraftingFeedback={!!activeFeedbacks[id]}
                 onFeedbackChange={(text) => handleFeedbackChange(id, text)}
                 feedbackText={draftFeedbacks[id] || ""}
-                existingSuggestions={feedbacks.length > 0 ? [feedbacks.map((f: any) => ({ text: f.comment, date: f.created_at, reviewer: f.from_user_name || "Data Owner (ผู้รับผิดชอบข้อมูล)" })).reverse()[0]!] : undefined}
-                canReview={viewMode}
+                existingSuggestions={latestTwoFeedbacks.length > 0 ? latestTwoFeedbacks.map((f: any) => ({ text: f.comment, date: f.created_at, reviewer: f.from_user_name || "Data Owner (ผู้รับผิดชอบข้อมูล)" })) : undefined}
+                canReview={viewMode && !isWaitingDpResubmitGlobal}
                 onReviewClick={() => handleReviewClick(id)}
                 isProcessor={true}
             >
@@ -246,6 +258,12 @@ function ManagementFormContent() {
         retention_value: 0, retention_unit: "YEARS", access_condition: "", deletion_method: "",
         legal_basis: "",
     });
+    const hasPendingDpFeedback = (dpForm.feedbacks || []).some((f: any) => {
+        const state = String(f?.status || "").toUpperCase();
+        return !["RESOLVED", "FIXED", "CLOSED"].includes(state);
+    });
+    const isWaitingDpResubmitGlobal =
+        record?.processor_status?.code === "DP_NEED_FIX" || hasPendingDpFeedback;
 
     // Processor form is already loaded in the initial full record fetch above
 
@@ -370,7 +388,7 @@ function ManagementFormContent() {
                     window.scrollTo({ top: y, behavior: "smooth" });
                 } else {
                     // Fallback alert if element not found in DOM
-                    alert(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
+                    toast.error(`กรุณาตรวจสอบข้อมูล: ${errorMessage}`);
                 }
             }, 250);
 
@@ -498,7 +516,7 @@ function ManagementFormContent() {
             setIsDraftSuccessOpen(true); // แสดง modal บันทึกร่างสำเร็จ
         } catch (error) {
             console.error("Failed to save draft:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 
@@ -526,27 +544,31 @@ function ManagementFormContent() {
             router.push("/data-owner/management/processing");
         } catch (error) {
             console.error("Failed to confirm document:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 
 
 
     /** Risk Assessment submitted */
-    const handleRiskSubmit = async (probability: number, impact: number) => {
+    const handleRiskSubmit = useCallback((probability: number, impact: number) => {
         setPendingRisk({ probability, impact });
-        setIsConfirmRiskOpen(true);
-    };
+    }, []);
 
     const confirmRiskAssessment = async () => {
         if (!recordId) return;
+        if (!pendingRisk.probability || !pendingRisk.impact) {
+            toast.error("กรุณาประเมินโอกาสและผลกระทบให้ครบก่อนยืนยันการส่ง");
+            setIsConfirmRiskOpen(false);
+            return;
+        }
         try {
             // Save only the risk assessment, do not send to DPO yet
             await saveRiskAssessment(recordId, pendingRisk);
             router.push("/data-owner/management/processing");
         } catch (error) {
             console.error("Failed to submit risk assessment:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsConfirmRiskOpen(false);
         }
@@ -564,10 +586,10 @@ function ManagementFormContent() {
             if (fullRecord) {
                 setForm(prev => ({ ...prev, ...fullRecord }));
             }
-            alert("ส่งคำร้องขอทำลายเอกสารสำเร็จ");
+            toast.success("ส่งคำร้องขอทำลายเอกสารสำเร็จ");
         } catch (error) {
             console.error("Failed to submit deletion request:", error);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmittingDeletion(false);
         }
@@ -866,7 +888,17 @@ function ManagementFormContent() {
                                 <div className="flex items-center gap-4">
                                     {activeTab === "risk" ? (
                                         <button
-                                            onClick={() => setIsConfirmRiskOpen(true)}
+                                            onClick={() => {
+                                                const probability = form.risk_assessment?.probability ?? pendingRisk.probability;
+                                                const impact = form.risk_assessment?.impact ?? pendingRisk.impact;
+                                                if (!probability || !impact) {
+                                                    toast.error("กรุณาประเมินโอกาสและผลกระทบก่อนกดยืนยันการส่งการประเมิน");
+                                                    return;
+                                                }
+                                                setPendingRisk({ probability, impact });
+                                                setIsConfirmRiskOpen(true);
+                                            }}
+                                            disabled={!canEditRisk}
                                             className="bg-logout-gradient leading-none text-white px-14 h-[52px] rounded-full font-black text-base shadow-xl shadow-red-900/20 hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
                                         >
                                             ยืนยันการส่งการประเมิน

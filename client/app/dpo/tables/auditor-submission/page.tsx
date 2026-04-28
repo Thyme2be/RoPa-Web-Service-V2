@@ -6,6 +6,7 @@ import Select from "@/components/ui/Select";
 import TableLoading from "@/components/ui/TableLoading";
 import ErrorState from "@/components/ui/ErrorState";
 import SendToAuditorModal from "@/components/ui/SendToAuditorModal";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -100,12 +101,12 @@ function AuditorSubmissionTableContent() {
                 throw new Error(errData.detail || "Failed to assign auditor");
             }
 
-            alert("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
+            toast.success("ส่งเอกสารให้ผู้ตรวจสอบเรียบร้อยแล้ว");
             setIsSendModalOpen(false);
             fetchAuditorAssignments(); // Refresh list
         } catch (err: any) {
             console.error("Assign auditor error:", err);
-            alert("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         } finally {
             setIsSubmittingAssignment(false);
         }
@@ -152,7 +153,7 @@ function AuditorSubmissionTableContent() {
     const getStatusColor = (type: string) => {
         switch (type) {
             case "success": return "bg-[#228B15] text-white"; // Green
-            case "warning": return "bg-[#FBBF24] text-[#5C403D]"; // Yellow
+            case "warning": return "bg-[#FFCC00] text-[#5C403D]"; // Yellow
             case "edit": return "bg-[#ED393C] text-white"; // Red
             default: return "bg-gray-200 text-gray-700";
         }

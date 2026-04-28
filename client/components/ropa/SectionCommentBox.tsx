@@ -90,6 +90,32 @@ export default function SectionCommentBox({
   title,
   icon,
 }: SectionCommentBoxProps) {
+  const mapReviewerToThaiRole = (reviewer?: string) => {
+    if (!reviewer) return "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล";
+    const raw = reviewer.trim();
+    const upper = raw.toUpperCase();
+
+    if (upper.includes("OWNER") || raw.includes("ผู้รับผิดชอบข้อมูล")) {
+      return "ผู้รับผิดชอบข้อมูล";
+    }
+    if (upper.includes("PROCESSOR") || raw.includes("ผู้ประมวลผลข้อมูลส่วนบุคคล")) {
+      return "ผู้ประมวลผลข้อมูลส่วนบุคคล";
+    }
+    if (upper.includes("DPO") || raw.includes("เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล")) {
+      return "เจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล";
+    }
+    if (upper.includes("AUDITOR") || raw.includes("ผู้ตรวจสอบ")) {
+      return "ผู้ตรวจสอบ";
+    }
+    if (upper.includes("ADMIN") || raw.includes("ผู้ดูแลระบบ")) {
+      return "ผู้ดูแลระบบ";
+    }
+    if (upper.includes("EXECUTIVE") || raw.includes("ผู้บริหารระดับสูง")) {
+      return "ผู้บริหารระดับสูง";
+    }
+    return raw;
+  };
+
   const config = VARIANT_CONFIG[variant];
   const resolvedPlaceholder = placeholder ?? config.placeholder;
   const lightBg = variant === "dp" ? "bg-[#00666E]/10" : "bg-[#ED393C]/10";
@@ -113,7 +139,7 @@ export default function SectionCommentBox({
               />
               <div className="flex items-center justify-between px-4 mb-2">
                 <span className="text-[13px] font-black text-[#ED393C] tracking-tight">
-                  {config.label}: {s.reviewer ?? "DPO"}
+                  {config.label}: {mapReviewerToThaiRole(s.reviewer)}
                 </span>
                 {s.date && (
                   <span className="text-[12px] font-bold text-[#9CA3AF]">
@@ -121,6 +147,11 @@ export default function SectionCommentBox({
                   </span>
                 )}
               </div>
+              {title && (
+                <p className="text-[15px] font-black text-[#5C403D] leading-relaxed px-4 mb-1">
+                  {title}
+                </p>
+              )}
               <p className="text-[15px] font-bold text-[#1B1C1C] leading-relaxed px-4">
                 &ldquo;{s.text}&rdquo;
               </p>
