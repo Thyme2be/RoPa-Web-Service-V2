@@ -249,6 +249,8 @@ export interface DestroyedTableItem {
   dpo_name: string;
   deletion_approved_at: string;
   deletion_reason: string;
+  deletion_status?: "DELETE_PENDING" | "DELETED";
+  deletion_status_label?: string;
 }
 
 export interface OwnerSnapshotTableItem {

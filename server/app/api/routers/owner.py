@@ -1033,7 +1033,7 @@ def get_active_table(
         .filter(
             RopaDocumentModel.created_by == uid,
             RopaDocumentModel.status == "IN_PROGRESS",
-            or_(RopaDocumentModel.deletion_status == None, RopaDocumentModel.deletion_status != "DELETED"),
+            RopaDocumentModel.deletion_status.is_(None),
         )
     )
 
@@ -1501,36 +1501,86 @@ def get_approved_table(
 def get_destroyed_table(
     page: int = 1,
     page_size: int = 50,
+    status_filter: Optional[str] = Query("all"),
+    period: Optional[str] = Query("all"),
+    custom_date: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.OWNER)),
 ):
     uid = current_user.id
-    offset = (page - 1) * page_size
-
+    now = datetime.now(timezone.utc)
     base_q = (
         db.query(RopaDocumentModel)
         .options(
             selectinload(RopaDocumentModel.processor_assignments).joinedload(ProcessorAssignmentModel.processor).load_only(UserModel.first_name, UserModel.last_name)
         )
-        .filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.deletion_status == "DELETED")
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.deletion_status.in_(["DELETE_PENDING", "DELETED"]),
+        )
     )
 
-    total = base_q.count()
-    docs = base_q.order_by(RopaDocumentModel.deleted_at.desc()).offset(offset).limit(page_size).all()
-
-    # Bulk load deletion requests to find who approved destruction
-    doc_ids = [doc.id for doc in docs]
-    deletion_reqs = (
+    # Bulk load deletion requests to compute status/date/filter consistently
+    all_docs = base_q.order_by(RopaDocumentModel.updated_at.desc()).all()
+    doc_ids = [doc.id for doc in all_docs]
+    all_reqs = (
         db.query(DocumentDeletionRequestModel)
         .options(joinedload(DocumentDeletionRequestModel.reviewer).load_only(UserModel.first_name, UserModel.last_name))
-        .filter(DocumentDeletionRequestModel.document_id.in_(doc_ids), DocumentDeletionRequestModel.status == "APPROVED")
+        .filter(DocumentDeletionRequestModel.document_id.in_(doc_ids))
+        .order_by(DocumentDeletionRequestModel.requested_at.desc())
         .all()
     )
-    reqs_map = {r.document_id: r for r in deletion_reqs}
+    reqs_map = {}
+    for req in all_reqs:
+        if req.document_id not in reqs_map:
+            reqs_map[req.document_id] = req
+
+    # Build rows then apply filter
+    rows = []
+    for doc in all_docs:
+        req = reqs_map.get(doc.id)
+        if not req:
+            continue
+
+        if doc.deletion_status == "DELETE_PENDING":
+            row_status = "DELETE_PENDING"
+            row_label = "รอตรวจสอบการทำลาย"
+            ref_dt = req.requested_at
+        else:
+            row_status = "DELETED"
+            row_label = "ทำลายเสร็จสิ้น"
+            ref_dt = doc.deleted_at or req.decided_at or doc.updated_at
+
+        rows.append((doc, req, row_status, row_label, ref_dt))
+
+    if status_filter and status_filter != "all":
+        sf = status_filter.lower()
+        if sf in {"pending_destruction", "pending", "delete_pending"}:
+            rows = [r for r in rows if r[2] == "DELETE_PENDING"]
+        elif sf in {"destroyed", "deleted", "done"}:
+            rows = [r for r in rows if r[2] == "DELETED"]
+
+    if period and period != "all":
+        if period == "7days":
+            cutoff = now - timedelta(days=7)
+            rows = [r for r in rows if r[4] and r[4] >= cutoff]
+        elif period == "30days":
+            cutoff = now - timedelta(days=30)
+            rows = [r for r in rows if r[4] and r[4] >= cutoff]
+        elif period == "custom" and custom_date:
+            try:
+                c_date = datetime.fromisoformat(custom_date.replace("Z", "+00:00")).date()
+                rows = [r for r in rows if r[4] and r[4].date() == c_date]
+            except Exception as e:
+                logger.warning(f"Failed to parse custom_date '{custom_date}': {e}")
+
+    rows.sort(key=lambda r: r[4] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    total = len(rows)
+    offset = (page - 1) * page_size
+    page_rows = rows[offset:offset + page_size]
 
     result = []
-    for doc in docs:
-        req = reqs_map.get(doc.id)
+    for doc, req, row_status, row_label, ref_dt in page_rows:
         dpo_user = req.reviewer if req else None
         proc_assignment = doc.processor_assignments[0] if doc.processor_assignments else None
         dp_user = proc_assignment.processor if proc_assignment else None
@@ -1542,8 +1592,10 @@ def get_destroyed_table(
                 title=doc.title,
                 do_name=_user_full_name(current_user),
                 dpo_name=_user_full_name(dpo_user),
-                deletion_approved_at=doc.deleted_at or doc.updated_at,
+                deletion_approved_at=ref_dt,
                 deletion_reason=req.owner_reason if req else None,
+                deletion_status=row_status,
+                deletion_status_label=row_label,
             )
         )
 
@@ -1616,6 +1668,11 @@ def save_owner_section_draft(
         raise HTTPException(status_code=404, detail="ไม่พบ Owner Section")
 
     doc = db.query(RopaDocumentModel).filter_by(id=document_id).first()
+    if doc and doc.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถแก้ไขได้",
+        )
     if doc and payload.title:
         incoming_title = payload.title.strip()
         # Guard against accidental overwrite from title_prefix payloads.
@@ -1698,6 +1755,11 @@ def submit_owner_section(
         raise HTTPException(status_code=404, detail="ไม่พบ Owner Section")
 
     doc = db.query(RopaDocumentModel).filter_by(id=document_id).first()
+    if doc and doc.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถแก้ไขได้",
+        )
     if doc and payload.title:
         incoming_title = payload.title.strip()
         # Guard against accidental overwrite from title_prefix payloads.
@@ -1815,6 +1877,11 @@ def send_to_dpo(
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
     if doc.status != "IN_PROGRESS":
         raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ IN_PROGRESS")
+    if doc.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถดำเนินการต่อได้",
+        )
     if doc.deletion_status == "DELETE_PENDING":
         raise HTTPException(
             status_code=400,
@@ -2037,6 +2104,10 @@ def request_annual_review(
     if not doc or doc.status != "COMPLETED":
         raise HTTPException(status_code=400, detail="เอกสารต้องอยู่ในสถานะ COMPLETED")
 
+    if doc.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400, detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถส่งทบทวนรายปีได้"
+        )
     if doc.deletion_status == "DELETE_PENDING":
         raise HTTPException(
             status_code=400, detail="ไม่สามารถส่งทบทวนรายปีได้เนื่องจากเอกสารนี้อยู่ระหว่างรอดำเนินการทำลาย"
@@ -2464,7 +2535,36 @@ def get_deletion_request(
     if not req:
         raise HTTPException(status_code=404, detail="ยังไม่มีคำร้องขอทำลายสำหรับเอกสารนี้")
 
-    return req
+    # If the latest request has no rejection reason, fallback to the latest rejected request.
+    # This helps DO still see the last DPO feedback when there are multiple requests.
+    dpo_reason = req.dpo_reason
+    if req.status == "REJECTED" and not dpo_reason:
+        last_rejected = (
+            db.query(DocumentDeletionRequestModel)
+            .filter(
+                DocumentDeletionRequestModel.document_id == document_id,
+                DocumentDeletionRequestModel.status == "REJECTED",
+                DocumentDeletionRequestModel.dpo_reason.isnot(None),
+            )
+            .order_by(DocumentDeletionRequestModel.decided_at.desc())
+            .first()
+        )
+        if last_rejected and last_rejected.dpo_reason:
+            dpo_reason = last_rejected.dpo_reason
+
+    return DeletionRequestRead(
+        id=req.id,
+        document_id=req.document_id,
+        reason=req.owner_reason,
+        status=req.status,
+        created_at=req.requested_at,
+        reviewed_at=req.decided_at,
+        reviewer_id=req.dpo_id,
+        owner_reason=req.owner_reason,
+        dpo_reason=dpo_reason,
+        requested_at=req.requested_at,
+        decided_at=req.decided_at,
+    )
 
 
 # =============================================================================
@@ -2606,7 +2706,19 @@ def create_deletion_request(
     doc.deletion_status = "DELETE_PENDING"
     db.commit()
     db.refresh(req)
-    return req
+    return DeletionRequestRead(
+        id=req.id,
+        document_id=req.document_id,
+        reason=req.owner_reason,
+        status=req.status,
+        created_at=req.requested_at,
+        reviewed_at=req.decided_at,
+        reviewer_id=req.dpo_id,
+        owner_reason=req.owner_reason,
+        dpo_reason=req.dpo_reason,
+        requested_at=req.requested_at,
+        decided_at=req.decided_at,
+    )
 
 
 # =============================================================================

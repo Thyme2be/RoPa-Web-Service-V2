@@ -4,8 +4,8 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/Sidebar";
 import TopBar from "@/components/layouts/TopBar";
-import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableHeaderWithTooltip, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
-import Select from "@/components/ui/Select";
+import { DocumentListCard, DocumentFilterBar, DocumentPagination, DocumentTable, DocumentTableHead, DocumentTableHeader, DocumentTableBody, DocumentTableRow, DocumentTableCell, ActionIconWithTooltip } from "@/components/ropa/ListComponents";
+import { StatusBadge } from "@/components/ropa/RopaListComponents";
 
 import { useOwner } from "@/context/OwnerContext";
 
@@ -13,6 +13,9 @@ export default function RopaDestroyedPage() {
     const { destroyedRecords: contextDestroyedRecords, destroyedMeta, fetchDestroyedTable, refresh } = useOwner();
 
     const [page, setPage] = useState(1);
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [customDate, setCustomDate] = useState("");
     const router = useRouter();
 
     useEffect(() => {
@@ -20,11 +23,8 @@ export default function RopaDestroyedPage() {
     }, [refresh]);
 
     useEffect(() => {
-        fetchDestroyedTable(page, 3);
-    }, [page, fetchDestroyedTable]);
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [dateFilter, setDateFilter] = useState("all");
-    const [customDate, setCustomDate] = useState("");
+        fetchDestroyedTable(page, 3, statusFilter, dateFilter, customDate);
+    }, [page, statusFilter, dateFilter, customDate, fetchDestroyedTable]);
 
     const handleClearFilters = () => {
         setStatusFilter("all");
@@ -33,38 +33,8 @@ export default function RopaDestroyedPage() {
         setPage(1);
     };
 
-    const filteredRecords = contextDestroyedRecords.filter(record => {
-        // Status Filter
-        let matchStatus = true;
-        if (statusFilter !== "all") {
-            // In Destroyed table, everything is already finished
-            const isDoneFilter = ["destroyed", "done_all", "done_owner", "done_processor"].includes(statusFilter);
-            matchStatus = isDoneFilter;
-        }
-
-        // Date Filter
-        let matchDate = true;
-        if (dateFilter !== "all" && record.deletion_approved_at) {
-            const rowDate = new Date(record.deletion_approved_at);
-            const now = new Date();
-            if (dateFilter === "7days") {
-                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                matchDate = rowDate >= sevenDaysAgo;
-            } else if (dateFilter === "30days") {
-                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                matchDate = rowDate >= thirtyDaysAgo;
-            } else if (dateFilter === "custom" && customDate) {
-                matchDate = rowDate.toLocaleDateString() === new Date(customDate).toLocaleDateString();
-            }
-        } else if (dateFilter !== "all" && !record.deletion_approved_at) {
-            matchDate = false;
-        }
-
-        return matchStatus && matchDate;
-    });
-
     const ITEMS_PER_PAGE = 3;
-    const paginatedRecords = filteredRecords.slice(0, ITEMS_PER_PAGE);
+    const paginatedRecords = contextDestroyedRecords;
     const totalPages = Math.ceil(destroyedMeta.total / ITEMS_PER_PAGE);
 
     return (
@@ -77,7 +47,7 @@ export default function RopaDestroyedPage() {
                 <div className="p-10 space-y-10">
                     <div className="flex justify-between items-center">
                         <h1 className="text-[28px] font-black text-[#1B1C1C] tracking-tight">
-                            ตารางแสดงเอกสารที่ถูกทำลายเสร็จสิ้น
+                            ตารางแสดงเอกสารที่ถูกทำลาย
                         </h1>
                     </div>
 
@@ -86,6 +56,7 @@ export default function RopaDestroyedPage() {
                         onStatusChange={(val) => { setStatusFilter(val); setPage(1); }}
                         statusOptions={[
                             { label: "ทั้งหมด", value: "all" },
+                            { label: "รอตรวจสอบการทำลาย", value: "pending_destruction" },
                             { label: "ทำลายเสร็จสิ้น", value: "destroyed" }
                         ]}
                         dateValue={dateFilter}
@@ -95,20 +66,21 @@ export default function RopaDestroyedPage() {
                         onClear={handleClearFilters}
                     />
 
-                    <DocumentListCard title="เอกสารที่ถูกทำลาย" icon="delete_outline" iconColor="#ED393C" bodyClassName="p-0">
+                    <DocumentListCard title="เอกสารในกระบวนการทำลาย" icon="delete_outline" iconColor="#ED393C" bodyClassName="p-0">
                         <DocumentTable>
                             <DocumentTableHead>
                                 <DocumentTableHeader width="w-[30%]" align="left" className="whitespace-nowrap !text-[12px] pl-6">ชื่อเอกสาร</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">ชื่อผู้รับผิดชอบข้อมูล</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[20%]" className="whitespace-nowrap !text-[12px]">วันที่อนุมัติทำลาย</DocumentTableHeader>
-                                <DocumentTableHeader width="w-[10%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[18%]" className="whitespace-nowrap !text-[12px]">ชื่อผู้รับผิดชอบข้อมูล</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[18%]" className="whitespace-nowrap !text-[12px]">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[14%]" className="whitespace-nowrap !text-[12px]">วันที่ดำเนินการล่าสุด</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[12%]" className="whitespace-nowrap !text-[12px]">สถานะ</DocumentTableHeader>
+                                <DocumentTableHeader width="w-[8%]" className="whitespace-nowrap !text-[12px]">การดำเนินการ</DocumentTableHeader>
                             </DocumentTableHead>
                             <DocumentTableBody>
                                 {paginatedRecords.length === 0 ? (
                                     <DocumentTableRow>
-                                        <DocumentTableCell colSpan={5} align="center">
-                                            <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารที่ถูกทำลายแล้ว</span>
+                                        <DocumentTableCell colSpan={6} align="center">
+                                            <span className="text-[#9CA3AF] font-bold py-10 block">ไม่พบเอกสารในรายการทำลาย</span>
                                         </DocumentTableCell>
                                     </DocumentTableRow>
                                 ) : (
@@ -126,11 +98,22 @@ export default function RopaDestroyedPage() {
                                             </DocumentTableCell>
                                             <DocumentTableCell>
                                                 <div className="flex items-center justify-center">
+                                                    <StatusBadge
+                                                        status={
+                                                            record.deletion_status === "DELETE_PENDING"
+                                                                ? "รอตรวจสอบทำลาย"
+                                                                : "อนุมัติการทำลาย"
+                                                        }
+                                                    />
+                                                </div>
+                                            </DocumentTableCell>
+                                            <DocumentTableCell>
+                                                <div className="flex items-center justify-center">
                                                     <ActionIconWithTooltip
                                                         icon="visibility"
-                                                        tooltipText="ดูเอกสาร"
+                                                        tooltipText="ดูสถานะคำร้องขอทำลาย"
                                                         buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
-                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=view`)}
+                                                        onClick={() => router.push(`/data-owner/management/form?id=${record.document_id}&mode=deletion`)}
                                                     />
                                                 </div>
                                             </DocumentTableCell>

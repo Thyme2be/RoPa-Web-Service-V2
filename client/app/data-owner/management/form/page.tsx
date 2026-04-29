@@ -196,7 +196,8 @@ function ManagementFormContent() {
         !form.suggestions?.some(s => s.section && s.section.startsWith("DO_"));
 
     const isLockedByDeletion = form.deletion_status === "DELETE_PENDING";
-    const effectiveIsLocked = isLocked || isLockedByDeletion || isWaitingDpoApproval;
+    const isDeletedByApproval = form.deletion_status === "DELETED";
+    const effectiveIsLocked = isLocked || isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval;
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -218,6 +219,15 @@ function ManagementFormContent() {
 
                     if (fullRecord && isMounted) {
                         setForm(prev => ({ ...prev, ...fullRecord }));
+                        const requestedMode = searchParams.get("mode");
+                        if (
+                            requestedMode === "view" &&
+                            fullRecord.deletion_status === "DELETE_PENDING"
+                        ) {
+                            toast.error("เอกสารอยู่ระหว่างรอตรวจสอบการทำลาย ยังไม่สามารถเข้าโหมดดูเอกสารได้");
+                            router.replace(`/data-owner/management/form?id=${recordId}&mode=deletion`);
+                            return;
+                        }
                         loadedAny = true;
                     }
                 } catch (error) {
@@ -668,14 +678,14 @@ function ManagementFormContent() {
                             {activeTab !== "destruction" && !isNewCreate && (
                                 <div className="relative group/tooltip shrink-0 mb-6">
                                     <button
-                                        disabled={isLockedByDeletion || isWaitingDpoApproval}
+                                        disabled={isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval}
                                         onClick={() => setIsLocked(!isLocked)}
                                         className={cn(
                                             "flex items-center gap-2 h-[42px] px-4 rounded-md transition-all font-bold border border-[#E5E2E1] bg-[#F8F9FA]",
                                             isLocked
                                                 ? "text-[#ED393C] hover:bg-red-50"
                                                 : "text-[#00666E] hover:bg-green-50",
-                                            (isLockedByDeletion || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
+                                            (isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval) && "opacity-50 cursor-not-allowed grayscale-[0.5]"
                                         )}
                                     >
                                         <span className={cn("material-symbols-outlined text-[20px]", isLocked ? "text-[#ED393C]" : "text-[#00666E]")}>
@@ -683,10 +693,12 @@ function ManagementFormContent() {
                                         </span>
                                         <span className="text-[14px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
                                     </button>
-                                    {(isLockedByDeletion || isWaitingDpoApproval) && (
+                                    {(isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval) && (
                                         <div className="absolute bottom-full mb-2 right-0 w-max opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[60] pointer-events-none">
                                             <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] text-center">
-                                                {isLockedByDeletion
+                                                {isDeletedByApproval
+                                                    ? "ไม่สามารถแก้ไขได้เนื่องจากเอกสารถูกอนุมัติให้ทำลายแล้ว"
+                                                    : isLockedByDeletion
                                                     ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ"
                                                     : "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO"}
                                             </div>
@@ -873,24 +885,16 @@ function ManagementFormContent() {
                                                     )}
                                                 </div>
 
-                                                <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl border border-transparent hover:border-[#E5E2E1] transition-all group shadow-sm">
-                                                    <p className="text-[#1B1C1C] font-bold text-[18px] leading-relaxed">
-                                                        {form.deletion_request.status === "APPROVED"
-                                                            ? "ครบกำหนดเวลาในการทำลาย"
-                                                            : form.deletion_request.status === "REJECTED"
-                                                                ? "ยังไม่ครบกำหนดเวลาในการทำลาย"
+                                                {form.deletion_request.status !== "APPROVED" && (
+                                                    <div className="w-full bg-[#EEEEEE] p-6 rounded-2xl border border-transparent hover:border-[#E5E2E1] transition-all group shadow-sm">
+                                                        <p className="text-[#1B1C1C] font-bold text-[18px] leading-relaxed">
+                                                            {form.deletion_request.status === "REJECTED"
+                                                                ? (form.deletion_request.dpo_reason || "—")
                                                                 : "คำร้องของคุณอยู่ในระหว่างการพิจารณาโดย DPO"
-                                                        }
-                                                    </p>
-                                                    {form.deletion_request.dpo_reason && (
-                                                        <div className="mt-3 flex items-start gap-2 text-[#5F5E5E]">
-                                                            <span className="material-symbols-outlined text-[20px] mt-0.5">info</span>
-                                                            <p className="font-medium text-[14px]">
-                                                                {form.deletion_request.dpo_reason}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -930,7 +934,7 @@ function ManagementFormContent() {
                                     กลับ
                                 </button>
 
-                                {!isWaitingDpoApproval && !isLockedByDeletion && activeTab !== "destruction" && (
+                                {!isWaitingDpoApproval && !isLockedByDeletion && !isDeletedByApproval && activeTab !== "destruction" && (
                                     <button
                                         onClick={() => setIsLocked(false)}
                                         className="bg-[#ED393C] text-white px-14 h-[52px] rounded-full font-black text-base shadow-lg shadow-[#ED393C]/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2"

@@ -386,6 +386,11 @@ class DeletionRequestRead(BaseModel):
     created_at: datetime
     reviewed_at: Optional[datetime] = None
     reviewer_id: Optional[int] = None
+    # Backward-compatible fields used by current frontend screens
+    owner_reason: Optional[str] = None
+    dpo_reason: Optional[str] = None
+    requested_at: Optional[datetime] = None
+    decided_at: Optional[datetime] = None
     
     model_config = {"from_attributes": True}
 
@@ -512,8 +517,10 @@ class ApprovedTableItem(BaseModel):
 
 class DestroyedTableItem(BaseModel):
     """
-    ตาราง 4 – เอกสารที่ถูกทำลายแล้ว (deletion_status = DELETED)
-    แสดง: เลขเอกสาร, ชื่อ DO, ชื่อ DPO, วันที่ DPO อนุมัติทำลาย
+    ตาราง 4 – เอกสารในกระบวนการทำลาย / ถูกทำลายแล้ว
+    รองรับ 2 สถานะ:
+      - DELETE_PENDING = รอตรวจสอบการทำลาย
+      - DELETED        = ทำลายเสร็จสิ้น
     """
     document_id: UUID
     document_number: Optional[str]
@@ -522,6 +529,8 @@ class DestroyedTableItem(BaseModel):
     dpo_name: Optional[str]                # ชื่อ DPO ที่อนุมัติการทำลาย
     deletion_approved_at: Optional[datetime]   # วันที่ DPO อนุมัติ (decided_at)
     deletion_reason: Optional[str]
+    deletion_status: Optional[str] = None
+    deletion_status_label: Optional[str] = None
 
 
 # =============================================================================

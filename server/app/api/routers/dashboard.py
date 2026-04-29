@@ -183,40 +183,52 @@ def _get_org_metrics_internal(
         "completed": docs_by_status.get("COMPLETED", 0),
     }
 
-    def format_stat(q, completed_statuses):
-        total = q.count()
-        rows = q.all()
-        completed = sum(
-            1
-            for r in rows
-            if getattr(r, "status", None)
-            and getattr(r.status, "value", r.status) in completed_statuses
+    # Role-based cards must track document-level totals consistently.
+    # completed = number of distinct documents that reached the role's terminal status
+    # incomplete = total_docs - completed
+    owner_completed = (
+        db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id)))
+        .filter(
+            RopaOwnerSectionModel.document_id.in_(base_query),
+            RopaOwnerSectionModel.status == "SUBMITTED",
         )
-        return {"completed": completed, "incomplete": total - completed}
-
-    # Data Owner Sections (COMPLETED = SUBMITTED)
-    owner_q = db.query(RopaOwnerSectionModel.id, RopaOwnerSectionModel.status).filter(
-        RopaOwnerSectionModel.document_id.in_(base_query)
+        .scalar()
+        or 0
     )
-    owner_stats = format_stat(owner_q, ["SUBMITTED"])
+    owner_stats = {"completed": owner_completed, "incomplete": max(total_docs - owner_completed, 0)}
 
-    # Data Processor Sections (COMPLETED = SUBMITTED)
-    proc_q = db.query(
-        RopaProcessorSectionModel.id, RopaProcessorSectionModel.status
-    ).filter(RopaProcessorSectionModel.document_id.in_(base_query))
-    proc_stats = format_stat(proc_q, ["SUBMITTED"])
+    proc_completed = (
+        db.query(func.count(func.distinct(RopaProcessorSectionModel.document_id)))
+        .filter(
+            RopaProcessorSectionModel.document_id.in_(base_query),
+            RopaProcessorSectionModel.status == "SUBMITTED",
+        )
+        .scalar()
+        or 0
+    )
+    proc_stats = {"completed": proc_completed, "incomplete": max(total_docs - proc_completed, 0)}
 
-    # DPO Docs (APPROVED)
-    dpo_q = db.query(
-        DocumentReviewCycleModel.id, DocumentReviewCycleModel.status
-    ).filter(DocumentReviewCycleModel.document_id.in_(base_query))
-    dpo_stats = format_stat(dpo_q, ["APPROVED"])
+    dpo_completed = (
+        db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+        .filter(
+            DocumentReviewCycleModel.document_id.in_(base_query),
+            DocumentReviewCycleModel.status == "APPROVED",
+        )
+        .scalar()
+        or 0
+    )
+    dpo_stats = {"completed": dpo_completed, "incomplete": max(total_docs - dpo_completed, 0)}
 
-    # Auditor Docs (VERIFIED)
-    auditor_q = db.query(
-        AuditorAssignmentModel.id, AuditorAssignmentModel.status
-    ).filter(AuditorAssignmentModel.document_id.in_(base_query))
-    auditor_stats = format_stat(auditor_q, ["VERIFIED"])
+    auditor_completed = (
+        db.query(func.count(func.distinct(AuditorAssignmentModel.document_id)))
+        .filter(
+            AuditorAssignmentModel.document_id.in_(base_query),
+            AuditorAssignmentModel.status == "VERIFIED",
+        )
+        .scalar()
+        or 0
+    )
+    auditor_stats = {"completed": auditor_completed, "incomplete": max(total_docs - auditor_completed, 0)}
 
     # Revisions
     rev_owner_q = (
@@ -1521,6 +1533,25 @@ def list_dpo_destruction_requests(
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
+    # Keep only the latest deletion request per document for this DPO.
+    latest_req_subquery = (
+        db.query(
+            DocumentDeletionRequestModel.id.label("req_id"),
+            DocumentDeletionRequestModel.document_id.label("document_id"),
+            func.row_number()
+            .over(
+                partition_by=DocumentDeletionRequestModel.document_id,
+                order_by=(
+                    DocumentDeletionRequestModel.requested_at.desc(),
+                    DocumentDeletionRequestModel.id.desc(),
+                ),
+            )
+            .label("rn"),
+        )
+        .filter(DocumentDeletionRequestModel.dpo_id == current_user.id)
+        .subquery()
+    )
+
     # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
     doc_seq_subquery = db.query(
         RopaDocumentModel.id.label("doc_id"),
@@ -1544,6 +1575,13 @@ def list_dpo_destruction_requests(
         .join(
             RopaDocumentModel,
             DocumentDeletionRequestModel.document_id == RopaDocumentModel.id,
+        )
+        .join(
+            latest_req_subquery,
+            and_(
+                latest_req_subquery.c.req_id == DocumentDeletionRequestModel.id,
+                latest_req_subquery.c.rn == 1,
+            ),
         )
         .join(UserModel, DocumentDeletionRequestModel.requested_by == UserModel.id)
         .join(doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id)

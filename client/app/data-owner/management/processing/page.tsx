@@ -350,6 +350,9 @@ export default function ManagementProcessingPage() {
                       </DocumentTableCell>
                       <DocumentTableCell>
                         <div className="flex flex-col items-center gap-1 py-1">
+                          {record.deletion_status === "DELETE_PENDING" && (
+                            <StatusBadge status="รอตรวจสอบทำลาย" />
+                          )}
                           <StatusBadge
                             status={
                               record.owner_status?.code === "DO_DONE"
@@ -394,10 +397,19 @@ export default function ManagementProcessingPage() {
                             <div className="flex items-center justify-center gap-3">
                               <ActionIconWithTooltip
                                 icon="visibility"
-                                tooltipText="ดูเอกสาร"
+                                tooltipText={
+                                  record.deletion_status === "DELETE_PENDING"
+                                    ? "ดูสถานะคำร้องขอทำลาย"
+                                    : "ดูเอกสาร"
+                                }
                                 buttonClassName="text-[#5F5E5E] hover:text-[#1B1C1C]"
                                 onClick={() => {
-                                  const mode = (record.owner_status?.code === "DO_DONE" || record.deletion_status === "DELETE_PENDING") ? "view" : "edit";
+                                  const mode =
+                                    record.deletion_status === "DELETE_PENDING"
+                                      ? "deletion"
+                                      : record.owner_status?.code === "DO_DONE"
+                                        ? "view"
+                                        : "edit";
                                   router.push(
                                     `/data-owner/management/form?id=${record.document_id}&mode=${mode}`,
                                   );

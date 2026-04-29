@@ -30,8 +30,16 @@ export const ownerService = {
         return response.data;
     },
 
-    getOwnerDestroyedTable: async (page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<DestroyedTableItem>> => {
-        const response = await api.get(`/owner/tables/destroyed?page=${page}&page_size=${pageSize}`);
+    getOwnerDestroyedTable: async (
+        page: number = 1,
+        pageSize: number = 50,
+        statusFilter: string = "all",
+        period: string = "all",
+        customDate: string = ""
+    ): Promise<PaginatedResponse<DestroyedTableItem>> => {
+        const response = await api.get(
+            `/owner/tables/destroyed?page=${page}&page_size=${pageSize}&status_filter=${statusFilter}&period=${period}${customDate ? `&custom_date=${customDate}` : ""}`
+        );
         return response.data;
     },
 
