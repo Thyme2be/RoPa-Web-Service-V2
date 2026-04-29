@@ -46,7 +46,7 @@ deletion_status_enum = ENUM(
 )
 
 review_status_enum = ENUM(
-    'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED',
+    'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'CANCELLED',
     name='review_status_enum',
     create_type=False
 )

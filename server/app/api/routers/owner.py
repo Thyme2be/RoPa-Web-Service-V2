@@ -1248,7 +1248,11 @@ def get_sent_to_dpo_table(
             joinedload(RopaDocumentModel.owner_section).load_only(RopaOwnerSectionModel.id),
             selectinload(RopaDocumentModel.processor_assignments).joinedload(ProcessorAssignmentModel.processor).load_only(UserModel.first_name, UserModel.last_name)
         )
-        .filter(RopaDocumentModel.created_by == uid, RopaDocumentModel.status == "UNDER_REVIEW")
+        .filter(
+            RopaDocumentModel.created_by == uid,
+            RopaDocumentModel.status == "UNDER_REVIEW",
+            RopaDocumentModel.deletion_status.is_(None),
+        )
     )
 
     total = base_q.count()
@@ -2638,6 +2642,16 @@ def create_deletion_request(
     )
     if not doc:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสาร")
+    if doc.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถยื่นคำร้องใหม่ได้",
+        )
+    if doc.deletion_status == "DELETE_PENDING":
+        raise HTTPException(
+            status_code=400,
+            detail="มีคำร้องขอทำลายที่รอการอนุมัติอยู่แล้ว",
+        )
 
     # ป้องกันการยื่นคำร้องซ้ำ
     existing_pending = (
@@ -2694,6 +2708,21 @@ def create_deletion_request(
             if not dpo_candidates:
                 raise HTTPException(status_code=400, detail="ไม่พบ DPO ที่พร้อมใช้งานในระบบ")
             assigned_dpo_id = random.choice(dpo_candidates).id
+
+    # ยกเลิกรอบตรวจ RoPA ที่ยังไม่จบ เมื่อเข้าคิวทำลาย — ไม่ให้สองงานแข่งกัน (flow ค.)
+    if last_cycle:
+        cycle_status = str(getattr(last_cycle.status, "value", last_cycle.status))
+        if cycle_status in ("IN_REVIEW", "CHANGES_REQUESTED"):
+            now_cancel = datetime.now(timezone.utc)
+            last_cycle.status = "CANCELLED"
+            last_cycle.reviewed_at = now_cancel
+            db.query(DpoSectionCommentModel).filter(
+                DpoSectionCommentModel.document_id == document_id,
+                DpoSectionCommentModel.status == "OPEN",
+            ).update(
+                {"status": "RESOLVED", "updated_at": now_cancel},
+                synchronize_session=False,
+            )
 
     req = DocumentDeletionRequestModel(
         document_id=document_id,

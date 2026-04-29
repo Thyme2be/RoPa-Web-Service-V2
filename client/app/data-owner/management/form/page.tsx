@@ -56,7 +56,8 @@ function ManagementFormContent() {
         createOwnerSnapshot,
         fetchOwnerSnapshot,
         requestDelete,
-        submitFeedbackBatch
+        submitFeedbackBatch,
+        refresh,
     } = useOwner();
     const { fetchFullProcessorRecord } = useProcessor();
     const record = getById(recordId || "");
@@ -197,6 +198,7 @@ function ManagementFormContent() {
 
     const isLockedByDeletion = form.deletion_status === "DELETE_PENDING";
     const isDeletedByApproval = form.deletion_status === "DELETED";
+    const cannotRequestDeletion = isLockedByDeletion || isDeletedByApproval;
     const effectiveIsLocked = isLocked || isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval;
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -630,7 +632,12 @@ function ManagementFormContent() {
             if (fullRecord) {
                 setForm(prev => ({ ...prev, ...fullRecord }));
             }
-            toast.success("ส่งคำร้องขอทำลายเอกสารสำเร็จ");
+            await refresh();
+            toast.success(
+                "ส่งคำร้องขอทำลายสำเร็จ — รอบตรวจ RoPA ถูกพักอัตโนมัติ",
+                { duration: 4000 },
+            );
+            router.push("/data-owner/management/destroyed");
         } catch (error) {
             console.error("Failed to submit deletion request:", error);
             toast.error("เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
@@ -657,11 +664,33 @@ function ManagementFormContent() {
                 />
 
                 {isLoadingFull ? (
-                    <div className="flex-1 flex items-center justify-center pt-20">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลด...</p>
+                    <div className="flex-1 p-8 space-y-8 animate-in fade-in duration-500">
+                        <div className="h-14 bg-[#F6F6F6] rounded-xl animate-pulse flex p-2 gap-2">
+                            <div className="flex-1 bg-white/70 rounded-lg" />
+                            <div className="flex-1 bg-white/70 rounded-lg" />
+                            <div className="flex-1 bg-white/70 rounded-lg" />
+                            <div className="flex-1 bg-white/70 rounded-lg" />
                         </div>
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-gray-200 overflow-hidden">
+                                <div className="h-20 bg-gray-50/50 flex items-center px-8 gap-4">
+                                    <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse" />
+                                    <div className="w-56 h-6 bg-gray-200 rounded-lg animate-pulse" />
+                                </div>
+                                <div className="px-8 pb-10 pt-4 space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-3">
+                                            <div className="w-32 h-4 bg-gray-100 rounded" />
+                                            <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="w-32 h-4 bg-gray-100 rounded" />
+                                            <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto pt-6 pb-36 space-y-6 animate-in fade-in duration-1000">
@@ -676,7 +705,7 @@ function ManagementFormContent() {
                                 />
                             </div>
                             {activeTab !== "destruction" && !isNewCreate && (
-                                <div className="relative group/tooltip shrink-0 mb-6">
+                                <div className="shrink-0 mb-6">
                                     <button
                                         disabled={isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval}
                                         onClick={() => setIsLocked(!isLocked)}
@@ -693,17 +722,6 @@ function ManagementFormContent() {
                                         </span>
                                         <span className="text-[14px]">{isLocked ? "แก้ไขเอกสาร" : "เสร็จสิ้นการแก้ไข"}</span>
                                     </button>
-                                    {(isLockedByDeletion || isDeletedByApproval || isWaitingDpoApproval) && (
-                                        <div className="absolute bottom-full mb-2 right-0 w-max opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-[60] pointer-events-none">
-                                            <div className="bg-white border border-[#E5E2E1] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-3 text-[11px] font-medium text-[#5F5E5E] text-center">
-                                                {isDeletedByApproval
-                                                    ? "ไม่สามารถแก้ไขได้เนื่องจากเอกสารถูกอนุมัติให้ทำลายแล้ว"
-                                                    : isLockedByDeletion
-                                                    ? "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างรอการลบ"
-                                                    : "ไม่สามารถแก้ไขได้เนื่องจากอยู่ระหว่างการตรวจสอบโดย DPO"}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>
@@ -840,7 +858,7 @@ function ManagementFormContent() {
                                             value={deletionReason}
                                             onChange={(e) => setDeletionReason(e.target.value)}
                                             rows={4}
-                                            disabled={isLockedByDeletion}
+                                            disabled={cannotRequestDeletion}
                                             className="w-full bg-white border border-[#E5E2E1] rounded-xl p-4 text-[#1B1C1C] focus:ring-2 focus:ring-[#B90A1E]/20 transition-all outline-none text-[14px]"
                                             placeholder="ระบุเหตุผลในการขอทำลายเอกสาร เพื่อส่งคำขอไปยังเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล"
                                         />
@@ -854,11 +872,15 @@ function ManagementFormContent() {
                                                 ยกเลิก
                                             </button>
                                             <button
-                                                disabled={!deletionReason || isLockedByDeletion}
+                                                disabled={!deletionReason || cannotRequestDeletion}
                                                 onClick={() => setIsConfirmDeletionOpen(true)}
                                                 className="bg-logout-gradient text-white h-[48px] px-8 rounded-full font-bold shadow-sm hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
                                             >
-                                                {isLockedByDeletion ? "รอดำเนินการ..." : "ส่งคำร้องขอทำลาย"}
+                                                {isDeletedByApproval
+                                                    ? "อนุมัติทำลายแล้ว"
+                                                    : isLockedByDeletion
+                                                        ? "รอดำเนินการ..."
+                                                        : "ส่งคำร้องขอทำลาย"}
                                             </button>
                                         </div>
 

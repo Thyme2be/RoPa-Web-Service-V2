@@ -76,7 +76,6 @@ function InProgressTableContent() {
         statusFilter = "ACTION_REQUIRED_DO";
       else if (selectedStatus === "รอส่วนของ Data Processor แก้ไข")
         statusFilter = "ACTION_REQUIRED_DP";
-      else if (selectedStatus === "ตรวจสอบเสร็จสิ้น") statusFilter = "APPROVED";
 
       const queryParams = new URLSearchParams({
         page: currentPage.toString(),
@@ -132,6 +131,8 @@ function InProgressTableContent() {
         return "ตรวจสอบเสร็จสิ้น";
       case "CHANGES_REQUESTED":
         return "รอการแก้ไข";
+      case "CANCELLED":
+        return "ยกเลิกการตรวจ (รอคำร้องทำลาย)";
       case "INITIAL":
       case "PENDING":
         return "ยังไม่ได้ตรวจสอบ";
@@ -270,7 +271,6 @@ function InProgressTableContent() {
                   label: "รอส่วนของ Data Processor แก้ไข",
                   value: "รอส่วนของ Data Processor แก้ไข",
                 },
-                { label: "ตรวจสอบเสร็จสิ้น", value: "ตรวจสอบเสร็จสิ้น" },
                   { label: "Data Owner ดำเนินการเสร็จสิ้น", value: "Data Owner ดำเนินการเสร็จสิ้น" },
                   { label: "Data Processor ดำเนินการเสร็จสิ้น", value: "Data Processor ดำเนินการเสร็จสิ้น" },
                   { label: "ดำเนินการเสร็จสิ้นทั้งสองฝ่าย", value: "ดำเนินการเสร็จสิ้นทั้งสองฝ่าย" },

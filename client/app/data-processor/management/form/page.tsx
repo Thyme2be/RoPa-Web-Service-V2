@@ -389,11 +389,32 @@ function DataProcessorFormContent() {
                 </div>
 
                 {isLoadingFull ? (
-                    <div className="flex-1 flex items-center justify-center pt-20">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="w-12 h-12 border-4 border-[#B90A1E] border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-[#5F5E5E] font-bold animate-pulse">กำลังโหลด...</p>
+                    <div className="flex-1 p-8 space-y-8 animate-in fade-in duration-500">
+                        <div className="h-14 bg-[#F6F6F6] rounded-xl animate-pulse flex p-2 gap-2">
+                            <div className="flex-1 bg-white/70 rounded-lg" />
+                            <div className="flex-1 bg-white/70 rounded-lg" />
+                            <div className="flex-1 bg-white/70 rounded-lg" />
                         </div>
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-gray-200 overflow-hidden">
+                                <div className="h-20 bg-gray-50/50 flex items-center px-8 gap-4">
+                                    <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse" />
+                                    <div className="w-56 h-6 bg-gray-200 rounded-lg animate-pulse" />
+                                </div>
+                                <div className="px-8 pb-10 pt-4 space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-3">
+                                            <div className="w-32 h-4 bg-gray-100 rounded" />
+                                            <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="w-32 h-4 bg-gray-100 rounded" />
+                                            <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto pt-8 pb-36 space-y-6 animate-in fade-in duration-1000">
@@ -530,7 +551,15 @@ function DataProcessorFormContent() {
 
 export default function DataProcessorFormPage() {
     return (
-        <Suspense fallback={<div>กำลังโหลด...</div>}>
+        <Suspense
+            fallback={
+                <div className="p-8 space-y-8">
+                    <div className="h-14 bg-[#F6F6F6] rounded-xl animate-pulse" />
+                    <div className="h-40 bg-white rounded-2xl border border-[#E5E2E1] animate-pulse" />
+                    <div className="h-40 bg-white rounded-2xl border border-[#E5E2E1] animate-pulse" />
+                </div>
+            }
+        >
             <DataProcessorFormContent />
         </Suspense>
     );

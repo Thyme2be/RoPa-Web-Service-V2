@@ -485,6 +485,8 @@ function DpoInProgressDetailContent() {
   const hasPendingDestructionRequest =
     (form as any)?.deletion_status === "DELETE_PENDING" ||
     (form as any)?.deletion_request?.status === "PENDING";
+  /** รอบตรวจ RoPA ถูกพักเมื่อ DO ยื่นคำร้องทำลาย — ไม่บันทึก feedback RoPA ต่อ */
+  const ropaReviewSuspended = hasPendingDestructionRequest;
 
   const toggleFeedback = (section: string) => {
     setOpenFeedbackSections((prev) =>
@@ -575,7 +577,24 @@ function DpoInProgressDetailContent() {
   };
 
 
+  const parseApiErrorMessage = (status: number, bodyText: string, fallback: string) => {
+    try {
+      const j = JSON.parse(bodyText);
+      if (typeof j.detail === "string") return j.detail;
+      if (Array.isArray(j.detail) && j.detail[0]?.msg) {
+        return j.detail.map((x: { msg?: string }) => x.msg).filter(Boolean).join(" ");
+      }
+    } catch {
+      /* not JSON */
+    }
+    if (bodyText && bodyText.length < 500) return bodyText;
+    return fallback || `HTTP ${status}`;
+  };
+
   const saveComments = async (isFinal: boolean) => {
+    if (ropaReviewSuspended) {
+      return;
+    }
     const token = getAccessToken();
     if (!token) {
       throw new Error("ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่");
@@ -660,7 +679,13 @@ function DpoInProgressDetailContent() {
               "เซสชันหมดอายุหรือข้อมูลเข้าสู่ระบบไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่",
             );
           }
-          throw new Error(`บันทึกไม่สำเร็จ: ${errorText || response.statusText}`);
+          throw new Error(
+            parseApiErrorMessage(
+              response.status,
+              errorText,
+              "บันทึกการตรวจสอบไม่สำเร็จ",
+            ),
+          );
         }
       }
     } catch (err: any) {
@@ -694,7 +719,8 @@ function DpoInProgressDetailContent() {
   const isLastTab = activeTab === "risk";
   const isConfirmTab = activeTab === "risk" || activeTab === "destruction";
   const isDestructionTab = activeTab === "destruction";
-  const isReviewLocked = !isDestructionTab && isAwaitingResubmission;
+  const isReviewLocked =
+    !isDestructionTab && (isAwaitingResubmission || ropaReviewSuspended);
   const confirmButtonLabel = isDestructionTab
     ? "ยืนยันผลคำร้องขอทำลาย"
     : "ยืนยันผลการตรวจเอกสาร";
@@ -796,7 +822,7 @@ function DpoInProgressDetailContent() {
             setSectionFeedbacks((prev) => ({ ...prev, [sec.key]: text }))
           }
           suggestions={getLatestSuggestions(sec.key, 2)}
-          readOnly={isAwaitingResubmission}
+          readOnly={isAwaitingResubmission || ropaReviewSuspended}
           variant="do"
         >
           <sec.component
@@ -832,7 +858,7 @@ function DpoInProgressDetailContent() {
             setSectionFeedbacks((prev) => ({ ...prev, [sec.key]: text }))
           }
           suggestions={getLatestSuggestions(sec.key, 2)}
-          readOnly={isAwaitingResubmission}
+          readOnly={isAwaitingResubmission || ropaReviewSuspended}
           variant="dp"
         >
           <sec.component
@@ -856,6 +882,17 @@ function DpoInProgressDetailContent() {
             <DpoFormTabs activeTab={activeTab} onTabChange={setActiveTab} />
           </div>
         </div>
+
+        {ropaReviewSuspended && activeTab !== "destruction" && (
+          <div
+            className="mx-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] font-medium text-amber-950 leading-relaxed"
+            role="status"
+          >
+            <span className="font-black">คำร้องขอทำลายอยู่ระหว่างดำเนินการ</span>
+            — รอบตรวจ RoPA ถูกพักอัตโนมัติแล้ว กรุณาเปิดแท็บ{" "}
+            <strong>คำร้องขอทำลาย</strong> เพื่ออนุมัติหรือไม่อนุมัติการทำลาย
+          </div>
+        )}
 
         {activeTab === "owner" && (
           <div className="space-y-8 pb-32">{renderOwnerSections()}</div>
@@ -884,11 +921,12 @@ function DpoInProgressDetailContent() {
                   openFeedbackSections.includes("การประเมินความเสี่ยง")
                     ? "bg-[#ED393C] text-white hover:bg-[#ED393C]"
                     : "bg-[#F6F3F2] text-[#5C403D] hover:bg-[#E5E2E1]",
-                  isAwaitingResubmission && "opacity-50 cursor-not-allowed",
+                  (isAwaitingResubmission || ropaReviewSuspended) &&
+                    "opacity-50 cursor-not-allowed",
                 )}
-                disabled={isAwaitingResubmission}
+                disabled={isAwaitingResubmission || ropaReviewSuspended}
                 onClick={() => {
-                  if (isAwaitingResubmission) return;
+                  if (isAwaitingResubmission || ropaReviewSuspended) return;
                   const wasOpen = openFeedbackSections.includes(
                     "การประเมินความเสี่ยง",
                   );
@@ -906,7 +944,7 @@ function DpoInProgressDetailContent() {
                     className="w-full bg-transparent border-none outline-none text-[#5C403D] font-medium placeholder:text-[#5C403D]/40 resize-none min-h-[40px]"
                     placeholder="ระบุข้อเสนอแนะสำหรับการประเมินความเสี่ยง"
                     value={sectionFeedbacks["การประเมินความเสี่ยง"] || ""}
-                    disabled={isAwaitingResubmission}
+                    disabled={isAwaitingResubmission || ropaReviewSuspended}
                     onChange={(e) =>
                       setSectionFeedbacks((prev) => ({
                         ...prev,

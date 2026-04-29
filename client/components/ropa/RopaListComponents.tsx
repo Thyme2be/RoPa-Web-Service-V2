@@ -57,7 +57,7 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "ไม่อนุมัติการทำลาย": "bg-[#EF4444] text-white",          // Red
         "ยังไม่ได้ตรวจสอบ": "bg-[#9CA3AF] text-white",             // Gray
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
-        "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
+        "รอดำเนินการ": "bg-[#FFCC00] text-[#5C403D]",            // Yellow + Brown text
         "ฉบับร่าง": "bg-[#9CA3AF] text-white",                    // Secondary Gray
         "กำลังใช้งาน": "bg-[#228B15] text-white",               // Green
         "ปิดการใช้งาน": "bg-[#ED393C] text-white"                 // Red

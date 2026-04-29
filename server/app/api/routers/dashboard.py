@@ -323,6 +323,21 @@ def _get_org_metrics_internal(
 # --- Metric Helpers ---
 
 
+def format_stat(query, completed_statuses: list[str]):
+    """
+    Return consistent completed/incomplete counts from a base query that contains
+    ReviewAssignmentModel.status in selected columns.
+    """
+    total = query.count()
+    completed = (
+        query.filter(ReviewAssignmentModel.status.in_(completed_statuses)).count()
+    )
+    return {
+        "completed": completed,
+        "incomplete": max(total - completed, 0),
+    }
+
+
 def _get_owner_metrics_internal(db: Session, user_id: int, period: str = "all"):
     """
     Robust version of Data Owner metrics calculation
@@ -1308,7 +1323,9 @@ def user_stats_dashboard(
     tags=["Dashboard (DPO)"],
 )
 def list_dpo_documents(
-    status_filter: Optional[str] = Query(None, description="Filter logic by status"),
+    status_filter: Optional[str] = Query(
+        None, alias="status", description="Filter logic by status"
+    ),
     period: str = Query("all", description="Filter period: 7_days, 30_days, 6_months, 1_year, all"),
     search: Optional[str] = Query(
         None, description="Search by title or document number"
@@ -1399,14 +1416,20 @@ def list_dpo_documents(
             )
         )
 
+    # In-progress table: only active review cycles (not finished, not withdrawn for destruction)
+    query = query.filter(
+        DocumentReviewCycleModel.status.notin_(["APPROVED", "CANCELLED"])
+    )
+
+    # Destruction workflow: those documents belong on the destruction table only
+    query = query.filter(RopaDocumentModel.deletion_status.is_(None))
+
     if status_filter:
         s_filter = status_filter.lower()
         if "รอ" in s_filter or s_filter == "pending" or s_filter == "in_review":
             query = query.filter(DocumentReviewCycleModel.status == "IN_REVIEW")
         elif "แก้ไข" in s_filter or "action_required" in s_filter or s_filter == "changes_requested":
             query = query.filter(DocumentReviewCycleModel.status == "CHANGES_REQUESTED")
-        elif "เสร็จสิ้น" in s_filter or s_filter == "completed" or s_filter == "approved":
-            query = query.filter(DocumentReviewCycleModel.status == "APPROVED")
         # Additional manual status filters can go here
 
     total = query.count()
@@ -1706,8 +1729,12 @@ def review_destruction_request(
         doc.deletion_status = "DELETED"
         doc.deleted_at = datetime.now(timezone.utc)
     else:
-        # If REJECTED, reset deletion_status to None so DO can request again
+        # If REJECTED, reset deletion_status so DO can edit / ส่ง DPO หรือขอทำลายใหม่ได้
         doc.deletion_status = None
+        # คืนไปตารางดำเนินการ (IN_PROGRESS): DO/DP ยังส่งครบอยู่ ไม่บังคับกลับคิวตรวจ RoPA
+        # รอบที่ถูก CANCELLED ตอนขอทำลายยังคง CANCELLED — รอบถัดไปเกิดตอนกดส่งให้ DPO
+        if doc.status == "UNDER_REVIEW":
+            doc.status = "IN_PROGRESS"
 
     db.commit()
     return {"message": "บันทึกผลการตรวจสอบคำขอทำลายเรียบร้อยแล้ว"}
@@ -1914,6 +1941,20 @@ def save_document_comments(
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
     check_document_access(document_id, current_user, db)
+
+    doc_gate = (
+        db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    )
+    if doc_gate and doc_gate.deletion_status == "DELETE_PENDING":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารอยู่ระหว่างคำร้องทำลาย ไม่สามารถบันทึกการตรวจ RoPA ได้",
+        )
+    if doc_gate and doc_gate.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถบันทึกการตรวจ RoPA ได้",
+        )
 
     group = payload.group.upper()
 
@@ -2224,6 +2265,10 @@ def list_documents_from_dpo(
         )
         .filter(access_filter)
     )
+
+    # Auditor table: same separation as DPO in-progress — destruction queue is not listed here
+    if role == Role.AUDITOR:
+        query = query.filter(RopaDocumentModel.deletion_status.is_(None))
 
     # 4. Filters
     if date_range == "7_days":

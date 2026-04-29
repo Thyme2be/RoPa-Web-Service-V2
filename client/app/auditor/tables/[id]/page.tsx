@@ -367,9 +367,53 @@ function AuditorDetailContent() {
 
     const isLastTab = activeTab === tabs[tabs.length - 1];
     const emptyHandler = () => { };
+    const renderSectionCard = (Component: any, sectionForm: any, variant: "owner" | "processor" = "owner") => {
+        const borderClass = variant === "processor" ? "border-l-[#00666E]" : "border-l-[#ED393C]";
+        return (
+            <div className={cn("bg-white rounded-2xl shadow-sm border-l-[6px] overflow-hidden", borderClass)}>
+                <Component
+                    form={sectionForm}
+                    handleChange={emptyHandler}
+                    errors={{}}
+                    disabled={true}
+                    variant={variant}
+                />
+            </div>
+        );
+    };
 
-    if (loading) return <div className="p-8 font-bold text-[#5F5E5E] animate-pulse">กำลังโหลดข้อมูลเอกสาร...</div>;
-    if (error) return <div className="p-8 font-bold text-[#ED393C]">เกิดข้อผิดพลาด: {error}</div>;
+    if (loading)
+        return (
+            <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="h-14 bg-[#F6F6F6] rounded-xl animate-pulse flex p-2 gap-2">
+                    <div className="flex-1 bg-white/70 rounded-lg" />
+                    <div className="flex-1 bg-white/70 rounded-lg" />
+                    <div className="flex-1 bg-white/70 rounded-lg" />
+                    <div className="flex-1 bg-white/70 rounded-lg" />
+                </div>
+                {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-white rounded-2xl shadow-sm border-l-[6px] border-l-gray-200 overflow-hidden">
+                        <div className="h-20 bg-gray-50/50 flex items-center px-8 gap-4">
+                            <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse" />
+                            <div className="w-56 h-6 bg-gray-200 rounded-lg animate-pulse" />
+                        </div>
+                        <div className="px-8 pb-10 pt-4 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <div className="w-32 h-4 bg-gray-100 rounded" />
+                                    <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="w-32 h-4 bg-gray-100 rounded" />
+                                    <div className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl animate-pulse" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    if (error) return <div className="font-bold text-[#ED393C]">เกิดข้อผิดพลาด: {error}</div>;
 
     return (
         <div className="flex-1 space-y-6 animate-in fade-in duration-700">
@@ -396,7 +440,9 @@ function AuditorDetailContent() {
                             { title: "ส่วนที่ 7 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                         ].map((sec, idx) => (
                             <div key={idx}>
-                                <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
+                                {sec.component === LocalActivityDetails
+                                    ? <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
+                                    : renderSectionCard(sec.component, form, "owner")}
                             </div>
                         ))}
                     </div>
@@ -414,7 +460,9 @@ function AuditorDetailContent() {
                             { title: "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                         ].map((sec, idx) => (
                             <div key={idx}>
-                                <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
+                                {sec.component === LocalActivityDetails
+                                    ? <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
+                                    : renderSectionCard(sec.component, processorForm, "processor")}
                             </div>
                         ))}
                     </div>
@@ -454,7 +502,9 @@ function AuditorDetailContent() {
                                         { title: "ส่วนที่ 7 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                                     ].map((sec, idx) => (
                                         <div key={idx}>
-                                            <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
+                                            {sec.component === LocalActivityDetails
+                                                ? <sec.component form={form} handleChange={emptyHandler} errors={{}} disabled={true} />
+                                                : renderSectionCard(sec.component, form, "owner")}
                                         </div>
                                     ))}
                                 </div>
@@ -475,7 +525,9 @@ function AuditorDetailContent() {
                                         { title: "ส่วนที่ 6 : มาตรการการรักษาความมั่นคงปลอดภัย", component: SecurityMeasures },
                                     ].map((sec, idx) => (
                                         <div key={idx}>
-                                            <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
+                                            {sec.component === LocalActivityDetails
+                                                ? <sec.component form={processorForm} handleChange={emptyHandler} errors={{}} disabled={true} variant="processor" />
+                                                : renderSectionCard(sec.component, processorForm, "processor")}
                                         </div>
                                     ))}
                                 </div>
@@ -557,7 +609,15 @@ function AuditorDetailContent() {
 
 export default function AuditorTableDetailPage() {
     return (
-        <Suspense fallback={<div className="p-8 font-bold text-[#5F5E5E]">กำลังโหลดข้อมูล...</div>}>
+        <Suspense
+            fallback={
+                <div className="p-8 space-y-8">
+                    <div className="h-14 bg-[#F6F6F6] rounded-xl animate-pulse" />
+                    <div className="h-40 bg-white rounded-2xl border border-[#E5E2E1] animate-pulse" />
+                    <div className="h-40 bg-white rounded-2xl border border-[#E5E2E1] animate-pulse" />
+                </div>
+            }
+        >
             <AuditorDetailContent />
         </Suspense>
     );
