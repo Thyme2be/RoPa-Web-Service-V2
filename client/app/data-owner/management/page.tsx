@@ -49,7 +49,7 @@ export default function RopaSelectionPage() {
             icon: "format_list_bulleted"
         },
         {
-            title: "ตารางแสดงเอกสารที่ถูกทำลายเสร็จสิ้น",
+            title: "ตารางแสดงเอกสารที่ถูกทำลาย",
             href: "/data-owner/management/destroyed",
             icon: "format_list_bulleted"
         },

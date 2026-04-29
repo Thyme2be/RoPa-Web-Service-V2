@@ -479,10 +479,7 @@ def get_assigned_table(
         .join(RopaDocumentModel, ProcessorAssignmentModel.document_id == RopaDocumentModel.id)
         .filter(
             ProcessorAssignmentModel.processor_id == uid,
-            or_(
-                RopaDocumentModel.deletion_status == None,
-                RopaDocumentModel.deletion_status != "DELETED",
-            ),
+            RopaDocumentModel.deletion_status.is_(None),
         )
     )
 

@@ -13,11 +13,9 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
     const router = useRouter();
     const { logout } = useAuth();
 
-    const [docName, setDocName] = React.useState("รายละเอียดเอกสาร");
     const [searchQuery, setSearchQuery] = React.useState("");
     const isTablesPage = pathname.startsWith("/auditor/tables");
     const isDetailPage = pathname.match(/\/auditor\/tables\/[^\/]+/);
-    const docId = isDetailPage ? pathname.split('/').pop() : "";
 
     React.useEffect(() => {
         if (typeof window !== "undefined") {
@@ -25,27 +23,6 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
             setSearchQuery(params.get("search") || "");
         }
     }, [pathname]);
-
-    React.useEffect(() => {
-        if (isDetailPage && docId) {
-            const fetchDocName = async () => {
-                const token = localStorage.getItem("token");
-                if (!token) return;
-                try {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/${docId}`, {
-                        headers: { "Authorization": `Bearer ${token}` }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        setDocName(data.title || "รายละเอียดเอกสาร");
-                    }
-                } catch (err) {
-                    console.error("Failed to fetch doc name for topbar:", err);
-                }
-            };
-            fetchDocName();
-        }
-    }, [isDetailPage, docId]);
 
     // The "ตารางเอกสาร" menu item should be active for both the list and detail pages
     const isMenuTablesActive = isTablesPage;
@@ -108,9 +85,9 @@ export default function AuditorLayout({ children }: { children: React.ReactNode 
 
                 <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
                     <TopBar
-                        showBack={!!isDetailPage}
+                        showBack={false}
                         backUrl="/auditor/tables"
-                        pageTitle={isDetailPage ? docName : " "}
+                        pageTitle={isDetailPage ? "ข้อมูลลูกค้า" : " "}
                         hideSearch={!!isDetailPage}
                         searchQuery={searchQuery}
                         onSearchChange={handleSearchChange}

@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
-from app.schemas.enums import DocumentStatusEnum
+from app.schemas.enums import DocumentStatusEnum, DeletionStatusEnum
 
 class AdminDocumentTableItem(BaseModel):
     id: UUID
@@ -13,6 +13,7 @@ class AdminDocumentTableItem(BaseModel):
     dpo_name: Optional[str] = None
     updated_at: datetime
     status: DocumentStatusEnum
+    deletion_status: Optional[DeletionStatusEnum] = None
 
     class Config:
         from_attributes = True

@@ -36,7 +36,7 @@ interface OwnerContextType {
     fetchActiveTable: (page?: number, limit?: number, statusFilter?: string, period?: string, customDate?: string, search?: string) => Promise<void>;
     fetchSentTable: (page?: number, limit?: number) => Promise<void>;
     fetchApprovedTable: (page?: number, limit?: number) => Promise<void>;
-    fetchDestroyedTable: (page?: number, limit?: number) => Promise<void>;
+    fetchDestroyedTable: (page?: number, limit?: number, statusFilter?: string, period?: string, customDate?: string) => Promise<void>;
     
     fetchOwnerDashboard: (period?: string) => Promise<void>;
     fetchFullOwnerRecord: (id: string) => Promise<OwnerRecord | null>;
@@ -126,9 +126,9 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const fetchDestroyedTable = useCallback(async (page = 1, limit = 3) => {
+    const fetchDestroyedTable = useCallback(async (page = 1, limit = 3, statusFilter = "all", period = "all", customDate = "") => {
         try {
-            const res = await ownerService.getOwnerDestroyedTable(page, limit);
+            const res = await ownerService.getOwnerDestroyedTable(page, limit, statusFilter, period, customDate);
             setDestroyedRecords(res.items);
             setDestroyedMeta({ total: res.total, page: res.page, limit: res.limit });
         } catch (err) {
@@ -257,7 +257,14 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
             const normalized = mapToOwnerRecord(data);
             try {
                 const delReq = await ownerService.getDeletionRequest(id);
-                normalized.deletion_status = delReq.status === "APPROVED" ? "DELETED" : "DELETE_PENDING";
+                if (delReq.status === "APPROVED") {
+                    normalized.deletion_status = "DELETED";
+                } else if (delReq.status === "PENDING") {
+                    normalized.deletion_status = "DELETE_PENDING";
+                } else {
+                    // REJECTED/CANCELLED should allow DO to submit a new request.
+                    normalized.deletion_status = null;
+                }
                 normalized.deletion_request = {
                     id: delReq.id,
                     status: delReq.status,

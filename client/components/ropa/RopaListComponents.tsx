@@ -35,7 +35,7 @@ export function GenericFilterBar({ children, onClear }: { children: React.ReactN
 }
 
 // 2. Upgraded RoPaStatusType & StatusBadge
-export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์" | "Data Owner ดำเนินการเสร็จสิ้น" | "Data Processor ดำเนินการเสร็จสิ้น" | "รอส่วนของ Data Owner" | "รอส่วนของ Data Processor" | "รอส่วนของ Data Owner แก้ไข" | "รอส่วนของ Data Processor แก้ไข" | "รอการแก้ไข" | "รอตรวจสอบทำลาย" | "อนุมัติการทำลาย" | "ไม่อนุมัติการทำลาย" | "ยังไม่ได้ตรวจสอบ";
+export type RoPaStatusType = OriginalRoPaStatusType | "กำลังใช้งาน" | "ปิดการใช้งาน" | "รอดำเนินการ" | "ไม่เสร็จสมบูรณ์" | "เสร็จสมบูรณ์" | "Data Owner ดำเนินการเสร็จสิ้น" | "Data Processor ดำเนินการเสร็จสิ้น" | "รอส่วนของ Data Owner" | "รอส่วนของ Data Processor" | "รอส่วนของ Data Owner แก้ไข" | "รอส่วนของ Data Processor แก้ไข" | "รอการแก้ไข" | "รอตรวจสอบทำลาย" | "อนุมัติการทำลาย" | "ไม่อนุมัติการทำลาย" | "ยังไม่ได้ตรวจสอบ" | "ยกเลิกการตรวจ (รอคำร้องทำลาย)";
 
 export function StatusBadge({ status }: { status: RoPaStatusType }) {
     const styles: Record<string, string> = {
@@ -57,10 +57,11 @@ export function StatusBadge({ status }: { status: RoPaStatusType }) {
         "ไม่อนุมัติการทำลาย": "bg-[#EF4444] text-white",          // Red
         "ยังไม่ได้ตรวจสอบ": "bg-[#9CA3AF] text-white",             // Gray
         "กำลังตรวจสอบ": "bg-[#E5E7EB] text-[#6B7280]",          // Gray (Review)
-        "รอดำเนินการ": "bg-[#9CA3AF] text-white",                // Secondary Gray (Processor)
+        "รอดำเนินการ": "bg-[#FFCC00] text-[#5C403D]",            // Yellow + Brown text
         "ฉบับร่าง": "bg-[#9CA3AF] text-white",                    // Secondary Gray
         "กำลังใช้งาน": "bg-[#228B15] text-white",               // Green
-        "ปิดการใช้งาน": "bg-[#ED393C] text-white"                 // Red
+        "ปิดการใช้งาน": "bg-[#ED393C] text-white",                // Red
+        "ยกเลิกการตรวจ (รอคำร้องทำลาย)": "bg-[#EF4444] text-white" // Red
     };
 
     return (

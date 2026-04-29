@@ -42,6 +42,7 @@ class ReviewStatusEnum(str, Enum):
     IN_REVIEW = 'IN_REVIEW'
     CHANGES_REQUESTED = 'CHANGES_REQUESTED'
     APPROVED = 'APPROVED'
+    CANCELLED = 'CANCELLED'
 
 class DeletionRequestStatusEnum(str, Enum):
     PENDING = 'PENDING'

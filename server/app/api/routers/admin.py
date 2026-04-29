@@ -260,7 +260,8 @@ def list_all_documents(
            .order_by(DocumentReviewCycleModel.requested_at.desc())
            .limit(1).correlate(RopaDocumentModel).as_scalar()
      ))\
-     .outerjoin(DpoUser, ReviewDpoAssignmentModel.dpo_id == DpoUser.id)
+     .outerjoin(DpoUser, ReviewDpoAssignmentModel.dpo_id == DpoUser.id)\
+     .filter(RopaDocumentModel.deletion_status.is_(None))
 
     if search:
         search_term = f"%{search}%"
@@ -290,7 +291,8 @@ def list_all_documents(
                 department=o_d,
                 dpo_name=f"{d_f} {d_l}" if d_f else "Not Assigned",
                 updated_at=doc.updated_at,
-                status=doc.status
+                status=doc.status,
+                deletion_status=doc.deletion_status,
             )
         )
 

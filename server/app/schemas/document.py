@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from app.schemas.enums import (
     DocumentStatusEnum, DeletionStatusEnum,
     AssignmentStatusEnum, AuditorAssignmentStatusEnum,
@@ -218,3 +218,9 @@ class AuditorAssignRequest(BaseModel):
 class DeletionApprovalRequest(BaseModel):
     status: str # "APPROVED" or "REJECTED"
     rejection_reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_rejection_reason(self):
+        if str(self.status).upper() == "REJECTED" and not (self.rejection_reason or "").strip():
+            raise ValueError("rejection_reason is required when status is REJECTED")
+        return self

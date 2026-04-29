@@ -25,7 +25,11 @@ function DocumentsPageContent() {
     const ITEMS_PER_PAGE = 3;
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-    const mapDocumentStatusToThai = (status?: string) => {
+    const mapDocumentStatusToThai = (status?: string, deletionStatus?: string) => {
+        const ds = (deletionStatus || "").toUpperCase();
+        if (ds === "DELETE_PENDING") return "รอตรวจสอบทำลาย";
+        if (ds === "DELETED") return "อนุมัติการทำลาย";
+
         switch ((status || "").toUpperCase()) {
             case "DRAFT":
                 return "ฉบับร่าง";
@@ -35,7 +39,7 @@ function DocumentsPageContent() {
             case "REVIEW":
                 return "รอตรวจสอบ";
             case "COMPLETED":
-                return "เสร็จสมบูรณ์";
+                return "ตรวจสอบเสร็จสิ้น";
             case "EXPIRED":
                 return "หมดอายุ";
             default:
@@ -60,7 +64,7 @@ function DocumentsPageContent() {
                     department: doc.department || "-",
                     dpo: doc.dpo_name || "-",
                     activity: doc.status === 'COMPLETED' ? `เสร็จสมบูรณ์เมื่อ ${new Date(doc.updated_at).toLocaleDateString('th-TH')}` : `อัปเดตเมื่อ ${new Date(doc.updated_at).toLocaleDateString('th-TH')}`,
-                    status: mapDocumentStatusToThai(doc.status),
+                    status: mapDocumentStatusToThai(doc.status, doc.deletion_status),
                     timestamp: doc.updated_at
                 }));
 
@@ -137,7 +141,9 @@ function DocumentsPageContent() {
                                 { label: "ฉบับร่าง", value: "ฉบับร่าง" },
                                 { label: "รอดำเนินการ", value: "รอดำเนินการ" },
                                 { label: "รอตรวจสอบ", value: "รอตรวจสอบ" },
-                                { label: "เสร็จสมบูรณ์", value: "เสร็จสมบูรณ์" },
+                                { label: "ตรวจสอบเสร็จสิ้น", value: "ตรวจสอบเสร็จสิ้น" },
+                                { label: "รอตรวจสอบทำลาย", value: "รอตรวจสอบทำลาย" },
+                                { label: "อนุมัติการทำลาย", value: "อนุมัติการทำลาย" },
                                 { label: "หมดอายุ", value: "หมดอายุ" },
                             ]}
                             containerClassName="!w-full"
@@ -186,7 +192,7 @@ function DocumentsPageContent() {
                         <table className="w-full text-center border-collapse">
                             <thead>
                                 <tr className="border-b border-[#E5E2E1]/40">
-                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-left pl-4">ชื่อเอกสาร</th>
+                                    <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อเอกสาร</th>
                                     <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อผู้รับผิดชอบข้อมูล</th>
                                     <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">สังกัด /แผนก</th>
                                     <th className="py-5 text-[14px] font-black tracking-tight text-[#5C403D] uppercase text-center">ชื่อเจ้าหน้าที่คุ้มครองข้อมูลส่วนบุคคล</th>
@@ -206,7 +212,7 @@ function DocumentsPageContent() {
                                         <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{doc.owner}</td>
                                         <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{doc.department}</td>
                                         <td className="py-7 text-[13.5px] font-medium text-[#5F5E5E]">{doc.dpo}</td>
-                                        <td className="py-7 text-[12px] font-medium text-[#5F5E5E] italic opacity-80">{doc.activity}</td>
+                                        <td className="py-7 text-[12px] font-medium text-[#5F5E5E] opacity-80">{doc.activity}</td>
                                         <td className="py-7">
                                             <div className="flex justify-center scale-110">
                                                 <StatusBadge status={doc.status} />

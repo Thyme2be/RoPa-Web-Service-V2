@@ -35,7 +35,12 @@ function DestructionTableContent() {
         }
 
         try {
-            const daysFilter = selectedDateRange === "ภายใน 7 วัน" ? 7 : (selectedDateRange === "ภายใน 30 วัน" ? 30 : 0);
+            const periodFilter =
+                selectedDateRange === "ภายใน 7 วัน"
+                    ? "7_days"
+                    : selectedDateRange === "ภายใน 30 วัน"
+                        ? "30_days"
+                        : "all";
 
             let statusFilter = "";
             if (selectedStatus === "รอตรวจสอบทำลาย") statusFilter = "PENDING";
@@ -45,10 +50,10 @@ function DestructionTableContent() {
             const queryParams = new URLSearchParams({
                 page: currentPage.toString(),
                 limit: ITEMS_PER_PAGE.toString(),
-                days_filter: daysFilter.toString()
+                period: periodFilter
             });
 
-            if (statusFilter) queryParams.append("status", statusFilter);
+            if (statusFilter) queryParams.append("status_filter", statusFilter);
             if (globalSearchQuery) queryParams.append("search", globalSearchQuery);
 
             const response = await fetch(`${API_BASE_URL}/dashboard/dpo/destruction-requests?${queryParams.toString()}`, {
@@ -166,7 +171,7 @@ function DestructionTableContent() {
                                             />
                                         );
                                         if (documents.length > 0) return documents.map((doc) => (
-                                            <tr key={doc.raw_document_id} className="hover:bg-gray-50 transition-colors group">
+                                            <tr key={doc.request_id || `${doc.raw_document_id}-${doc.received_date || ""}-${doc.status || ""}`} className="hover:bg-gray-50 transition-colors group">
                                                 <td className="py-4 text-[13.5px] font-medium text-left pl-4">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[#5F5E5E] text-[13.5px] font-medium">{doc.document_id}</span>

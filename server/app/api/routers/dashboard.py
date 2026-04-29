@@ -183,40 +183,52 @@ def _get_org_metrics_internal(
         "completed": docs_by_status.get("COMPLETED", 0),
     }
 
-    def format_stat(q, completed_statuses):
-        total = q.count()
-        rows = q.all()
-        completed = sum(
-            1
-            for r in rows
-            if getattr(r, "status", None)
-            and getattr(r.status, "value", r.status) in completed_statuses
+    # Role-based cards must track document-level totals consistently.
+    # completed = number of distinct documents that reached the role's terminal status
+    # incomplete = total_docs - completed
+    owner_completed = (
+        db.query(func.count(func.distinct(RopaOwnerSectionModel.document_id)))
+        .filter(
+            RopaOwnerSectionModel.document_id.in_(base_query),
+            RopaOwnerSectionModel.status == "SUBMITTED",
         )
-        return {"completed": completed, "incomplete": total - completed}
-
-    # Data Owner Sections (COMPLETED = SUBMITTED)
-    owner_q = db.query(RopaOwnerSectionModel.id, RopaOwnerSectionModel.status).filter(
-        RopaOwnerSectionModel.document_id.in_(base_query)
+        .scalar()
+        or 0
     )
-    owner_stats = format_stat(owner_q, ["SUBMITTED"])
+    owner_stats = {"completed": owner_completed, "incomplete": max(total_docs - owner_completed, 0)}
 
-    # Data Processor Sections (COMPLETED = SUBMITTED)
-    proc_q = db.query(
-        RopaProcessorSectionModel.id, RopaProcessorSectionModel.status
-    ).filter(RopaProcessorSectionModel.document_id.in_(base_query))
-    proc_stats = format_stat(proc_q, ["SUBMITTED"])
+    proc_completed = (
+        db.query(func.count(func.distinct(RopaProcessorSectionModel.document_id)))
+        .filter(
+            RopaProcessorSectionModel.document_id.in_(base_query),
+            RopaProcessorSectionModel.status == "SUBMITTED",
+        )
+        .scalar()
+        or 0
+    )
+    proc_stats = {"completed": proc_completed, "incomplete": max(total_docs - proc_completed, 0)}
 
-    # DPO Docs (APPROVED)
-    dpo_q = db.query(
-        DocumentReviewCycleModel.id, DocumentReviewCycleModel.status
-    ).filter(DocumentReviewCycleModel.document_id.in_(base_query))
-    dpo_stats = format_stat(dpo_q, ["APPROVED"])
+    dpo_completed = (
+        db.query(func.count(func.distinct(DocumentReviewCycleModel.document_id)))
+        .filter(
+            DocumentReviewCycleModel.document_id.in_(base_query),
+            DocumentReviewCycleModel.status == "APPROVED",
+        )
+        .scalar()
+        or 0
+    )
+    dpo_stats = {"completed": dpo_completed, "incomplete": max(total_docs - dpo_completed, 0)}
 
-    # Auditor Docs (VERIFIED)
-    auditor_q = db.query(
-        AuditorAssignmentModel.id, AuditorAssignmentModel.status
-    ).filter(AuditorAssignmentModel.document_id.in_(base_query))
-    auditor_stats = format_stat(auditor_q, ["VERIFIED"])
+    auditor_completed = (
+        db.query(func.count(func.distinct(AuditorAssignmentModel.document_id)))
+        .filter(
+            AuditorAssignmentModel.document_id.in_(base_query),
+            AuditorAssignmentModel.status == "VERIFIED",
+        )
+        .scalar()
+        or 0
+    )
+    auditor_stats = {"completed": auditor_completed, "incomplete": max(total_docs - auditor_completed, 0)}
 
     # Revisions
     rev_owner_q = (
@@ -309,6 +321,21 @@ def _get_org_metrics_internal(
 
 
 # --- Metric Helpers ---
+
+
+def format_stat(query, completed_statuses: list[str]):
+    """
+    Return consistent completed/incomplete counts from a base query that contains
+    ReviewAssignmentModel.status in selected columns.
+    """
+    total = query.count()
+    completed = (
+        query.filter(ReviewAssignmentModel.status.in_(completed_statuses)).count()
+    )
+    return {
+        "completed": completed,
+        "incomplete": max(total - completed, 0),
+    }
 
 
 def _get_owner_metrics_internal(db: Session, user_id: int, period: str = "all"):
@@ -1296,7 +1323,9 @@ def user_stats_dashboard(
     tags=["Dashboard (DPO)"],
 )
 def list_dpo_documents(
-    status_filter: Optional[str] = Query(None, description="Filter logic by status"),
+    status_filter: Optional[str] = Query(
+        None, alias="status", description="Filter logic by status"
+    ),
     period: str = Query("all", description="Filter period: 7_days, 30_days, 6_months, 1_year, all"),
     search: Optional[str] = Query(
         None, description="Search by title or document number"
@@ -1387,14 +1416,20 @@ def list_dpo_documents(
             )
         )
 
+    # In-progress table: only active review cycles (not finished, not withdrawn for destruction)
+    query = query.filter(
+        DocumentReviewCycleModel.status.notin_(["APPROVED", "CANCELLED"])
+    )
+
+    # Destruction workflow: those documents belong on the destruction table only
+    query = query.filter(RopaDocumentModel.deletion_status.is_(None))
+
     if status_filter:
         s_filter = status_filter.lower()
         if "รอ" in s_filter or s_filter == "pending" or s_filter == "in_review":
             query = query.filter(DocumentReviewCycleModel.status == "IN_REVIEW")
         elif "แก้ไข" in s_filter or "action_required" in s_filter or s_filter == "changes_requested":
             query = query.filter(DocumentReviewCycleModel.status == "CHANGES_REQUESTED")
-        elif "เสร็จสิ้น" in s_filter or s_filter == "completed" or s_filter == "approved":
-            query = query.filter(DocumentReviewCycleModel.status == "APPROVED")
         # Additional manual status filters can go here
 
     total = query.count()
@@ -1521,6 +1556,25 @@ def list_dpo_destruction_requests(
     db: Session = Depends(get_db),
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
+    # Keep only the latest deletion request per document for this DPO.
+    latest_req_subquery = (
+        db.query(
+            DocumentDeletionRequestModel.id.label("req_id"),
+            DocumentDeletionRequestModel.document_id.label("document_id"),
+            func.row_number()
+            .over(
+                partition_by=DocumentDeletionRequestModel.document_id,
+                order_by=(
+                    DocumentDeletionRequestModel.requested_at.desc(),
+                    DocumentDeletionRequestModel.id.desc(),
+                ),
+            )
+            .label("rn"),
+        )
+        .filter(DocumentDeletionRequestModel.dpo_id == current_user.id)
+        .subquery()
+    )
+
     # CTE to compute sequence number (RP-YYYY-XX) based on the original document created_at
     doc_seq_subquery = db.query(
         RopaDocumentModel.id.label("doc_id"),
@@ -1544,6 +1598,13 @@ def list_dpo_destruction_requests(
         .join(
             RopaDocumentModel,
             DocumentDeletionRequestModel.document_id == RopaDocumentModel.id,
+        )
+        .join(
+            latest_req_subquery,
+            and_(
+                latest_req_subquery.c.req_id == DocumentDeletionRequestModel.id,
+                latest_req_subquery.c.rn == 1,
+            ),
         )
         .join(UserModel, DocumentDeletionRequestModel.requested_by == UserModel.id)
         .join(doc_seq_subquery, RopaDocumentModel.id == doc_seq_subquery.c.doc_id)
@@ -1668,8 +1729,12 @@ def review_destruction_request(
         doc.deletion_status = "DELETED"
         doc.deleted_at = datetime.now(timezone.utc)
     else:
-        # If REJECTED, reset deletion_status to None so DO can request again
+        # If REJECTED, reset deletion_status so DO can edit / ส่ง DPO หรือขอทำลายใหม่ได้
         doc.deletion_status = None
+        # คืนไปตารางดำเนินการ (IN_PROGRESS): DO/DP ยังส่งครบอยู่ ไม่บังคับกลับคิวตรวจ RoPA
+        # รอบที่ถูก CANCELLED ตอนขอทำลายยังคง CANCELLED — รอบถัดไปเกิดตอนกดส่งให้ DPO
+        if doc.status == "UNDER_REVIEW":
+            doc.status = "IN_PROGRESS"
 
     db.commit()
     return {"message": "บันทึกผลการตรวจสอบคำขอทำลายเรียบร้อยแล้ว"}
@@ -1876,6 +1941,20 @@ def save_document_comments(
     current_user: UserRead = Depends(require_roles(Role.DPO)),
 ):
     check_document_access(document_id, current_user, db)
+
+    doc_gate = (
+        db.query(RopaDocumentModel).filter(RopaDocumentModel.id == document_id).first()
+    )
+    if doc_gate and doc_gate.deletion_status == "DELETE_PENDING":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารอยู่ระหว่างคำร้องทำลาย ไม่สามารถบันทึกการตรวจ RoPA ได้",
+        )
+    if doc_gate and doc_gate.deletion_status == "DELETED":
+        raise HTTPException(
+            status_code=400,
+            detail="เอกสารถูกอนุมัติให้ทำลายแล้ว ไม่สามารถบันทึกการตรวจ RoPA ได้",
+        )
 
     group = payload.group.upper()
 
@@ -2186,6 +2265,10 @@ def list_documents_from_dpo(
         )
         .filter(access_filter)
     )
+
+    # Auditor table: same separation as DPO in-progress — destruction queue is not listed here
+    if role == Role.AUDITOR:
+        query = query.filter(RopaDocumentModel.deletion_status.is_(None))
 
     # 4. Filters
     if date_range == "7_days":

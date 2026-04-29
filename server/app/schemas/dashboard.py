@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from uuid import UUID
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -201,6 +201,12 @@ class PaginatedDpoDestructionTableResponse(BaseModel):
 class DpoDestructionReviewRequest(BaseModel):
     status: str  # APPROVED, REJECTED
     rejection_reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_rejection_reason(self):
+        if str(self.status).upper() == "REJECTED" and not (self.rejection_reason or "").strip():
+            raise ValueError("rejection_reason is required when status is REJECTED")
+        return self
 
 
 class DpoAuditorAssignmentTableItem(BaseModel):
